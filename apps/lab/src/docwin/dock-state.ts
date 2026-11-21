@@ -15,7 +15,7 @@
  *   it was before the press;
  * - the store is `storeDockState` / `readDockState` (./store).
  */
-import { clamp, type Point, type Rect } from "@n-uf/placement";
+import { clamp, clampInto, contains, type Point, type Rect } from "@n-uf/placement";
 import { createSettle, SETTLE_TEMPO, type Settle } from "@n-uf/motion";
 import {
   createDragIntent,
@@ -75,17 +75,8 @@ import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 import { createDragSession, followPointer, swallowClick } from "../shared/session";
 
-export interface LastDrop {
-  readonly id: ItemId;
-  /** The target released on (a home or none target commits nothing), or null. */
-  readonly target: string | null;
-  readonly place: SceneTarget["place"]["kind"] | null;
-  /** The rect the preview showed on the last frame (the dashed slot), and the rect after the drop. */
-  readonly preview: Rect | null;
-  readonly landed: Rect | null;
-  readonly committed: boolean;
-  readonly cancelled: boolean;
-}
+import type { DragSettings, DropCall, LastDrop } from "./drop";
+export type { LastDrop } from "./drop";
 
 /** One form of the held copy, drawn at its measured size: its content, and where its grip anchors it to the pointer. */
 interface HeldForm {
@@ -137,6 +128,26 @@ export interface HeldInfo {
   readonly pointer: Point;
   readonly frame: HTMLElement;
   readonly el: HTMLElement;
+}
+
+/**
+ * What one frame of a drag, or its release, shows: the facts the pre-render dumps (`window.__docwin.render`). Rects in
+ * window px. Under the window's own rules the region, lane and spot are the landing model's; under the published rules
+ * they come from the target the drag intent shows (`spot` is its id).
+ */
+export interface ProbeFrame {
+  readonly kind: "frame" | "release";
+  /** The time the frame was driven at (the session's clock). */
+  readonly now: number;
+  readonly pointer: Point;
+  readonly held: { readonly id: ItemId; readonly rect: Rect; readonly placed: string | null };
+  readonly landing: Rect | null;
+  readonly region: string;
+  readonly lane: string | null;
+  readonly spot: string | null;
+  readonly pending: string | null;
+  readonly cantGo: string | null;
+  readonly guides: readonly { readonly id: string; readonly kind: string; readonly lane: string; readonly rect: Rect }[];
 }
 
 interface Held {
@@ -216,6 +227,8 @@ export interface DocwinOptions {
   readonly storageKey: string;
   /** Called after every committed change (the page's readouts). */
   readonly onChange?: () => void;
+  /** Called after every drop, once `lastDrop` says what it did (the Code view's Last move). */
+  readonly onDrop?: () => void;
 }
 
 const px = (n: number): string => `${Math.round(n * 100) / 100}px`;
@@ -332,6 +345,7 @@ export function createDocwin(o: DocwinOptions) {
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
     <div class="dw-resize" data-resize="right" title="Drag to change the column's width"></div>
     <div class="dw-strips" aria-hidden="true"></div>
+    <div class="dw-guides" aria-hidden="true"></div>
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
     <div class="dw-marker" hidden></div>
     <div class="dw-cant-go" hidden>Can't go here</div>
@@ -343,6 +357,7 @@ export function createDocwin(o: DocwinOptions) {
   const sheets = q<HTMLDivElement>(".dw-sheets");
   const slot = q<HTMLDivElement>(".dw-slot");
   const stripLayer = q<HTMLDivElement>(".dw-strips");
+  const guideLayer = q<HTMLDivElement>(".dw-guides");
   const slotLabel = q<HTMLSpanElement>(".dw-slot-label");
   const marker = q<HTMLDivElement>(".dw-marker");
   const cantGo = q<HTMLDivElement>(".dw-cant-go");
@@ -366,7 +381,9 @@ export function createDocwin(o: DocwinOptions) {
 
   function head(id: ItemId): string {
     const c = countOf(id);
-    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${titleOf(id)}</b>${c === null ? "" : badge(c)}<button type="button" class="dw-pm" data-pmenu="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${titleOf(id)} menu">⋯</button><button type="button" class="dw-x" data-close="${id}" aria-label="Close ${titleOf(id)}">×</button></header>`;
+    // Under the window's own rules a panel docks in a column or floats: the menu, whose only rows are "Move to › Rail", isn't made.
+    const menu = approved() ? "" : `<button type="button" class="dw-pm" data-pmenu="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${titleOf(id)} menu">⋯</button>`;
+    return `<header class="dw-head" data-grip><span class="dw-dots" aria-hidden="true"></span><b>${titleOf(id)}</b>${c === null ? "" : badge(c)}${menu}<button type="button" class="dw-x" data-close="${id}" aria-label="Close ${titleOf(id)}">×</button></header>`;
   }
 
   /** A group's words, one HTML piece each, in the order the `wrap` form's widths list them; `hidden` controls left out. */
@@ -468,7 +485,7 @@ export function createDocwin(o: DocwinOptions) {
   function itemHtml(l: DockLayout, id: ItemId): string {
     const p = l.items[id]!;
     const region = p.floating ? "float" : (p.edge ?? "none");
-    const cls = `dw-item dw-${p.kind} dw-k-${p.formKind} dw-ax-${axisOf(s, l, id)}${p.floating ? " dw-float" : ""}`;
+    const cls = `dw-item dw-${p.kind} dw-k-${p.formKind} dw-ax-${p.axis}${p.floating ? " dw-float" : ""}`;
     const r = p.rect;
     // A floating open panel takes resize handles on its four edges and corners (a toolbar's size comes from its forms).
     const handles = p.floating && p.kind === "panel" && p.formKind === "open" ? FLOAT_HANDLES.map((h) => `<div class="dw-fh" data-fh="${h}" aria-hidden="true"></div>`).join("") : "";
@@ -507,9 +524,9 @@ export function createDocwin(o: DocwinOptions) {
       if (e) place(el, { x: side === "left" ? e.rect.x + e.rect.width - 3 : e.rect.x - 3, y: e.rect.y, width: 6, height: e.rect.height });
     }
     const docked: string[] = [];
-    for (const id of Object.keys(l.items) as ItemId[]) if (id !== hide && !l.items[id]!.floating && !l.items[id]!.inMenu) docked.push(itemHtml(s, l, id));
+    for (const id of Object.keys(l.items) as ItemId[]) if (id !== hide && !l.items[id]!.floating && !l.items[id]!.inMenu) docked.push(itemHtml(l, id));
     // Floats in their stacking order, the last on top.
-    const floats = l.floats.filter((id) => id !== hide).map((id) => itemHtml(s, l, id as ItemId));
+    const floats = l.floats.filter((id) => id !== hide).map((id) => itemHtml(l, id as ItemId));
     const menus = Object.keys(l.edges).flatMap((e) => {
       const m = l.edges[e]?.menu;
       return m ? [`<button type="button" class="dw-menu" data-edge="${e}" title="${esc(m.items.map((id) => titleOf(id)).join(", "))}" style="left:${px(m.rect.x)};top:${px(m.rect.y)};width:${px(m.rect.width)};height:${px(m.rect.height)}">» ${m.items.length}</button>`] : [];
@@ -897,11 +914,13 @@ export function createDocwin(o: DocwinOptions) {
     drawStrips(found, null, null);
   }
 
-  /** A refused place is never drawn: while the frame is refused, only "Can't go here" at the pointer. */
-  function sayRefused(r: SceneRefusal | null, p: Point): void {
-    cantGo.hidden = !r;
-    // The host contract's mark: the refusal said at the pointer, by its id.
-    if (r) cantGo.dataset.dragRefusal = r.id;
+  /**
+   * A refused place is never drawn: only "Can't go here" at the pointer, kept inside the window. `id` is the host
+   * contract's mark: the refusal said there, or `NOTHING_LANDS` for a pick that lands nothing; null hides it.
+   */
+  function sayCantGo(id: string | null, p: Point): void {
+    cantGo.hidden = !id;
+    if (id) cantGo.dataset.dragRefusal = id;
     else delete cantGo.dataset.dragRefusal;
     if (!id) return;
     const at = clampInto({ x: p.x + 12, y: p.y + 12, width: cantGo.offsetWidth, height: cantGo.offsetHeight }, state.stage);
@@ -980,7 +999,7 @@ export function createDocwin(o: DocwinOptions) {
    * way); a form is dropped once it is all gone. Under the snap preview the frame settles into `slot` (the shown
    * target's) and, once the pointer leaves it, back onto the pointer; otherwise it is on the pointer 1:1.
    */
-  function drawHeld(d: Held, now: number, slot: Rect | null, speed: number): void {
+  function drawHeld(d: Held, now: number, slot: Rect | null, speed: number, free: Rect | null = null): void {
     const dt = Math.max(0, now - d.last);
     d.morph.step(dt);
     d.last = now;
@@ -1032,12 +1051,14 @@ export function createDocwin(o: DocwinOptions) {
     if (drag || frozen() || state.items[id]?.fixed) return false;
     const was = layout.items[id];
     if (!was) return false;
-    const targets = targetsOf(id);
+    const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
+    // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
+    const landing0 = approved() ? landingFor(id, grab) : null;
+    const targets = landing0 ? targetsFrom(landing0.regions) : targetsOf(id);
     // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
     const el = document.createElement("div");
     el.className = `dw-held dw-morph dw-${was.kind}`;
     el.dataset.dragHeld = id;
-    const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
     place(el, { x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height });
     win.append(el);
     const forms = new Map<string, HeldForm>();
@@ -1052,7 +1073,7 @@ export function createDocwin(o: DocwinOptions) {
     // Home is the item's own rect. A side rail's drop strip may overlap it (an item alone in its column reaches the rail
     // at its window edge): the drag intent arms a spring-loaded strip by dwell even over home.
     const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
-    const refused0 = refusalsOf(id);
+    const refused0 = landing0 ? landing0.regions.refusals : refusalsOf(id);
     drag = {
       id,
       kind: was.kind,
@@ -1090,6 +1111,9 @@ export function createDocwin(o: DocwinOptions) {
       keys: root.dataset.frozen !== undefined ? { ...liftKeys, alt: false } : { ...liftKeys },
       altFromLift: root.dataset.frozen !== undefined && !!liftKeys.alt,
       armedSaid: null,
+      keyFloats: false,
+      landing: landing0,
+      probed: null,
     };
     liftKeys = {};
     // No target shown yet: the committed layout, the held item's place left empty, nothing else moving.
@@ -1104,7 +1128,9 @@ export function createDocwin(o: DocwinOptions) {
    * carries `data-drag-slot` and `data-drag-target="<target id>"` (`target`), its line `data-drag-marker`; the "Back to
    * its place" slot over home carries neither (a drop there commits nothing).
    */
-  function showSlot(r: Rect | null, text = "", line?: Rect, target?: string): void {
+  function showSlot(r: Rect | null, text = "", marked?: Rect, target?: string): void {
+    // Under the window's own rules one landing has one mark: the outline, never an insertion line beside it.
+    const line = approved() ? undefined : marked;
     slot.toggleAttribute("data-drag-slot", !!r && target !== undefined);
     if (r && target !== undefined) slot.dataset.dragTarget = target;
     else delete slot.dataset.dragTarget;
@@ -1114,10 +1140,12 @@ export function createDocwin(o: DocwinOptions) {
       return;
     }
     place(slot, r);
-    // A thin slot (a rail's, 30 px) can't hold the label: it goes to the slot's title (shown on hover) and stays inside.
+    // Under the window's own rules the outline has no words: its place says it. Under the published ones a thin slot (a
+    // rail's, 30 px) can't hold the label: it goes to the slot's title (shown on hover) and stays inside.
+    const words = approved() ? "" : text;
     const thin = r.width < 90;
-    slotLabel.textContent = thin ? "" : text;
-    slot.title = text;
+    slotLabel.textContent = thin ? "" : words;
+    slot.title = words;
     slot.hidden = false;
     if (line) {
       place(marker, line.height === 0 ? { x: line.x, y: line.y - 1.5, width: line.width, height: 3 } : { x: line.x - 1.5, y: line.y, width: 3, height: line.height });
@@ -1262,44 +1290,14 @@ export function createDocwin(o: DocwinOptions) {
     const onlyItem = dropPreview === "item";
     d.keyFloats = f.forced === "float";
     const armed = f.shown && f.shown.place.kind === "rail" ? f.shown : null;
-    drawStrips(d.targets, f.arming?.id ?? null, armed);
+    drawStrips(onlyItem ? [] : d.targets, f.arming?.id ?? null, armed);
     if ((armed?.id ?? null) !== d.armedSaid) {
       d.armedSaid = armed?.id ?? null;
       if (armed && armed.place.kind === "rail") say(`${titleOf(d.id)}: release to collapse it into the ${armed.place.side} rail${f.forced === "armed" ? ` (${keyName(feel.panel.modifiers.armKey)} held)` : ""}.`);
       else if (f.arming) say(`${titleOf(d.id)} over the ${f.arming.place.kind === "rail" ? f.arming.place.side : ""} rail: hold still to collapse it there.`);
     }
-    const room = plan.makeRoom && docks(f.shown) ? f.shown : null;
-    d.trace.rooms.push({ t: now, shown: f.shown?.id ?? null, room: room?.id ?? null });
     const homing = f.atHome && d.docked && f.shown === null;
-    // A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along
-    // a bar); off every target, the form it was lifted in. One switch per target change, the grip under the pointer.
-    const over = (plan.showIndicator || plan.snapItem) && docks(f.shown) && !homing ? f.shown : null;
-    const follows = d.kind === "group" ? (over?.id ?? null) : null;
-    if (follows !== d.formOf) {
-      d.formOf = follows;
-      const spec = over && follows ? formAt(d, over) : null;
-      switchForm(d, spec ? heldForm(d.el, d.forms, d.id, d.kind, spec, d.fromGrip) : d.homeForm);
-    }
-    drawHeld(d, now, snapTo?.slot ?? null, d.intent.state.speed);
-    if (room?.id !== d.room?.id || homing !== d.homing) {
-      d.room = room;
-      d.homing = homing;
-      // The whole preview: every item drawn from the shown target's layout after the drop (C22).
-      if (room) {
-        const after = room.after(d.pointer, d.grab);
-        draw(after.scene, after.layout, d.id);
-      } else {
-        // No target shown: the committed layout with the held item's place left empty and nothing else moving (a
-        // release there commits nothing, so the preview is the result).
-        draw(scene, layout, d.id);
-      }
-    }
-    d.shown = f.shown;
-    // A refused place under the pointer, as the intent picks it (no held target's band covers it): no slot anywhere,
-    // nothing drawn over it, "Can't go here" at the pointer. A key held wins over geometry: the intent reports no refusal then.
-    const refused = !homing && f.refused ? (f.refused as SceneRefusalTarget).refusal : null;
-    d.refused = refused;
-    sayRefused(refused, d.pointer);
+    const snapTo = plan.snapItem && docks(f.shown) && f.shown!.slot ? f.shown! : null;
     const s = plan.showIndicator ? f.shown : null;
     return {
       shown: f.shown,
@@ -1471,7 +1469,8 @@ export function createDocwin(o: DocwinOptions) {
     session.ended();
     d.el.remove();
     showSlot(null);
-    sayRefused(null, d.pointer);
+    drawGuides([]);
+    sayCantGo(null, d.pointer);
     restingStrips();
     const id = d.id;
     let preview = d.preview;
@@ -1482,11 +1481,30 @@ export function createDocwin(o: DocwinOptions) {
       commit(after.state);
     } else draw(state, layout);
     const landed = go ? (layout.items[id]?.rect ?? null) : null;
-    lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel };
-    if (go && preview && landed && !sameRect(preview, landed)) say(`${titleOf(id)} → ${labelOf(t!)}, but it landed off its slot.`);
-    else if (go) say(`${titleOf(id)} → ${labelOf(t!)}.`);
-    else say(cancel ? "Cancelled: back where it was." : refused ? "Can't go here: back where it was." : t?.place.kind === "none" ? "No drop here." : d.homing || t?.place.kind === "home" ? "Back in its place." : "No target: it went home.");
+    // The calls this drop made, as the Code view writes them out: the drag's options, the lane and spot, the commit.
+    const onSpot = r?.kind === "spot" ? r : null;
+    const call: DropCall = {
+      via: d.landing ? "lanes" : "targets",
+      settings: dragSettings(),
+      pointer: { ...d.pointer },
+      grab: { ...d.grab },
+      lane: onSpot?.lane ?? null,
+      spot: onSpot?.spot ?? null,
+      slides: !!onSpot && !!d.landing && !!spotOf(d.landing, onSpot.spot)?.slide,
+      at: onSpot?.at ?? null,
+      target: t?.id ?? null,
+      placeOf: t?.place ?? null,
+      refusal: refused?.id ?? null,
+      home: !cancel && !refused && (d.homing || t?.place.kind === "home" || (!!onSpot && onSpot.home && onSpot.at !== undefined)),
+    };
+    lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel, call };
+    if (go && preview && landed && !sameRect(preview, landed)) say(`${titleOf(id)} ${outcomeOf(t!)}, but not where it was shown.`);
+    else if (go) say(`${titleOf(id)} ${outcomeOf(t!)}.`);
+    else say(cancel ? "Cancelled: back where it was." : d.homing || t?.place.kind === "home" ? "Back in its place." : "Can't go here: back where it was.");
     if (d.focus instanceof HTMLElement && d.focus.isConnected) d.focus.focus({ preventScroll: true });
+    // The release as the pre-render sees it: after the drop, the item where it landed (or home), the guides gone.
+    if (probe && d.probed) probe({ ...d.probed, kind: "release", now, held: { id, rect: landed ?? layout.items[id]?.rect ?? d.probed.held.rect, placed: go ? (d.probed.spot ?? "float") : null }, guides: [] });
+    o.onDrop?.();
     return lastDrop;
   }
 
@@ -1759,6 +1777,7 @@ export function createDocwin(o: DocwinOptions) {
   }
   /** "Move to › Rail (side)": the panel collapsed into that side's rail, as a drop there does. */
   function moveToRail(id: ItemId, side: "left" | "right"): boolean {
+    if (approved()) return false;
     const t = stopsOf(id).find((x) => x.place.kind === "rail" && x.place.side === side);
     if (!t) return false;
     commit(t.after({ x: 0, y: 0 }).state);
@@ -1837,7 +1856,8 @@ export function createDocwin(o: DocwinOptions) {
       stop();
       swallowClick();
       const r = layout.items[id]?.rect;
-      if (r) say(`${titleOf(id)} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by: ${limits.join(", ")})` : ""}.`);
+      const why: Record<string, string> = { min: "its smallest size", max: "its largest size", region: "the window", docked: "what is docked" };
+      if (r) say(`${titleOf(id)} resized to ${Math.round(r.width)} × ${Math.round(r.height)}${limits.length ? ` (stopped by ${limits.map((k) => why[k] ?? k).join(", ")})` : ""}.`);
     };
     const key = (ev: KeyboardEvent): void => {
       if (ev.type !== "keydown" || ev.key !== "Escape") return;

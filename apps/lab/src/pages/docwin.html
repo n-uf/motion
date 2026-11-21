@@ -1,5 +1,45 @@
 <!-- The Document window page (src/docwin/docwin.ts): a Window drawer, one live window with its Reset beside it, the cases and the case card. The shell renders the header; "About" is moved to the page's foot. -->
 <div class="dw-page">
+  <!-- Window | Code: the shell's header takes it (docwin.ts moves it beside Reset); without a header it stays here. -->
+  <div class="dw-modes dw-viewswitch" id="dw-view" role="radiogroup" aria-label="Show">
+    <button type="button" role="radio" data-view="window" aria-checked="true">Window</button>
+    <button type="button" role="radio" data-view="code" aria-checked="false">Code</button>
+  </div>
+  <!-- The drop preview, always in view: one button per mode (data-mode: the library's plan; Snap is the "item" plan), its one line of help, and Reset. -->
+  <div class="dw-modebar">
+    <span class="dw-modes-label" id="dw-modes-label">Drop preview</span>
+    <div class="dw-modes" id="dw-preview" role="radiogroup" aria-labelledby="dw-modes-label">
+      <button type="button" role="radio" data-mode="indicator" aria-checked="false">Outline</button>
+      <button type="button" role="radio" data-mode="gap" aria-checked="false">Placeholder</button>
+      <button type="button" role="radio" data-mode="item" aria-checked="false">Snap</button>
+    </div>
+    <!-- Place guides for the mode picked: each mode remembers its own; until then it follows the mode's default. -->
+    <span class="dw-modes-label" id="dw-guides-label">Place guides</span>
+    <div class="dw-modes" id="dw-guides" role="radiogroup" aria-labelledby="dw-guides-label">
+      <button type="button" role="radio" data-guides="off" aria-checked="false">Off</button>
+      <button type="button" role="radio" data-guides="near" aria-checked="false">Near</button>
+      <button type="button" role="radio" data-guides="all" aria-checked="false">All</button>
+    </div>
+    <!-- How the guides draw an empty bar or side rail: at the size it will take, or as a thin striped edge. Kept in this browser. -->
+    <span class="dw-modes-label" id="dw-empty-label">Empty lanes</span>
+    <div class="dw-modes" id="dw-empty" role="radiogroup" aria-labelledby="dw-empty-label">
+      <button type="button" role="radio" data-empty="real" aria-checked="false">Real size</button>
+      <button type="button" role="radio" data-empty="edge" aria-checked="false">Edge</button>
+    </div>
+    <!-- Stretch positions: how a toolbar lands in a bar's or a toolbar rail's free room. Free: where the hand holds it,
+         snapped to the room's ends and its own place within the snap distance; Pitched: one place every pitch. Kept in this browser. -->
+    <span class="dw-modes-label" id="dw-positions-label">Positions</span>
+    <div class="dw-modes" id="dw-positions" role="radiogroup" aria-labelledby="dw-positions-label">
+      <button type="button" role="radio" data-positions="free" aria-checked="false">Free</button>
+      <button type="button" role="radio" data-positions="pitched" aria-checked="false">Pitched</button>
+    </div>
+    <!-- Under Pitched: the pitch of the places over a bar's or a toolbar rail's free room, px. Kept in this browser. -->
+    <label class="dw-modes-label" id="dw-pitch-label" title="The step of the places a toolbar can take in free room (8 to 200 px)">Pitch <input type="number" id="dw-pitch" min="8" max="200" step="1" value="40" style="width: 4.5em" /> px</label>
+    <!-- Under Free: how near a room's end or the toolbar's own place it snaps there, px. Kept in this browser. -->
+    <label class="dw-modes-label" id="dw-snap-label" title="How near a room's end or its own place a toolbar snaps there (0 to 40 px)" hidden>Snap <input type="number" id="dw-snap" min="0" max="40" step="1" value="8" style="width: 4.5em" /> px</label>
+    <button type="button" class="lab-btn" id="dw-reset" title="The default layout">Reset</button>
+    <p class="dw-mode-help" id="dw-mode-help"></p>
+  </div>
   <div class="dw-toprow">
   <details class="dw-drawer" id="dw-drawer">
     <summary>Window</summary>
@@ -9,23 +49,17 @@
       <label title="Hold Alt to move while frozen"><input type="checkbox" id="dw-freeze" /> freeze</label>
       <label title="How the left rail shows its folded panels (also in the rail's own menu)">Rails: left <select id="dw-rail-left"><option value="titles">titles</option><option value="icons">icons</option></select></label>
       <label title="How the right rail shows its folded panels (also in the rail's own menu)">right <select id="dw-rail-right"><option value="titles">titles</option><option value="icons">icons</option></select></label>
-      <label title="What a drag shows where it would land: the dashed slot only, the slot and the room made for it, or the item settling into its slot">Drop preview <select id="dw-preview"><option value="indicator">indicator only</option><option value="gap">make room</option><option value="snap">snap to slot</option></select></label>
       <label>Notes <input type="number" id="dw-c-notes" min="0" max="999" /></label>
       <label>Findings <input type="number" id="dw-c-findings" min="0" max="999" /></label>
       <label>marked <input type="number" id="dw-c-marked" min="0" max="999" /></label>
-      <details class="dw-feel" id="dw-feel">
-        <summary>Drag feel</summary>
-        <div class="dw-feel-body" id="dw-feel-body"></div>
-      </details>
       <button type="button" class="lab-btn" id="dw-reload" title="Reload the browser tab: the layout comes back from the stored form">Reload</button>
-      <button type="button" class="lab-btn" id="dw-reset" title="The default layout">Reset</button>
     </div>
   </details>
   <!-- Where Reset goes when there's no room beside the window: right-aligned on the drawer's row, above the window. -->
   <div class="dw-top-slot" id="dw-top-slot"></div>
   </div>
 
-  <div class="dw-stage">
+  <div class="dw-stage" id="dw-stage" data-view="window">
     <div class="dw" id="dw-root"><div class="dw-win" id="dw-win"></div></div>
     <!-- The Code view: the window as the code a host writes (./code), read-only, in place of the window while Code is picked. -->
     <section class="dw-code" id="dw-code" aria-label="The window as code" hidden>

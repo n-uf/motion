@@ -401,11 +401,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let flung = false;
   let slowFrom: number | null = null;
   let lastStep = 0;
-  /**
-   * The hand's speed (`createHandSpeed`): the one estimate every gate that asks "fast or slow" reads. A step over a gap
-   * reads slow up to what `stepSpeed` covers in 8 ms (3 px by default).
-   */
-  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause), slowStep: gates.stepSpeed * 8 });
+  /** The hand's speed (`createHandSpeed`): the one estimate every gate that asks "fast or slow" reads. */
+  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause) });
   /** The keys the last `update` had: a release at a new point samples with them unless it names its own. */
   let lastKeys: DragKeys | undefined;
   /** Path inside each lane since the pointer last entered its rect. */
@@ -718,7 +715,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       hand.push(raw, t);
       // The step that ends a rest (a gap of 40 ms or `pause`, the smaller) says nothing about how the hand moves now:
       // unknown, never a slow step (a fling out of a rest docks nowhere on its first frame), unless it is no longer than
-      // the step `stepSpeed` makes in 8 ms, px (a hand creeping a pixel at a time, which is slow).
+      // `HAND_SPEED.slowStep` (3) px (a hand creeping a pixel at a time, which is slow).
       step = hand.step;
       lastStep = step;
       // A fling (the hand reading faster than `slideSpeed`) unsettles it; it is slow again from the last sample before it

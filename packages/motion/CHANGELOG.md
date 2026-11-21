@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.53
+## Unreleased
 
 **The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes
 back to its general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers
@@ -89,18 +89,19 @@ Behavior, from the release line since 26.11.53 (not part of the renames above):
   over all its length) thins it as before.
 - `./drag`, **`guideRects` widens thin lines** (behavior change). A `line` guide thinner than the new option
   `lineThickness` (default 2 px) is widened to it, centered on its own position, before the inset, the clear rects and
-  `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (docking gives
+  `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (placement gives
   the line between two docked panels zero thickness) used to see them dropped by `minThickness`, and now see them
   drawn at 2 px, so a host no longer widens them itself. `lineThickness: 0` keeps the old behavior.
 - `./drag`, **a hand creeping a pixel at a time is slow** (fix). With the hand's speed, a host that sends a sample only
   when the pointer moves a whole pixel, creeping at 0.016 to 0.025 px/ms (a pixel every 40 to 60 ms), made every sample
   a gap, its step unknown, so it never entered a band over a refused column while it kept creeping. A step over a gap
-  that is no longer than what `gates.stepSpeed` covers in 8 ms (3 px) now reads as the slow step it is; a longer one (a
-  fling out of a rest) stays unknown.
-- Docs: **the hand's speed, its costs in numbers.** The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`)
-  is internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. A slide into a
-  touching lane now enters about 1.3 to 2.8 times as far up the lane as before 26.11.52 (from the bar under an empty
-  rail, smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
+  that is no longer than 3 px now reads as the slow step it is; a longer one (a fling out of a rest) stays unknown. The
+  3 px is a length of its own (`HAND_SPEED.slowStep` of the internal estimate), not `gates.step`, which is a speed.
+- Docs only: **the hand's speed estimate of 26.11.52, written up with its costs in numbers.** No behavior change in this
+  entry; it describes what 26.11.52 already does. The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`) is
+  internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. Since 26.11.52 a slide
+  into a touching lane enters about 1.3 to 2.8 times as far up the lane as before it (from the bar under an empty rail,
+  smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
   61 → 167 and 91 → 243). A hand jittering on the spot after a fling docks 64 → 104 ms after its last fast sample at
   125 Hz, 64 → 128 ms at 60 Hz.
 

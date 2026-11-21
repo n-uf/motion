@@ -8,6 +8,7 @@ import { center, contains, overlap, type Point, type Rect } from "@n-uf/placemen
 import { ZONES, floatOrientOf, floatSizeOf, liftItem, moveTo, orientFloat, parseTargetId, railModeOf, reservedRect, resizeEdge, targetId, targets, type Place, type DockState, type DockDrop } from "@n-uf/docking";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultState, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
+import { CODE_PRESETS } from "./code-presets";
 import { KIT_PRESETS } from "./kit-presets";
 import { LADDER_PRESETS } from "./ladder-presets";
 import { INTENT_PRESETS } from "./intent-presets";
@@ -818,7 +819,6 @@ function PUBLISHED_PRESETS(): Preset[] {
       "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another (entering from outside the window, and gliding straight from its place), lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
     setup: (c) => c.setState(sweepState("rail-left", SWEEP_GROUPS)),
     check(c) {
-      const t0 = performance.now();
       const bad: string[] = [];
       const counts: string[] = [];
       for (const [kind, edge] of SWEEP_EDGES) {
@@ -1770,7 +1770,8 @@ function PUBLISHED_PRESETS(): Preset[] {
   ...RAIL_DOCK_PRESETS(),
   ...KIT_PRESETS(),
   ...INTENT_PRESETS(),
-];
+  ];
+}
 
 // --- rail titles -------------------------------------------------------------------------------------------------------
 

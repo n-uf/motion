@@ -65,6 +65,8 @@ const EMBED = parseRoute().embed;
 const GROUP = parseRoute().id === "motion/intent" ? "intent" : null;
 const KEY = EMBED ? "motion-lab:docwin:checks" : "motion-lab:docwin";
 const PAGE_KEY = `${KEY}:page`;
+/** The viewer's drop preview, kept in this browser only. */
+const PREVIEW_KEY = `${KEY}:preview`;
 
 /** The Window | Code switch (the shell's header takes it), and the Code view's pane, tabs and copy button. */
 const viewSwitch = $<HTMLDivElement>("dw-view");
@@ -269,7 +271,7 @@ function readouts(): void {
   freeze.checked = c.frozen;
   for (const side of ["left", "right"] as const) railInputs[side].value = railModeOf(c.state, side);
   for (const [k, el] of Object.entries(countInputs)) if (el && document.activeElement !== el) el.value = String(c.counts[k as keyof Counts]);
-  previewInput.value = c.dropPreview;
+  showPreview();
   storedOut.textContent = JSON.stringify(c.stored(), null, 1);
   placeReset();
 }
@@ -295,6 +297,11 @@ function placeReset(): void {
 new ResizeObserver(() => placeReset()).observe(document.querySelector(".dw-page") ?? document.body);
 
 // --- presets ---------------------------------------------------------------------------------------------------------
+
+/** The pre-render's recorder (./prerender): the dumps and pictures of the preset last played by `frame`. */
+const rec = createRecorder(c, root);
+/** The preset `rec` holds, or null. */
+let recorded: string | null = null;
 
 const results = new Map<string, Verdict>();
 let current: Preset | null = null;
@@ -330,16 +337,27 @@ const findPreset = (name: string): Preset | undefined => {
   return PRESETS.find((p) => p.id === n || p.title.toLowerCase() === n) ?? PRESETS.find((p) => p.title.toLowerCase().includes(n) || p.id.includes(n));
 };
 
-/** Set a preset up, check it, and set it up again so the window is at its start, free to play with. */
-function runPreset(p: Preset): Verdict {
+/**
+ * Set a preset up, check it, and set it up again so the window is at its start, free to play with. `onSetUp` runs once
+ * the window is first set up, before the check plays (the pre-render's state).
+ */
+function runPreset(p: Preset, onSetUp?: () => void): Verdict {
+  // A picture of a frame (the pre-render) never stays over a window being played.
+  rec.show(null);
   c.setFrozen(false);
   // Every case starts from the default feel (a case that tunes it sets its own); the viewer's comes back afterwards.
   const viewerFeel = c.feel;
   const viewerPreview = c.dropPreview;
+  // Likewise the library's own stretch positions (pitched), which the cases were written for.
+  const viewerPositions = c.stretchPositions;
   c.setFeel(DEFAULT_FEEL);
   c.setDropPreview("gap");
+  c.setStretchPositions("pitched");
+  // Where things land: the rules the case checks (`PRESETS` sets them on every case); the viewer's come back afterwards.
+  c.setBehavior(p.behavior ?? "published");
   c.setReducedMotion(false);
   p.setup(c);
+  onSetUp?.();
   let v: Verdict;
   try {
     v = p.check(c);
@@ -349,11 +367,13 @@ function runPreset(p: Preset): Verdict {
   c.drive(false);
   c.setFrozen(false);
   c.setFeel(viewerFeel);
+  c.setStretchPositions(viewerPositions);
+  // The case's rules stay, so its window plays as its card says, until another case, Reset or a mode change.
   // The viewer's drop preview comes back, unless the case sets its own (a drag intent case) to play with.
   c.setDropPreview(viewerPreview);
   c.setReducedMotion(false);
   p.setup(c);
-  previewInput.value = c.dropPreview;
+  showPreview();
   results.set(p.id, v);
   return v;
 }
@@ -363,6 +383,7 @@ function pick(p: Preset): Verdict {
   const v = runPreset(p);
   showCase(p, v);
   drawList();
+  renderCode();
   try {
     localStorage.setItem(PAGE_KEY, JSON.stringify({ preset: p.id }));
   } catch {
@@ -388,6 +409,9 @@ async function checkRows(filter?: (id: string) => boolean): Promise<CaseResult[]
   const host = createDocwinHost(c);
   const rows = CASES.filter((r) => !filter || filter(r.id));
   const out: CaseResult[] = [];
+  // The rows play on the slot and room preview, under the published libraries' rules; the viewer's come back afterwards.
+  const viewerPreview = c.dropPreview;
+  c.setBehavior("published");
   try {
     for (const { id, result } of await runCasesAsync(rows, () => host)) {
       const row = rows.find((r) => r.id === id)!;
@@ -433,8 +457,10 @@ async function checkAll(): Promise<CaseResult[]> {
   const was = current;
   const out = PRESETS.map((p) => resultOf(p, runPreset(p)));
   out.push(...(await checkRows()));
+  out.push(...(await checkLandingRows()));
   if (was) pick(was);
   else {
+    c.setBehavior(VIEWER_BEHAVIOR);
     c.reset();
     drawList();
   }
@@ -480,7 +506,11 @@ $("dw-reload").addEventListener("click", () => location.reload());
 const reset = (): void => {
   current = null;
   c.setFrozen(false);
+  // Back to the window's own rules on the landing model (a case may have left others playing).
+  c.setBehavior(VIEWER_BEHAVIOR);
   c.reset();
+  // The window starts over: no last move to show.
+  c.forgetDrop();
   $("dw-case-title").textContent = "Pick a case";
   $("dw-mark").dataset.mark = "none";
   $("dw-mark").textContent = "";
@@ -768,9 +798,9 @@ const api = {
     return c.frozen;
   },
   size: (width: number, height: number) => c.setSize(width, height),
-  /** The drag feel (`./feel`): read it, or set and store it (as the drawer's controls do). */
+  /** The drag feel (`./feel`) the published rules' rail strips read: read it, or set it for this visit. */
   feel: (next?: DragFeel) => {
-    if (next) feel.set(next);
+    if (next) c.setFeel(next);
     return c.feel;
   },
 };
@@ -787,6 +817,7 @@ window.__motionLab = {
     const wanted = (r: { id: string; title: string }): boolean => passes(`${r.id} · ${r.title}`, filter);
     const out: CaseResult[] = PRESETS.filter((p) => wanted(p)).map((p) => resultOf(p, runPreset(p)));
     out.push(...(await checkRows((id) => wanted({ id: `row:${id}`, title: CASES.find((r) => r.id === id)?.title ?? "" }))));
+    out.push(...(await checkLandingRows((id) => wanted({ id: `row:${id}`, title: LANDING_CASES.find((r) => r.id === id)?.title ?? "" }))));
     c.reset();
     drawList();
     labRuns.splice(0, labRuns.length, ...out.map((r): LabRun => ({ scenario: named(r), mode: r.id.startsWith("row:") ? "row" : "case", failed: r.pass === false ? [r.now] : [], rows: [{ name: named(r), result: { ok: r.pass !== false, failures: r.pass === false ? [r.now] : [] }, ...(r.pending ? { info: `pending: ${r.lacks ?? r.now}` } : {}) }] })));

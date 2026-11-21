@@ -4,14 +4,40 @@
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .dw-page { --pending: #b79af0; } }
 :root[data-theme="dark"] .dw-page { --pending: #b79af0; }
 
+/* The drop preview, always in view: a segmented control of the four modes, Reset beside it, one line of help below. */
+.dw-modebar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 13px; }
+.dw-modes-label { color: var(--text-2); }
+.dw-modes { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg-raised); }
+.dw-modes > button { border: 0; border-left: 1px solid var(--line); background: none; color: var(--text-2); font: inherit; padding: 4px 12px; cursor: pointer; }
+.dw-modes > button:first-child { border-left: 0; }
+.dw-modes > button:hover { color: var(--text); }
+.dw-modes > button[aria-checked="true"], .dw-modes > button[aria-selected="true"] { background: var(--accent, #3b6fd6); color: #fff; }
+.dw-modes > button:focus-visible { outline: 2px solid var(--accent, #3b6fd6); outline-offset: -2px; }
+.dw-mode-help { flex-basis: 100%; margin: 0; color: var(--text-2); }
+
 /* The window, never clipped, with its Reset beside it (outside its frame, level with the title bar) when there's room;
    otherwise Reset sits on the drawer's row, right-aligned above the window's top-right corner (docwin.ts decides). */
 .dw-toprow { display: flex; align-items: flex-start; gap: 10px; }
 .dw-toprow > .dw-drawer { flex: 1; min-width: 0; }
 .dw-top-slot { flex: none; display: flex; }
 .dw-top-slot:empty { display: none; }
-.dw-stage { display: flex; align-items: flex-start; gap: 10px; }
+.dw-stage { position: relative; display: flex; align-items: flex-start; gap: 10px; }
 .dw-stage > .dw { flex: none; }
+/* The Code view takes the window's place. The window stays laid out (a drag or a check reads its rects) but unseen. */
+.dw-stage[data-view="code"] > .dw { position: absolute; left: 0; top: 0; visibility: hidden; pointer-events: none; }
+
+/* --- the Code view -------------------------------------------------------------------------------------------------- */
+.dw-code { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.dw-code[hidden] { display: none; }
+.dw-code-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dw-code-pane { border: 1px solid var(--line); border-radius: 8px; background: var(--bg-raised); overflow: auto; min-height: 320px; max-height: min(78vh, 780px); }
+.dw-code-pane:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.dw-code-pre { margin: 0; padding: 12px 14px; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--text); tab-size: 2; white-space: pre; }
+.dw-code-pre[data-empty] { font: inherit; font-size: 13px; line-height: 1.5; color: var(--text-2); white-space: normal; }
+.tk-c { color: var(--text-3); font-style: italic; }
+.tk-s { color: var(--good); }
+.tk-n { color: var(--series-a); }
+.tk-k { color: var(--series-b); }
 .dw-side { flex: none; display: flex; flex-direction: column; gap: 6px; }
 .dw-side:empty { display: none; }
 
@@ -43,13 +69,6 @@
 .dw-drawer summary { padding: 6px 12px; cursor: pointer; color: var(--text-2); }
 .dw-drawer-body { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; padding: 4px 12px 10px; }
 .dw-drawer-body input[type="number"] { width: 5em; }
-/* The drag feel: one section per kind, its controls wrapping. */
-.dw-feel { flex-basis: 100%; }
-.dw-feel summary { padding: 2px 0; }
-.dw-feel-body { display: grid; gap: 6px; padding-top: 4px; }
-.dw-feel-sec { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 0; padding: 4px 10px 8px; border: 1px solid var(--line); border-radius: 6px; }
-.dw-feel-sec legend { padding: 0 4px; color: var(--text-2); }
-.dw-feel-sec input[type="range"] { width: 90px; }
 .dw-status { margin: 0; min-height: 1.4em; font-size: 13px; color: var(--text-2); }
 .dw-stored pre { max-height: 240px; overflow: auto; font-size: 11px; }
 
@@ -193,7 +212,40 @@
 .dw-fh:hover { background: var(--accent-line); }
 
 /* The drag: the held item, the dashed slot, the insertion marker. */
-.dw-held { z-index: 6; pointer-events: none; opacity: 0.92; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+/* Place guides: where the item can go, never a landing. A 1 px neutral dotted hairline at half opacity, no fill, no
+   accent, no label; they fade out the moment a landing shows (at once under reduced motion). */
+.dw-guides { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.dw-guide { position: absolute; box-sizing: border-box; border: 1px dotted var(--win-muted); opacity: 0.5; transition: opacity 120ms linear; }
+.dw-guide[data-off] { opacity: 0; }
+.dw-guide[data-line="v"] { border: 0; border-left: 1px dotted var(--win-muted); }
+.dw-guide[data-line="h"] { border: 0; border-top: 1px dotted var(--win-muted); }
+/*
+ * The landing model's guides: neutral (the muted text color, 3:1 or more against the bars, columns and page), never the
+ * landing's accent or its soft fill. A line between items is a 2 px rule; a free stretch is a 1.5 px dashed box with a
+ * 7% neutral fill and a 3 px radius, inset 2 px (by the page), apart from the dashed slot's 2 px accent outline and fill.
+ */
+.dw-guide[data-kind] { opacity: 1; border: 0; }
+.dw-guide[data-kind][data-off] { opacity: 0; }
+.dw-guide[data-kind="line"] { background: var(--win-muted); border-radius: 1px; }
+.dw-guide[data-kind="box"] { border-radius: 3px; background: color-mix(in srgb, var(--win-muted) 7%, transparent); }
+/* The dash, 1.5 px inside the box: a 3 px stroke on its edge, the outer half clipped (borders snap to whole pixels). */
+.dw-guide[data-kind="box"]::after {
+  content: ""; position: absolute; inset: 0; background: var(--win-muted);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' rx='3' fill='none' stroke='black' stroke-width='3' stroke-dasharray='5 3'/%3E%3C/svg%3E");
+}
+/* Hatched room: over the edge of a neighbor that gives way, the guides' color in 45° stripes (never the accent). */
+.dw-guide[data-kind="hatch"] {
+  border-radius: 2px;
+  background: repeating-linear-gradient(-45deg, var(--win-muted) 0 1.5px, transparent 1.5px 5px);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--win-muted) 60%, transparent);
+}
+@media (prefers-reduced-motion: reduce) { .dw-guide { transition: none; } }
+.dw[data-reduced-motion] .dw-guide { transition: none; }
+/* Three looks only: docks (in place, the accent outline), floats (plain, where it lands), goes back (plain, on the
+   pointer, with "Can't go here"). Nothing else changes between them: no dimming, no cursor or shadow change. */
+.dw-held { z-index: 6; pointer-events: none; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18); }
+/* Sitting in the place a release lands it. */
+.dw-held[data-placed] { outline: 2px solid var(--accent); outline-offset: -1px; }
 /* The held copy's frame (the morph's box, its grip on the pointer): each form's content inside, cross-faded. */
 .dw-morph { position: absolute; overflow: hidden; border-radius: 6px; }
 .dw-morph > .dw-item { pointer-events: none; }

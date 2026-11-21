@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion` and `@n-uf/docking`: the packages carry the same version, and a release bumps them all.
 
-## 26.11.53
+## Unreleased
 
 Breaking. Placement is the general layer: one edge, one area, one popup. The window's docking model leaves for its own
 package, `@n-uf/docking`, and the replaced entries and deprecated parts go. Behavior is unchanged: every layout, target

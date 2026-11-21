@@ -2,7 +2,8 @@
  * The drag feel: per item kind, how a drop into a side's rail works. The geometry goes into the DockState as its rail drop
  * policy (`DockState.railDrop`, from `@n-uf/docking`); the time and the keys go into the drag intent's tuning
  * (`DragTuning`, from `@n-uf/motion/drag`). Panels start with rail docking on; toolbars start at today's values (no rail
- * strip, no dwell, no keys), and tuning one never changes the other. Stored per viewer.
+ * strip, no dwell, no keys), and tuning one never changes the other. Only the published rules read it (the cases that
+ * check the libraries' rail strips set their own); the window's own rules have no panel strip.
  */
 import type { DragTuning, ModifierKey } from "@n-uf/motion/drag";
 import { DEFAULT_RAIL_MAGNET, type RailDropPolicy, type RailVisibility, type DockState } from "@n-uf/docking";
@@ -16,7 +17,7 @@ export interface KindFeel {
   readonly armAfter: number;
   readonly modifiers: { readonly on: boolean; readonly floatKey: ModifierKey; readonly armKey: ModifierKey };
 }
-export type FeelKind = "panel" | "group";
+type FeelKind = "panel" | "group";
 export type DragFeel = Readonly<Record<FeelKind, KindFeel>>;
 
 /** A key's name as the page says it: "mod" is ⌘ on macOS and Ctrl elsewhere, either one counts. */
@@ -53,39 +54,3 @@ export const tuningOf = (feel: DragFeel, kind: string): Partial<DragTuning> => {
   return { armAfter: f.armAfter, modifiers: f.modifiers };
 };
 
-const num = (x: unknown, lo: number, hi: number, fallback: number): number => (typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : fallback);
-const key = (x: unknown, fallback: ModifierKey): ModifierKey => (MODIFIER_KEYS.includes(x as ModifierKey) ? (x as ModifierKey) : fallback);
-
-/** A kind's feel read back from stored data, every field checked; what doesn't read falls back to `base`. */
-function readKind(data: unknown, base: KindFeel): KindFeel {
-  if (typeof data !== "object" || data === null) return base;
-  const d = data as Record<string, unknown>;
-  const m = (typeof d.modifiers === "object" && d.modifiers !== null ? d.modifiers : {}) as Record<string, unknown>;
-  return {
-    railStripWidth: d.railStripWidth === null ? null : num(d.railStripWidth, 0, 96, base.railStripWidth ?? 0),
-    railVisibility: RAIL_VISIBILITIES.includes(d.railVisibility as RailVisibility) ? (d.railVisibility as RailVisibility) : base.railVisibility,
-    magnet: num(d.magnet, 0, 40, base.magnet),
-    floatNearEdge: typeof d.floatNearEdge === "boolean" ? d.floatNearEdge : base.floatNearEdge,
-    railArmDwellMs: num(d.railArmDwellMs, 0, 1000, base.railArmDwellMs),
-    modifiers: { on: typeof m.on === "boolean" ? m.on : base.modifiers.on, floatKey: key(m.floatKey, base.modifiers.floatKey), railKey: key(m.railKey, base.modifiers.railKey) },
-  };
-}
-
-/** The stored feel, or the defaults; never throws. */
-export function readFeel(storageKey: string): DragFeel {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    const data = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-    return { panel: readKind(data.panel, PANEL_FEEL), group: readKind(data.group, GROUP_FEEL) };
-  } catch {
-    return DEFAULT_FEEL;
-  }
-}
-
-export function storeFeel(storageKey: string, feel: DragFeel): void {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(feel));
-  } catch {
-    // No storage: the feel lasts until a reload.
-  }
-}

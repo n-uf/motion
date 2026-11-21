@@ -42,7 +42,7 @@ function kitWindow(shape: Shape, anchor: boolean, width = 1440): DockState {
           { kind: "rail", main: { min: 36, natural: 36 }, cross: { natural: 32 } },
         ],
       },
-      floatSize: { width: card.natural, height: 440 },
+      floatSizes: { column: { width: card.natural, height: 440 } },
     };
   const template = { accepts: ["panel"], cross: { min: card.min, max: card.max, rail: 32 }, gap };
   const edges: DockEdge[] = [
@@ -174,6 +174,7 @@ function pushableCase(): Preset {
  */
 export function KIT_PRESETS(): Preset[] {
   return [
+    pushableCase(),
     sweepCase(
       "kit-rail-stop-no-landing",
       "A rail that can't take the drop leaves the window's edge to the column line",
