@@ -222,12 +222,15 @@ console.log(row.map((f) => [f.kind, f.main.min, f.rank ?? 0, f.hides ?? []]));
   group's forms down a column (an `icons` strip, then the menu); `keep` (default 0) lifts a pinned primary (below).
 - **The ladder, in order.** For `n` controls and `T` tiers: (1) every control at tier 0, a `row`; (2) the tier steps, one
   control at a time in fold order: the control that folds first takes tier 1, then the next, then the first takes
-  tier 2, and so on to tier `T - 1` for all, each a `row` with every control shown, rank `100 * t + i / n` (`i` the step's
-  index within tier `t`), so groups of different sizes level within a tier; (3) the partial folds, for `k = 1 … n - 1` a
-  `row` at the last tier that hides the first `k` controls in fold order (`hides` lists them; its length is the shown
-  controls, the gaps, the grip and `more`), rank `100 * max(4, T) + k / n`, so the group with the fewest hidden controls
-  folds next; (4) `fold` (the grip and `more`, `hides` every control), rank `100 * (max(4, T) + 1)`, then `menu`, one
-  rank higher. A bar's ranks line up by tier number: give its groups one tier count.
+  tier 2, and so on to tier `T - 1` for all, each a `row` with every control shown. Tiers 1 and 2 have rank
+  `100 * t + i / n` (`i` the step's index within tier `t`), so groups of different sizes level within a tier; every later
+  tier shares the band from 300 in tier order, rank `300 + (t - 3 + i / n) / (T - 3)`, strictly increasing along the
+  group and under 400 for any `T`; (3) the partial folds, for `k = 1 … n - 1` a `row` at the last tier that hides the
+  first `k` controls in fold order (`hides` lists them; its length is the shown controls, the gaps, the grip and `more`),
+  rank `400 + k / n`, so the group with the fewest hidden controls folds next; (4) `fold` (the grip and `more`, `hides`
+  every control), rank 500, then `menu`, rank 600. The bands are fixed whatever a group's tier count, so groups of
+  different tier counts still keep the order across a bar. Along the ladder the `hides` sets only grow: the tier forms
+  hide none, a partial fold's set holds the one before's, `fold` hides every control.
 - **A fixed shape.** Every form is always emitted, even when it is no shorter than the one before (a partial fold whose
   `more` cell is longer than the controls it hides, tiers that repeat). `fitStack` passes over a form that doesn't
   shorten the stack and takes the next one that does, so the form count is `n * T + 2` (none with no controls) and an
@@ -243,7 +246,9 @@ console.log(row.map((f) => [f.kind, f.main.min, f.rank ?? 0, f.hides ?? []]));
   it is not the cheapest step of the bar, because a cheaper step of another group sits earlier in the history.
 - **A pinned primary.** `keep: 1` adds 1000 to the ranks of the partial folds, `fold` and `menu` (and of the column's
   menu), so every group of a lower level gives way entirely before it folds a control; its tier steps are unchanged.
-  `SceneItem.priority` still adds to every form's rank, and the 100-wide spacing keeps it inside its step type.
+  `SceneItem.priority` still adds to every form's rank. It keeps a step inside its step type only while the items of a
+  bar differ in priority by less than 99 (so `|priority| < 99` around 0): the `i / n` and `k / n` parts reach up to
+  `(n - 1) / n`, so with a gap of 99 or more a step of one type can pass a step of the next.
 - **In a scene.** `controlLadder(spec)` is a `SceneItem.forms`: `{ id, kind: "group", used, forms: controlLadder(spec) }`.
   The chosen form's `hides` are the item's `hidden`, so a host draws the shown controls and the group's » with exactly
   those.
