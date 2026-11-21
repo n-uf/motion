@@ -85,7 +85,7 @@ the hand rule included: while a lane holds, the landing is the nearest in its la
 
 ## Documentation
 
-- [Design page](https://github.com/n-uf/motion/blob/main/docs/docking.md): the concept, the parts, the rules a consumer relies on, and the SDK entry by entry.
+- [Design page](https://motion.n-uf.com/docs/docking/): the concept, the parts, the rules a consumer relies on, and the SDK entry by entry.
 - [Reference](https://github.com/n-uf/motion/blob/main/docs/docking-reference.md): every rule, id, option and longer examples.
 - [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/docking/CHANGELOG.md): what changed, and how to move from `@n-uf/placement/scene`.
 - Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
