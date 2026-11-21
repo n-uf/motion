@@ -43,6 +43,11 @@ The model's types:
 - Added: **`DockItemLayout.tiers`**, the chosen form's `StackForm.tiers` (`@n-uf/placement/stack`'s `controlLadder`
   sets them), beside `hidden`: each shown control's tier by id, so a host draws each control at `tiers[id]` without
   knowing the ladder's order. Absent for a hand-written form, a `fold`, a `menu` and a » menu entry.
+- Added: **`DockItem.length`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to
+  have, read by the edge's stack in place of a growing form's natural, and the verbs on it: **`dividers(state, layout?)`**
+  (`DockDivider`), **`resizeBetween`**, **`resetBetween`** and **`resetLengths(state, edgeId)`**. `storeDockState` keeps
+  the length and `readDockState` reads it back (a bad entry is dropped as `item:<id>:length:<axis>`; a store without it
+  reads with none). Additive: a state that declares no length lays out exactly as before.
 - Removed: **`SceneItem.floatSize`**, deprecated in 26.11.52. `floatSize` → `floatSizes[orient]`: declare the size for
   the orient the item floats in (both orients where it floats either way). A state stored with it still reads, and
   `storeDockState` writes `floatSizes` only. `readDockState` takes a stored `floatSize` as:

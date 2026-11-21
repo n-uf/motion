@@ -929,7 +929,18 @@ takes its first `folded` form on the axis it lies along (a panel's `header`, a g
 `rail` tile), never the next variant (a group's `stacked` or `icons` are for give-way only), and give-way steps down from
 there; unfolded, it takes the form the room allows again. `canFold(state, id)` says whether a hand fold means anything
 where the item lies (false: no folded form on that axis, and `foldItem(…, on)` changes nothing), so a host can leave the
-double-click off. `moveTo` and
+double-click off. **Dividers**: `DockItem.length` (`{ column?, row? }`, px along the edge, per axis) is the length a person
+asked an item to have; `solve` hands it to the edge's stack, which reads it in place of the natural of a growing form
+(`@n-uf/placement/stack`, "Dividers"). `dividers(state, layout?)` lists one `DockDivider` (`{ edge, before, after, rect,
+range }`, stage px) per pair of neighboring open growing items of each edge; `resizeBetween(state, before, after, delta,
+{ layout? })` trades `delta` px between the two (a negative one the other way, clamped to `range`), `resetBetween(state,
+before, after, { layout? })` gives them their natural split back (the double-click), and `resetLengths(state, edgeId)`
+clears every length of the edge's axis. Each is a change in the sense above: the state given back when nothing applies
+(not neighbors in one edge, an unknown item or edge, a float, a `delta` clamped to 0). `layout` is what `solve` returned
+for `state`; left out, or stored and read back, the state is solved first. The length travels with the item (moved,
+closed and reopened, folded) and is per axis, so an item moved to a bar never reads a column length;
+`storeDockState` keeps it (`items.<id>.length`) and `readDockState` reads it back, dropping a bad entry as
+`item:<id>:length:<axis>`; a store without it reads with none. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(state, id, start)` is the place a start state gives the item
