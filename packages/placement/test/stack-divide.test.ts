@@ -201,13 +201,15 @@ describe("resizeBetween", () => {
     expect(fitStack(resizeBetween(input, "a", "b", 40))).toEqual(fitStack(frame));
   });
 
-  it("with the guard of a re-measured natural: a sized panel doesn't move", () => {
+  it("with the guard of a re-measured natural: a sized panel doesn't move, an unsized one follows its natural", () => {
     const sized = resizeBetween(input, "a", "b", 30);
-    const grown: StackInput = {
+    const remeasured = (only: (it: StackItem) => boolean): StackInput => ({
       ...sized,
-      items: sized.items.map((it): StackItem => ({ ...it, forms: it.forms.map((f, i): StackForm => (i === 0 ? { ...f, main: { ...f.main, natural: f.main.natural + 77 } } : f)) })),
-    };
-    expect(fitStack(grown)).toEqual(fitStack(sized));
+      items: sized.items.map((it): StackItem => (only(it) ? { ...it, forms: it.forms.map((f, i): StackForm => (i === 0 ? { ...f, main: { ...f.main, natural: f.main.natural + 77 } } : f)) } : it)),
+    });
+    expect(fitStack(remeasured((it) => it.length?.column !== undefined))).toEqual(fitStack(sized));
+    // `c` was not part of the drag: it asks its natural, as it did before.
+    expect(mainOf(fitStack(remeasured((it) => it.id === "c")), "c")).toBeGreaterThan(mainOf(fitStack(sized), "c"));
   });
 });
 

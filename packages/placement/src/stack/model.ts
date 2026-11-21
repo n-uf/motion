@@ -274,13 +274,14 @@ export interface StackItem {
   /**
    * The length asked for along the stack (default none). While the item is in a form that grows (`main.grows`; a `wrap`
    * form that grows shares spare length too), the solver reads it, for the stack's axis, in place of that form's `main.natural`; the form's
-   * `main.min` stays the least, and a value that isn't a finite number from 0 up is no asked length. There is no new
-   * formula: with spare length the sized items share it in proportion to their lengths, short of length they
-   * interpolate between their least and their length, so a stack too short for all of them still trades room between
-   * them. A form that doesn't grow ignores it (the length is kept for when the item grows again), and so does a
+   * `main.min` stays the least, a floor on the drawn size and not on the ask, and a value that isn't a finite number from
+   * 0 up is no asked length. There is no new formula: with spare length the sized items share it in proportion to their
+   * lengths (one whose share would be under its least is drawn at its least, the others share the rest), short of length
+   * they interpolate between their least (an ask under it reads as the least) and their length, so a stack too short for
+   * all of them still trades room between them. A form that doesn't grow ignores it (the length is kept for when the item grows again), and so does a
    * stack of the other axis. A stack whose items declare none is laid out exactly as before. What gives way and in
    * which order never reads it. It is in ask units, not drawn px: with room to spare a drawn size is the ask times the
-   * shared scale. `resizeBetween` writes it for the dragged pair only; `resetBetween` and `resetLengths` change it too.
+   * shared scale. `resizeBetween` and `resetBetween` write it for the pair only; `resetLengths` clears it.
    */
   readonly length?: StackLengths;
 }

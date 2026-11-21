@@ -175,34 +175,48 @@ describe("properties over seeded stacks", () => {
           expect(now[id]!).toBeCloseTo(want, 4);
           if (id !== before && id !== after && !(startOf(fit, id) > startOf(fit, before) && startOf(fit, id) < startOf(fit, after))) expect(startOf(frame, id)).toBeCloseTo(startOf(fit, id), 4);
         }
-        // When the pair's asks can be written in ask units (not under their least), only the pair is written.
-        const least = known.least;
-        const b = was[before]! + clamped;
-        const a = was[after]! - clamped;
-        const writable = !scaleWanted || (b >= known.scale * least.get(before)! - EPS && a >= known.scale * least.get(after)! - EPS);
-        if (writable) {
-          pairOnly++;
-          input.items.forEach((it, i) => {
-            if (it.id !== before && it.id !== after) expect(next.items[i]).toBe(it);
-          });
-        }
+        // Only the pair is written, whatever the drag: a drawn size under the scale times its least is an ask under its least.
+        pairOnly++;
+        input.items.forEach((it, i) => {
+          if (it.id !== before && it.id !== after) expect(next.items[i]).toBe(it);
+        });
+        // The pair is never drawn under its least.
+        expect(now[before]!).toBeGreaterThanOrEqual(known.least.get(before)! - 1e-6);
+        expect(now[after]!).toBeGreaterThanOrEqual(known.least.get(after)! - 1e-6);
       }
       expect(checked).toBeGreaterThan(100);
-      expect(pairOnly).toBeGreaterThan(50);
+      expect(pairOnly).toBe(checked);
     });
   }
+
+  it("a pair dragged to either end of its range with room to spare keeps every other drawn size", () => {
+    let checked = 0;
+    for (const { input, fit, before, after } of trials(404, 400, withRoom)) {
+      if (!(sizesOf(fit)!.scale > 1 + EPS)) continue;
+      const was = mains(fit);
+      for (const delta of [-100_000, 100_000]) {
+        const next = resizeBetween(input, before, after, delta);
+        if (next === input) continue;
+        const now = mains(fitStack(next));
+        for (const id of Object.keys(was)) {
+          if (id === before || id === after) continue;
+          expect(now[id]!).toBeCloseTo(was[id]!, 4);
+        }
+        input.items.forEach((it, i) => {
+          if (it.id !== before && it.id !== after) expect(next.items[i]).toBe(it);
+        });
+        checked++;
+      }
+    }
+    expect(checked).toBeGreaterThan(100);
+  });
 
   it("a bystander moved to another stack is drawn as one nobody resized, in every regime", () => {
     let checked = 0;
     for (const { input, before, after } of trials(303, 300, (rand) => 200 + Math.floor(rand() * 900))) {
       const fit = fitStack(input);
-      const known = sizesOf(fit)!;
       const d = dividers(input, fit).find((x) => x.before === before && x.after === after)!;
       const next = resizeBetween(input, before, after, d.range.max / 2);
-      const was = mains(fit);
-      const b = was[before]! + d.range.max / 2;
-      const a = was[after]! - d.range.max / 2;
-      if (known.scale > 1 + EPS && (b < known.scale * known.least.get(before)! - EPS || a < known.scale * known.least.get(after)! - EPS)) continue;
       const other = [panel("x", 9, 200)];
       for (const it of input.items) {
         if (it.id === before || it.id === after || !it.forms[0]!.main.grows || it.forms[0]!.kind !== "open") continue;
@@ -217,28 +231,73 @@ describe("properties over seeded stacks", () => {
 });
 
 describe("resetBetween", () => {
-  it("writes the length every growing item is drawn at, as it always has", () => {
+  it("writes the pair's natural split in ask units, like a drag, and no one else a length", () => {
     const input = stack([panel("a", 1, 200), panel("b", 2, 300), panel("c", 3, 300)], 1200);
     const dragged = resizeBetween(input, "a", "b", 60);
     expect(dragged.items[2]!.length).toBeUndefined();
     const reset = resetBetween(dragged, "a", "b");
     expect(reset).not.toBe(dragged);
+    expect(reset.items[2]).toBe(input.items[2]);
     const fit = fitStack(reset);
-    for (const it of reset.items) expect(it.length?.column).toBeCloseTo(mainOf(fit, it.id), 6);
-    expect(mainOf(fit, "c")).toBeCloseTo(mainOf(fitStack(dragged), "c"), 6);
+    const was = fitStack(input);
+    for (const id of ["a", "b", "c"]) expect(mainOf(fit, id)).toBeCloseTo(mainOf(was, id), 6);
   });
 });
 
-describe("a pair that cannot be written in ask units", () => {
-  it("with room, an end drawn under the scale times its least is written in drawn sizes for the whole stack, so it still reaches its least", () => {
-    // Naturals 300, length 1200: the scale is 4/3, so an ask under 90 * 4/3 = 120 would be read as its least, 90, and
-    // drawn at 120. To draw `b` at 90 the stack is written as drawn (scale 1).
+describe("a pair dragged to its least with room to spare", () => {
+  it("is written in ask units too: the end draws at its least, nothing else moves and no one else gets a length", () => {
+    // Naturals 300, length 1200: the scale is 4/3, so `b` at its least 90 asks 90 / (4/3) = 67.5, under its least.
     const input = stack([panel("a", 1, 300), panel("b", 2, 300), panel("c", 3, 300)], 1200);
     const next = resizeBetween(input, "a", "b", 10_000);
     const fit = fitStack(next);
+    expect(next.items[2]).toBe(input.items[2]);
+    expect(ask(next, "b")).toBeCloseTo(67.5, 9);
     expect(mainOf(fit, "b")).toBeCloseTo(90, 6);
     expect(mainOf(fit, "c")).toBeCloseTo(400, 6);
     expect(mainOf(fit, "a")).toBeCloseTo(710, 6);
-    expect(sizesOf(fit)!.scale).toBeCloseTo(1, 9);
+    expect(sizesOf(fit)!.scale).toBeCloseTo(4 / 3, 9);
+  });
+});
+
+describe("an ask under the least", () => {
+  it("is a weight with room to spare: the item draws at its least, the others share the rest by their asks", () => {
+    // Asks 40 / 300 / 300 (least 90 each) in 1200: `a` would draw 75 under the one scale, so it is held at 90 and b and c
+    // share the 1110 left.
+    const input = stack([{ ...panel("a", 1, 300), length: { column: 40 } }, panel("b", 2, 300), panel("c", 3, 300)], 1200);
+    const fit = fitStack(input);
+    expect(mainOf(fit, "a")).toBeCloseTo(90, 6);
+    expect(mainOf(fit, "b")).toBeCloseTo(555, 6);
+    expect(mainOf(fit, "c")).toBeCloseTo(555, 6);
+    expect(sizesOf(fit)!.scale).toBeCloseTo(1.85, 9);
+    // Above the floor it is a plain weight: asks 100 / 300 / 300 draw in proportion.
+    const plain = fitStack(stack([{ ...panel("a", 1, 300), length: { column: 100 } }, panel("b", 2, 300), panel("c", 3, 300)], 1200));
+    expect(mainOf(plain, "a") / mainOf(plain, "b")).toBeCloseTo(100 / 300, 9);
+  });
+
+  it("when every ask is under the least, the column is still filled, as every ask at the least fills it", () => {
+    const all = (v: number): StackFit => fitStack(stack([1, 2, 3].map((i) => ({ ...panel(`p${i}`, i, 300), length: { column: v } })), 1200));
+    expect(all(0)).toEqual(all(90));
+    expect(mainOf(all(0), "p1")).toBeCloseTo(400, 6);
+  });
+
+  it("short of room it still reads as the least", () => {
+    const short = (askA: number): StackFit => fitStack(stack([{ ...panel("a", 1, 300), length: { column: askA } }, panel("b", 2, 300), panel("c", 3, 300)], 500));
+    expect(short(10)).toEqual(short(90));
+  });
+
+  it("every drawn size is at its least or over, and the column is filled", () => {
+    const rand = seeded(31);
+    for (let trial = 0; trial < 200; trial++) {
+      const items = [1, 2, 3, 4].map((i) => ({ ...panel(`p${i}`, i, 100 + Math.floor(rand() * 200)), length: { column: Math.floor(rand() * 300) } }));
+      const length = 700 + Math.floor(rand() * 900);
+      const fit = fitStack(stack(items, length));
+      expect(fit.items.map((p) => p.kind)).toEqual(["open", "open", "open", "open"]);
+      let total = 0;
+      for (const p of fit.items) {
+        expect(mainOf(fit, p.id)).toBeGreaterThanOrEqual(90 - 1e-9);
+        total += mainOf(fit, p.id);
+      }
+      expect(total).toBeCloseTo(length, 6);
+    }
   });
 });

@@ -22,7 +22,8 @@
  * 5. The room the items leave goes to the forms that grow, shared by their natural sizes. With none, the items keep
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
  *    same share of what it can give. A growing form whose item asks for a length (`StackItem.length`, for the stack's
- *    axis) is read at that length in place of its natural size, nothing else changes.
+ *    axis) is read at that length in place of its natural size, nothing else changes. With room, an ask is a weight and the
+ *    least a floor on the drawn size: a form whose share would be under its least is drawn at its least, the others share the rest.
  *
  * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
  * others give way around it. In step 5 it shrinks and grows like any item.
@@ -443,6 +444,30 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     for (const i of drawn) {
       const share = growers.includes(i) ? (weight > EPS ? nat(i) / weight : 1 / growers.length) : 0;
       size.set(i, nat(i) + spare * share);
+    }
+    // An ask is a weight, and the least a floor on the drawn size: a form asking for less than its least is drawn at its
+    // least, and the others share what is left in proportion to their asks (the scale is the one that fills the length).
+    const ask = (i: number): number => askedLength(items[i]!, form(i), input.axis) ?? nat(i);
+    if (weight > EPS && growers.some((i) => ask(i) < min(i))) {
+      const pinned = new Set<number>();
+      const room = avail - drawn.reduce((s, i) => (growers.includes(i) ? s : s + nat(i)), 0);
+      let s = scale;
+      for (;;) {
+        const free = growers.filter((i) => !pinned.has(i));
+        const weights = free.reduce((sum, i) => sum + ask(i), 0);
+        if (weights <= EPS) {
+          for (const i of free) pinned.add(i);
+          break;
+        }
+        s = (room - [...pinned].reduce((sum, i) => sum + min(i), 0)) / weights;
+        const under = free.filter((i) => ask(i) * s < min(i));
+        if (under.length === 0) break;
+        for (const i of under) pinned.add(i);
+      }
+      if (pinned.size < growers.length) {
+        scale = s;
+        for (const i of growers) size.set(i, pinned.has(i) ? min(i) : ask(i) * s);
+      }
     }
   } else {
     const t = avail > sumMin && sumNat > sumMin ? (avail - sumMin) / (sumNat - sumMin) : 0;

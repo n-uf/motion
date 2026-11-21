@@ -165,38 +165,35 @@ describe("resetLengths", () => {
 describe("a collapsed item that was never sized", () => {
   it("gets no length from a drag of its neighbors, and keeps its proportion when it reopens", () => {
     for (const length of [700, 450, 330]) {
-      const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], length);
-      const next = resizeBetween(input, "a", "c", -20);
-      expect(next).not.toBe(input);
-      expect(next.items[1]).toBe(input.items[1]);
-      expect(next.items[1]!.length).toBeUndefined();
-      // Reopened, it is drawn as it is when nobody resized the others: the pair's asks still add up to what they did.
-      const open = (s: StackInput): StackInput => ({ ...s, items: s.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) });
-      const was = fitStack(open(input));
-      const now = fitStack(open(next));
-      expect(mainOf(now, "b")).toBeCloseTo(mainOf(was, "b"), 5);
-      expect(mainOf(now, "a") + mainOf(now, "c")).toBeCloseTo(mainOf(was, "a") + mainOf(was, "c"), 5);
+      // (A short length reads an ask under its least as the least, so `c` dragged under it there is another matter.)
+      for (const delta of length === 700 ? [-20, 20] : [-20]) {
+        const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], length);
+        const next = resizeBetween(input, "a", "c", delta);
+        expect(next).not.toBe(input);
+        expect(next.items[1]).toBe(input.items[1]);
+        expect(next.items[1]!.length).toBeUndefined();
+        // Reopened, it is drawn as it is when nobody resized the others: the pair's asks still add up to what they did.
+        const open = (s: StackInput): StackInput => ({ ...s, items: s.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) });
+        const was = fitStack(open(input));
+        const now = fitStack(open(next));
+        expect(mainOf(now, "b")).toBeCloseTo(mainOf(was, "b"), 5);
+        expect(mainOf(now, "a") + mainOf(now, "c")).toBeCloseTo(mainOf(was, "a") + mainOf(was, "c"), 5);
+      }
     }
   });
 
-  it("when an end is dragged to its least with room, the stack is written at the drawn sizes and the collapsed item gets the length that keeps its proportion for when it reopens", () => {
+  it("dragged to an end's least with room, it still gets none, and reopened it asks its natural next to the pair's asks", () => {
     const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], 700);
-    const before = fitStack(input);
-    const k = (mainOf(before, "a") + mainOf(before, "c")) / (200 + 100);
-    expect(k).toBeGreaterThan(1.5);
     const next = resizeBetween(input, "a", "c", 10_000);
     expect(mainOf(fitStack(next), "c")).toBeCloseTo(90, 6);
-    expect(next.items[1]!.length?.column).toBeCloseTo(k * 160, 5);
+    expect(next.items[1]).toBe(input.items[1]);
     expect(mainOf(fitStack(next), "b")).toBe(28);
-    // Reopened, all three ask for what they were drawn at (the others' lengths are at the spare-room scale, so is its):
-    // the stack is short for them together and shares the shortage by the one rule, each by its asked length.
     const reopened: StackInput = { ...next, items: next.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) };
     const fit = fitStack(reopened);
-    const lengths = next.items.map((it) => it.length!.column!);
-    const t = (700 - 270) / (sum(lengths) - 270);
-    next.items.forEach((it, i) => expect(mainOf(fit, it.id)).toBeCloseTo(90 + (lengths[i]! - 90) * t, 5));
-    // The scale is the same for all three: b's length over its natural is a's over its.
-    expect(lengths[1]! / 160).toBeCloseTo(k, 5);
+    // `c` is held at its least; `a` and `b` share the rest in proportion to their asks (a's written length, b's natural).
+    expect(mainOf(fit, "c")).toBeCloseTo(90, 6);
+    expect(mainOf(fit, "b") / mainOf(fit, "a")).toBeCloseTo(160 / next.items[0]!.length!.column!, 6);
+    expect(mainOf(fit, "a") + mainOf(fit, "b") + mainOf(fit, "c")).toBeCloseTo(700, 6);
   });
 
   it("a collapsed item with a length of its own keeps it, and a short stack writes nothing for it", () => {

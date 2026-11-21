@@ -114,8 +114,8 @@ export interface DockItem {
    * hands it to the edge's stack, which reads it in place of the form's natural: spare length goes in proportion to the
    * asked lengths, a short edge interpolates toward the least. It is per axis, so an item moved to an edge of the other
    * axis never reads it, and it travels with the item when it moves, closes and reopens. It is in ask units, not drawn
-   * px: with room to spare a drawn size is the ask times the shared scale. `resizeBetween` sets it for the dragged pair
-   * only; `resetBetween` and `resetLengths` set and clear it; `storeDockState` keeps it. A state that declares none lays
+   * px: with room to spare a drawn size is the ask times the shared scale. `resizeBetween` and `resetBetween` set it for
+   * the pair only; `resetLengths` clears it; `storeDockState` keeps it. A state that declares none lays
    * out exactly as before.
    */
   readonly length?: { readonly column?: number; readonly row?: number };
