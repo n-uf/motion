@@ -140,3 +140,54 @@ describe("a shared corner is covered by exactly one drawn mark", () => {
         }
       });
 });
+
+/** A guide as it is drawn: a line thinner than 2 px is 2 px thick, centred on its place (as `guideRects` draws it). */
+function thick(r: Rect, kind: string): Rect {
+  if (kind !== "line") return r;
+  const vertical = r.width <= r.height;
+  const own = vertical ? r.width : r.height;
+  if (own >= 2) return r;
+  const d = (2 - own) / 2;
+  return vertical ? rect(r.x - d, r.y, 2, r.height) : rect(r.x, r.y - d, r.width, 2);
+}
+/** Every guide as it is drawn, in its own lane's rect, lines at their drawn thickness. */
+function drawnThick(f: LandingFrame, regions: LandingRegions): { lane: string; kind: string; rect: Rect }[] {
+  return f.guides.flatMap((g) => {
+    const r = within(thick(g.rect, g.kind), regions.lanes.find((l) => l.id === g.lane)!.rect);
+    return r ? [{ lane: g.lane, kind: g.kind, rect: r }] : [];
+  });
+}
+const swap = (regions: LandingRegions, id: string, change: Partial<LandingLane>): LandingRegions => ({ ...regions, lanes: regions.lanes.map((l) => (l.id === id ? { ...l, ...change } : l)) });
+
+describe("the corner decision compares marks as they are drawn, on both sides", () => {
+  it("a named lane's marks are clipped to its own rect: a bar lane cut short to x 40–828 does not hold a corner it can't draw", () => {
+    // The rails' lanes y 15–642; the top bar's lane x 40–828, its marks x 0–868. The pointer is held in the left rail.
+    const regions = swap(window(15, 642), "top", { rect: rect(40, 0, 788, BAR) });
+    const f = settled(regions, "all", { x: 15, y: 300 });
+    expect(f.lane).toBe("rail-left");
+    // (The rail's lane starts at y 15, so the corner's part below it is the rail's to draw, and no one else's.)
+    for (const y of [16, 20, 28]) expect(drawn(f, regions).filter((d) => covers(d.rect, { x: 15, y })).map((d) => d.lane), `y ${y}`).toEqual(["rail-left"]);
+  });
+
+  it("a line counts at its drawn thickness: a zero-thick bar line inside the corner the rail took is not drawn over it", () => {
+    const top = window(0, H).lanes.find((l) => l.id === "top")!;
+    const regions = swap(window(0, H), "top", { marks: [...top.marks!, { id: "top/line/a|b", kind: "line", rect: rect(10, 0, 0, BAR) }] });
+    for (const to of [{ x: 15, y: 300 }, { x: 40, y: 300 }]) {
+      const f = settled(regions, "all", to);
+      const at = drawnThick(f, regions).filter((d) => covers(d.rect, { x: 10, y: 15 }));
+      expect(at.map((d) => `${d.lane}/${d.kind}`), `${to.x}`).toEqual(["rail-left/box"]);
+    }
+  });
+
+  it("the named lane is cut by what the owner draws: a point in a dropped stub is the bar's, and so is one the landing leaves", () => {
+    // The rail's landing starts 6 px below the stage top: the 6 px above it is a stub no longer than MIN_BOX_LENGTH,
+    // not drawn. Its landing then covers the corner under it.
+    const base = window(0, H);
+    const rail = base.lanes.find((l) => l.id === "rail-left")!;
+    const regions = swap(base, "rail-left", { spots: [{ ...rail.spots[0]!, landing: rect(0, 6, RAIL, 100) }] });
+    for (const to of [{ x: 15, y: 60 }, { x: 40, y: 60 }]) {
+      const f = settled(regions, "all", to);
+      expect(drawn(f, regions).filter((d) => covers(d.rect, { x: 15, y: 3 })).map((d) => d.lane), `${to.x}`).toEqual(["top"]);
+    }
+  });
+});
