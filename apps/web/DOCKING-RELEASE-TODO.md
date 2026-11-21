@@ -27,15 +27,15 @@ Delete this file in the release PR once every box is ticked.
 
 ## Still open
 
-- [ ] Share images. `public/og.png` and `public/og/toolbar-groups.png` say the old words, and
-      `public/og/docking-layouts.png` is the old desk-layouts image renamed. `scripts/render-og.py` has the new home
-      wording already; the images are not re-rendered because this machine has no Inter variable font with both axes
-      (opsz and wght; Pillow needs raqm), and the captures need the site served. To redo them:
-      `PLAYWRIGHT_CORE=<playwright-core folder> node scripts/capture-og.mjs <site address>` (the home capture is `#demo`),
-      then `python3 scripts/render-og.py --font <InterVariable.ttf>`. A new image for `/docs/docking/` only if the docs
-      pages get their own.
-- [ ] `/docs/docking/` shows the `mermaid` block of `docs/docking.md` ("How the parts fit") as a code block. Decide:
-      leave it, draw it as SVG on the site, or drop the block from the rendered page.
+- [x] Share images: `public/og.png`, `public/og/toolbar-groups.png` and `public/og/docking-layouts.png` are rendered
+      from fresh captures of the built site (1200 x 630, checked). The docs pages use the default image, so there is no
+      `/docs/docking/` one. To redo them: `PLAYWRIGHT_CORE=<playwright-core folder> node scripts/capture-og.mjs <site
+      address>` (the home capture is `#demo`), then `python3 scripts/render-og.py --font <InterVariable.ttf>` (the font
+      needs both axes, opsz and wght; Pillow needs raqm).
+- [x] The `mermaid` block of `docs/docking.md` never reaches `/docs/docking/`: `docs-markdown.mjs` drops a mermaid
+      fence (and a heading with nothing left under it), and a test pins it. The repo keeps its diagram. The prose under
+      "How the parts fit" stays and still says "Every edge in the diagram"; reword it in `docs/docking.md` if that reads
+      oddly without the picture.
 - [ ] After deploy: `curl -sI https://motion.n-uf.com/desk-layouts/` shows `301` and `location: /docking-layouts/`, with
       and without the trailing slash; `/og/desk-layouts.png` redirects to `/og/docking-layouts.png`.
 - [ ] After deploy: the sitemap lists `/docking-layouts/` and `/docs/docking/`, not `/desk-layouts/`; every JSON-LD
