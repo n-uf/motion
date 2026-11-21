@@ -33,7 +33,7 @@ export interface HandSpeed {
 }
 
 /** The crawl threshold: the longest step over a gap that still reads slow, a length in px (not a speed). */
-export const HAND_SLOW_STEP = 3;
+const HAND_SLOW_STEP = 3;
 
 export interface HandSpeedOptions {
   /** How long the samples `long` reads must span, ms. */
