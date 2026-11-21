@@ -1,6 +1,6 @@
 # Old vs new
 
-A library change must leave every existing output as it was, except the behaviour it means to change. `pnpm old-vs-new
+A library change must leave every existing output as it was, except the behavior it means to change. `pnpm old-vs-new
 <base>` makes that a fixed step with output a reviewer reads, instead of a recorder written by hand for each change.
 
 ```sh
