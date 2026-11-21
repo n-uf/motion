@@ -98,7 +98,8 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
   const fixed = new Map<string, DockAfter>();
   const axisOf = new Map(base.lanes.map((l) => [l.id, l.axis] as const));
   const flat = (ls: readonly LaneMarks[]): DockLaneMark[] => ls.flatMap((l) => l.marks.map((m) => ({ ...m, lane: l.lane })));
-  const rest: DockAfter = { state, layout: base.seen, landing: null, marks: flat(marksIn(base, state, dragged, base.seen, false, options.emptyLanes)) };
+  // At rest: the window as seen, its lanes' marks as `lanes()` gives them (one layout, the held item drawn nowhere).
+  const rest: DockAfter = { state, layout: base.seen, landing: null, marks: flat(base.lanes.map((l) => ({ lane: l.id, axis: l.axis, marks: l.marks }))) };
   /** One float frame remembered: a still pointer solves nothing. */
   let lastFloat: { x: number; y: number; after: DockAfter } | null = null;
 
@@ -134,16 +135,18 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
   };
 
   /**
-   * An empty edge lane's marks in the layout that creates it: its one spot's (a sliding spot's at rest), where that
-   * drop draws the lane; null for a lane with more than one spot, a virtual lane, or one no drop draws.
+   * An empty edge lane's marks in the layout that creates it: its one spot's drop (a sliding spot's at rest), where that
+   * drop draws the lane, its room whole (the held item, landing elsewhere or nowhere, drawn nowhere on it; once the lane
+   * is Near its would-land state draws the landing). Null for a lane with more than one spot, a virtual lane, or one no
+   * drop draws.
    */
   const createdMemo = new Map<string, DockLaneMark[] | null>();
   const created = (lane: string): DockLaneMark[] | null => {
     if (createdMemo.has(lane)) return createdMemo.get(lane)!;
     const l = base.lanes.find((x) => x.id === lane);
-    const raw = l && l.spots.length === 1 && state.edges.some((e) => e.id === lane) ? rawSpot(base, l.spots[0]!.id) : null;
-    const out = raw && (raw.layout.edges[lane]?.cross ?? 0) > EPS ? flat(marksIn(base, state, dragged, raw.layout, raw.slide ? "slide" : "spot", options.emptyLanes)).filter((m) => m.lane === lane) : null;
-    // (An edge the item fills whole leaves no room beside it there: the lane keeps the screen's box, its room at real size.)
+    // (`emptyLanes: "edge"` draws an empty lane as its thin strip on screen: nothing to create.)
+    const raw = l && options.emptyLanes !== "edge" && l.spots.length === 1 && state.edges.some((e) => e.id === lane) ? rawSpot(base, l.spots[0]!.id) : null;
+    const out = raw && (raw.layout.edges[lane]?.cross ?? 0) > EPS ? flat(marksIn(base, state, dragged, raw.layout, false, options.emptyLanes)).filter((m) => m.lane === lane) : null;
     createdMemo.set(lane, out && out.length > 0 ? out : null);
     return createdMemo.get(lane)!;
   };

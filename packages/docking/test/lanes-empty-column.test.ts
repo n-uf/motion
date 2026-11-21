@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { solve, type DockState } from "../src";
-import { lanes } from "./pitched-lanes";
+import { heldLanes, lanes } from "./pitched-lanes";
 import { bar, byId, column, controls, panel, title } from "./fixture";
 
 const COL = { accepts: ["panel"], cross: { min: 120, max: 400, rail: 30 }, gap: 6, pad: { start: 6, end: 6 } };
@@ -32,7 +32,7 @@ describe("lanes(): an emptied side column that is a declared edge", () => {
   it("keeps that box with `spot` held in its own lane's spot or another's, and as a thin striped edge under `emptyLanes: \"edge\"`", () => {
     const s = emptiedRight();
     const previous = solve(s);
-    const at = lanes(s, "notes", { previous, spot: "left/start/findings|$" }).lanes.find((l) => l.id === "right")!;
+    const at = heldLanes(s, "notes", { previous }, "left/start/findings|$").lanes.find((l) => l.id === "right")!;
     expect(at.marks.some((m) => m.kind === "box")).toBe(true);
     const edge = lanes(s, "notes", { previous, emptyLanes: "edge" }).lanes.find((l) => l.id === "right")!;
     expect(edge.marks.some((m) => m.kind === "hatch")).toBe(true);
@@ -40,7 +40,7 @@ describe("lanes(): an emptied side column that is a declared edge", () => {
 
   it("holds the panel in it: no mark lies over the held panel", () => {
     const s = emptiedRight();
-    const held = lanes(s, "notes", { previous: solve(s), spot: "right/start" }).lanes.find((l) => l.id === "right")!;
+    const held = heldLanes(s, "notes", { previous: solve(s) }, "right/start").lanes.find((l) => l.id === "right")!;
     expect(held.marks.filter((m) => m.kind === "box")).toEqual([]);
   });
 });

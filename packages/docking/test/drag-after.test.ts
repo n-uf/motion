@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { dockDrag, lanes, readDockState, solve, storeDockState, type DockDrag, type DockHeld } from "../src";
+import { dockDrag, readDockState, solve, storeDockState, type DockDrag, type DockHeld } from "../src";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
 
 const off = (a: Rect, b: Rect): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
@@ -67,14 +67,18 @@ describe("after(held): the state a release commits and its one layout", () => {
       }
   });
 
-  it("at rest it is the window as seen, the held item drawn nowhere; a spot's `spots` are its lane's stretches as lanes() cuts them with that spot held", () => {
-    for (const { w, d, grab } of all) {
+  it("at rest it is the window as seen, its marks lanes()'; a spot's `spots` are its lane's spots, cut inside the lane, a bar's or a rail's as seen", () => {
+    for (const { w, d } of all) {
       const rest = d.after(null);
       expect([rest.state === w.state, rest.landing]).toEqual([true, null]);
+      expect(rest.marks.map(({ lane: _l, ...m }) => m)).toEqual(d.regions.lanes.flatMap((l) => l.marks));
       for (const l of d.regions.lanes)
         for (const s of l.spots.filter((x) => !x.slide)) {
-          const held = lanes(w.state, w.dragged, { ...w.options, previous: w.previous, grab, spot: s.id }).lanes.find((x) => x.id === l.id)!;
-          expect([w.name, s.id, d.spotsOf(s.id)?.map((x) => [x.id, x.along])]).toEqual([w.name, s.id, held.spots.map((x) => [x.id, x.along])]);
+          const spots = d.spotsOf(s.id)!;
+          const lo = l.axis === "x" ? l.rect.x : l.rect.y;
+          const hi = lo + (l.axis === "x" ? l.rect.width : l.rect.height);
+          expect([w.name, s.id, spots.map((x) => x.id)]).toEqual([w.name, s.id, l.spots.map((x) => x.id)]);
+          for (const x of spots) expect([s.id, x.id, x.along[0] >= lo - 1e-6 && x.along[1] <= hi + 1e-6]).toEqual([s.id, x.id, true]);
         }
     }
   });

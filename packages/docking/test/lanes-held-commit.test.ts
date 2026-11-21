@@ -2,20 +2,17 @@
  * A held frame's marks are the commit's (decision 0002): a lane's marks follow its edge as drawn in the layout they are
  * drawn in, and only its hit rect stays as seen.
  *
- * - The hull: for every edge lane and each of its spots, along the lane's axis the hull of the lane's marks in
- *   `lanes(…, { spot })` and the spot's landing is the lane's edge rect in the spot's committed layout, within the
- *   edge's padding and 1 px.
+ * - The hull: for every edge lane and each of its spots, along the lane's axis the hull of the lane's marks while held
+ *   (`after({ spot })`, through `./held-lanes`) and the spot's landing is the lane's edge rect in the spot's committed
+ *   layout, within the edge's padding and 1 px.
  * - The corner owner: on every frame (as seen and each spot held), a corner where two drawn lanes' edges meet is covered
  *   by the marks of the edge that owns it in that frame's layout (less the items drawn there), and by no other lane's.
  *
  * Swept over the guide-continuity windows (`./lift-windows`: the libraries lab's window and its presets, two host kits'
- * windows at a toolbar's lift, the rail-entry and corner fixtures), side rails holding items and empty, for `lanes()`
- * itself and for the guides a landing model shows held at each spot under "near" and "all".
+ * windows at a toolbar's lift, the rail-entry and corner fixtures), side rails holding items and empty, for a held
+ * frame's lanes and for the guides a landing model shows held at each spot under "near" and "all".
  */
 import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
-// Pending #41: the two `lanes(…, { spot })` sweeps and the 1080 px case below are `it.fails` (they read the held marks
-// of the old path, which clip as seen; a pass fails them, which is the flip to report). The landing model's sweeps,
-// over `dockDrag`, have flipped.
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { lanes, solve, type DockRegions, type DockState, type DockLayout } from "../src";
@@ -248,13 +245,12 @@ describe("a held frame's marks are the commit's (decision 0002)", () => {
     expect(t.byRails.empty ?? 0).toBeGreaterThan(2);
   });
 
-  // Pending #41 (`it.fails`): the held marks clip as seen; the one-layout change flips these.
-  it.fails("lanes(): along each lane, the hull of its held marks and the landing is its edge in the commit, within its pad and 1 px", () => {
+  it("a held frame's lanes: along each lane, the hull of its held marks and the landing is its edge in the commit, within its pad and 1 px", () => {
     expect(t.hull.checked).toBeGreaterThan(20);
     expect(t.hull.bad).toEqual([]);
   });
 
-  it.fails("lanes(): on every frame, as seen and held, a corner of two drawn lanes is drawn by the edge that owns it, and by no other lane", () => {
+  it("a held frame's lanes: on every frame, as seen and held, a corner of two drawn lanes is drawn by the edge that owns it, and by no other lane", () => {
     expect(t.corner.corners).toBeGreaterThan(200);
     expect(t.corner.bad).toEqual([]);
   });
@@ -283,7 +279,7 @@ describe("the lab window, 1080 px wide, both side rails holding a toolbar, a too
     expect([top.rect.x, top.rect.x + top.rect.width]).toEqual([30, 1050]);
   });
 
-  it.fails("held, the top bar's box runs the full width, x 0 to 1080, as the commit's bar does; the rails' marks start below it", () => {
+  it("held, the top bar's box runs the full width, x 0 to 1080, as the commit's bar does; the rails' marks start below it", () => {
     expect(top.spots.length).toBeGreaterThan(0);
     for (const sp of top.spots) {
       const held = d.regionsFor(sp.id);

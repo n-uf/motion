@@ -8,8 +8,8 @@
  * fixed pitch over those stretches instead (`SPOT_PITCH`), so a toolbar lands close to the hand. Each spot keys where its drop draws the other items (a change between two spots
  * with the same key moves only the held item), and each lane carries its place guides' marks in the layout as drawn.
  * Each spot has a stretch of the lane that picks it. In a panel column, between two spots that share a neighbor (the
- * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (in the held spot's own layout with
- * `options.spot`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
+ * item `Y` in `X|Y` and `Y|Z`), the boundary is that item's middle as drawn (with a spot held, in that spot's own layout:
+ * `dockDrag`'s `spotsOf`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
  * other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the
  * landing it picks and a toolbar moved along an occupied lane stays at the hand. On a bar or a toolbar rail, two landings
  * that overlap (spots a pitch apart, the pointer inside both) are cut where the item is held (`options.grab`): halfway
@@ -18,7 +18,8 @@
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
- * their ring. Remembered per state and options; a call with `spot` reworks only the held lane's stretches.
+ * their ring. Remembered per state and options. The one layout of each state of the drag (a held frame and its commit)
+ * is `dockDrag`'s (./drag), built on these.
  */
 import { EPS, clamp, rect, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, moveTo, type DockPlace } from "./changes";
@@ -112,8 +113,8 @@ export interface LaneRefusal {
  * aside when the lane opens. Never a box or a line over an item drawn there, nor anything over the held one; nothing in
  * a refused stretch; no two edge lanes' marks overlap (at a corner a lane not drawn gives way to a drawn one, and
  * between two not drawn the bar owns it; a virtual lane, a new column's line or a declared rail, is drawn over what it
- * would push). As seen (no `spot`) the lifted item is drawn nowhere, so its own place is free room
- * in its lane; with `spot`, every lane's marks lie in that spot's layout (the held item there, its room open).
+ * would push). Marks lie in one layout: as seen the lifted item is drawn nowhere, so its own place is free room in its
+ * lane; in a state's layout (`after(state)`) every lane's marks lie in that layout, the held item where it draws it.
  */
 export interface DockMark {
   /**
@@ -141,21 +142,10 @@ export interface DockLane {
   readonly spots: readonly DockSpot[];
   readonly refused: readonly LaneRefusal[];
   /**
-   * Its place guides' marks, in the layout as drawn (the held spot's, with `options.spot`). An edge lane empty as seen
-   * with one spot (or one sliding spot) is the exception (`emptyLanes: "real"`, no `spot`): its marks are predicted, in
-   * the after-entry layout of that spot, the same marks `lanes(…, { spot })` gives it once held. Where that prediction
-   * overlaps another lane's marks (a corner two empty lanes share, a drawn rail's end) it gives the overlap up here: to
-   * every lane not predicted, and between two predicted lanes the bar owns the corner. `entry` keeps it whole.
+   * Its place guides' marks as seen: in the window as seen, the held item drawn nowhere (its own place is free room).
+   * A held frame's marks, and the guides of a frame, are `dockDrag(...).after(state)` and `guides(frame)`'s (./drag).
    */
   readonly marks: readonly DockMark[];
-  /**
-   * The predicted marks whole, each corner they share owned (`marks` less nothing), where `marks` gave some of them up:
-   * what a landing model shows for this lane while it is the lane the pointer picks (held, pending or approached), the
-   * other lanes' marks cut where they overlap it. Absent where `marks` is the whole prediction, or nothing is predicted.
-   */
-  readonly entry?: readonly DockMark[];
-  /** The lanes whose marks `entry` overlaps (the ones it gave the overlap up to in `marks`), with `entry`. */
-  readonly corners?: readonly string[];
   /**
    * Its rect is its own: a rail drop strip at the window's side (`DockState.railDrop`), which every other target of the drag
    * gives up. A landing model gives it the pointer inside it over any lane it overlaps (a flush column's edge).
@@ -203,12 +193,9 @@ export interface DockLaneOptions extends DockDropOptions {
   readonly stretchPositions?: "free" | "pitched";
   /** Under `"free"`, how near a snap point a landing snaps to it, px (default 8). */
   readonly snapDistance?: number;
-  /** The spot held now: its lane's stretches are drawn in its own layout (the room open). Default: the layout as seen. */
-  readonly spot?: string;
   /**
    * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
-   * takes): the press's, constant for the drag (each grab is remembered as its own options), and the same in the call
-   * with `spot`. It counts along the item's own length only (its longer side as it is now): on a bar or a toolbar rail
+   * takes): the press's, constant for the drag (each grab is remembered as its own options). It counts along the item's own length only (its longer side as it is now): on a bar or a toolbar rail
    * along that axis the cut between two overlapping landings lies halfway between the points the pointer would hold in
    * each (with landings of one length; at the same share of each), kept within half a pitch of their overlap, so a
    * pointer back at its press point picks the item's own place; landings with a gap between them (either side of a long
@@ -336,8 +323,6 @@ export interface Base {
   /** Where the pointer holds the item, as a share of its width and height (0.5 each without `options.grab`). */
   readonly share: { readonly x: number; readonly y: number };
   readonly marking: Marking;
-  /** The lanes whose marks as seen are predicted (an empty lane's, in its spot's after-entry layout). */
-  readonly predicted: ReadonlySet<string>;
 }
 
 /** What a lane's marks read beyond its spots. */
@@ -348,12 +333,6 @@ interface Marking {
   readonly natural: (id: string, axis: Axis) => number | undefined;
   /** The edge's own gap between items, px: room no larger than it between two items is none (they touch). */
   readonly gap: (edge: string) => number;
-  /**
-   * The layout as seen with the held item lifted (what the window showed before this drop): what `givesWay` compares a
-   * drop's layout with while a spot is held (the marks are drawn in the spot's layout, where a neighbor has already
-   * stepped down); without one, the marks' own layout is the one compared with.
-   */
-  readonly lifted: DockLayout;
   /**
    * The edges drawn in `over` standing across `edge`'s axis that take the held item (it has a lane there), their rects:
    * the ones an empty `edge`'s lane gives way to. A drawn edge that refuses the item leaves the corner to `edge`.
@@ -388,7 +367,7 @@ const previousIds = new WeakMap<DockLayout, number>();
 let nextPrevious = 1;
 /** The options as a key: by value, `previous` by identity. */
 function keyOf(dragged: string, o: DockLaneOptions): string {
-  const { previous, spot: _spot, ...rest } = o;
+  const { previous, ...rest } = o;
   let p = 0;
   if (previous) {
     if (!previousIds.has(previous)) previousIds.set(previous, nextPrevious++);
@@ -400,45 +379,15 @@ function keyOf(dragged: string, o: DockLaneOptions): string {
 /**
  * The lanes and regions of a drag of `dragged`: every lane that takes it with its spots and stretches, the refused
  * places outside lanes, the content and what blocks it, the stage, the float region, the item's size and the float
- * target. Remembered per state and options (`previous` by identity); with `spot`, only the held lane's stretches are
- * worked out again, in that spot's own layout.
+ * target, each lane's marks as seen (at rest, the held item drawn nowhere). Remembered per state and options (`previous`
+ * by identity). A held frame's lanes are `dockDrag(...).after(state)`'s (./drag).
  */
 export function lanes(state: DockState, dragged: string, options: DockLaneOptions = {}): DockRegions {
   const base = baseOf(state, dragged, options);
-  if (!options.spot) return { ...base.regions, lanes: base.lanes };
-  // The held spot: its lane's stretches in its own layout; the other lanes as seen.
-  const found = [...base.raws].find(([, rs]) => rs.some((r) => r.id === options.spot));
-  if (!found) return { ...base.regions, lanes: base.lanes };
-  const [heldLane, list] = found;
-  const held = list.find((r) => r.id === options.spot)!;
-  // The held lane in its spot's own layout; every other lane keeps its stretches but takes its marks in that layout too
-  // (the room open there can move a whole edge), and no two lanes' marks overlap in it.
-  // (A prediction as seen, `entry` and `corners`, has no place here: every lane is drawn in the held spot's layout.)
-  const rebuilt = base.lanes.map((l) => {
-    const raws = base.raws.get(l.id);
-    if (!raws) return asDrawn(l);
-    // (A sliding spot's item is drawn wherever the hand is: its stretch stays one box, the item drawn nowhere on it.)
-    const again = l.id === heldLane ? heldLaneIn(l.id, raws, held, base, dragged) : laneFrom(l.id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, false, true);
-    if (!again) return asDrawn(l);
-    return l.id === heldLane ? again : { ...asDrawn(l), marks: again.marks };
-  });
-  // Every lane's marks are clipped to its rect over the layout they are drawn in (the spot's, where its drop may move an
-  // edge); its hit rect stays as seen.
-  const drawn = rebuilt.map((l) => settle(l, held.layout, state, dragged, rebuilt, options.emptyLanes, base.raws.get(l.id) ? laneRectOver(base.raws.get(l.id)!, held.layout, base.seen, base.marking).rect : l.rect));
-  // An empty lane's marks don't change when another lane is entered, but for the corner: every other lane whose marks
-  // as seen are predicted keeps them (in its own after-entry layout, not the held spot's, where it is still empty and
-  // would be cut at the columns that move aside once it opens), less the held lane's marks, which own their corners.
-  const heldMarks = drawn.find((l) => l.id === heldLane)?.marks.map((m) => m.rect) ?? [];
-  return {
-    ...base.regions,
-    lanes: drawn.map((l, i) => {
-      if (l.id === heldLane || !base.predicted.has(l.id)) return l;
-      return { ...l, marks: marksLess(base.lanes[i]!.marks, l.axis, heldMarks) };
-    }),
-  };
+  return { ...base.regions, lanes: base.lanes };
 }
 
-/** The drag's base, remembered per state and options (`previous` by identity; `spot` aside). Internal to the package. */
+/** The drag's base, remembered per state and options (`previous` by identity). Internal to the package. */
 export function baseOf(state: DockState, dragged: string, options: DockLaneOptions = {}): Base {
   const key = keyOf(dragged, options);
   let perState = memo.get(state);
@@ -467,8 +416,8 @@ export function marksIn(base: Base, state: DockState, dragged: string, layout: D
   const on = heldEdge && !heldEdge.floating && !heldEdge.inMenu ? heldEdge.edge : undefined;
   const built = base.lanes.flatMap((l) => {
     const raws = base.raws.get(l.id);
-    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on, false, l.id === on && held === "slide" ? MIN_BOX : undefined) : null;
-    return again ? [{ lane: again, over: laneRectOver(raws!, layout, layout, base.marking).rect }] : [];
+    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on, l.id === on && held === "slide" ? MIN_BOX : undefined) : null;
+    return again ? [{ lane: again, over: laneRectOver(raws!, layout, base.marking).rect }] : [];
   });
   const over = built.map(({ lane, over: r }) => ({ ...lane, rect: r }));
   return built.map(({ lane, over: r }) => {
@@ -490,18 +439,6 @@ export function rawSpot(base: Base, id: string): { readonly lane: string; readon
     if (r) return { lane, target: r.target, layout: r.layout, ...(r.home ? { home: true as const } : {}), ...(r.slide ? { slide: true } : {}) };
   }
   return null;
-}
-
-/** A lane without the prediction as seen (`entry`, `corners`). */
-function asDrawn(l: DockLane): DockLane {
-  if (!l.entry && !l.corners) return l;
-  const { entry: _entry, corners: _corners, ...rest } = l;
-  return rest;
-}
-
-/** The held spot's lane in that spot's own layout, before `settle`: the one rule its mark and its prediction read. */
-function heldLaneIn(id: string, raws: readonly Raw[], held: Raw, base: Pick<Base, "seen" | "refusals" | "halves" | "share" | "marking">, dragged: string): DockLane | null {
-  return laneFrom(id, raws, held.layout, base.seen, dragged, base.refusals, base.halves.has(id), base.share, base.marking, !held.slide, true);
 }
 
 function build(state: DockState, dragged: string, options: DockLaneOptions): Base {
@@ -564,7 +501,6 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
       return main?.grows ? main.natural : undefined;
     },
     gap: (edge) => nonNeg(state.edges.find((e) => e.id === edge)?.gap),
-    lifted,
     crossing: (edge, over) => state.edges.filter((e) => e.id !== edge && byLane.has(e.id) && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
   };
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
@@ -575,12 +511,9 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const h = own?.rect.height ?? 0;
   const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is DockLane => !!l);
-  const settled = built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes));
-  // An empty lane's guide before entry is its mark after entry: an edge lane empty as seen with one spot takes its marks
-  // in that spot's own layout, as `lanes(…, { spot })` draws them once it is held. Solved here, once per lift.
-  const laneList = options.emptyLanes === "edge" ? settled : predict(settled, byLane, { seen, refusals: rs, halves, share, marking }, state, dragged, built, options.emptyLanes);
-  // (`predict` gives back a lane it predicts as a new object, every other one as it was.)
-  const predicted = new Set(laneList.filter((l, i) => l !== settled[i]).map((l) => l.id));
+  // Each lane's marks as seen: the window as seen is one layout (`marksIn`'s rule over it), the held item drawn nowhere.
+  // `dockDrag`'s rest reads these.
+  const laneList = built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes));
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -599,7 +532,6 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     halves,
     share,
     marking,
-    predicted,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
       content: floatRegion(state, dragged),
@@ -619,11 +551,10 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
  * band is clipped along its axis to stop at that edge's side, so a pointer on the drawn edge is in that edge's lane.
  * Between two edges not drawn the corner is as it was. `band`: the band whole, for an empty edge.
  *
- * Whether and where the lane gives way is read from the layout as seen (`seen`), one rule for its hit rect and its
- * marks: a held spot's drop draws its empty edge (`over`) and may move the edges across it, but the lane the pointer is
- * in stays as seen, so its marks stop where its hit rect does.
+ * One layout (decision 0002): whether and where the lane gives way is read in `over` itself. Over the layout as seen it
+ * is the lane's hit rect; over a state's layout, the rect its marks are clipped to there.
  */
-function laneRectOver(list: readonly Raw[], over: DockLayout, seen: DockLayout, marking: Marking): { rect: Rect; band?: Rect } {
+function laneRectOver(list: readonly Raw[], over: DockLayout, marking: Marking): { rect: Rect; band?: Rect } {
   const first = list[0]!;
   const axis = first.axis;
   const edgeLayout = first.edge ? over.edges[first.edge] : undefined;
@@ -631,21 +562,21 @@ function laneRectOver(list: readonly Raw[], over: DockLayout, seen: DockLayout, 
   if (!edgeLayout) return { rect: list.every((r) => r.strip) ? list.map((r) => r.hit).reduce(hull) : list.map((r) => r.hit).reduce(hull, band) };
   const drawnHere = edgeLayout.cross > EPS;
   const whole = drawnHere ? edgeLayout.rect : axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
-  const emptyAsSeen = (seen.edges[first.edge!]?.cross ?? 0) <= EPS;
-  const clipped = emptyAsSeen ? clipAtDrawn(whole, axis, marking.crossing(first.edge!, seen)) : whole;
-  return drawnHere ? { rect: clipped } : { rect: clipped, band: whole };
+  return drawnHere ? { rect: whole } : { rect: clipAtDrawn(whole, axis, marking.crossing(first.edge!, over)), band: whole };
 }
 
 /**
- * One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches.
- * `spotHeld`: `drawn` is a held spot's layout (`options.spot`).
+ * One lane from its spots: its hit rect and its spots in order with their stretches (both as seen; a panel column cut
+ * by halves of what `drawn` draws), its refused stretches, and its marks in `drawn`: the held item among its items where
+ * `showsHeld` (a spot's layout that draws it here), else drawn nowhere; each neighbor's giving way judged in `drawn`.
+ * `besideFloor`: the shortest room beside the held item that is a box (a sliding spot's: any).
  */
-function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false, spotHeld = false, besideFloor?: number): DockLane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, showsHeld = false, besideFloor?: number): DockLane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
   // The lane's rect as seen, and the band an empty edge's marks are laid over (`settle` cuts them at the drawn edges).
-  const { rect: laneRect, band: markBand } = laneRectOver(list, seen, seen, marking);
+  const { rect: laneRect, band: markBand } = laneRectOver(list, seen, marking);
   // In order; one landing is one spot (the item's own place where it is one of them); one id is one spot.
   // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
   const firstOf = (r: Raw): Rect => r.slide?.first ?? r.landing;
@@ -738,7 +669,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
   // drawn nowhere on it (it is at the pointer or in another lane): its own place is free stretch like any other.
   const marked = first.edge
-    ? onEdge(drawn, first.edge, heldHere ? "" : dragged, axis).map((o) => {
+    ? onEdge(drawn, first.edge, showsHeld ? "" : dragged, axis).map((o) => {
         const n = o.id === dragged || halves ? undefined : marking.natural(o.id, axis);
         return n !== undefined && n < len(o.r, axis) ? { ...o, r: along(o.r, axis, lo(o.r, axis), lo(o.r, axis) + n) } : o;
       })
@@ -758,9 +689,8 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
         besideMin: besideFloor ?? (halves || marking.pitch <= 0 ? itemLen : marking.pitch),
         gap: marking.gap(first.edge),
         landingOf: (pair) => landings.get(pair),
-        // Judged against the layout the marks are drawn in; with a spot held, against the layout as seen with the held
-        // item lifted (in the spot's own a neighbor has already stepped down or moved).
-        givesWay: (iid, side, after) => givesWay((spotHeld ? marking.lifted : drawn).items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
+        // Judged against the layout the marks are drawn in: one layout, the screen's.
+        givesWay: (iid, side, after) => givesWay(drawn.items[iid], after.items[iid], id, side, (r) => extent(iid, r)),
       })
     : virtualMarks(id, unique, drawn.items[dragged]);
   return { id, rect: laneRect, axis, spots, refused, marks, ...(list.every((r) => r.strip) ? { owns: true as const } : {}) };
@@ -1013,59 +943,6 @@ export function marksLess(marks: readonly DockMark[], axis: Axis, cs: readonly R
     const kept = piecesLess(m.rect, axis, over);
     if (m.kind === "line") return kept.length === 1 && Math.abs(kept[0]![1] - kept[0]![0] - len(m.rect, axis)) < EPS ? [m] : [];
     return kept.map(([p, q], i) => ({ ...m, id: i ? `${m.id}~c${i}` : m.id, rect: along(m.rect, axis, p, q) }));
-  });
-}
-
-/**
- * An empty lane's guide is predicted: each edge lane empty as seen (not drawn there) with one spot, or one
- * sliding spot, takes its marks in the layout after that spot's drop (where the lane is drawn), worked out as the held
- * lane of `lanes(…, { spot })` is (`heldLaneIn`, then `settle` in that layout), so its guide before entry is its mark
- * after it. Every other lane keeps its marks as seen. Where a prediction overlaps another lane's marks, the prediction
- * gives the overlap up in `marks`: to a lane not predicted (a drawn rail's end, a virtual lane), and between two
- * predicted lanes to the bar (the earlier of two alike). `entry` keeps it whole and `corners` names those lanes, so a
- * landing model gives the corner to the lane the pointer picks.
- */
-function predict(
-  settled: readonly DockLane[],
-  byLane: ReadonlyMap<string, readonly Raw[]>,
-  base: Pick<Base, "seen" | "refusals" | "halves" | "share" | "marking">,
-  state: DockState,
-  dragged: string,
-  built: readonly DockLane[],
-  emptyLanes: "real" | "edge" | undefined,
-): DockLane[] {
-  const whole = new Map<string, readonly DockMark[]>();
-  for (const l of settled) {
-    const raws = byLane.get(l.id);
-    if (!raws || l.spots.length !== 1 || !state.edges.some((e) => e.id === l.id) || (base.seen.edges[l.id]?.cross ?? 0) > EPS) continue;
-    const held = raws.find((r) => r.id === l.spots[0]!.id);
-    // Only where its drop draws the lane: the layout `lanes(…, { spot })` draws its marks in.
-    if (!held || (held.layout.edges[l.id]?.cross ?? 0) <= EPS) continue;
-    const again = heldLaneIn(l.id, raws, held, base, dragged);
-    if (!again) continue;
-    const after = settle(again, held.layout, state, dragged, built, emptyLanes, laneRectOver(raws, held.layout, base.seen, base.marking).rect).marks;
-    // An edge that holds nothing else takes the item whole: in its after-entry layout the item fills it, so no room is
-    // left beside it and `edgeMarks` marks nothing. Before entry the lane keeps its box as seen (the room at real size);
-    // held, nothing lies over the item.
-    whole.set(l.id, after.length === 0 && l.marks.length > 0 ? l.marks : after);
-  }
-  if (whole.size === 0) return [...settled];
-  // The bars' predictions first (they own a corner they share with a predicted rail), then the others, in order.
-  const order = [...settled].filter((l) => whole.has(l.id)).sort((a, b) => (a.axis === b.axis ? 0 : a.axis === "x" ? -1 : 1));
-  const final = new Map<string, readonly DockMark[]>(settled.filter((l) => !whole.has(l.id)).map((l) => [l.id, l.marks]));
-  const meets = new Map<string, string[]>();
-  for (const l of order) {
-    const mine = whole.get(l.id)!;
-    const others = [...final].filter(([id, ms]) => id !== l.id && ms.some((m) => mine.some((x) => overlaps(x.rect, m.rect))));
-    meets.set(l.id, others.map(([id]) => id));
-    final.set(l.id, marksLess(mine, l.axis, others.flatMap(([, ms]) => ms.map((m) => m.rect))));
-  }
-  return settled.map((l) => {
-    const marks = final.get(l.id)!;
-    const mine = whole.get(l.id);
-    if (!mine) return l;
-    const corners = meets.get(l.id)!;
-    return corners.length > 0 ? { ...l, marks, entry: mine, corners } : { ...l, marks };
   });
 }
 

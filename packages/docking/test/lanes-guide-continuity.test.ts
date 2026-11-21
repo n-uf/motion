@@ -12,7 +12,7 @@
 import { guideRects } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { lanes, solve, type DockRegions } from "../src";
+import { dockDrag, solve, type DockRegions } from "../src";
 import { modelOver, type DrawnFrame } from "./landing-model";
 import { dragOf, windows, type Drag } from "./lift-windows";
 
@@ -229,37 +229,46 @@ describe("the corner under \"all\" goes to the lane nearest the pointer within r
   });
 });
 
-describe("lanes(): an empty lane's marks in its spot's after-entry layout", () => {
+describe("guides(): a lane the screen doesn't draw is drawn in the layout that creates it (rule B)", () => {
   // The lab's window with every panel on the left: the top bar and the right rail empty, the right rail beside nothing.
   const w = windows().find((x) => x.name === "lab: every panel on the left, tools")!;
   const d = dragOf(w)!;
   const lane = (id: string) => d.regions.lanes.find((l) => l.id === id)!;
+  /** A lane's one spot held at its listed landing (the layout that creates it): its marks there, and the landing. */
+  const entryOf = (id: string) => {
+    const sp = lane(id).spots[0]!;
+    const a = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } });
+    return [...a.marks.filter((m) => m.lane === id).map((m) => m.rect), ...(a.landing ? [a.landing] : [])];
+  };
+  const atRest = (...ids: string[]) => d.drag.guides({ state: null, guides: ids.map((id) => ({ lane: id, state: null })) });
+  const spanOf = (rs: readonly Rect[], axis: "x" | "y"): [number, number] => [Math.min(...rs.map((r) => r[axis])), Math.max(...rs.map((r) => r[axis] + (axis === "x" ? r.width : r.height)))];
 
-  it("the empty top bar's box lies over the left column, as its mark does once entered (one box, not cut at the column)", () => {
-    const top = lane("top");
-    const entered = d.regionsFor(top.spots[0]!.id).lanes.find((l) => l.id === "top")!;
-    expect(top.marks).toEqual(entered.marks);
-    expect(top.marks.map((m) => [m.id, m.rect.x, m.rect.width])).toEqual([["top/box/^|$", 30, 1050]]);
+  it("at rest the empty top bar's guide is its room whole once entered (its marks there and the landing): over the left column, not cut at it", () => {
+    expect(spanOf(atRest("top").map((m) => m.rect), "x")).toEqual(spanOf(entryOf("top"), "x"));
+    expect(atRest("top").every((m) => m.kind === "box")).toBe(true);
+    expect(Math.min(...atRest("top").map((m) => m.rect.x))).toBeLessThan(lane("top").rect.x + 1);
   });
 
-  it("the empty right rail gives the corner to the bar in its marks, keeps it in `entry`, and names the bar in `corners`", () => {
-    const rail = lane("rail-right");
-    const entered = d.regionsFor(rail.spots[0]!.id).lanes.find((l) => l.id === "rail-right")!;
-    expect(rail.entry).toEqual(entered.marks);
-    expect(rail.corners).toEqual(["top"]);
-    expect(rail.marks.map((m) => [m.id, m.rect.y])).toEqual([["rail-right/box/^|$", 64]]);
-    expect(rail.entry!.map((m) => [m.id, m.rect.y])).toEqual([["rail-right/box/^|$", 32]]);
+  it("between the two empty lanes the bar keeps the corner; the rail, Near, takes it", () => {
+    const both = atRest("top", "rail-right");
+    const rail = both.filter((m) => m.lane === "rail-right");
+    const top = both.filter((m) => m.lane === "top");
+    for (const r of rail) for (const t of top) expect(r.rect.y >= t.rect.y + t.rect.height - 1e-6 || r.rect.x >= t.rect.x + t.rect.width - 1e-6).toBe(true);
+    const sp = lane("rail-right").spots[0]!;
+    const near = d.drag.guides({ state: null, guides: [{ lane: "top", state: null }, { lane: "rail-right", state: { kind: "spot", spot: sp.id, point: { x: sp.landing.x + 1, y: sp.landing.y + 1 } } }] });
+    // Near, its guide and the landing it would take there run up into the corner the bar kept at rest.
+    const would = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + 1, y: sp.landing.y + 1 } }).landing!;
+    const railNear = [...near.filter((m) => m.lane === "rail-right").map((m) => m.rect), would];
+    expect(Math.min(...railNear.map((r) => r.y))).toBeLessThan(Math.min(...rail.map((m) => m.rect.y)) - 1);
   });
 
-  it("a lane that holds items has no prediction; with a spot held no lane has one", () => {
-    expect(lane("rail-left").entry).toBeUndefined();
-    expect(lane("bottom").entry).toBeUndefined();
-    for (const l of d.regionsFor(lane("rail-right").spots[0]!.id).lanes) expect([l.id, l.entry, l.corners]).toEqual([l.id, undefined, undefined]);
+  it("a lane the screen draws keeps the screen's marks", () => {
+    for (const id of ["rail-left", "bottom"]) expect(atRest(id)).toEqual(lane(id).marks.map((m) => ({ ...m, lane: id })));
   });
 
-  it('`emptyLanes: "edge"` predicts nothing: the thin strips as seen', () => {
-    const edge = lanes(w.state, w.dragged, { ...d.options, emptyLanes: "edge" });
-    for (const l of edge.lanes) expect(l.entry).toBeUndefined();
-    expect(edge.lanes.find((l) => l.id === "top")!.marks.every((m) => m.kind === "hatch")).toBe(true);
+  it('`emptyLanes: "edge"` creates nothing: the thin strips as seen', () => {
+    const edge = dockDrag(w.state, w.dragged, { ...d.options, emptyLanes: "edge" });
+    const g = edge.guides({ state: null, guides: [{ lane: "top", state: null }] });
+    expect(g.length > 0 && g.every((m) => m.kind === "hatch")).toBe(true);
   });
 });

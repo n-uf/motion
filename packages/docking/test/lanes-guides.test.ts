@@ -6,7 +6,7 @@ import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { HATCH_EDGE, HATCH_END, solve, SPOT_PITCH, type DockState, type DockItem } from "../src";
-import { dockDrag, lanes } from "./pitched-lanes";
+import { dockDrag, heldLanes, lanes } from "./pitched-lanes";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { modelState } from "./model-window";
 import { bar, byId, column, controls, group, panel, title } from "./fixture";
@@ -108,7 +108,7 @@ describe("lanes(): guide marks", () => {
         check(seen.lanes, prev, "seen");
         for (const l of seen.lanes.slice(0, 3)) {
           const sp = l.spots[Math.floor(l.spots.length / 2)]!;
-          const held = lanes(s, id, { previous: prev, spot: sp.id });
+          const held = heldLanes(s, id, { previous: prev }, sp.id);
           check(held.lanes.filter((x) => x.id === l.id), sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, sp.id);
         }
       }
@@ -209,7 +209,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       for (const id of TOOLBARS)
         for (const l of lanes(s, id, { previous }).lanes.filter((x) => !x.id.includes(":")))
           for (const sp of l.spots) {
-            const held = lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === l.id)!;
+            const held = heldLanes(s, id, { previous }, sp.id).lanes.find((x) => x.id === l.id)!;
             const mid = (r: Rect): number => (l.axis === "x" ? r.x + r.width / 2 : r.y + r.height / 2);
             for (const o of held.spots) {
               const p = pairOf(o.id);
@@ -237,7 +237,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       const l0 = lanes(s, id, { previous }).lanes.find((x) => x.id === laneId)!;
       let besides = 0;
       for (const sp of l0.spots) {
-        const held = lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!;
+        const held = heldLanes(s, id, { previous }, sp.id).lanes.find((x) => x.id === laneId)!;
         const room = held.marks.filter((m) => m.kind === "box" && /:(before|after)/.test(m.id));
         besides += room.length;
         for (const m of room) {
@@ -265,7 +265,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     ] as const) {
       const l0 = lanes(s, id, { previous }).lanes.find((x) => x.id === laneId)!;
       // Along the lane in order: every spot held in turn, the ids of the boxes beside it on each.
-      const seq = l0.spots.map((sp) => new Set(lanes(s, id, { previous, spot: sp.id }).lanes.find((x) => x.id === laneId)!.marks.filter((m) => m.kind === "box" && /:(before|after)/.test(m.id)).map((m) => m.id)));
+      const seq = l0.spots.map((sp) => new Set(heldLanes(s, id, { previous }, sp.id).lanes.find((x) => x.id === laneId)!.marks.filter((m) => m.kind === "box" && /:(before|after)/.test(m.id)).map((m) => m.id)));
       const all = new Set(seq.flatMap((x) => [...x]));
       for (const mid of all) {
         // Present on one run of consecutive spots: never goes and comes back while the item glides one way.
@@ -287,7 +287,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     const t0 = previous.items.title!.rect;
     const sp = l0.spots.find((x) => x.landing.x >= t0.x + natural + 2 * SPOT_PITCH && x.landing.x <= t0.x + natural + 4 * SPOT_PITCH)!;
     expect(sp, l0.spots.map((x) => `${x.id}@${Math.round(x.landing.x)}`).join(" ")).toBeDefined();
-    const held = lanes(s, "zoom", { previous, spot: sp.id }).lanes.find((x) => x.id === "title")!;
+    const held = heldLanes(s, "zoom", { previous }, sp.id).lanes.find((x) => x.id === "title")!;
     const t = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout.items.title!.rect;
     const head = held.marks.find((m) => m.kind === "box" && m.id.endsWith(":before"))!;
     expect(head, held.marks.map((m) => m.id).join()).toBeDefined();
@@ -311,7 +311,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     expect(boxes[0]!.rect.x + boxes[0]!.rect.width).toBeCloseTo(previous.items.controls!.rect.x, 3);
     // With its own place held (the room open there), it is drawn there again and splits the stretch.
     const home = title.spots.find((x) => x.home)!;
-    const held = lanes(s, "zoom", { previous, spot: home.id }).lanes.find((x) => x.id === "title")!;
+    const held = heldLanes(s, "zoom", { previous }, home.id).lanes.find((x) => x.id === "title")!;
     expect(held.marks.filter((m) => m.kind === "box").every((m) => /:(before|after)/.test(m.id))).toBe(true);
   });
 
@@ -354,7 +354,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       // Under a pitch: a line, never a sliver box.
       if (room < SPOT_PITCH - 0.5) expect(here.map((m) => m.kind), `width ${w}`).toEqual(here.length ? ["line"] : []);
       for (const sp of top.spots) {
-        const held = lanes(b, "g", { previous: prev, spot: sp.id }).lanes.find((x) => x.id === "top")!;
+        const held = heldLanes(b, "g", { previous: prev }, sp.id).lanes.find((x) => x.id === "top")!;
         cues(`width ${w} held at ${sp.id}`, held, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, "g");
       }
     }
@@ -372,7 +372,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
       const previous = solve(s);
       for (const id of TOOLBARS) {
         const sets: [string, ReturnType<typeof lanes>["lanes"]][] = [["seen", lanes(s, id, { previous }).lanes]];
-        for (const l of lanes(s, id, { previous }).lanes) for (const sp of l.spots) sets.push([sp.id, lanes(s, id, { previous, spot: sp.id }).lanes]);
+        for (const l of lanes(s, id, { previous }).lanes) for (const sp of l.spots) sets.push([sp.id, heldLanes(s, id, { previous }, sp.id).lanes]);
         for (const [at, ls] of sets) {
           const all = ls.flatMap((l) => l.marks.map((m) => ({ lane: l.id, m })));
           for (let i = 0; i < all.length; i++)
@@ -430,7 +430,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
           const sets: [string, typeof base.lanes, ReturnType<typeof solve>][] = [["seen", base.lanes, previous]];
           for (const l of base.lanes.slice(0, 4)) {
             const sp = l.spots[Math.floor(l.spots.length / 2)];
-            if (sp) sets.push([sp.id, lanes(s, id, { previous, emptyLanes, spot: sp.id }).lanes, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout]);
+            if (sp) sets.push([sp.id, heldLanes(s, id, { previous, emptyLanes }, sp.id).lanes, sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout]);
           }
           for (const [at, ls, drawn] of sets) {
             const stays = Object.entries(drawn.items).filter(([iid, it]) => iid !== id && toolbarEdge(it.edge) && !it.floating && !it.inMenu && it.rect.width > 0 && it.rect.height > 0);
@@ -501,7 +501,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     const previous = solve(s);
     const sp = lanes(s, "views", { previous }).lanes.find((x) => x.id === "rail-left")!.spots.find((x) => x.id === "rail-left/start/zoom|$")!;
     const drawn = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
-    const held = lanes(s, "views", { previous, spot: sp.id }).lanes.find((x) => x.id === "rail-left")!;
+    const held = heldLanes(s, "views", { previous }, sp.id).lanes.find((x) => x.id === "rail-left")!;
     // The rail starts 36 px higher with the top bar empty: its head mark lies above the rail as first seen.
     expect(drawn.edges["rail-left"]!.rect.y).toBeLessThan(previous.edges["rail-left"]!.rect.y);
     expect(held.marks.map((m) => markPair(m.id))).toContain("^|tools");

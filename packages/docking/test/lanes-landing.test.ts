@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import type { Point } from "@n-uf/placement";
 import { solve, SPOT_PITCH, type DockState, type DockItem } from "../src";
 import { modelOver, type DrawnFrame as LandingFrame, type HostModel } from "./landing-model";
-import { dockDrag, lanes } from "./pitched-lanes";
+import { dockDrag, heldLanes, lanes } from "./pitched-lanes";
 import { bar, byId, column, controls, group, panel, title } from "./fixture";
 
 /** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
@@ -213,7 +213,7 @@ describe("back at its press point, an item lands home wherever it was pressed", 
     for (const id of toolbars)
       for (const share of SHARES) {
         const { press, grab, axis } = pressAt(id, share);
-        for (const rs of [lanes(sc, id, { previous, grab }), lanes(sc, id, { previous, grab, spot: homeOf(lanes(sc, id, { previous, grab }))!.spot.id })]) {
+        for (const rs of [lanes(sc, id, { previous, grab }), heldLanes(sc, id, { previous, grab }, homeOf(lanes(sc, id, { previous, grab }))!.spot.id)]) {
           const h = homeOf(rs)!;
           const a = axis === "x" ? press.x : press.y;
           if (a < h.spot.along[0] || a > h.spot.along[1]) misses.push(`${id} at ${share}: ${Math.round(a)} outside ${h.spot.along.map(Math.round).join("–")}`);
@@ -239,7 +239,7 @@ describe("back at its press point, an item lands home wherever it was pressed", 
         expect(columns(lanes(sc, id, { previous, grab: g })), id).toEqual(columns(lanes(sc, id, { previous })));
         // With a spot held (its room open) too.
         for (const l of lanes(sc, id, { previous }).lanes.filter((x) => x.id === "left" || x.id === "right"))
-          for (const s of l.spots) expect(columns(lanes(sc, id, { previous, grab: g, spot: s.id })), `${id} ${s.id}`).toEqual(columns(lanes(sc, id, { previous, spot: s.id })));
+          for (const s of l.spots) expect(columns(heldLanes(sc, id, { previous, grab: g }, s.id)), `${id} ${s.id}`).toEqual(columns(heldLanes(sc, id, { previous }, s.id)));
       }
     }
   });

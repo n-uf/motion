@@ -8,6 +8,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { dockDrag, lanes, solve, type DockEdge, type DockLane, type DockLaneOptions, type DockState } from "../src";
+import { heldLanes } from "./held-lanes";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { FLUSH, INSET, kitState } from "./kit-window";
@@ -58,7 +59,7 @@ describe("stretch positions: the default and pitched", () => {
         const free = lanes(s, id, { ...o, stretchPositions: "free" });
         expect(plain(free.lanes), `${name} ${id}`).toEqual(plain(def.lanes));
         for (const l of def.lanes.slice(0, 3))
-          for (const sp of l.spots.filter((x) => x.slide).slice(0, 2)) expect(plain(lanes(s, id, { ...o, stretchPositions: "free", spot: sp.id }).lanes), `${name} ${id} ${sp.id}`).toEqual(plain(lanes(s, id, { ...o, spot: sp.id }).lanes));
+          for (const sp of l.spots.filter((x) => x.slide).slice(0, 2)) expect(plain(heldLanes(s, id, { ...o, stretchPositions: "free" }, sp.id).lanes), `${name} ${id} ${sp.id}`).toEqual(plain(heldLanes(s, id, o, sp.id).lanes));
         expect(def.lanes.some((l) => l.spots.some((sp) => sp.pitched)), `${name} ${id}`).toBe(false);
       }
   });

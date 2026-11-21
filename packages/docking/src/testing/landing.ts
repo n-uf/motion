@@ -224,13 +224,7 @@ function handRule(row: LandingCase, before: DockLayout | undefined, stretchPosit
   const own = previous.items[row.item];
   const press = row.path[0]!;
   const options: DockLaneOptions = { previous, ...(own ? { grab: { x: press.x - own.rect.x, y: press.y - own.rect.y } } : {}), ...(stretchPositions ? { stretchPositions } : {}) };
-  const bySpot = new Map<string, DockRegions>();
-  /** The lanes with `spot` held (its room open), or as seen (`""`). */
-  const regionsOf = (spot: string): DockRegions => {
-    let r = bySpot.get(spot);
-    if (!r) bySpot.set(spot, (r = lanes(row.state, row.item, spot ? { ...options, spot } : options)));
-    return r;
-  };
+  const drag = dockDrag(row.state, row.item, options);
   return {
     /**
      * The grab's share along the lane, as the landing model takes it: of the item's longer side along the lane when it
@@ -243,10 +237,11 @@ function handRule(row: LandingCase, before: DockLayout | undefined, stretchPosit
       const g = long === "x" ? press.x - own.rect.x : press.y - own.rect.y;
       return axis === long && size > 0 && Number.isFinite(g) ? Math.min(1, Math.max(0, g / size)) : 0.5;
     },
-    /** The lane `lane` as drawn with `spot` held; as seen when the lane has no such spot (another host's ids). */
+    /** The lane `lane` with `spot` held (its stretches in that spot's layout, `spotsOf`); as seen when the lane has no such spot (another host's ids). */
     laneOf(lane: string, spot: string): DockLane | undefined {
-      const held = regionsOf(spot).lanes.find((l) => l.id === lane);
-      return held?.spots.some((s) => s.id === spot) ? held : regionsOf("").lanes.find((l) => l.id === lane);
+      const seen = drag.regions.lanes.find((l) => l.id === lane);
+      const spots = seen?.spots.some((s) => s.id === spot) ? drag.spotsOf(spot) : null;
+      return seen && spots ? { ...seen, spots } : seen;
     },
     /**
      * `g`, px: the gap along the lane between the facing edges of the two adjacent landings the pointer `p` lies between

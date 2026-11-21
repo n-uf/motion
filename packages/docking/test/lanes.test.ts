@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { refusals, solve, SPOT_PITCH, targets, type DockRegions, type DockState } from "../src";
-import { dockDrag, lanes } from "./pitched-lanes";
+import { dockDrag, heldLanes, lanes } from "./pitched-lanes";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { FLUSH, INSET, kitState } from "./kit-window";
@@ -166,7 +166,7 @@ describe("lanes() with a spot held", () => {
     const prev = solve(s);
     const left = lanes(s, "findings", { previous: prev }).lanes.find((l) => l.id === "left-0")!;
     for (const held of left.spots) {
-      const lane = lanes(s, "findings", { previous: prev, spot: held.id }).lanes.find((l) => l.id === "left-0")!;
+      const lane = heldLanes(s, "findings", { previous: prev }, held.id).lanes.find((l) => l.id === "left-0")!;
       const drawn = held.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
       const middles = ["annotations", "pages"].map((id) => drawn.items[id]!.rect).map((r) => r.y + r.height / 2);
       const cuts = lane.spots.slice(1).map((sp) => sp.along[0]);
@@ -181,7 +181,7 @@ describe("lanes() with a spot held", () => {
         const r = lanes(s, id, { previous: prev });
         for (const l of r.lanes)
           for (const held of l.spots.slice(0, 3)) {
-            const lane = lanes(s, id, { previous: prev, spot: held.id }).lanes.find((x) => x.id === l.id)!;
+            const lane = heldLanes(s, id, { previous: prev }, held.id).lanes.find((x) => x.id === l.id)!;
             const start = l.axis === "x" ? lane.rect.x : lane.rect.y;
             const end = start + (l.axis === "x" ? lane.rect.width : lane.rect.height);
             for (const sp of lane.spots) {
@@ -198,7 +198,7 @@ describe("lanes() with a spot held", () => {
     const a = lanes(s, "pages", { previous: prev });
     expect(lanes(s, "pages", { previous: prev }).lanes).toBe(a.lanes);
     const held = a.lanes.find((l) => l.id === "left-0")!.spots.find((sp) => !sp.home)!;
-    const b = lanes(s, "pages", { previous: prev, spot: held.id });
+    const b = heldLanes(s, "pages", { previous: prev }, held.id);
     const stretches = (l: (typeof a.lanes)[number]) => ({ id: l.id, rect: l.rect, spots: l.spots.map((sp) => [sp.id, sp.along]), refused: l.refused });
     for (const l of b.lanes) if (l.id !== "left-0") expect(stretches(l)).toEqual(stretches(a.lanes.find((x) => x.id === l.id)!));
   });

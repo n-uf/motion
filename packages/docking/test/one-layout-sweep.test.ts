@@ -281,8 +281,8 @@ function sweep(): Result {
             if (spanDiff(want.box, got.box) > 1e-6 || want.lines.join() !== got.lines.join()) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: guide ${JSON.stringify(got)} vs entry ${JSON.stringify(want)}`);
             if (mine.landing) for (const x of gs) if (x.lane === g.lane && x.kind !== "line" && inter(x.rect, mine.landing, 0.01)) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `${x.id} under the landing`);
           }
-          // created: under "all", a lane the screen doesn't draw (an empty edge, no band) shows its marks in the layout that
-          // creates it (its one spot's), but where it meets another lane's guide.
+          // created: under "all", a lane the screen doesn't draw (an empty edge, no band) shows its room whole in the layout
+          // that creates it (its one spot's: the marks there and the landing), but where it meets another lane's guide.
           if (mode === "all")
             for (const g of f.frame.named) {
               const l = d.regions.lanes.find((x) => x.id === g.lane);
@@ -293,9 +293,11 @@ function sweep(): Result {
               if (want.length === 0 || (made.layout.edges[g.lane]?.cross ?? 0) <= 1e-6) continue;
               count("created");
               const others = gs.filter((x) => x.lane !== g.lane).map((x) => x.rect);
-              const wanted = spans(want, l.axis).box;
+              const wanted = spans([...want, ...(made.landing ? [{ lane: g.lane, id: "landing", kind: "box" as const, rect: made.landing }] : [])], l.axis).box;
               const got = spans(gs.filter((x) => x.lane === g.lane), l.axis).box;
-              const inWanted = (v: number): boolean => wanted.some(([p, q]) => v >= p - 1 && v <= q + 1);
+              // (The room whole starts at the lane's end; a landing there starts past the edge's padding.)
+              const pd = Math.max(pad(s, g.lane).start, pad(s, g.lane).end) + 1;
+              const inWanted = (v: number): boolean => wanted.some(([p, q]) => v >= p - pd && v <= q + pd);
               const extra = got.some(([p, q]) => !inWanted(p + 0.5) || !inWanted(q - 0.5));
               // What it gives up lies under another lane's guide.
               const under = (v: number): boolean => others.some((r) => (l.axis === "x" ? v >= r.x - 1 && v <= r.x + r.width + 1 : v >= r.y - 1 && v <= r.y + r.height + 1));
