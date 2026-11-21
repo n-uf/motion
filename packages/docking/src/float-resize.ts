@@ -141,7 +141,7 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
  * it) and at most its `floatMax`; the float stays in the region floats lie in; every growing edge (a moving one, or the
  * end of an axis not moving) stops at what floats are kept clear of, as drawn now (across first, over its height now;
  * then along, over its new width), and such a stop beats the minimum. The rect is then laid by the one clamp `solve`
- * lays floats with, so `solve(resize(...))` draws exactly this rect. A float that already covers something (no clear
+ * lays floats with, so `solve(resizeFloat(...))` draws exactly this rect. A float that already covers something (no clear
  * place at its size) may move to a clear place once a resize opens one; the preview is still the commit, and
  * `"docked"` says so. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle stays
  * where it is drawn (`"docked"`), so a resize never covers more than the float did. `limits` says which of these bound it.
