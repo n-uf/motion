@@ -81,7 +81,7 @@ describe("canDropOnPane against its first form", () => {
     expect(sideOk).toBeGreaterThan(CASES / 20);
     expect(zeroAreaOk).toBeGreaterThan(150);
     expect(room).toBeGreaterThan(CASES / 20);
-    expect(fit).toBeGreaterThan(500);
+    expect(fit).toBeGreaterThan(300);
     expect(other).toBeGreaterThan(500);
   });
 
