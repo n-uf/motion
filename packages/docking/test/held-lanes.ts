@@ -5,7 +5,7 @@
  */
 import { dockDrag, type DockLaneOptions, type DockRegions, type DockState } from "../src";
 
-export function heldLanes(state: DockState, dragged: string, options: Omit<DockLaneOptions, "spot">, spot: string): DockRegions {
+export function heldLanes(state: DockState, dragged: string, options: DockLaneOptions, spot: string): DockRegions {
   const d = dockDrag(state, dragged, options);
   const lane = d.regions.lanes.find((l) => l.spots.some((s) => s.id === spot));
   const sp = lane?.spots.find((s) => s.id === spot);

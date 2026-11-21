@@ -8,6 +8,10 @@ import { describe, expect, it } from "vitest";
 import type { Rect } from "@n-uf/placement";
 import { lanes, solve, targets, type DockEdge, type DockState } from "../src";
 import { FLUSH, INSET, kitState, type KitShape } from "./kit-window";
+import { heldLanes } from "./held-lanes";
+
+/** The drag's lanes as seen, or with `spot` held (a held frame's: `after({ spot })`, `spotsOf`). */
+const lanesWith = (s: DockState, id: string, previous: ReturnType<typeof solve>, spot?: string) => (spot ? heldLanes(s, id, { previous }, spot) : lanes(s, id, { previous }));
 
 /** The kit-shaped window with both side columns declared (no `column: true`), so a lifted lone panel leaves its column. */
 function declared(k: KitShape, drop?: "left" | "right"): DockState {
@@ -26,7 +30,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
     const s = declared(k);
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes", "right-0/start"]) {
-      const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
+      const r = lanesWith(s, "findings", previous, spot);
       const right = r.lanes.filter((l) => l.id === "right-0" || l.id.startsWith("column:right"));
       expect(right.map((l) => l.id), `spot ${spot}`).toEqual(["right-0"]);
     }
@@ -36,7 +40,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
     const s = declared(k);
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
-      const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
+      const r = lanesWith(s, "findings", previous, spot);
       const marks = r.lanes.flatMap((l) => l.marks.map((m) => ({ lane: l.id, id: m.id, rect: m.rect })));
       const twins = marks.flatMap((a, i) => marks.slice(i + 1).filter((b) => a.lane !== b.lane && same(a.rect, b.rect)).map((b) => `${a.id} = ${b.id}`));
       expect(twins, `spot ${spot}`).toEqual([]);
@@ -54,7 +58,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
     const s: DockState = { ...kitState(k), sideColumns: "one" };
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
-      const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
+      const r = lanesWith(s, "findings", previous, spot);
       expect(r.lanes.filter((l) => l.id === "right-0" || l.id.startsWith("column:right")).map((l) => l.id), `spot ${spot}`).toEqual(["right-0"]);
     }
   });
@@ -65,7 +69,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
     const s: DockState = { ...base, items, edges: base.edges.map((e) => (e.side === "right" ? { ...e, items: [] } : e)) };
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
-      const r = lanes(s, "pages", { previous, ...(spot ? { spot } : {}) });
+      const r = lanesWith(s, "pages", previous, spot);
       expect(r.lanes.filter((l) => l.id === "right-0" || l.id.startsWith("column:right")).map((l) => l.id), `spot ${spot}`).toEqual(["right-0"]);
       const marks = r.lanes.flatMap((l) => l.marks.map((m) => ({ lane: l.id, id: m.id, rect: m.rect })));
       const twins = marks.flatMap((a, i) => marks.slice(i + 1).filter((b) => a.lane !== b.lane && same(a.rect, b.rect)).map((b) => `${a.id} = ${b.id}`));
@@ -78,7 +82,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
     const s = declared(k, "right");
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
-      const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
+      const r = lanesWith(s, "findings", previous, spot);
       expect(r.lanes.some((l) => l.id === "column:right:$"), `spot ${spot}`).toBe(true);
     }
   });
