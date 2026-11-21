@@ -70,7 +70,7 @@
     "@n-uf/placement": "workspace:*"
   },
   "peerDependencies": {
-    "@n-uf/motion": "workspace:*"
+    "@n-uf/motion": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@n-uf/motion": {
