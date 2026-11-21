@@ -2,17 +2,16 @@
  * The home hero's docking illustration: the lab's Document window (apps/lab/src/docwin), drawn static. A faithful, trimmed
  * copy of what the lab does, with its class names prefixed `hd-` (this site's home has its own `dw-` desk classes):
  *
- * - **The scene** is the lab's `defaultScene` (docwin/model.ts) of `@n-uf/placement/scene` today (a `DockState` of
- *   `@n-uf/docking` after the coming release): the title bar (a fixed title, the Zoom toolbar, the window controls), the
+ * - **The dock state** is the lab's `defaultState` (docwin/model.ts), a `DockState` of `@n-uf/docking`: the title bar (a fixed title, the Zoom toolbar, the window controls), the
  *   bottom bar (Views and Review), a left column (Pages above Notes), a right column (Findings) and Tools floating at the
  *   content's top-right corner. `solve` gives every rect and the form each item took at this size.
- * - **The drawing** is the lab's own markup (docwin/scene.ts: `inner`, `groupContent`, `body`, `head`, `itemHtml`) with the
+ * - **The drawing** is the lab's own markup (docwin/dock-state.ts: `inner`, `groupContent`, `body`, `head`, `itemHtml`) with the
  *   buttons as plain spans, and its CSS (styles/hero-doc.css, from docwin.css). Static: nothing in it is a control.
  * - **The group sizes** are what the lab measures from its rendered buttons on start (`measureGroups`); here they are
  *   measured once from this copy at the lab's font (12 px) and written down (`MEASURED`).
  */
 import type { Rect, Size } from "@n-uf/placement";
-import { solve, type Edge, type Scene, type SceneItem, type SceneLayout } from "@n-uf/placement/scene";
+import { solve, type DockEdge, type DockItem, type DockLayout, type DockState } from "@n-uf/docking";
 import type { StackForm } from "@n-uf/placement/stack";
 import { MEASURED, TITLE_SIZES } from "./hero-doc-measured";
 
@@ -80,15 +79,15 @@ const isGroup = (id: string): id is GroupId => (GROUPS as readonly string[]).inc
 const floatSize = (id: PanelId | GroupId): Size => (isPanel(id) ? { width: 260, height: 300 } : { width: m(id).row, height: BAR });
 const PRIORITY: Partial<Record<GroupId, number>> = { zoom: 10, review: 10 };
 
-function itemOf(id: ItemId, used: number): SceneItem {
-  if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSize: floatSize(id), used };
-  if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSize: floatSize(id), used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
+function itemOf(id: ItemId, used: number): DockItem {
+  if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSizes: { column: floatSize(id) }, used };
+  if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSizes: { row: floatSize(id) }, used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
   if (id === "title") return { id, kind: "chrome", forms: { row: [form("row", { min: 140, natural: 220, grows: true }, BAR)] }, used: 0, fixed: true };
   return { id, kind: "chrome", forms: { row: [form("row", 3 * 22 + 8, BAR)] }, used: 0, fixed: true, align: "end" };
 }
-const bar = (id: EdgeId, side: "top" | "bottom", ring: number, items: ItemId[]): Edge => ({ id, side, ring, accepts: ["group"], items, cross: { min: BAR, max: BAR, rail: BAR }, gap: 8, pad: { start: BAR_INSET, end: BAR_INSET } });
-const rail = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({ id, side, ring: 0, accepts: ["group"], items, cross: { min: RAIL, max: RAIL, rail: RAIL }, compact: true, gap: 4, pad: { start: 4, end: 4 } });
-const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
+const bar = (id: EdgeId, side: "top" | "bottom", ring: number, items: ItemId[]): DockEdge => ({ id, side, ring, accepts: ["group"], items, cross: { min: BAR, max: BAR, rail: BAR }, gap: 8, pad: { start: BAR_INSET, end: BAR_INSET } });
+const rail = (id: EdgeId, side: "left" | "right", items: ItemId[]): DockEdge => ({ id, side, ring: 0, accepts: ["group"], items, cross: { min: RAIL, max: RAIL, rail: RAIL }, compact: true, gap: 4, pad: { start: 4, end: 4 } });
+const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): DockEdge => ({
   id,
   side,
   ring: 1,
@@ -101,9 +100,9 @@ const column = (id: EdgeId, side: "left" | "right", items: ItemId[]): Edge => ({
 });
 
 /** The lab's default layout at `size`: Pages above Notes on the left, Findings on the right, Zoom in the title bar, Views and Review in the bottom bar, Tools floating at the content's top-right corner. */
-function defaultScene(size: Size): Scene {
+function defaultState(size: Size): DockState {
   const order: ItemId[] = ["findings", "review", "views", "zoom", "tools", "notes", "pages", "title", "controls"];
-  const items = Object.fromEntries(ALL.map((id) => [id, itemOf(id, order.indexOf(id) + 1)])) as Record<ItemId, SceneItem>;
+  const items = Object.fromEntries(ALL.map((id) => [id, itemOf(id, order.indexOf(id) + 1)])) as Record<ItemId, DockItem>;
   return {
     stage: { x: 0, y: 0, width: size.width, height: size.height },
     edges: [{ ...bar("title", "top", 0, ["title", "zoom", "controls"]), priority: -1 }, bar("top", "top", 1, []), column("left", "left", ["pages", "notes"]), column("right", "right", ["findings"]), bar("bottom", "bottom", 0, ["views", "review"]), rail("rail-left", "left", []), rail("rail-right", "right", [])],
@@ -113,7 +112,7 @@ function defaultScene(size: Size): Scene {
   };
 }
 
-// ---- The lab's markup (docwin/scene.ts), static ---------------------------------------------------------------------------
+// ---- The lab's markup (docwin/dock-state.ts), static ---------------------------------------------------------------------------
 const px = (n: number): string => `${Math.round(n * 100) / 100}px`;
 const esc = (t: string): string => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const badge = (n: number): string => `<span class="hd-badge">${n}</span>`;
@@ -155,7 +154,7 @@ const railTitle = (id: ItemId, side: "left" | "right"): string => {
   const c = countOf(id);
   return `<span class="hd-railbtn hd-railtitle hd-rt-${side}"><span class="hd-rt">${TITLES[id]}${c === null ? "" : badge(c)}</span></span>`;
 };
-function inner(it: SceneItem, id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right"): string {
+function inner(it: DockItem, id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right"): string {
   if (it.kind === "chrome") return id === "title" ? '<span class="hd-title-t">Document title</span>' : '<span class="hd-ctl"></span><span class="hd-ctl"></span><span class="hd-ctl"></span>';
   if (it.kind === "panel") {
     if (kind === "open") return head(id) + `<div class="hd-body">${body(id)}</div>`;
@@ -174,7 +173,7 @@ function inner(it: SceneItem, id: ItemId, kind: string, rows?: readonly (readonl
 /**
  * An item as the layout drew it: placed at its solved rect in the window.
  */
-function itemHtml(s: Scene, l: SceneLayout, id: ItemId): string {
+function itemHtml(s: DockState, l: DockLayout, id: ItemId): string {
   const p = l.items[id]!;
   const it = s.items[id]!;
   const edgeSide = p.edge ? l.edges[p.edge]?.side : undefined;
@@ -207,12 +206,12 @@ interface SheetItem {
  * call site there:
  *
  * - `createGripPress` (`@n-uf/motion/drag`): shared/session.ts:80, the press on a grip (a drag past the lift, else a click).
- * - `previewPlan` (`@n-uf/motion/drag`): docwin/scene.ts:787, the drop preview (the dashed slot, the room it makes).
- * - `anchoredMorph` (`@n-uf/motion/layout`): docwin/scene.ts:698, the held item keeps its grab point as its form changes.
- * - `createSettle` (`@n-uf/motion`): docwin/scene.ts:710, the drawn rect settling onto the pointer.
+ * - `previewPlan` (`@n-uf/motion/drag`): docwin/dock-state.ts:1289, the drop preview (the dashed slot, the room it makes).
+ * - `anchoredMorph` (`@n-uf/motion/layout`): docwin/dock-state.ts:1084, the held item keeps its grab point as its form changes.
+ * - `createSettle` (`@n-uf/motion`): docwin/dock-state.ts:1097, the drawn rect settling onto the pointer.
  *
- * Motion only: placement's parts (`fitStack` inside `solve`, `fold` from `@n-uf/placement/scene`) are
- * docking's own code or unconfirmed for the release, so they are not shown (see DOCKING-RELEASE-TODO.md).
+ * Motion only: placement's parts (`fitStack` for each edge) run inside docking's `solve`, so the sheet shows what the
+ * window adds around them, not them.
  */
 function parts(): readonly SheetItem[] {
   const ghost = `<i class="hd-trail" aria-hidden="true"></i>`;
@@ -226,7 +225,7 @@ function parts(): readonly SheetItem[] {
 
 /** The lab's Document window at `size`, solved and drawn. */
 export function docWindow(size: Size): DocWindow {
-  const s = defaultScene(size);
+  const s = defaultState(size);
   const l = solve(s);
   const edges = Object.entries(l.edges)
     .filter(([, e]) => e.rect.width > 0 && e.rect.height > 0)
