@@ -23,6 +23,13 @@ Unreleased entries live in `changes/` until a release joins them.
   at its least and the others share the rest by their asks. Short of room an ask under the least still reads as the least.
   A length of 0 is no length: the item asks its natural, `storeDockState` does not write one (and drops the `lengths`
   object when nothing is left), and `readDockState` drops a stored one like any bad entry (`item:<id>:lengths:<axis>`).
+- Fixed: **a tile keeps its place among its own rail's tiles** (fix). With `rails` declared, a column folded whole into its
+  side's rail drew its members as the rail's tiles, but the rail's stops lay only between folded columns, so a tile held
+  from it had no place among its own column's tiles (without `rails`, the same column drawn as a rail offered its gaps,
+  and `foldedColumnDrop`'s documented contract said it would). A held tile now also has that column's gaps
+  (`gap:<edge>:<zone>:<at>`, before each other tile and after the last, wherever it would stay a tile in the rail), and
+  its rail stops are home's, lying at its own tile. A tile of another column, or the only tile of its column, gets the
+  places it had.
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 

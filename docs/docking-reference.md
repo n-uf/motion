@@ -737,7 +737,10 @@ facing halves is home's, and is no target of its own. The slot is where the item
   flush after the side's outside toolbar bars), landing where the rail lands. The outermost column line starts where
   it ends. A rail that shows offers its stops wherever the item ends up collapsed at that side (the same rule as the
   strip's below): its tile in the rail, or a rider bar over the side's open column when lifting the item lets a column
-  that was folded by width reopen; the slot is that landing. With no rail showing, the stop keeps its place only while
+  that was folded by width reopen; the slot is that landing. The rail's tiles are also the places of a tile held from
+  one of them: the gaps of its own column (`gap:<edge>:<zone>:<at>`), before each of the column's other tiles and after
+  the last, wherever the tile would stay a tile in the rail; its stops are home's, at its own tile. With no rail
+  showing, the stop keeps its place only while
   one of its slots lands in the rail (home's counts): where every drop there is refused (a panel would ride over an
   open column), the outermost column line runs from the window's edge. A refused place is never drawn: no tint, outline
   or zone label over it; while the pointer is over one a host may say "Can't go here" at the pointer. A refusal matches
@@ -786,8 +789,10 @@ facing halves is home's, and is no target of its own. The slot is where the item
 - `none:<i>` (1) over each `state.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
   commits nothing. A floating item has no home, so a move inside its own rect is a float move. A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
-  too: no slot, nothing committed. Every rail target on the side whose rail already holds the item is a home: a segment
-  dropped on its own rail, even below the last segment, never splits or reorders it.
+  too: no slot, nothing committed. Every `rail:` target on the side whose rail already holds the item is a home: a
+  segment dropped on a rail stop, even below the last segment, never splits the rail or opens a column. A tile of a
+  column folded into a declared rail also has that column's gaps (`gap:<edge>:<zone>:<at>`, the places a column drawn as
+  a rail offers), to move among its own column's tiles, staying a tile; its own place is the one home.
 
 **The target model.** `targets` and `refusals` come from one generation: edge, then zones, then slots, then tiles, then
 one ordered filter (accepts and zones, fit, clipping, `blocked`). A target wins only where its own hit is, and every point
