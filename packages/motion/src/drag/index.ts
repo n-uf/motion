@@ -25,7 +25,7 @@ export {
   type DragTuning,
   type LiftDecision,
 } from "./intent";
-export type { ModifierKey } from "../keys";
+export { isHeld, type ModifierKey, type Modifiers } from "../keys";
 export {
   createLandingModel,
   LANDING_APPROACH,

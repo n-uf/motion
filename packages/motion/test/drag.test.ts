@@ -6,6 +6,7 @@ import {
   DRAG_DEFAULTS,
   DRAG_PREVIEW_DEFAULT,
   inRect,
+  isHeld,
   liftDecision,
   pickRank,
   PLACE_GUIDES_DEFAULT,
@@ -16,10 +17,20 @@ import {
   type DragKeys,
   type DragTarget,
   type DragTuning,
+  type Modifiers,
   type PreviewMode,
   type PreviewPlan,
 } from "../src/drag";
 import { DOUBLE_CLICK } from "../src/gestures";
+
+describe("./drag reads the shared modifier keys", () => {
+  it("exports isHeld and Modifiers with ModifierKey: a host checks its drag keys without ./gestures", () => {
+    const held: Partial<Modifiers> = { meta: true };
+    expect(isHeld(held, "mod")).toBe(true);
+    expect(isHeld(held, "shift")).toBe(false);
+    expect(isHeld(undefined, "mod")).toBe(false);
+  });
+});
 
 const FRAME = 1000 / 60;
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
