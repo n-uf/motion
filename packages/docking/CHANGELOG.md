@@ -5,6 +5,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`; their history is in
 [placement's CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/placement/CHANGELOG.md).
 
+Unreleased entries live in `changes/` until a release joins them.
+
 ## Unreleased
 
 - Added: **`DockItem.lengths`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to

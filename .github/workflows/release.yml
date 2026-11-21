@@ -5,7 +5,8 @@ name: Release
 # placement-v<version>) and @n-uf/docking (packages/docking, tagged
 # docking-v<version>). Calendar versions (YY.M.R, the same scheme as
 # @n-uf/hypr-tiling and @n-uf/debugsy); `verify` fails when they differ.
-# A PR bumps the three package.json files and adds CHANGELOG entries; merging it to
+# A PR bumps the three package.json files (the bump also joins the changes/ fragments
+# into each CHANGELOG under the new version); merging it to
 # main publishes that version to npmjs (public, with provenance) and to
 # GitHub Packages, tags it and notifies a downstream repo when
 # RELEASE_NOTIFY_REPO is set. Each package and each registry is checked on

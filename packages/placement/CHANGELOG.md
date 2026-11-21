@@ -3,6 +3,8 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion` and `@n-uf/docking`: the packages carry the same version, and a release bumps them all.
 
+Unreleased entries live in `changes/` until a release joins them.
+
 ## Unreleased
 
 - `./tiling`, **behavior change: the gap rule**. A split of extent `W` at ratio `r` with a gutter `g` now puts the

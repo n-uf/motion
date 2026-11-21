@@ -3,6 +3,8 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+Unreleased entries live in `changes/` until a release joins them.
+
 ## Unreleased
 
 ### One layout: the landing model takes states (breaking; with `@n-uf/docking`'s `dockDrag`)
