@@ -14,11 +14,6 @@ Unreleased entries live in `changes/` until a release joins them.
   moves the float, a float over a blocked or refused place is refused as on any frame, and no lane's path counts. The zone is
   left once, past `lift` from the press, and never re-entered, so sliding back through the press point while a lane is held
   changes nothing. After the zone the lanes act by their gates as before.
-- Renamed (unreleased): **a held place has one name, `held`.** `LandingState` is `LandingHeld`, `LandingFrame.state` is
-  `LandingFrame.held`, and `LandingGuideRef.state` is `LandingGuideRef.held` (`{ lane, held }`). The `landingOf` parameter
-  is `held`. Nothing else changes: the landing model picks the same place on every frame. "State" now means only the dock
-  state (`@n-uf/docking`'s `DockState`, and `after(...).state`). Nothing of this shipped before, so there is no old name
-  to keep.
 
 ### One layout: the landing model takes a held place (breaking; with `@n-uf/docking`'s `dockDrag`)
 
