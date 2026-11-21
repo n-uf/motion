@@ -5,7 +5,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 Unreleased entries live in `changes/` until a release joins them.
 
-## Unreleased
+## 26.11.55
 
 - `./tiling`, **added: canSplitPane, dropFits, paneRegion's paneCenter option, master clamps, Rect**, for a host with its own
   projected layout. `canSplitPane(target, side, { min, gap?, handle? })` is the room rule (along the split `2 * min`

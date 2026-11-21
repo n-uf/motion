@@ -7,7 +7,7 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 Unreleased entries live in `changes/` until a release joins them.
 
-## Unreleased
+## 26.11.55
 
 - Added: **`DockItem.lengths`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to
   have, read by the edge's stack in place of a growing form's natural, and the verbs on it: **`dividers(state, layout?)`**
@@ -38,6 +38,16 @@ Unreleased entries live in `changes/` until a release joins them.
   (a new-column line over a rail where the lanes stay, in a narrow window and in one with a tray of toolbars, and with a
   second column holding the held tile the lanes' new-column lane over the rail's first pixels where `targets()` floats),
   which the sweep lists by name.
+- Fixed: **a float pressed inside an empty lane's band no longer takes that lane when the drag starts** (the landing
+  model gives a float's lift, one with no `home` and no spot marked home, the lift zone a docked item has; `@n-uf/motion`'s change of the
+  same name). `dockDrag` has nothing new to pass: a float's drag has no home spot, and a host passes `home` only for a
+  docked item.
+- Renamed (unreleased): **a held place has one name, `held`.** `DockGuideFrame.state` is `DockGuideFrame.held` and
+  `DockGuideRef.state` is `DockGuideRef.held` (`{ lane, held }`), the names `@n-uf/motion/drag`'s `LandingFrame.held` and
+  `LandingGuideRef.held` carry; `./testing`'s `LandingModelLike` frame reads `held` too. `DockHeld` keeps its name (motion's
+  `LandingHeld` fits it) and loses `lane?`, which `dockDrag` never read. `DockDrag.after`, `landingOf` and the
+  `shown` and `guides` readers take the same places as before. "State" now means only the dock state (`DockState`, and
+  `after(...).state`). Nothing of this shipped before, so there is no old name to keep.
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s held place)
 
