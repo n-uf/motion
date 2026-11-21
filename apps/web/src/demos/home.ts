@@ -4,6 +4,9 @@
  */
 import { createSettle, type Rect } from "@n-uf/motion";
 
+/** The live demo's status line at rest: written by the server, and again by the island after a Reset, so nothing moves when it starts. */
+export const HINT = "Drag a panel by its header or a toolbar by its dots, and drop it beside another, on a side or in a bar.";
+
 // ---- Thumbnail 1: settle against a spring that overshoots ----------------------------------------------------------
 export const CURVE = { W: 280, H: 150, L: 16, R: 16, T: 22, B: 18, Tms: 450 };
 const cx = (ms: number) => CURVE.L + ((CURVE.W - CURVE.L - CURVE.R) * ms) / CURVE.Tms;

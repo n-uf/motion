@@ -14,37 +14,36 @@
  * visit starts from the default), and does not take focus or scroll the page.
  */
 import { createDocwin } from "../../../lab/src/docwin/dock-state";
+import { HINT } from "../demos/home";
 
 /** Where the home window keeps its state: its own key, so the lab's stored window and the lab's checks are never written over. */
 const KEY = "motion-site:docwin-home";
 /** The window's height: the slot's (styles/home.css reserves the same box, by the same breakpoint). */
 const heightNow = (): number => (matchMedia("(max-width: 719px)").matches ? 400 : 460);
-/** The window is never narrower than this (the lab's own smallest is 560; the model gives way as the room runs out). */
-const MIN_WIDTH = 320;
 
 export function startHero(fig: HTMLElement): void {
   const slot = fig.querySelector<HTMLElement>("#docdemo-slot")!;
   const root = fig.querySelector<HTMLElement>("#dw-root")!;
   const win = fig.querySelector<HTMLElement>("#dw-win")!;
   const status = fig.querySelector<HTMLElement>("#dw-status")!;
-  const size = (): { width: number; height: number } => {
-    return { width: Math.max(MIN_WIDTH, Math.floor(slot.clientWidth)), height: heightNow() };
-  };
+  // The slot's width exactly (the model gives way as the room runs out), so the window never overflows it.
+  const size = (): { width: number; height: number } => ({ width: Math.floor(slot.clientWidth), height: heightNow() });
   // The window is shown (not `hidden`) before it is built: it measures its toolbars from what the page renders.
   root.hidden = false;
-  const c = createDocwin({ root, win, status, storageKey: KEY });
-  const hint = "Drag a panel by its header or a toolbar by its dots, and drop it beside another, on a side or in a bar.";
+  /** Follow the slot; during a drag it waits, and the drop's `onDrop` catches up. */
+  const fit = (): void => {
+    const s = size();
+    if (!c.dragging && (s.width !== c.state.stage.width || s.height !== c.state.stage.height)) c.setSize(s.width, s.height);
+  };
+  const c = createDocwin({ root, win, status, storageKey: KEY, onDrop: fit });
   c.reset(size());
-  c.say(hint);
+  c.say(HINT);
   // ↺ Reset: the lab's own reset (the default window at this size, no last move).
   fig.querySelector<HTMLButtonElement>("#dw-reset")!.addEventListener("click", () => {
     c.reset(size());
     c.forgetDrop();
-    c.say(hint);
+    c.say(HINT);
   });
   fig.classList.add("go");
-  new ResizeObserver(() => {
-    const s = size();
-    if (!c.dragging && (s.width !== c.state.stage.width || s.height !== c.state.stage.height)) c.setSize(s.width, s.height);
-  }).observe(slot);
+  new ResizeObserver(fit).observe(slot);
 }
