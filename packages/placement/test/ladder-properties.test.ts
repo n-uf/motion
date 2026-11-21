@@ -120,34 +120,59 @@ describe("2. no wasted room: the last step back doesn't fit", () => {
 });
 
 describe("3. order: tier steps, then partial folds, then folds, the title last of the row steps", () => {
-  for (const seed of SEEDS) {
-    it(`seed ${seed}: down and back up, with a growing title`, () => {
-      const bar = randomBar(seed, { withTitle: true });
-      const { downs, ups, lengths } = round(bar);
-      const lens = [...lengths, ...up(0, bar.hi)];
-      [...downs, ...ups].forEach((fit, k) => {
-        const at = formsOf(fit);
-        const state = bar.groups.map((g) => {
-          const s = shapeOf(g.spec);
-          const forms = groupItem(g, 0).forms;
-          const i = at[g.id]!;
-          return { s, i, tierLeft: tierStepLeft(forms, s, i), rowLeft: rowStepLeft(forms, s, i) };
-        });
-        const where = `at ${lens[k]} px, forms ${JSON.stringify(at)}`;
-        if (state.some((g) => g.tierLeft)) {
-          state.forEach((g, q) => {
-            const level = levelAt(g.s, g.i);
-            if (level.hidden > 0 && level.hidden < g.s.n) expect.fail(`${where}: group ${q} has a partial fold while a group still has a tier step`);
-          });
-        }
-        if (state.some((g) => g.rowLeft)) {
-          state.forEach((g, q) => expect(g.i, `${where}: group ${q} is folded while another still shows a control`).toBeLessThan(foldAt(g.s)));
-        }
-        // The title keeps at least its natural length while any group has a row step left.
-        if (state.some((g) => g.rowLeft)) expect(widthOfTitle(fit), `${where}: the title gave way before a toolbar's step`).toBeGreaterThanOrEqual(TITLE.natural - 1e-6);
+  /** Down and back up: tier steps of every group, then partial folds, then folds; the title last of the row steps. */
+  const checkOrder = (bar: Bar): void => {
+    const { downs, ups, lengths } = round(bar);
+    const lens = [...lengths, ...up(0, bar.hi)];
+    [...downs, ...ups].forEach((fit, k) => {
+      const at = formsOf(fit);
+      const state = bar.groups.map((g) => {
+        const s = shapeOf(g.spec);
+        const forms = groupItem(g, 0).forms;
+        const i = at[g.id]!;
+        return { s, i, tierLeft: tierStepLeft(forms, s, i), rowLeft: rowStepLeft(forms, s, i) };
       });
+      const where = `at ${lens[k]} px, forms ${JSON.stringify(at)}`;
+      if (state.some((g) => g.tierLeft)) {
+        state.forEach((g, q) => {
+          const level = levelAt(g.s, g.i);
+          if (level.hidden > 0 && level.hidden < g.s.n) expect.fail(`${where}: group ${q} has a partial fold while a group still has a tier step`);
+        });
+      }
+      if (state.some((g) => g.rowLeft)) {
+        state.forEach((g, q) => expect(g.i, `${where}: group ${q} is folded while another still shows a control`).toBeLessThan(foldAt(g.s)));
+      }
+      // The title keeps at least its natural length while any group has a row step left.
+      if (state.some((g) => g.rowLeft) && bar.items.some((it) => it.id === "title")) expect(widthOfTitle(fit), `${where}: the title gave way before a toolbar's step`).toBeGreaterThanOrEqual(TITLE.natural - 1e-6);
     });
+  };
+
+  for (const seed of SEEDS) {
+    it(`seed ${seed}: down and back up, with a growing title`, () => checkOrder(randomBar(seed, { withTitle: true })));
   }
+
+  it("groups of different tier and control counts keep the order across the bar (2 controls 5 tiers beside 3 controls 3 tiers, 3+6 beside 2+2, 2+2 beside 3+4, 4+7 beside 2+3)", () => {
+    const shapes: [{ n: number; tiers: number }, { n: number; tiers: number }][] = [
+      [{ n: 2, tiers: 5 }, { n: 3, tiers: 3 }],
+      [{ n: 3, tiers: 6 }, { n: 2, tiers: 2 }],
+      [{ n: 2, tiers: 2 }, { n: 3, tiers: 4 }],
+      [{ n: 4, tiers: 7 }, { n: 2, tiers: 3 }],
+    ];
+    shapes.forEach(([x, y], k) => {
+      for (const strict of [true, false]) {
+        const rand = seeded(100 + k);
+        const groups: Group[] = [
+          { id: "g0", spec: randomSpec(rand, { strict, ...x }) },
+          { id: "g1", spec: randomSpec(rand, { strict, ...y }) },
+        ];
+        for (const withTitle of [false, true]) {
+          const items = groups.map((g, i) => groupItem(g, i));
+          if (withTitle) items.push(title());
+          checkOrder({ groups, items, hi: wide(items) });
+        }
+      }
+    });
+  });
 
   it("levelling: two like groups alternate by fewest hidden, so they are never more than one form apart", () => {
     for (const seed of SEEDS) {

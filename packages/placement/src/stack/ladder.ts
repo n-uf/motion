@@ -11,20 +11,22 @@
  * 1. The first form: every control at tier 0, a `row`.
  * 2. The tier steps, one control at a time in fold order: the control that folds first takes tier 1, then the next, then
  *    the first takes tier 2, and so on to tier `T - 1` for all. Each is a `row` with every control shown. Step `i`
- *    (0-based, within tier `t`) has rank `100 * t + i / n`, so groups of different sizes level within a tier.
+ *    (0-based, within tier `t`) has rank `100 * t + i / n` for tiers 1 and 2, so groups of different sizes level within
+ *    a tier; tiers 3 and later share the band from 300 in tier order, rank `300 + (t - 3 + i / n) / (T - 3)`, so the
+ *    ranks strictly increase along the group and stay under 400 for any `T`.
  * 3. The partial folds, at the last tier: for `k = 1 … n - 1`, a `row` that hides the first `k` controls in fold order
- *    (`hides` lists them) and shows a `more` cell for them. Rank `100 * max(4, T) + k / n`: the group with the fewest
- *    hidden controls folds next.
- * 4. `fold` (the grip and the `more` cell in line, `hides` every control), rank `100 * (max(4, T) + 1)`, then `menu`,
- *    rank `100 * (max(4, T) + 2)`.
+ *    (`hides` lists them) and shows a `more` cell for them. Rank `400 + k / n`: the group with the fewest hidden controls
+ *    folds next.
+ * 4. `fold` (the grip and the `more` cell in line, `hides` every control), rank 500, then `menu`, rank 600.
  *
  * Every form is always emitted, even when it is no shorter than the one before: the solver passes over a form that
  * doesn't shorten the stack, and the shape (`n * T + 2` forms, `0` with no controls) depends on the control and tier
  * counts alone, so a form index stays valid when a length changes. When the control set itself changes, solve the group
  * fresh (no `previous`).
  *
- * Ranks are spaced by step type, so the same-tier steps of several groups interleave and a partial fold never comes
- * before another group's tier step. Give every group of one bar the same tier count: a bar's ranks line up by tier number.
+ * Ranks are spaced by step type in fixed bands whatever a group's tier count: tier steps in [100, 400), partial folds
+ * 400 + k / n, fold 500, menu 600. So the same-tier steps of several groups interleave, and a partial fold never comes
+ * before another group's tier step, even when the groups have different tier counts.
  */
 import type { StackForm } from "./model";
 
@@ -103,7 +105,8 @@ export function controlLadder(spec: ControlLadderSpec): ControlLadder {
     .map((o) => o.index);
   const ids = (hidden: ReadonlySet<number>): string[] => controls.filter((_, i) => hidden.has(i)).map((c) => c.id);
   const form = (main: number, extra: Partial<StackForm> & Pick<StackForm, "kind">): StackForm => ({ main: { min: main, natural: main }, cross: { natural: cross }, ...(grip > 0 ? { grip } : {}), ...extra });
-  const base = RANK_TIER * Math.max(4, tierCount);
+  /** Tiers 1 and 2 own a band each; every later tier shares the band from 300, in tier order, always under 400. */
+  const tierRank = (t: number, i: number): number => (t <= 2 ? RANK_TIER * t + i / n : 3 * RANK_TIER + (t - 3 + i / n) / (tierCount - 3));
 
   const row: StackForm[] = [];
   // The tier of every control now; the row's length with the controls in `shown`.
@@ -114,14 +117,14 @@ export function controlLadder(spec: ControlLadderSpec): ControlLadder {
   for (let t = 1; t < tierCount; t++) {
     for (let i = 0; i < n; i++) {
       at[order[i]!] = t;
-      row.push(form(rowLength(all, 0), { kind: "row", rank: RANK_TIER * t + i / n }));
+      row.push(form(rowLength(all, 0), { kind: "row", rank: tierRank(t, i) }));
     }
   }
   for (let k = 1; k < n; k++) {
     const hidden = new Set(order.slice(0, k));
-    row.push(form(rowLength(all.filter((i) => !hidden.has(i)), more), { kind: "row", rank: base + k / n + keep, hides: ids(hidden) }));
+    row.push(form(rowLength(all.filter((i) => !hidden.has(i)), more), { kind: "row", rank: 4 * RANK_TIER + k / n + keep, hides: ids(hidden) }));
   }
-  row.push(form(grip + more, { kind: "fold", rank: base + RANK_TIER + keep, hides: ids(new Set(all)) }));
-  row.push({ kind: "menu", main: { min: 0, natural: 0 }, cross: { natural: 0 }, rank: base + 2 * RANK_TIER + keep });
+  row.push(form(grip + more, { kind: "fold", rank: 5 * RANK_TIER + keep, hides: ids(new Set(all)) }));
+  row.push({ kind: "menu", main: { min: 0, natural: 0 }, cross: { natural: 0 }, rank: 6 * RANK_TIER + keep });
   return { row, ...(column ? { column } : {}) };
 }
