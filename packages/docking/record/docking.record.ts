@@ -47,13 +47,34 @@ interface Win {
 let ASK: "lengths" | "length" = "lengths";
 const asked = (n: number): Any => ({ [ASK]: { column: n } });
 const lengthsOf = (it: Any): Any => it?.[ASK];
-/** What the commit under record calls a landing frame's (or a guide ref's) held place: `held`, or `state` before the rename. */
-const heldName = (o: Any): "held" | "state" => ("held" in o ? "held" : "state");
+/**
+ * What the commit under record calls a landing frame's (or a guide ref's) held place: `held`, or `state` before the rename.
+ * An object with neither name fails the run, as a probe that finds no asked-lengths name does.
+ */
+const heldName = (o: Any): "held" | "state" => {
+  if (o && "held" in o) return "held";
+  if (o && "state" in o) return "state";
+  throw new Error("a landing frame or guide ref names its held place neither `held` nor `state`");
+};
 const heldOf = (o: Any): Any => o[heldName(o)];
+/** The names each frame and each guide ref actually used, collected over the whole run (the contract case below). */
+const frameNames = new Set<string>();
+const refNames = new Set<string>();
+/** One name, `none` when nothing was seen, or `mixed` when both were used: any mix shows as a changed contract case. */
+const nameOf = (names: Set<string>): string => (names.size === 0 ? "none" : names.size === 1 ? [...names][0]! : "mixed");
 /** A frame as recorded, the held place under `held` on either side of the rename, so only the contract case below sees the name. */
 const framed = (shown: Any, refs: Any[]): Any => {
   const { state: _s, held: _h, ...rest } = shown;
-  return { ...rest, held: heldOf(shown), guides: refs.map((g: Any) => ({ lane: g.lane, held: heldOf(g) })) };
+  frameNames.add(heldName(shown));
+  return {
+    ...rest,
+    held: heldOf(shown),
+    guides: refs.map((g: Any) => {
+      refNames.add(heldName(g));
+      const { state: _gs, held: _gh, ...more } = g;
+      return { ...more, held: heldOf(g) };
+    }),
+  };
 };
 
 /** `layout` without each edge's `stack` (the fit's inner state): items, edges, rails, content, notes. */
@@ -191,7 +212,6 @@ describe("record docking", () => {
 
     // --- the drags ------------------------------------------------------------------------------------------------
     let frames = 0;
-    let probedHeld = false;
     for (const w of spread(wins.filter((x) => x.play && x.dragged), DRAG_WINDOWS)) {
       if (!w.dragged) continue;
       const { name, state, dragged } = w;
@@ -245,10 +265,6 @@ describe("record docking", () => {
               const id = `${name} | ${path.id} | ${mode} | #${i}/${played.length}`;
               const { guides: _drawn, named, ...shown } = f;
               out.add("landing-frames", id, { point: p, frame: framed(shown, named), release: r });
-              if (!probedHeld) {
-                probedHeld = true;
-                out.add("contract", "landing frame held name", { frame: heldName(f), guideRef: named.length > 0 ? heldName(named[0]) : heldName(f) });
-              }
               out.attempt("guides", id, () => drag.guides(f).map((g: Any) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })));
               out.attempt("after", id, () => result(drag.after(heldOf(f))));
               out.attempt("release-after", id, () => (r && !(r.kind === "spot" && r.home) ? result(drag.after(r)) : null));
@@ -259,6 +275,7 @@ describe("record docking", () => {
         return { paths: paths.length, frames: recorded };
       });
     }
+    out.add("contract", "landing frame held name", { frame: nameOf(frameNames), guideRef: nameOf(refNames) });
     const written = out.write(outFile("docking"));
     console.log(`docking: ${written} outputs, ${frames} frames`);
   });

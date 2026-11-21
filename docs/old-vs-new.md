@@ -72,7 +72,10 @@ export or helper that isn't there records `{ "absent": "..." }`, a call that thr
 the run goes on. A name that changed between commits is found by a probe, not assumed: an item's asked lengths are
 written under `lengths` or `length`, whichever the commit's code reads (`askedName`), and the name is recorded as the
 `contract` case `asked-lengths name`, so a rename shows as exactly that one change (a probe that finds neither name fails
-the run). A new recorder or a new corpus case shows as `absent` against a base without it; that is what the base had.
+the run). A landing frame's held place is found the same way, under `held` or `state`, by the name each recorded frame
+and each guide ref actually uses (`frame` and `guideRef` of the `contract` case `landing frame held name`: `held`,
+`state`, `mixed` for any mix, `none` when nothing was seen); frames are recorded under `held` on both sides, and a frame
+or ref with neither name fails the run. A new recorder or a new corpus case shows as `absent` against a base without it; that is what the base had.
 At the head, `absent` and `threw` are errors (exit 2).
 
 ### What the corpus doesn't cover
