@@ -1,5 +1,5 @@
 /**
- * `after(state)`'s marks read one layout, the band of a lane its layout doesn't draw included (decision 0003): an empty
+ * `after(held)`'s marks read one layout, the band of a lane its layout doesn't draw included (decision 0003): an empty
  * edge's marks lie along its band in that layout (its extent there, clipped at the edges drawn across it there), not
  * along its band as seen, which only the hit rect reads. And under "all" no guide drawn in the layout that creates it
  * lies over the held landing on screen.
@@ -33,8 +33,8 @@ function bandIn(s: DockState, layout: DockLayout, id: string, axis: Axis, across
   return [a, b];
 }
 
-describe("after(state): an undrawn lane's marks lie along its band in that layout", () => {
-  it("for every spot state, an empty edge holding no item there spans its band in that layout with its marks", () => {
+describe("after(held): an undrawn lane's marks lie along its band in that layout", () => {
+  it("for every held spot, an empty edge holding no item there spans its band in that layout with its marks", () => {
     let n = 0;
     const bad: string[] = [];
     for (const w of windows()) {
@@ -83,10 +83,10 @@ describe("after(state): an undrawn lane's marks lie along its band in that layou
       const drag = dockDrag(w.state, w.dragged, { ...w.options, previous, grab: { x: own.rect.width / 2, y: own.rect.height / 2 } });
       for (const l of drag.regions.lanes)
         for (const sp of l.spots) {
-          const state = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + own.rect.width / 2, y: sp.landing.y + own.rect.height / 2 } };
-          const landing = drag.landingOf(state);
+          const held = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + own.rect.width / 2, y: sp.landing.y + own.rect.height / 2 } };
+          const landing = drag.landingOf(held);
           if (!landing) continue;
-          const gs = drag.guides({ state, room: true, guides: drag.regions.lanes.map((x) => ({ lane: x.id, state })) });
+          const gs = drag.guides({ held, room: true, guides: drag.regions.lanes.map((x) => ({ lane: x.id, held })) });
           n++;
           for (const g of gs) if (g.kind !== "line" && overlaps(g.rect, landing)) bad.push(`${w.name}, ${sp.id}: ${g.id} over the landing`);
         }

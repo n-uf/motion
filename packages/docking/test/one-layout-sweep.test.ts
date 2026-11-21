@@ -146,8 +146,8 @@ function paths(d: Drag): { name: string; legs: [Point, number][] }[] {
  * there while the window stays at rest).
  */
 function screenOf(d: Drag, frame: LandingFrame): { readonly layout: DockLayout; readonly marks: DockAfter["marks"]; readonly landing: Rect | null } {
-  const drawn = frame.room ? d.drag.after(frame.state) : d.drag.after(null);
-  return { layout: d.drag.shown(frame), marks: drawn.marks, landing: d.drag.after(frame.state).landing };
+  const drawn = frame.room ? d.drag.after(frame.held) : d.drag.after(null);
+  return { layout: d.drag.shown(frame), marks: drawn.marks, landing: d.drag.after(frame.held).landing };
 }
 
 /** What a release lands: the drop, its result, and the committed layout after the store round trip. */
@@ -160,7 +160,7 @@ interface Landed {
 
 function landedOf(d: Drag, r: LandingRelease): Landed | null {
   if (!r) return null;
-  // The release commits its state's one layout.
+  // The release commits its held place's one layout.
   const after = d.drag.after(r);
   if (after.landing === null) return null;
   const read = readDockState(storeDockState(after.state), d.w.state);
@@ -276,38 +276,38 @@ function sweep(): Result {
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
           // shown, spot frames: the model holds a spot only with its room open, so a spot frame's guides are the same read with
-          // the room forced open (the guides that were cut in `after(state)` before `shown`).
-          if (f.frame.state?.kind === "spot") {
+          // the room forced open (the guides that were cut in `after(held)` before `shown`).
+          if (f.frame.held?.kind === "spot") {
             count("spot frames");
             if (!f.frame.room) fail(`shown | ${w.name} | spot frame without room | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: the model gave a spot with its room closed`);
             if (JSON.stringify(d.drag.guides({ ...f.frame, guides: f.frame.named })) !== JSON.stringify(d.drag.guides({ ...f.frame, room: true, guides: f.frame.named })))
               fail(`shown | ${w.name} | spot frame, room forced open | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: the guides differ with the room forced open`);
           }
-          // shown: the guides of a lane the frame draws, named with the frame's own state, are its marks in `shown(frame)`:
-          // the window at rest while the room is closed, the state's layout once it is open. A float's frames are read with
+          // shown: the guides of a lane the frame draws, named with the frame's own held place, are its marks in `shown(frame)`:
+          // the window at rest while the room is closed, the held place's layout once it is open. A float's frames are read with
           // the room closed (the model's) and open (a host that draws the float's layout).
-          for (const room of f.frame.state?.kind === "float" ? [false, true] : [f.frame.room]) {
+          for (const room of f.frame.held?.kind === "float" ? [false, true] : [f.frame.room]) {
             const fr = { ...f.frame, room };
             const layout = d.drag.shown(fr);
-            const marks = (room ? d.drag.after(fr.state) : d.drag.after(null)).marks;
+            const marks = (room ? d.drag.after(fr.held) : d.drag.after(null)).marks;
             for (const g of f.frame.named) {
-              if (g.state !== fr.state || !edgeOf(s, g.lane) || !drawnIn(layout, g.lane)) continue;
-              count(`shown ${fr.state?.kind ?? "rest"}, room ${room ? "open" : "closed"}`);
+              if (g.held !== fr.held || !edgeOf(s, g.lane) || !drawnIn(layout, g.lane)) continue;
+              count(`shown ${fr.held?.kind ?? "rest"}, room ${room ? "open" : "closed"}`);
               const got = d.drag.guides({ ...fr, guides: [g] }).filter((m) => m.lane === g.lane);
               const want = marks.filter((m) => m.lane === g.lane);
               if (JSON.stringify(got) !== JSON.stringify(want)) fail(`shown | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}, room ${room}: guides ${got.map((m) => fmt(m.rect)).join("; ")} vs marks in the shown layout ${want.map((m) => fmt(m.rect)).join("; ")}`);
             }
           }
           // rail-free: no guide but a line covers a rail segment the frame draws: a side rail's tabs (its folded columns'
-          // members) and the items of a toolbar rail. (A lane shown for another state than the screen's that the screen
+          // members) and the items of a toolbar rail. (A lane shown for another held place than the screen's that the screen
           // doesn't draw, and the corner's owner by reach, draw their own layout and win: the bar keeps the corner over a
           // rail it moves.)
           const onScreen = d.drag.shown(f.frame);
-          const reachOwner = f.frame.lane ? undefined : f.frame.named.find((g) => g.state !== f.frame.state)?.lane;
-          const exempt = new Set(f.frame.named.filter((g) => g.lane === reachOwner || (g.state !== f.frame.state && !drawnIn(onScreen, g.lane))).map((g) => g.lane));
+          const reachOwner = f.frame.lane ? undefined : f.frame.named.find((g) => g.held !== f.frame.held)?.lane;
+          const exempt = new Set(f.frame.named.filter((g) => g.lane === reachOwner || (g.held !== f.frame.held && !drawnIn(onScreen, g.lane))).map((g) => g.lane));
           // folded: a column the screen draws folded into its side's rail shows its marks along that rail, as wide as it.
           for (const g of f.frame.named) {
-            if (g.state !== f.frame.state || !onScreen.edges[g.lane]?.folded) continue;
+            if (g.held !== f.frame.held || !onScreen.edges[g.lane]?.folded) continue;
             const rail = railOf(onScreen, g.lane);
             count("folded on screen");
             for (const x of gs)
@@ -324,8 +324,8 @@ function sweep(): Result {
               for (const t of segments)
                 if (g.kind !== "line" && !exempt.has(g.lane) && inter(g.rect, t.rect, 0.5)) fail(`rail-free | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${g.id} ${fmt(g.rect)} over ${t.id} ${fmt(t.rect)}`);
           }
-          // entry: a lane shown for another state than the screen's (the Near lane, or the corner's owner by reach), or
-          // the entered lane, shows its entry: its marks in that state's layout, which leave out only the landing there.
+          // entry: a lane shown for another held place than the screen's (the Near lane, or the corner's owner by reach), or
+          // the entered lane, shows its entry: its marks in that held place's layout, which leave out only the landing there.
           // (A lane the screen draws is the named exception, rule B: the screen's less the landing, the `near` clause.)
           const screen0 = screenOf(d, f.frame);
           for (const g of f.frame.named) {
@@ -333,9 +333,9 @@ function sweep(): Result {
             if (!l) continue;
             const entered = g.lane === f.frame.lane && f.frame.region === "lane";
             // (A column the screen draws folded into its rail on a spot frame is exempted here: counted, so a loss of coverage shows.)
-            if (!entered && g.state !== f.frame.state && f.frame.state?.kind === "spot" && screen0.layout.edges[g.lane]?.folded && drawnIn(screen0.layout, g.lane)) count("entry exempted: folded on a spot frame");
-            if (!entered && (g.state === f.frame.state || drawnIn(screen0.layout, g.lane))) continue;
-            const mine = d.drag.after(g.state);
+            if (!entered && g.held !== f.frame.held && f.frame.held?.kind === "spot" && screen0.layout.edges[g.lane]?.folded && drawnIn(screen0.layout, g.lane)) count("entry exempted: folded on a spot frame");
+            if (!entered && (g.held === f.frame.held || drawnIn(screen0.layout, g.lane))) continue;
+            const mine = d.drag.after(g.held);
             count("entry");
             const want = spans(mine.marks.filter((m) => m.lane === g.lane), l.axis);
             const got = spans(gs.filter((x) => x.lane === g.lane), l.axis);
@@ -348,7 +348,7 @@ function sweep(): Result {
           if (mode === "all" && w.options.emptyLanes !== "edge")
             for (const g of f.frame.named) {
               const l = d.regions.lanes.find((x) => x.id === g.lane);
-              if (!l || g.state !== f.frame.state || l.spots.length !== 1 || !edgeOf(s, g.lane) || drawnIn(screen0.layout, g.lane)) continue;
+              if (!l || g.held !== f.frame.held || l.spots.length !== 1 || !edgeOf(s, g.lane) || drawnIn(screen0.layout, g.lane)) continue;
               const sp = l.spots[0]!;
               const made = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } });
               const want = made.marks.filter((m) => m.lane === g.lane);
@@ -386,9 +386,9 @@ function sweep(): Result {
           if (mode === "all" && !f.frame.lane && !f.frame.pending && f.frame.region !== "open") {
             const dist = (r: Rect): number => Math.hypot(Math.max(r.x - f.point.x, 0, f.point.x - (r.x + r.width)), Math.max(r.y - f.point.y, 0, f.point.y - (r.y + r.height)));
             const nearest = [...d.regions.lanes].map((l) => ({ id: l.id, dd: dist(l.rect) })).filter((x) => x.dd <= LANDING_APPROACH.reach).sort((a, b) => a.dd - b.dd)[0];
-            const owner = f.frame.named.find((g) => g.state !== f.frame.state)?.lane;
+            const owner = f.frame.named.find((g) => g.held !== f.frame.held)?.lane;
             count("reach");
-            if (nearest ? owner !== nearest.id && f.frame.named.some((g) => g.lane === nearest.id && g.state === f.frame.state) && wouldPick(d, nearest.id, f.point) : owner !== undefined)
+            if (nearest ? owner !== nearest.id && f.frame.named.some((g) => g.lane === nearest.id && g.held === f.frame.held) && wouldPick(d, nearest.id, f.point) : owner !== undefined)
               fail(`reach | ${w.name} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: owner ${owner ?? "-"}, nearest within reach ${nearest?.id ?? "-"}`);
           }
           // near: a populated lane's Near guide before entry is the screen's guide less the would-land landing.
@@ -396,7 +396,7 @@ function sweep(): Result {
           if (mode === "near" && !f.frame.lane)
             for (const id of nearLanes) {
               const l = d.regions.lanes.find((x) => x.id === id);
-              // The screen: the layout the frame draws (`shown`: the state's while its room is open, else the window at rest).
+              // The screen: the layout the frame draws (`shown`: the held place's while its room is open, else the window at rest).
               const screen = screenOf(d, f.frame);
               if (!l || !edgeOf(s, id) || !drawn(screen.layout, id) || itemsOn(screen.layout, id, w.dragged).length === 0) continue;
               count("near populated");
@@ -472,7 +472,7 @@ function sweep(): Result {
   return { failures, counts };
 }
 
-/** Whether the pointer at `p` picks a spot along lane `id` (not a refused stretch): a would-land state there. */
+/** Whether the pointer at `p` picks a spot along lane `id` (not a refused stretch): a would-land held place there. */
 function wouldPick(d: Drag, id: string, p: Point): boolean {
   const l = d.regions.lanes.find((x) => x.id === id)!;
   const a = l.axis === "x" ? p.x : p.y;
@@ -489,7 +489,7 @@ function wouldLand(d: Drag, l: Lane, p: Point): Rect | null {
 
 /**
  * Known failures, by case name: `<clause> | <window> | <lane, spot or place> | <mode>`. The sweep landed with 165 (#41:
- * hull 118, corner 47), all flipped by the one-layout change (a held frame drawn from `after(state)`). A new known
+ * hull 118, corner 47), all flipped by the one-layout change (a held frame drawn from `after(held)`). A new known
  * failure goes here by name until it is fixed.
  */
 const PENDING: readonly string[] = [];

@@ -1,7 +1,7 @@
 /**
- * `dockDrag(...).after(held)`: THE layout of a state of a drag. Its state is what a release commits, its layout that
- * state solved with the drag's one `previous`, its landing the held item there, its marks every lane's in that one
- * layout, and a spot's `spots` its lane's stretches cut in that layout. `guides(frame)` draws each lane from the state it
+ * `dockDrag(...).after(held)`: THE layout of a held place of a drag. Its `state` is what a release commits, its layout that
+ * dock state solved with the drag's one `previous`, its landing the held item there, its marks every lane's in that one
+ * layout, and a spot's `spots` its lane's stretches cut in that layout. `guides(frame)` draws each lane from the held place it
  * names (rule B). Swept over the one-layout windows.
  */
 import { describe, expect, it } from "vitest";
@@ -21,8 +21,8 @@ function drags(): { w: SweepWindow; d: DockDrag; grab: Point }[] {
   });
 }
 
-/** Each spot's states: a fixed spot once, a sliding spot at its two ends and its middle. */
-function states(d: DockDrag): { lane: string; held: DockHeld }[] {
+/** Each spot's held places: a fixed spot once, a sliding spot at its two ends and its middle. */
+function heldPlaces(d: DockDrag): { lane: string; held: DockHeld }[] {
   return d.regions.lanes.flatMap((l) =>
     l.spots.flatMap((s) => {
       const across = l.axis === "x" ? l.rect.y + l.rect.height / 2 : l.rect.x + l.rect.width / 2;
@@ -33,13 +33,13 @@ function states(d: DockDrag): { lane: string; held: DockHeld }[] {
   );
 }
 
-describe("after(held): the state a release commits and its one layout", () => {
+describe("after(held): the dock state a release commits and its one layout", () => {
   const all = drags();
 
-  it("for every spot state: its layout is its state solved with the drag's previous, the landing is the held item there, and the store round trip keeps it", () => {
+  it("for every held spot: its layout is its dock state solved with the drag's previous, the landing is the held item there, and the store round trip keeps it", () => {
     let n = 0;
     for (const { w, d } of all)
-      for (const { held } of states(d)) {
+      for (const { held } of heldPlaces(d)) {
         const a = d.after(held);
         const commit = solve(a.state, { previous: w.previous });
         for (const [id, it] of Object.entries(commit.items)) {
@@ -56,7 +56,7 @@ describe("after(held): the state a release commits and its one layout", () => {
 
   it("its marks: no two lanes' overlap, none lies over the landing or an item drawn in a bar or a toolbar rail", () => {
     for (const { w, d } of all)
-      for (const { held } of [...states(d), { held: null }]) {
+      for (const { held } of [...heldPlaces(d), { held: null }]) {
         const a = d.after(held);
         // (Two lanes of no edge, new columns on one side, each mark their landing in its own layout, the layout that
         // creates it: `guides` has them give way to each other, as the sweep's overlap clause checks. A new column's
@@ -89,7 +89,7 @@ describe("after(held): the state a release commits and its one layout", () => {
     }
   });
 
-  it("is remembered: the same state gives the same object, a fixed spot at any pointer", () => {
+  it("is remembered: the same held place gives the same object, a fixed spot at any pointer", () => {
     const { d } = all[0]!;
     const s = d.regions.lanes.flatMap((l) => l.spots).find((x) => !x.slide)!;
     expect(d.after({ kind: "spot", spot: s.id, point: { x: 1, y: 2 } })).toBe(d.after({ kind: "spot", spot: s.id, point: { x: 300, y: 9 } }));
@@ -97,14 +97,14 @@ describe("after(held): the state a release commits and its one layout", () => {
   });
 });
 
-describe("guides(frame): each lane from the state it names", () => {
+describe("guides(frame): each lane from the held place it names", () => {
   const all = drags();
 
-  it("with every guide naming the screen's state, a lane's guide is its marks there", () => {
+  it("with every guide naming the screen's held place, a lane's guide is its marks there", () => {
     for (const { d } of all)
-      for (const { lane, held } of states(d).slice(0, 4)) {
+      for (const { lane, held } of heldPlaces(d).slice(0, 4)) {
         const a = d.after(held);
-        expect(d.guides({ state: held, room: true, guides: [{ lane, state: held }] })).toEqual(a.marks.filter((m) => m.lane === lane));
+        expect(d.guides({ held, room: true, guides: [{ lane, held }] })).toEqual(a.marks.filter((m) => m.lane === lane));
       }
   });
 
@@ -113,9 +113,9 @@ describe("guides(frame): each lane from the state it names", () => {
     let drawn = 0;
     for (const { d } of all) {
       const rest = d.after(null);
-      for (const { lane, held } of states(d)) {
+      for (const { lane, held } of heldPlaces(d)) {
         const mine = d.after(held);
-        const g = d.guides({ state: null, room: false, guides: [{ lane, state: held }] });
+        const g = d.guides({ held: null, room: false, guides: [{ lane, held }] });
         // (Drawn: open, or a column folded into its side's rail.)
         const e = rest.layout.edges[lane];
         if (e && (e.cross > 1e-6 || !!e.folded)) {
@@ -135,9 +135,9 @@ describe("guides(frame): each lane from the state it names", () => {
 
   it('under "all", the Near lane\'s marks win: no other lane\'s guide overlaps them', () => {
     for (const { d } of all)
-      for (const { lane, held } of states(d)) {
-        const others = d.regions.lanes.filter((l) => l.id !== lane).map((l) => ({ lane: l.id, state: null }));
-        const g = d.guides({ state: null, room: false, guides: [{ lane, state: held }, ...others] });
+      for (const { lane, held } of heldPlaces(d)) {
+        const others = d.regions.lanes.filter((l) => l.id !== lane).map((l) => ({ lane: l.id, held: null }));
+        const g = d.guides({ held: null, room: false, guides: [{ lane, held }, ...others] });
         const near = g.filter((m) => m.lane === lane);
         for (const m of g) if (m.lane !== lane) for (const n of near) expect([m.id, n.id, overlap(m.rect, n.rect)]).toEqual([m.id, n.id, false]);
       }

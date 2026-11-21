@@ -64,21 +64,21 @@ export interface LandingModelLike {
     readonly region: LandingRegionName;
     readonly lane: string | null;
     readonly spot: string | null;
-    /** The state a release lands now (`DockHeld`), or null. */
-    readonly state: DockHeld | null;
+    /** The held place a release lands now (`DockHeld`), or null. */
+    readonly held: DockHeld | null;
     readonly landing: Rect | null;
     readonly room: boolean;
-    /** The lanes whose guides show, each with the state its guide stands for (`DockDrag.guides` draws them). */
+    /** The lanes whose guides show, each with the held place its guide stands for (`DockDrag.guides` draws them). */
     readonly guides: readonly DockGuideRef[];
     readonly pending?: string;
   };
-  /** What a release at `point` and `time` lands (the last update's point: what its frame showed): a state, or null. */
+  /** What a release at `point` and `time` lands (the last update's point: what its frame showed): a held place, or null. */
   release(point: Point, time: number): (DockHeld & { readonly home?: boolean }) | null;
 }
 /** What makes a landing model: `createLandingModel`, as an input. */
 export type LandingRule = (options: {
   readonly regions: DockRegions;
-  readonly landingOf: (state: DockHeld) => Rect | null;
+  readonly landingOf: (held: DockHeld) => Rect | null;
   readonly spotsOf: (spot: string) => readonly DockSpot[] | null;
   readonly home?: { readonly lane: string; readonly spot: string };
   readonly placeGuides?: "off" | "near" | "all";
@@ -482,7 +482,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly s
       }
       for (let r = SAMPLE; r <= (row.rest ?? 0); r += SAMPLE) play(at, (t += SAMPLE), false);
       const out = model.release(at, t);
-      // The release commits its state's layout (`after`); home commits nothing.
+      // The release commits its held place's layout (`after`); home commits nothing.
       const next = out && !(out.kind === "spot" && out.home) ? drag.after(out).state : s;
       return { frames, layout: solve(next, { previous }), before: previous, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
     },

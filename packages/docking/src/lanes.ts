@@ -18,7 +18,7 @@
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
  * the window resizing and most items opening or moving; virtual lanes are keyed by the column they lie beside, not
- * their ring. Remembered per state and options. The one layout of each state of the drag (a held frame and its commit)
+ * their ring. Remembered per state and options. The one layout of each held place of the drag (a held frame and its commit)
  * is `dockDrag`'s (./drag), built on these.
  */
 import { EPS, clamp, rect, type Point, type Rect, type Size } from "@n-uf/placement";
@@ -114,7 +114,7 @@ export interface LaneRefusal {
  * a refused stretch; no two edge lanes' marks overlap (at a corner a lane not drawn gives way to a drawn one, and
  * between two not drawn the bar owns it; a virtual lane, a new column's line or a declared rail, is drawn over what it
  * would push). Marks lie in one layout: as seen the lifted item is drawn nowhere, so its own place is free room in its
- * lane; in a state's layout (`after(state)`) every lane's marks lie in that layout, the held item where it draws it.
+ * lane; in a held place's layout (`after(held)`) every lane's marks lie in that layout, the held item where it draws it.
  */
 export interface DockMark {
   /**
@@ -143,7 +143,7 @@ export interface DockLane {
   readonly refused: readonly LaneRefusal[];
   /**
    * Its place guides' marks as seen: in the window as seen, the held item drawn nowhere (its own place is free room).
-   * A held frame's marks, and the guides of a frame, are `dockDrag(...).after(state)` and `guides(frame)`'s (./drag).
+   * A held frame's marks, and the guides of a frame, are `dockDrag(...).after(held)` and `guides(frame)`'s (./drag).
    */
   readonly marks: readonly DockMark[];
   /**
@@ -380,7 +380,7 @@ function keyOf(dragged: string, o: DockLaneOptions): string {
  * The lanes and regions of a drag of `dragged`: every lane that takes it with its spots and stretches, the refused
  * places outside lanes, the content and what blocks it, the stage, the float region, the item's size and the float
  * target, each lane's marks as seen (at rest, the held item drawn nowhere). Remembered per state and options (`previous`
- * by identity). A held frame's lanes are `dockDrag(...).after(state)`'s (./drag).
+ * by identity). A held frame's lanes are `dockDrag(...).after(held)`'s (./drag).
  */
 export function lanes(state: DockState, dragged: string, options: DockLaneOptions = {}): DockRegions {
   const base = baseOf(state, dragged, options);

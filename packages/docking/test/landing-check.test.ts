@@ -3,7 +3,7 @@
  * assignable to `@n-uf/motion/drag`'s `LandingRegions`, checked here by the type checker and at run time on real lanes,
  * and `AssertLanding` is the same check a consumer can pin.
  */
-import { createLandingModel, type LandingFrame, type LandingGeometry, type LandingGuideRef, type LandingLane, type LandingRegions, type LandingRelease, type LandingSpot, type LandingState } from "@n-uf/motion/drag";
+import { createLandingModel, type LandingFrame, type LandingGeometry, type LandingGuideRef, type LandingHeld, type LandingLane, type LandingRegions, type LandingRelease, type LandingSpot } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { dockDrag, solve, type DockDrag, type DockGuideFrame, type DockGuideRef, type DockHeld, type DockLane, type DockRegions, type DockSpot } from "../src";
 import type { AssertGeometry, AssertLanding } from "../src/testing";
@@ -22,7 +22,7 @@ export type Checks = [
   Assignable<DockSpot, LandingSpot>,
   Assignable<DockDrag, LandingGeometry>,
   Assignable<LandingGuideRef, DockGuideRef>,
-  Assignable<LandingState, DockHeld>,
+  Assignable<LandingHeld, DockHeld>,
   Assignable<NonNullable<LandingRelease>, DockHeld>,
   Assignable<LandingFrame, DockGuideFrame>,
 ];

@@ -14,7 +14,7 @@ export interface HostModel {
   readonly drag: DockDrag;
   update(point: Point, time: number, keys?: Parameters<LandingModel["update"]>[2]): DrawnFrame;
   release(point: Point, time: number): ReturnType<LandingModel["release"]>;
-  /** What a release now commits: the state's `after`, or null where it lands nowhere or at home. */
+  /** What a release now commits: the held place's `after`, or null where it lands nowhere or at home. */
   commit(point: Point, time: number): DockAfter | null;
 }
 

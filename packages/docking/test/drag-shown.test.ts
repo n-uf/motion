@@ -1,6 +1,6 @@
 /**
  * `shown(frame)`: the layout a landing frame draws, and the one every guide of the frame is cut in. While the room is
- * open it is `after(state).layout`; a float frame's room is not open (its gap closes on release, decision 0003), so the
+ * open it is `after(held).layout`; a float frame's room is not open (its gap closes on release, decision 0003), so the
  * window is drawn at rest and the guides are cut there, not in the float's commit layout (the column closed up).
  */
 import { describe, expect, it } from "vitest";
@@ -26,7 +26,7 @@ describe("shown(frame) and guides(frame) of a float frame", () => {
   const previous = solve(s);
   const drag = dockDrag(s, "p2", { previous, grab: { x: 20, y: 10 } });
   const held: DockHeld = { kind: "float", point: { x: 500, y: 300 } };
-  const frame = (room: boolean): DockGuideFrame => ({ state: held, room, guides: ["right", "left"].map((lane) => ({ lane, state: held })) });
+  const frame = (room: boolean): DockGuideFrame => ({ held, room, guides: ["right", "left"].map((lane) => ({ lane, held })) });
   const rows = (room: boolean): string[] => drag.guides(frame(room)).filter((m) => m.lane === "right").map((m) => `${m.kind} ${fmt(m.rect)}`);
 
   it("with the room closed the window is drawn at rest, and the guides are cut in it", () => {
@@ -45,11 +45,11 @@ describe("shown(frame) and guides(frame) of a float frame", () => {
     expect(rows(true)).toContain("line 940,434 260x0");
   });
 
-  it("a spot frame is its state's layout with the room open, and the window at rest with it closed", () => {
+  it("a spot frame is its held place's layout with the room open, and the window at rest with it closed", () => {
     const sp = drag.regions.lanes.find((l) => l.id === "right")!.spots.find((x) => !x.home)!;
     const spot: DockHeld = { kind: "spot", spot: sp.id, point: { x: sp.landing.x + 20, y: sp.landing.y + 10 } };
-    expect(drag.shown({ state: spot, room: true })).toBe(drag.after(spot).layout);
-    expect(drag.shown({ state: spot, room: false })).toBe(drag.after(null).layout);
-    expect(drag.shown({ state: null, room: true })).toBe(drag.after(null).layout);
+    expect(drag.shown({ held: spot, room: true })).toBe(drag.after(spot).layout);
+    expect(drag.shown({ held: spot, room: false })).toBe(drag.after(null).layout);
+    expect(drag.shown({ held: null, room: true })).toBe(drag.after(null).layout);
   });
 });

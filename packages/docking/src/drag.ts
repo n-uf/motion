@@ -1,34 +1,34 @@
 /**
  * One layout for a drag's held frame and its commit: `dockDrag(state, dragged, options)` gives the drag's hit-testing
- * data (`regions`, as seen) and `after(held)`, THE layout of a state of the drag. While its room is open, a held frame
+ * data (`regions`, as seen) and `after(held)`, THE layout of a held place of the drag. While its room is open, a held frame
  * draws every item, the landing and every guide from `after(held)` (docs/docking.md, "What a held frame draws"), and a
  * release commits exactly `after(held).state`.
  *
- * - **A state** (`DockHeld`) is where a release now lands: a lane's spot with the pointer (`point`; a sliding spot lands
- *   where the hand holds it, the one sliding rule `LaneSlide` states), or the float at the pointer. No state (`null`) is
- *   rest: the drag lands nowhere (home, refused, nowhere), and the layout is the window as seen, the held item drawn
- *   nowhere.
- * - **`after(held)`**: the state a release commits and its layout (`solve` with the drag's `previous`, as the commit
+ * - **A held place** (`DockHeld`) is where a release now lands: a lane's spot with the pointer (`point`; a sliding spot
+ *   lands where the hand holds it, the one sliding rule `LaneSlide` states), or the float at the pointer. No held place
+ *   (`null`) is rest: the drag lands nowhere (home, refused, nowhere), and the layout is the window as seen, the held item
+ *   drawn nowhere.
+ * - **`after(held)`**: the dock state a release commits and its layout (`solve` with the drag's `previous`, as the commit
  *   solves it), the held item's rect there (`landing`, null at rest), every lane's marks in that one layout (`marks`),
  *   and for a spot the held lane's spots with their stretches in that layout (`spots`: a panel column by halves of what
- *   it draws, the hit data along a held lane). Remembered per state.
- * - **`shown(frame)`**: the layout a landing frame draws: `after(frame.state).layout` while `frame.room` is open, else
+ *   it draws, the hit data along a held lane). Remembered per held place.
+ * - **`shown(frame)`**: the layout a landing frame draws: `after(frame.held).layout` while `frame.room` is open, else
  *   the window at rest.
- * - **`guides(frame)`**: the place guides of a landing frame, each lane's from the state it names (rule B): a lane's guide
- *   is drawn in the layout on screen (`shown(frame)`), less the landing the pointer would take there; only a lane that
- *   isn't drawn on screen takes the layout that creates it (its would-land state's for the Near lane, its one spot's for
- *   any other), and gives up where it meets a lane drawn on screen (between two such, the bar keeps the corner). Under
- *   "all", the Near lane's marks win where they meet another lane's: the others are cut there.
+ * - **`guides(frame)`**: the place guides of a landing frame, each lane's from the held place it names (rule B): a lane's
+ *   guide is drawn in the layout on screen (`shown(frame)`), less the landing the pointer would take there; only a lane
+ *   that isn't drawn on screen takes the layout that creates it (its would-land held place's for the Near lane, its one
+ *   spot's for any other), and gives up where it meets a lane drawn on screen (between two such, the bar keeps the
+ *   corner). Under "all", the Near lane's marks win where they meet another lane's: the others are cut there.
  *
  * The shapes fit `@n-uf/motion/drag`'s landing model as they are (`regions`, `landingOf`, `spotsOf`; the frame's
- * `state` and `guides`), though neither package imports the other.
+ * `held` and `guides`), though neither package imports the other.
  */
 import { EPS, type Point, type Rect } from "@n-uf/placement";
 import type { DockLayout, DockState } from "./model";
 import { baseOf, drawnIn, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
 import type { DockDrop, DropResult } from "./targets/model";
 
-/** A state of a drag: where a release now lands. `null` is rest (it lands nowhere). */
+/** A held place of a drag: where a release now lands (`@n-uf/motion/drag`'s `LandingHeld` has this shape). `null` is rest (it lands nowhere). */
 export type DockHeld =
   | {
       readonly kind: "spot";
@@ -36,8 +36,6 @@ export type DockHeld =
       readonly spot: string;
       /** The pointer, in the regions' space: where a sliding spot's landing starts (`LaneSlide`); a fixed spot ignores it. */
       readonly point: Point;
-      /** The spot's lane, when the caller knows it (the spot id names it). */
-      readonly lane?: string;
     }
   | {
       readonly kind: "float";
@@ -50,7 +48,7 @@ export interface DockLaneMark extends DockMark {
   readonly lane: string;
 }
 
-/** THE layout of a state of a drag: what a release commits, and what its held frame draws while its room is open. */
+/** THE layout of a held place of a drag: what a release commits, and what its held frame draws while its room is open. */
 export interface DockAfter extends DropResult {
   /** The held item's rect in `layout`, or null at rest (and where a float can't land). */
   readonly landing: Rect | null;
@@ -63,42 +61,42 @@ export interface DockAfter extends DropResult {
 /** A place guide as a frame draws it: a lane's mark in the layout its guide stands for. */
 export type DockGuide = DockLaneMark;
 
-/** One lane a frame shows guides for, with the state its guide stands for (`@n-uf/motion/drag`'s `LandingGuideRef`). */
+/** One lane a frame shows guides for, with the held place its guide stands for (`@n-uf/motion/drag`'s `LandingGuideRef`). */
 export interface DockGuideRef {
   readonly lane: string;
-  readonly state: DockHeld | null;
+  readonly held: DockHeld | null;
 }
 
-/** What `guides` reads of a landing frame: the state on screen, whether its room is open, and each lane shown with the state its guide stands for. */
+/** What `guides` reads of a landing frame: the held place on screen, whether its room is open, and each lane shown with the held place its guide stands for. */
 export interface DockGuideFrame {
-  readonly state: DockHeld | null;
+  readonly held: DockHeld | null;
   /**
-   * The room is open (`@n-uf/motion/drag`'s `LandingFrame.room`, a boolean): the host draws the window as `state` lays it
+   * The room is open (`@n-uf/motion/drag`'s `LandingFrame.room`, a boolean): the host draws the window as `held` lays it
    * out. A host that draws the window at rest while a spot is held (a mode that never makes room) passes false.
    */
   readonly room: boolean;
   readonly guides: readonly DockGuideRef[];
 }
 
-/** A drag of one item: its hit-testing data as seen, and the one layout of each of its states. */
+/** A drag of one item: its hit-testing data as seen, and the one layout of each of its held places. */
 export interface DockDrag {
   /** Hit-testing only: lanes (hit rect, spots' stretches, refused stretches), refused places, blocked, content, as seen. */
   readonly regions: DockRegions;
-  /** THE layout of `held` (rest for null): its state, layout, landing, marks and, for a spot, its lane's spots. */
+  /** THE layout of `held` (rest for null): the dock state it commits, its layout, landing, marks and, for a spot, its lane's spots. */
   after(held: DockHeld | null): DockAfter;
   /** `after(held).landing`: the one rect a landing model reads (its trail gate, its frame's landing). */
   landingOf(held: DockHeld): Rect | null;
   /** `after({ spot }).spots` of a spot: its lane's spots with their stretches in the spot's layout, or null. */
   spotsOf(spot: string): readonly DockSpot[] | null;
   /**
-   * The layout a frame draws, the one every guide of the frame is cut in: `after(frame.state).layout` while
+   * The layout a frame draws, the one every guide of the frame is cut in: `after(frame.held).layout` while
    * `frame.room` is open, else the window at rest (what the host draws at rest). Only a spot held in a lane has a room
    * (`LandingFrame.room`: a docked item's gap opens as the item lands there); a float has none: its gap closes on
    * release (decision 0003's float exception), so the window stays at rest and `after(float)` is only what a release
-   * commits. A null state is rest. A host that draws no room for a spot (a mode that never makes one) passes room false.
+   * commits. A null held place is rest. A host that draws no room for a spot (a mode that never makes one) passes room false.
    */
-  shown(frame: Pick<DockGuideFrame, "state" | "room">): DockLayout;
-  /** The guides of a frame, cut in `shown(frame)`: each lane's marks from the state it names, the Near lane's winning where they meet. */
+  shown(frame: Pick<DockGuideFrame, "held" | "room">): DockLayout;
+  /** The guides of a frame, cut in `shown(frame)`: each lane's marks from the held place it names, the Near lane's winning where they meet. */
   guides(frame: DockGuideFrame): DockGuide[];
 }
 
@@ -107,9 +105,9 @@ const MIN_PIECE = 8;
 const ORIGIN = { x: 0, y: 0 };
 
 /**
- * The drag of `dragged` in `state`: `lanes()`'s regions as seen, and `after(held)`, THE layout of each state. The
+ * The drag of `dragged` in `state`: `lanes()`'s regions as seen, and `after(held)`, THE layout of each held place. The
  * options are `lanes()`'s (`previous` is the committed layout at the lift, the one every solve and the commit read;
- * `grab` the press's). The work at the lift is remembered per state and options, as `lanes()`'s is; each state's layout
+ * `grab` the press's). The work at the lift is remembered per dock state and options, as `lanes()`'s is; each held place's layout
  * is remembered by the drag.
  */
 export function dockDrag(state: DockState, dragged: string, options: DockLaneOptions = {}): DockDrag {
@@ -159,7 +157,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   /**
    * An empty edge lane's marks in the layout that creates it: its one spot's drop (a sliding spot's at rest), where that
    * drop draws the lane, its room whole (the held item, landing elsewhere or nowhere, drawn nowhere on it; once the lane
-   * is Near its would-land state draws the landing). Null for a lane with more than one spot, a virtual lane, or one no
+   * is Near its would-land held place draws the landing). Null for a lane with more than one spot, a virtual lane, or one no
    * drop draws.
    */
   const createdMemo = new Map<string, DockLaneMark[] | null>();
@@ -181,27 +179,27 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   };
 
   /**
-   * What a frame draws, the one rule `shown` and `guides` read: `after(state)` while the room is open, else the window at
+   * What a frame draws, the one rule `shown` and `guides` read: `after(held)` while the room is open, else the window at
    * rest (a float's landing kept: the held copy lies there).
    */
-  const screenOf = (frame: Pick<DockGuideFrame, "state" | "room">): DockAfter => {
-    const held = after(frame.state);
+  const screenOf = (frame: Pick<DockGuideFrame, "held" | "room">): DockAfter => {
+    const held = after(frame.held);
     if (frame.room || held === rest) return held;
     return held.landing ? { ...rest, landing: held.landing } : rest;
   };
-  const shownLayout = (frame: Pick<DockGuideFrame, "state" | "room">): DockLayout => screenOf(frame).layout;
+  const shownLayout = (frame: Pick<DockGuideFrame, "held" | "room">): DockLayout => screenOf(frame).layout;
 
   const guides = (frame: DockGuideFrame): DockGuide[] => {
     if (frame.guides.length === 0) return [];
-    const held = after(frame.state);
+    const held = after(frame.held);
     const screen = screenOf(frame);
-    // The Near lane: the one shown with another state than the screen's (a would-land state), at most one.
+    // The Near lane: the one shown with another held place than the screen's (a would-land held place), at most one.
     let near: { lane: string; marks: DockLaneMark[] } | null = null;
     const shown: { lane: string; marks: DockLaneMark[]; created?: true }[] = [];
     // Drawn on screen: open, or a column folded into its side's rail (its items the rail's segments).
     const drawnThere = (id: string): boolean => drawnIn(screen.layout, id);
     for (const g of frame.guides) {
-      const mine = after(g.state);
+      const mine = after(g.held);
       if (mine === held) {
         // Rule B: a lane the screen doesn't draw (an empty edge with no band there) is drawn in the layout that creates
         // it, its one spot's; every other lane in the screen's layout. A lane of no edge (a new column beside one) marks its

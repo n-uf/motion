@@ -60,7 +60,7 @@ export function windows(): Window[] {
 /** One drag of a window: its regions, the regions per spot, the grab and the item's size. */
 export interface Drag {
   readonly w: Window;
-  /** The drag: its regions as seen and the one layout of each state. */
+  /** The drag: its regions as seen and the one layout of each held place. */
   readonly drag: DockDrag;
   readonly regions: DockRegions;
   readonly regionsFor: (spot: string) => DockRegions;
