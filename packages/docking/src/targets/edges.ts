@@ -29,9 +29,12 @@ export function reservedRect(state: DockState, l: DockLayout, id: string): Rect 
   return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
 }
 
-/** A slot for `place` on `line`: its drop, settled; home when it puts the item back (or `home`); `lands`, its edge's rule. */
+/**
+ * A slot for `place` on `line`: its drop, settled; home when it puts the item back, or when `home` says the item is there
+ * already (the slot then lands where the item is: another slot's move is not its own); `lands`, its edge's rule.
+ */
 export function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot["place"], lands: (r: DropResult) => boolean, home = false): Slot {
-  const result = c.settle(markUsed(moveAmong(c.state, c.dragged, place, c.others), c.dragged));
+  const result = home ? { state: c.state, layout: c.now } : c.settle(markUsed(moveAmong(c.state, c.dragged, place, c.others), c.dragged));
   const isHome = home || c.isHome(result);
   return { zone, line, id, place, result, home: isHome, ok: isHome || (!!result.layout.items[c.dragged] && lands(result) && c.sound(result.layout)) };
 }

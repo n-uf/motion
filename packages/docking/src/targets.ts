@@ -50,7 +50,9 @@
  * - `rail:<side>:<ring>`: docking folded into a side's rail (its rail and its template take the kind), before each
  *   folded column's segments and after the last, or, with no rail shown, the outer `RAIL_EDGE` px from the side's
  *   outer edge (the window's, an inset's strip included; flush after the side's outside bars), landing where the rail
- *   lands (`DockLayout.railPlaces`). The outermost column line's zone starts where it ends. For a kind with a rail
+ *   lands (`DockLayout.railPlaces`). A tile of a column folded into the rail, held, also has that column's gaps (`gap:`),
+ *   to move among its own tiles, and its rail stops are home's, at its own tile. The outermost column line's zone
+ *   starts where it ends. For a kind with a rail
  *   drop policy (`DockState.railDrop`), the side's rail is a drop strip instead, spring-loaded, owning its rect
  *   (`./targets/rail-strip`); on a side with no declared rail, its rail is its outermost column that takes the kind,
  *   drawn as a rail once the item docks in it folded.

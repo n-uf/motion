@@ -4,8 +4,8 @@
  */
 import { EPS, clamp, rect, type Rect } from "@n-uf/placement";
 import { sideRings } from "../changes";
-import { formsOf, isHandFolded, isSideColumn, zoneOf } from "../helpers";
-import type { DockEdge } from "../model";
+import { formsOf, isHandFolded, isSideColumn, zoneOf, zoneTakes } from "../helpers";
+import { ZONES, type DockEdge } from "../model";
 import { slotAt, thickerThan } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS, RAIL_EDGE } from "./kinds";
@@ -161,9 +161,35 @@ function railEnd(c: Ctx, side: "left" | "right", segments: readonly { readonly e
 }
 
 /**
+ * The gaps of a column drawn in the side's rail, for one of its own tiles held: the places `edgeSpec` offers a column
+ * drawn as a rail, read off the rail's segments. One per place among the column's other tiles, in each zone that takes
+ * the kind (`at` counts the zone's members with the item lifted), on the line a gap would take there: where the next
+ * tile's segment starts, or, past the last, where the previous one ends. None while the column has no other tile drawn
+ * in the rail: there is nothing to move among.
+ */
+function ownTileStops(c: Ctx, edge: DockEdge, segments: readonly { readonly id: string; readonly rect: Rect }[]): { y: number; place: Extract<Slot["place"], { kind: "gap" }> }[] {
+  const { rest, kind } = c;
+  const drawn = new Map(segments.map((s) => [s.id, s.rect]));
+  const members = rest.edges.find((e) => e.id === edge.id)?.items ?? [];
+  const stops: { y: number; place: Extract<Slot["place"], { kind: "gap" }> }[] = [];
+  for (const zone of ZONES) {
+    if (!zoneTakes(edge, zone, kind)) continue;
+    const inZone = members.filter((id) => zoneOf(rest.items[id]) === zone);
+    for (let k = 0; k <= inZone.length; k++) {
+      const next = inZone.slice(k).find((id) => drawn.has(id));
+      const before = inZone.slice(0, k).reverse().find((id) => drawn.has(id));
+      const y = next ? drawn.get(next)!.y : before ? drawn.get(before)!.y + drawn.get(before)!.height : undefined;
+      if (y !== undefined) stops.push({ y, place: { kind: "gap", edge: edge.id, zone, at: k } });
+    }
+  }
+  return stops;
+}
+
+/**
  * The side's rail as an edge (virtual, along y): a slot before each folded column's segments and after the last, or,
  * with no rail shown, one slot `RAIL_EDGE` px deep where the rail lands (`railPlaces`); tiled as every edge is. The
- * stops lie where the user sees the rail; each counts its ring with the item lifted.
+ * stops lie where the user sees the rail; each counts its ring with the item lifted. A tile held of a column in the
+ * rail also has that column's gaps (`ownTileStops`): it moves among its own tiles, as in a column drawn as a rail.
  */
 export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   const { state, now, dragged } = c;
@@ -182,7 +208,12 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     const e = edgeOf(id);
     return e ? rings.after(e) : 1;
   };
-  const stops: { y: number; ring: number }[] = [];
+  // The item's own rail: folded in this side's rail already (the column it lies in, drawn there).
+  const ownRail = now.items[dragged]?.rail === side;
+  const ownEdge = ownRail ? edgeOf(now.items[dragged]!.edge ?? "") : undefined;
+  // A stop is a place on the rail: a new column's (a ring), or, among the tiles of the item's own column, a gap.
+  const stops: { y: number; place: Slot["place"]; gap?: true }[] = [];
+  const ringStop = (y: number, ring: number): void => void stops.push({ y, place: { kind: "rail", side, ring } });
   let zone: Rect;
   if (rail && rail.segments.length > 0) {
     zone = rail.rect;
@@ -192,24 +223,31 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
       if (g && g.edge === s.edge) g.y1 = s.rect.y + s.rect.height;
       else groups.push({ edge: s.edge, y0: s.rect.y, y1: s.rect.y + s.rect.height });
     }
-    for (const g of groups) stops.push({ y: g.y0, ring: ringBefore(g.edge) });
+    for (const g of groups) ringStop(g.y0, ringBefore(g.edge));
     const last = groups[groups.length - 1]!;
-    stops.push({ y: last.y1, ring: ringAfter(last.edge) });
+    ringStop(last.y1, ringAfter(last.edge));
+    // The item's own column is one folded column among them, but its tiles are the item's own: it keeps its place among
+    // them (`ownTileStops`), as in a column drawn as a rail.
+    if (ownEdge) for (const s of ownTileStops(c, ownEdge, rail.segments.filter((x) => x.edge === ownEdge.id))) stops.push({ ...s, gap: true });
   } else {
     const firstCol = mine.find((e) => e.column === true);
     // The outer `RAIL_EDGE` px from the side's outer edge: the window's (an inset's strip included), or flush after the
     // side's outside bars.
     const outer = railOuter(c, side);
     zone = rect(side === "left" ? outer : outer - RAIL_EDGE, placeRect.y, RAIL_EDGE, placeRect.height);
-    stops.push({ y: placeRect.y, ring: firstCol ? rings.before(firstCol) : rings.count });
+    ringStop(placeRect.y, firstCol ? rings.before(firstCol) : rings.count);
   }
   // Every stop is home while the item is folded here already. A rail that shows (occupied) offers its stops wherever the
   // item ends up collapsed at this side (`collapsesAt`: its tile, or a rider bar when the lifted item's column reopens
   // over it). With no rail shown, a stop is only the item folded into the rail: a thin band that would otherwise take
   // the side's edge from the column line for a panel that rides.
-  const ownRail = now.items[dragged]?.rail === side;
   const shown = !!rail && rail.segments.length > 0;
   const lands = (r: DropResult): boolean => (shown ? collapsesAt(c, r, side) : r.layout.items[dragged]!.rail === side && r.state !== c.state);
+  // A gap among its own column's tiles: the item stays a tile of that rail.
+  const landsAmong = (r: DropResult): boolean => {
+    const me = r.layout.items[dragged];
+    return !!me && !me.inMenu && me.rail === side && me.edge === ownEdge?.id;
+  };
   const at = zone;
   // `foldedColumnDrop`: no stop changes the state of an item arriving here. A shown rail is one place, the end of its last
   // folded column; with none shown, only an item already collapsed has a stop.
@@ -219,6 +257,12 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
   // No form of the item fits across the rail (its `width`): a refusal on a stop is for thickness, as on a real edge.
   const width = state.rails?.[side]?.width;
   const tooThick = width !== undefined && thickerThan(formsOf(state.items[dragged]!, "column"), width);
+  // A gap among the item's own tiles where it wouldn't stay a tile (a narrow window that opens it there) is no place: the
+  // rail's stops never refuse the item where they didn't. Where it has such places, the stops that are home's (the item is
+  // in the rail already) lie at the item's own tile, as home's does on any edge, not on the lines of the places beside it.
+  const among = stops.filter((s) => s.gap).map((s) => slotAt(c, "start", s.y, targetId(s.place), s.place, landsAmong)).filter((s) => s.ok);
+  const homeAt = among.some((s) => !s.home) ? now.items[dragged]!.rect.y : undefined;
+  const slots = end ? [end] : [...stops.filter((s) => !s.gap).map((s) => slotAt(c, "start", homeAt ?? s.y, targetId(s.place), s.place, lands, ownRail)), ...among];
   return {
     id: virtualEdgeId("rail", side),
     edge: null,
@@ -227,7 +271,7 @@ export function railStops(c: Ctx, side: "left" | "right"): EdgeSpec | null {
     lay: { phase: EDGE_KINDS.railStop.phase, side, at: -1 },
     vertical: true,
     zones: [{ zone: "start", a: at.y, b: at.y + at.height }],
-    slots: end ? [end] : stops.map((s) => slotAt(c, "start", s.y, targetId({ kind: "rail", side, ring: s.ring }), { kind: "rail", side, ring: s.ring }, lands, ownRail)),
+    slots,
     refuse: () => (tooThick ? "too-thick" : "no-room"),
     own: null,
     holds: false,
