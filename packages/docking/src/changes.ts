@@ -70,6 +70,8 @@ export interface FloatPlace {
   readonly rect?: Rect;
   /** Following the content (only its size counts then), at an anchor's name or `{ at, dx?, dy? }`. */
   readonly anchor?: FloatAnchorAt;
+  /** With `rect` and no anchor: it lies there over what it covers, only kept inside the stage (`DockFloat.stays`). */
+  readonly stays?: true;
 }
 export type Place = DockPlace | ColumnPlace | RailPlace | FloatPlace;
 
@@ -266,8 +268,10 @@ export function moveAmong(state: DockState, id: string, place: Place, others: re
   if (place.kind === "float") {
     const out = floatAt(state, id, place.rect);
     const anchor = place.anchor;
-    if (!anchor || out === state) return out;
-    return { ...out, floats: out.floats.map((f) => (f.id === id ? { ...f, anchor } : f)) };
+    // Left over content by the hand (`DockFloat.stays`): only with a rect of its own.
+    const stays = place.stays === true && !anchor && !!place.rect;
+    if ((!anchor && !stays) || out === state) return out;
+    return { ...out, floats: out.floats.map((f) => (f.id === id ? (anchor ? { ...f, anchor } : { ...f, stays: true as const }) : f)) };
   }
   // A side with no declared rail: its rail is its outermost column that takes the kind (`railColumnOf`), the item docked
   // at the end of the zone it lies in there (its own where the column takes it there, else the first), folded by hand.
@@ -527,7 +531,7 @@ export function homeFor(state: DockState, id: string, start: DockState): Place |
     return null;
   }
   const f = start.floats.find((x) => x.id === id);
-  if (f) return { kind: "float", rect: f.rect, ...(f.anchor ? { anchor: f.anchor } : {}) };
+  if (f) return { kind: "float", rect: f.rect, ...(f.anchor ? { anchor: f.anchor } : f.stays ? { stays: true as const } : {}) };
   return null;
 }
 

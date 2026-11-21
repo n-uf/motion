@@ -90,13 +90,25 @@ function fitBeside(want: Rect, region: Rect, avoid: readonly Rect[], earlier: re
 }
 
 /**
+ * A float the hand left over content: `fitFloat` clear of the bars and chrome alone (`avoid` past its first `docked`
+ * entries), then left there over the docked items (`fitFloat`'s `stay`), `covers` naming what it covers in `avoid`.
+ */
+function fitStays(want: Rect, region: Rect, avoid: readonly Rect[], docked: number): FloatFit {
+  const kept = fitFloat(want, region, avoid.slice(docked));
+  const over = fitFloat(kept.rect, region, avoid, { stay: true });
+  return { ...kept, covers: over.covers };
+}
+
+/**
  * Where one float of `item` lies, as `solve` lays it (and `fitResize` previews it): its form and size, then `fitFloat`
  * into `region`, clear of `avoid`. Its size is clamped to the room `region` leaves clear of the bars and chrome across
  * it (`clearSize`), never under its floor: only a floor larger than that room covers. The one clamp for a float's rect;
  * `shape.none` is the caller's to handle first. An anchored float is also kept clear of `earlier` (the floats that win
- * over it) where room exists (`fitBeside`); a float with a rect of its own ignores `earlier`.
+ * over it) where room exists (`fitBeside`); a float with a rect of its own ignores `earlier`. A float the hand left over
+ * content (`stays`, with a rect of its own) is kept clear of the bars and chrome only (`avoid` past its first `docked`
+ * entries, the docked items): it lies over the docked items it covers (`fitStays`).
  */
-export function placeFloat(item: DockItem, f: Pick<DockFloat, "rect" | "orient" | "anchor">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect, earlier: readonly Rect[] = []): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
+export function placeFloat(item: DockItem, f: Pick<DockFloat, "rect" | "orient" | "anchor" | "stays">, region: Rect, avoid: readonly Rect[], content: Rect, stage: Rect, earlier: readonly Rect[] = [], docked = 0): { from: number; fo: Orient; form: StackForm | undefined; fit: FloatFit } {
   const shape = floatShape(item, f);
   const from = shape.form;
   // Its orient: the float's, else the item's (`floatOrientOf`: a toolbar group floats as a row).
@@ -114,7 +126,7 @@ export function placeFloat(item: DockItem, f: Pick<DockFloat, "rect" | "orient" 
   const folded = !!form && formFolded(form);
   const h = folded ? shape.height : Math.max(floor.height, Math.min(shape.height, clear.height, cap.height));
   const want = f.anchor ? anchored(content, w, h, f.anchor) : rect(finite(f.rect.x, stage.x), finite(f.rect.y, stage.y), w, h);
-  const fit0 = f.anchor ? fitBeside(want, region, avoid, earlier) : fitFloat(want, region, avoid);
+  const fit0 = f.anchor ? fitBeside(want, region, avoid, earlier) : f.stays ? fitStays(want, region, avoid, docked) : fitFloat(want, region, avoid);
   const fit = w > region.width + EPS ? { ...fit0, rect: rect(region.x, fit0.rect.y, w, fit0.rect.height) } : fit0;
   return { from, fo, form, fit };
 }
@@ -125,6 +137,8 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
   // Floats: clear of every docked item, every bar and the chrome.
   const avoid: Rect[] = [];
   for (const l of Object.values(items)) avoid.push(l.rect);
+  // The docked items come first: a float the hand left over content covers them, never the bars or the chrome.
+  const docked = avoid.length;
   for (const e of Object.values(edges)) {
     if (axisOf(e.side) === "row" && e.cross > 0) avoid.push(e.rect);
     if (e.menu) avoid.push(e.menu.rect);
@@ -148,7 +162,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
   // every float with its own rect and of the anchored ones floated before it too, where room exists (`fitBeside`).
   const placed = new Map<string, ReturnType<typeof placeFloat>>();
   const place = (f: DockFloat, earlier: readonly Rect[] = []): void => {
-    placed.set(f.id, placeFloat(state.items[f.id]!, f, floatRegion, avoid, content, stage, earlier));
+    placed.set(f.id, placeFloat(state.items[f.id]!, f, floatRegion, avoid, content, stage, earlier, docked));
   };
   const live = drawn.filter((f) => !noForm.has(f.id));
   for (const f of live) if (!f.anchor) place(f);

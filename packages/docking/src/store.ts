@@ -6,7 +6,7 @@
  * interface StoredDockState {
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
- *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
+ *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number; stays?: true }[];
  *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; lengths?: { column?: number; row?: number }; floatSizes?: { row?: { width: number; height: number }; column?: { width: number; height: number } } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
@@ -34,6 +34,8 @@
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
  * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
+ * A float's `stays` (left over content by the hand) is kept on a float with no anchor; anything but `true` is dropped
+ * (`float:<id>:stays`).
  * An item's asked lengths (`DockItem.lengths`) are stored per axis; one entry that isn't a number over 0 (a 0 is no length, so it is not stored), or an axis that
  * isn't `row` or `column`, is dropped (`item:<id>:lengths:<axis>`), a `lengths` that isn't an object too
  * (`item:<id>:lengths`). A store from before has none, and an item then reads with none whatever `base` had: the store
@@ -72,6 +74,8 @@ export interface StoredDockStateFloat {
   readonly anchor?: FloatAnchorAt;
   /** When it was floated (`DockFloat.since`). */
   readonly since?: number;
+  /** The hand left it over content (`DockFloat.stays`). */
+  readonly stays?: true;
 }
 
 export interface StoredDockStateItem {
@@ -196,7 +200,7 @@ export function storeDockState(state: DockState): StoredDockState {
       .filter((f) => isNum(f.rect.x) && isNum(f.rect.y) && isSize(f.rect.width) && isSize(f.rect.height))
       .map((f) => {
         const anchor = anchorOf(f.anchor);
-        return { id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(anchor ? { anchor } : {}), ...(isSince(f.since) ? { since: f.since } : {}) };
+        return { id: f.id, x: f.rect.x, y: f.rect.y, width: f.rect.width, height: f.rect.height, ...(f.orient ? { orient: f.orient } : {}), ...(anchor ? { anchor } : {}), ...(isSince(f.since) ? { since: f.since } : {}), ...(f.stays === true && !anchor ? { stays: true as const } : {}) };
       }),
     items,
     ...(modes ? { railModes: modes } : {}),
@@ -387,17 +391,19 @@ function read(data: unknown, base: DockState): DockStateRead {
       continue;
     }
     for (const k of Object.keys(f)) if (k === "pinned") drop(`pinned:${id}`);
-    else if (!["id", "x", "y", "width", "height", "orient", "anchor", "since"].includes(k)) drop(`float:${id}:${k}`);
+    else if (!["id", "x", "y", "width", "height", "orient", "anchor", "since", "stays"].includes(k)) drop(`float:${id}:${k}`);
     const o = f.orient === "row" || f.orient === "column" ? f.orient : undefined;
     if (f.orient !== undefined && !o) drop(`float:${id}:orient`);
     const a = anchorOf(f.anchor, (what) => drop(`float:${id}:anchor${what}`));
     const since = isSince(f.since) ? f.since : undefined;
     if (f.since !== undefined && since === undefined) drop(`float:${id}:since`);
+    const stays = f.stays === true && !a;
+    if (f.stays !== undefined && !stays) drop(`float:${id}:stays`);
     placed.add(id);
     // Clamped by what solve draws (a folded float's bar), never cut: a reload lands where solve put it.
     const r = rect(f.x, f.y, f.width, f.height);
     const drawn = drawnFloatSize(items[id]!, { rect: r, ...(o ? { orient: o } : {}) });
-    floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}), ...(since !== undefined ? { since } : {}) });
+    floats.push({ id, rect: clampFloat(r, base.stage, drawn), ...(o ? { orient: o } : {}), ...(a ? { anchor: a } : {}), ...(since !== undefined ? { since } : {}), ...(stays ? { stays: true as const } : {}) });
   }
 
   // Each base edge: its stored order exactly (fixed items where the store put them), its base items the store placed
