@@ -6,6 +6,7 @@
  */
 import motionPkg from "../../../../packages/motion/package.json?raw";
 import placementPkg from "../../../../packages/placement/package.json?raw";
+import dockingPkg from "../../../../packages/docking/package.json?raw";
 import type { LabRun } from "../shared/hooks";
 import { parseRoute, registeredReset, routeHash } from "./api";
 import { GROUPS, type PageDef, type View } from "./page-defs";
@@ -16,7 +17,7 @@ import { PAGES, pageById } from "./pages";
 setPageList(PAGES);
 
 const version = (raw: string): string => (JSON.parse(raw) as { version: string }).version;
-export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg) };
+export const VERSIONS = { motion: version(motionPkg), placement: version(placementPkg), docking: version(dockingPkg) };
 
 /**
  * The public build (`vite build --mode public`, served at motion.n-uf.com/lab/): it names the versions of the source
@@ -72,8 +73,8 @@ function header(): string {
     <p class="lead">${esc(page.line)}</p>
     <div class="lab-meta">
       ${PUBLIC
-        ? `<p class="built-with" title="The packages' source this lab was built from"><span class="bw-k">Runs the source of</span><code>@n-uf/motion ${VERSIONS.motion}</code> · <code>@n-uf/placement ${VERSIONS.placement}</code></p>`
-        : `<p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code></p>`}
+        ? `<p class="built-with" title="The packages' source this lab was built from"><span class="bw-k">Runs the source of</span><code>@n-uf/motion ${VERSIONS.motion}</code> · <code>@n-uf/placement ${VERSIONS.placement}</code> · <code>@n-uf/docking ${VERSIONS.docking}</code></p>`
+        : `<p class="built-with" title="The packages' sources in this repository, not a published release"><span class="bw-k">Runs the workspace source</span><code>@n-uf/motion ${VERSIONS.motion}</code><code>@n-uf/placement ${VERSIONS.placement}</code><code>@n-uf/docking ${VERSIONS.docking}</code></p>`}
       <div class="lab-actions">
         ${!page.load ? "" : '<button type="button" class="lab-btn" id="lab-reset">↺ Reset</button>'}
         ${prev ? `<a class="lab-btn" href="${routeHash(prev.id)}" title="${esc(prev.title)}">← Previous</a>` : ""}
