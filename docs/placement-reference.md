@@ -443,6 +443,11 @@ the `avoid` indexes it still covers. `FloatFit`: `rect`, `clamped` (also true wh
 replaced), `snapped`, `covers`, `searchCapped`. Fit the floats again whenever the stacks or the stage change: a stack
 that grew may lie under one.
 
+`fitFloat(rect, stage, avoid, { stay: true })` (`FloatFitOptions`) is for a float a person left over content on
+purpose: it is only moved inside the stage, never beside what it covers. `rect` is the asked rect clamped into the
+stage, `snapped` is false, `covers` lists every `avoid` index it covers there and `searchCapped` is false. Where it
+covers nothing it is the same fit as without the option.
+
 Cost: the candidate x's (every edge of the stage and of an `avoid` rect) are tried nearest first; for each, the
 stretches of y the rects block are merged and skipped, so no clear place is missed however many lie between, and the
 search stops when no later x can be nearer. Measured in a test run on a laptop: about 100 `avoid` rects 0.1 ms, 300

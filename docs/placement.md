@@ -107,7 +107,7 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 | `formMain`, `formCrossMin`, `formFitsCross`, `wrapCross`, `wrapLines`, `wrapRows`, `withItem` | A form's length and least cross size, whether a wrap form fits a cross size, its rows, and an input with an item inserted. | A wrap form that fits a cross size fits every wider one. |
 | `DEFAULT_MENU`, `DEFAULT_RAIL` | The » entry's length and an empty stack's width. | Used when the input leaves them out. |
 | `stackGaps`, `StackGap`, `StackGapOptions`, `StackGapRefusal` | Every gap of one edge for an item: the fit its drop makes and the item's slot, or a refusal with its reason. | A gap's fit is the drop's solve; fit only, no hit zones. |
-| `fitFloat`, `FloatFit` | The rect a float gets: moved inside the stage and clear of docked content. | Moves, never resizes; finds a clear place whenever one exists, unless the safety net on the search is hit (`FloatFit.searchCapped`, normally false). |
+| `fitFloat`, `FloatFit`, `FloatFitOptions` | The rect a float gets: moved inside the stage and clear of docked content; with `{ stay: true }`, only moved inside the stage, `covers` naming what it lies over. | Moves, never resizes; finds a clear place whenever one exists, unless the safety net on the search is hit (`FloatFit.searchCapped`, normally false). With `stay` it is the asked rect clamped into the stage, never snapped. |
 
 ### Entry: tiling
 
