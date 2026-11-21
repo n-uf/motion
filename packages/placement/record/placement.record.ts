@@ -15,7 +15,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { askedName, load, need, outFile, recorder, seeded } from "../../../record/canon";
+import { Absent, askedName, load, need, outFile, recorder, seeded } from "../../../record/canon";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
 const src = (f: string): string => join(pkg, "src", f);
@@ -44,8 +44,11 @@ describe("record placement", () => {
     const rnd = seeded(2026);
     try {
       ASK = askedName((name) => stack("fitStack")(fixture("stack")([{ ...fixture("panel")("a", 1, 300), ...(name === "none" ? {} : { [name]: { column: 500 } }) }, fixture("panel")("b", 2, 300)], 900)));
-    } catch {
-      // No fixture helpers or no stack: nothing below can run either, and says so.
+      out.add("contract", "asked-lengths name", ASK);
+    } catch (error) {
+      // No fixture helpers or no stack: nothing below can run either, and says so. A probe that finds no name fails the run.
+      if (!(error instanceof Absent)) throw error;
+      out.add("contract", "asked-lengths name", { absent: error.message });
     }
 
     // --- stacks ---------------------------------------------------------------------------------------------------

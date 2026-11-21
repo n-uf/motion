@@ -11,21 +11,43 @@
  * `pnpm install --offline --frozen-lockfile`), this checkout's recorders are copied into it, and it is removed again with
  * a plain `git worktree remove`.
  *
- * Prints, per package and per output kind, `same N / changed M` and the first 5 differences of each kind; writes the full
- * diff to `.old-vs-new/<base>..<head>/`. Exit 0: nothing changed. Exit 1: something did. With `--expect <file>` (a JSON
- * list of `{ package, kind, case, reason }`, each of the first three a glob, default `*`) exit 0 only if every change is
- * covered by an expectation and every expectation matched a change. Exit 2: the run itself failed.
+ * Prints, per package and per output kind, `same N / changed M` and the first 2 differences of each kind (summary.txt has
+ * every changed case); writes the full diff to `.old-vs-new/<base>..<head>/`. It also counts the cases a side recorded as
+ * absent or threw, and shows what changed in the recorders and the fixture files they load between base and head.
+ * Exit 0: nothing changed. Exit 1: something did. With `--expect <file>` (a JSON list of `{ package, kind, case, reason }`,
+ * each of the first three a glob; `reason` required; a `case` of `*` needs `"all": true`) exit 0 only if every change is
+ * covered by an expectation and every expectation matched a change. Exit 2: the run itself failed, or the head recording
+ * has an absent or throwing case or lacks an output kind it should have (a recorder that no longer records proves nothing).
  */
 import { spawn, spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, rmdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { diffRecordings, matchExpectations, show } from "./old-vs-new-diff.mjs";
+import { diffRecordings, expectationProblems, failedCases, matchExpectations, show } from "./old-vs-new-diff.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const PACKAGES = ["docking", "placement", "motion"];
-const SHOWN = 5;
+const SHOWN = 2;
+/** The output kinds each recorder must write at the head (the table in docs/old-vs-new.md). */
+const KINDS = {
+  docking: ["contract", "solve", "targets", "drops", "refusals", "stops", "lanes", "dividers", "resize", "case-layout", "case-solve", "after-rest", "landing-frames", "guides", "after", "release-after"],
+  placement: ["contract", "fit", "fit-previous", "dividers", "resize", "gaps", "cut", "float-fit", "layout-split", "split-edits", "pane-region", "pane-targets", "order-layout", "order-targets"],
+  motion: ["landing-frames", "layout-frames", "animator"],
+};
+/** What the recorders write and read: a change to these between base and head is shown, since it bends what is compared. */
+const RECORDERS = ["record", "packages/docking/record", "packages/placement/record", "packages/motion/record"];
+const CORPUS = [
+  "packages/docking/test/fixtures",
+  "packages/docking/test/fixture.ts",
+  "packages/docking/test/held-lanes.ts",
+  "packages/docking/test/landing-model.ts",
+  "packages/docking/test/lift-windows.ts",
+  "packages/docking/test/one-layout-windows.ts",
+  "packages/docking/test/rail-entry-windows.ts",
+  "packages/docking/src/testing",
+  "packages/placement/test/stack-fixture.ts",
+];
 
 function usage(message) {
   if (message) console.error(`old-vs-new: ${message}`);
@@ -91,11 +113,13 @@ function recorderFiles() {
 }
 
 /** A temporary detached worktree at `sha`, with the recorders copied in and the dependencies installed. */
-async function checkout(parent, label, sha, files) {
+async function checkout(parent, label, sha, files, trees) {
   const dir = join(parent, label);
   const added = git(["worktree", "add", "--detach", dir, sha]);
   if (added.status !== 0) throw new Error(`git worktree add ${sha}: ${added.stderr.trim()}`);
+  // Known to the cleanup from here on, so whatever fails next, `release` removes it.
   const wt = { dir, copied: [] };
+  trees.push(wt);
   for (const f of files) {
     mkdirSync(dirname(join(dir, f)), { recursive: true });
     copyFileSync(join(root, f), join(dir, f));
@@ -141,10 +165,13 @@ async function pool(tasks, size) {
     Array.from({ length: Math.min(size, tasks.length) }, async () => {
       while (next < tasks.length) {
         const i = next++;
-        results[i] = await tasks[i]();
+        results[i] = await tasks[i]().catch((error) => ({ error }));
       }
     }),
   );
+  // Every task has finished (none is still running in a worktree about to be removed) before the first failure is thrown.
+  const failed = results.find((r) => r.error);
+  if (failed) throw failed.error;
   return results;
 }
 
@@ -154,6 +181,10 @@ async function main() {
   const headSha = opts.head ? rev(opts.head) : rev("HEAD");
   const expectations = opts.expect ? JSON.parse(readFileSync(resolve(opts.expect), "utf8")) : undefined;
   if (expectations && !Array.isArray(expectations)) usage("--expect takes a JSON list");
+  if (expectations) {
+    const problems = expectationProblems(expectations);
+    if (problems.length > 0) usage(`${opts.expect} is not usable:\n  ${problems.join("\n  ")}`);
+  }
   const label = `${baseSha.slice(0, 8)}..${headSha.slice(0, 8)}`;
   const outDir = join(root, ".old-vs-new", label);
   rmSync(outDir, { recursive: true, force: true });
@@ -172,7 +203,11 @@ async function main() {
   const started = Date.now();
   let recordings;
   try {
-    const [base, head] = await Promise.all([checkout(parent, "base", baseSha, files).then((t) => (trees.push(t), t)), opts.head ? checkout(parent, "head", headSha, files).then((t) => (trees.push(t), t)) : { dir: root, copied: [], here: true }]);
+    // Both checkouts settle before anything is thrown, so the other one is in `trees` and removed too.
+    const made = await Promise.allSettled([checkout(parent, "base", baseSha, files, trees), opts.head ? checkout(parent, "head", headSha, files, trees) : { dir: root, copied: [], here: true }]);
+    const failed = made.find((r) => r.status === "rejected");
+    if (failed) throw failed.reason;
+    const [base, head] = made.map((r) => r.value);
     if (head.here && !existsSync(join(root, "node_modules"))) throw new Error("run `pnpm install` in this checkout first");
     const tasks = opts.only.flatMap((pkg) => [
       () => record(base, pkg, join(outDir, "base", `${pkg}.json`)).then((r) => ({ pkg, side: "base", ...r })),
@@ -184,41 +219,61 @@ async function main() {
     rmdirIfEmpty(parent);
   }
 
+  // What the screen shows, and what summary.txt keeps (the same, with every changed case on a line of its own).
+  const screen = [];
+  const file = [];
+  const both = (s) => (screen.push(s), file.push(s));
   const changes = [];
-  const lines = [`old-vs-new ${label}  (base ${baseSha.slice(0, 8)}, head ${headSha.slice(0, 8)}${opts.head ? "" : ", this checkout"})`];
+  const broken = [];
+  both(`old-vs-new ${label}  (base ${baseSha.slice(0, 8)}, head ${headSha.slice(0, 8)}${opts.head ? "" : ", this checkout"})`);
+  const bent = bentFiles(baseSha, opts.head ? headSha : undefined);
+  if (bent) both(`\nRECORDER OR CORPUS CHANGED between base and head (the recorders and the fixture files they load; check it is meant):\n${bent}`);
   for (const pkg of opts.only) {
     const base = JSON.parse(readFileSync(join(outDir, "base", `${pkg}.json`), "utf8"));
     const head = JSON.parse(readFileSync(join(outDir, "head", `${pkg}.json`), "utf8"));
     const { kinds } = diffRecordings(base, head);
+    const failed = { base: failedCases(base), head: failedCases(head) };
     const secs = recordings.filter((r) => r.pkg === pkg).map((r) => `${r.side} ${r.seconds}s`).join(", ");
-    lines.push("", `${pkg}  (recorded: ${secs})`);
+    both(`\n${pkg}  (recorded: ${secs})`);
     const full = {};
     for (const [kind, k] of Object.entries(kinds)) {
-      lines.push(`  ${kind.padEnd(16)} same ${k.same} / changed ${k.changed.length}`);
+      const lost = ["base", "head"].filter((s) => failed[s][kind]).map((s) => `${s} absent ${failed[s][kind].absent}, threw ${failed[s][kind].threw}`);
+      both(`  ${kind.padEnd(16)} same ${k.same} / changed ${k.changed.length}${lost.length > 0 ? `   [${lost.join("; ")}]` : ""}`);
       for (const c of k.changed) changes.push({ package: pkg, kind, id: c.id });
-      for (const c of k.changed.slice(0, SHOWN))
-        for (const d of c.diffs.slice(0, 2)) lines.push(`      ${c.id}  ${d.path || "(whole case)"}  ${show(d.old)} -> ${show(d.new)}${c.diffs.length > 2 ? `  (+${c.diffs.length - 2} more in this case)` : ""}`);
-      if (k.changed.length > SHOWN) lines.push(`      … ${k.changed.length - SHOWN} more changed ${kind} cases in the full diff`);
+      const line = (c, d) => `      ${c.id}  ${d.path || "(whole case)"}  ${show(d.old)} -> ${show(d.new)}${c.diffs.length > 2 ? `  (+${c.diffs.length - 2} more in this case)` : ""}`;
+      for (const c of k.changed.slice(0, SHOWN)) for (const d of c.diffs.slice(0, 2)) screen.push(line(c, d));
+      for (const c of k.changed) file.push(line(c, c.diffs[0]));
+      if (k.changed.length > SHOWN) screen.push(`      … ${k.changed.length - SHOWN} more changed ${kind} cases in summary.txt`);
       if (k.changed.length > 0) full[kind] = k.changed;
     }
+    for (const kind of Object.keys(failed.head)) broken.push(`${pkg}: the head recording has ${failed.head[kind].absent} absent and ${failed.head[kind].threw} throwing ${kind} cases`);
+    for (const kind of KINDS[pkg].filter((k) => !(k in head.kinds))) broken.push(`${pkg}: the head recording has no ${kind} cases`);
     writeFileSync(join(outDir, `${pkg}.diff.json`), JSON.stringify(full, null, 1));
   }
 
   let ok = changes.length === 0;
   if (expectations) {
     const m = matchExpectations(expectations, changes);
-    lines.push("", "expected changes");
-    for (const c of m.covered) lines.push(`  ${c.count} x ${c.package ?? "*"} / ${c.kind ?? "*"} / ${c.case ?? c["case-id"] ?? "*"}: ${c.reason ?? "(no reason given)"}`);
-    for (const e of m.unmatched) lines.push(`  UNMATCHED expectation (it matched no change): ${e.package ?? "*"} / ${e.kind ?? "*"} / ${e.case ?? e["case-id"] ?? "*"}: ${e.reason ?? ""}`);
-    for (const c of m.uncovered.slice(0, 20)) lines.push(`  UNEXPECTED change: ${c.package} / ${c.kind} / ${c.id}`);
-    if (m.uncovered.length > 20) lines.push(`  … ${m.uncovered.length - 20} more unexpected changes`);
+    both("\nexpected changes");
+    for (const c of m.covered) both(`  covered ${c.count} of ${c.of} changed in ${c.package ?? "*"} / ${c.kind ?? "*"}  [${c.case}${c.all ? ", all" : ""}]: ${c.reason}`);
+    for (const e of m.unmatched) both(`  UNMATCHED expectation (it matched no change): ${e.package ?? "*"} / ${e.kind ?? "*"} / ${e.case}: ${e.reason}`);
+    for (const c of m.uncovered.slice(0, 20)) both(`  UNEXPECTED change: ${c.package} / ${c.kind} / ${c.id}`);
+    if (m.uncovered.length > 20) both(`  … ${m.uncovered.length - 20} more unexpected changes`);
     ok = m.uncovered.length === 0 && m.unmatched.length === 0;
   }
-  lines.push("", changes.length === 0 ? "no difference" : `${changes.length} changed case${changes.length === 1 ? "" : "s"}`, `${ok ? "OK" : "DIFFERENT"}  (${Math.round((Date.now() - started) / 1000)}s; full diff and both recordings in ${relative(process.cwd(), outDir) || outDir})`);
-  const text = lines.join("\n");
-  writeFileSync(join(outDir, "summary.txt"), `${text}\n`);
-  console.log(text);
-  process.exit(ok ? 0 : 1);
+  both(`\n${changes.length === 0 ? "no difference" : `${changes.length} changed case${changes.length === 1 ? "" : "s"}`}`);
+  if (broken.length > 0) both(`\nTHE RECORDING IS NOT A PROOF:\n  ${broken.join("\n  ")}`);
+  both(`${broken.length > 0 ? "FAILED" : ok ? "OK" : "DIFFERENT"}  (${Math.round((Date.now() - started) / 1000)}s; full diff and both recordings in ${relative(process.cwd(), outDir) || outDir})`);
+  writeFileSync(join(outDir, "summary.txt"), `${file.join("\n")}\n`);
+  console.log(screen.join("\n"));
+  process.exit(broken.length > 0 ? 2 : ok ? 0 : 1);
+}
+
+/** `git diff --stat` of the recorders (not files only added) and the fixture files they load, base to head (head: the working tree when not given). */
+function bentFiles(baseSha, headSha) {
+  const range = headSha ? [baseSha, headSha] : [baseSha];
+  const stat = (filter, paths) => git(["diff", "--stat", ...filter, ...range, "--", ...paths]).stdout.trim();
+  return [stat(["--diff-filter=MDRT"], RECORDERS), stat([], CORPUS)].filter(Boolean).join("\n");
 }
 
 main().catch((e) => {

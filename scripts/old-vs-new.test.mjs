@@ -1,7 +1,7 @@
 // node --test scripts/old-vs-new.test.mjs: the comparison and the expect matching behind `pnpm old-vs-new`.
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { diffRecordings, diffValues, globToRegExp, matchExpectations } from "./old-vs-new-diff.mjs";
+import { diffRecordings, diffValues, expectationProblems, failedCases, globToRegExp, matchExpectations } from "./old-vs-new-diff.mjs";
 
 test("numbers within the rounding of the recorder are the same", () => {
   assert.deepEqual(diffValues({ x: 1 }, { x: 1.000001 }), []);
@@ -37,12 +37,25 @@ test("globs, with alternatives for package and kind", () => {
   const m = matchExpectations(
     [
       { package: "docking", kind: "solve|fit", case: "*+asks*", reason: "r1" },
-      { kind: "resize", reason: "r2" },
-      { kind: "never", reason: "r3" },
+      { kind: "resize", case: "*", all: true, reason: "r2" },
+      { kind: "never", case: "x*", reason: "r3" },
     ],
     changes,
   );
   assert.deepEqual(m.uncovered.map((c) => c.id), ["one move"]);
   assert.deepEqual(m.unmatched.map((e) => e.reason), ["r3"]);
-  assert.deepEqual(m.covered.map((e) => [e.reason, e.count]), [["r1", 1], ["r2", 1]]);
+  assert.deepEqual(m.covered.map((e) => [e.reason, e.count, e.of]), [["r1", 1, 1], ["r2", 1, 1]]);
+});
+
+test("an expect entry needs a reason and a case; a bare * case needs all: true", () => {
+  assert.deepEqual(expectationProblems([{ kind: "k", case: "a*", reason: "why" }, { kind: "k", case: "*", all: true, reason: "why" }]), []);
+  assert.equal(expectationProblems([{ kind: "k", case: "a*" }]).length, 1);
+  assert.equal(expectationProblems([{ kind: "k", case: "*", reason: "why" }]).length, 1);
+  assert.equal(expectationProblems([{ kind: "k", reason: "why" }]).length, 1);
+  assert.throws(() => matchExpectations([{ kind: "k", case: "*", reason: "why" }], []), /not usable/);
+});
+
+test("absent and throwing cases are counted per kind", () => {
+  const r = { package: "p", kinds: { a: [{ id: "1", value: { absent: "x" } }, { id: "2", value: { threw: "y" } }, { id: "3", value: { threw: "z", other: 1 } }], b: [{ id: "1", value: 1 }] } };
+  assert.deepEqual(failedCases(r), { a: { absent: 1, threw: 1 } });
 });

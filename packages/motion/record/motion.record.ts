@@ -113,13 +113,13 @@ describe("record motion", () => {
 
     // --- the animators --------------------------------------------------------------------------------------------
     for (const [kind, make] of [
-      ["settle", (a: Any, to: Any) => need(values?.createSettle, "createSettle")(a, { omega: 25 })],
-      ["spring", (a: Any, to: Any) => need(values?.createSpring, "createSpring")(a, {})],
-      ["tween", (a: Any, to: Any) => need(values?.createTween, "createTween")(a, { duration: 300 })],
+      ["settle", (a: Any) => need(values?.createSettle, "createSettle")(a, { omega: 25 })],
+      ["spring", (a: Any) => need(values?.createSpring, "createSpring")(a, {})],
+      ["tween", (a: Any) => need(values?.createTween, "createTween")(a, { duration: 300 })],
     ] as const)
       for (const [from, to] of [[0, 100], [200, -50], [rect(0, 0, 100, 50), rect(300, 80, 160, 90)]] as const)
         out.attempt("animator", `${kind} ${JSON.stringify(from)} -> ${JSON.stringify(to)}`, () => {
-          const a = make(from, to);
+          const a = make(from);
           a.setTarget(to);
           const samples: Any[] = [];
           for (let i = 0; i < 60; i++) {

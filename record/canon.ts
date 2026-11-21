@@ -28,8 +28,9 @@ export async function load<T = Record<string, unknown>>(path: string): Promise<T
   try {
     return (await import(/* @vite-ignore */ path)) as T;
   } catch (error) {
-    // A file that isn't there is absent; one that is there and fails to load (an old API it names) is absent too.
-    void error;
+    // A file that isn't there is absent; one that is there and fails to load (an old API it names) is absent too, and
+    // says why on stderr. Every case that needed it is then recorded `absent`, and the run counts them.
+    tick(`absent: ${path} (${error instanceof Error ? error.message.split("\n")[0] : String(error)})`);
     return undefined;
   }
 }
@@ -127,12 +128,14 @@ export const outFile = (pkg: string): string => process.env.OVN_OUT ?? `${proces
  * What an item's asked lengths are called in the code under record: `lengths` (now) or `length` (before the rename).
  * `probe(name)` builds a small case with the asks under key `name` and returns what the library gives for it; the name
  * the library reads is the one whose case differs from one with no asks. A recorder writes its inputs and reads the
- * library's answers under that name only, so an old and a new commit are recorded with the same inputs.
+ * library's answers under that name only, so an old and a new commit are recorded with the same inputs, and it records
+ * the name as the `contract` output `asked-lengths name`, so a rename shows in the diff. A probe that runs and finds
+ * neither name throws (the run fails); one that can't run for a missing helper throws `Absent`.
  */
 export function askedName(probe: (name: string) => unknown): "lengths" | "length" {
   const none = JSON.stringify(canon(probe("none")));
   for (const name of ["lengths", "length"] as const) if (JSON.stringify(canon(probe(name))) !== none) return name;
-  return "lengths";
+  throw new Error("the asked-lengths probe found no name the code reads (neither `lengths` nor `length` changes the layout)");
 }
 
 /** A progress line on stderr with the seconds since the recorder started (set `OVN_QUIET=1` to silence it). */

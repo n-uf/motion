@@ -14,6 +14,18 @@ export function show(value, max = 90) {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }
 
+/** Per kind of a recording, how many cases are `{ absent }` (the code lacked what the case needs) or `{ threw }`; kinds with none are left out. */
+export function failedCases(recording) {
+  const out = {};
+  for (const [kind, list] of Object.entries(recording.kinds)) {
+    const only = (key) => list.filter((r) => r.value !== null && typeof r.value === "object" && Object.keys(r.value).length === 1 && typeof r.value[key] === "string").length;
+    const absent = only("absent");
+    const threw = only("threw");
+    if (absent + threw > 0) out[kind] = { absent, threw };
+  }
+  return out;
+}
+
 /** Every difference between `x` (old) and `y` (new) as `{ path, old, new }`; `old` or `new` is undefined where a side lacks it. */
 export function diffValues(x, y, path = "", out = []) {
   if (typeof x === "number" && typeof y === "number") {
@@ -87,23 +99,39 @@ const alternatives = (glob) => {
 };
 
 /**
- * The expectations (`{ package, kind, case, reason }`, each of package, kind and case a glob, default `*`; package and
- * kind may list alternatives as `a|b`) against the changes (`{ package, kind, id }`): which expectation covers each
- * change (the first that matches), which changes are covered by none, and which expectations matched nothing.
+ * What is wrong with an expect file, as a list of lines (empty when it is fine). Every entry needs a `reason`, and a
+ * `case` glob (the cases it covers) that isn't a bare `*`: an entry that really covers every case of its kind says so
+ * with `"all": true`.
+ */
+export function expectationProblems(expectations) {
+  const problems = [];
+  expectations.forEach((e, i) => {
+    const at = `entry ${i + 1}`;
+    if (e === null || typeof e !== "object" || Array.isArray(e)) return problems.push(`${at}: not an object`);
+    if (typeof e.reason !== "string" || e.reason.trim() === "") problems.push(`${at}: no "reason"`);
+    if (typeof e.case !== "string" || e.case === "") problems.push(`${at}: no "case" glob`);
+    else if (/^\*+$/.test(e.case) && e.all !== true) problems.push(`${at}: the case glob "*" covers every case; name the cases, or say "all": true`);
+  });
+  return problems;
+}
+
+/**
+ * The expectations (`{ package, kind, case, reason, all? }`, each of package, kind and case a glob, package and kind
+ * default `*` and may list alternatives as `a|b`; see `expectationProblems`) against the changes (`{ package, kind, id }`):
+ * which expectation covers each change (the first that matches), which changes are covered by none, and which
+ * expectations matched nothing. Each covered entry carries `count` (cases it covered) and `of` (the changed cases of its
+ * packages and kinds, covered by it or not).
  */
 export function matchExpectations(expectations, changes) {
-  const rules = expectations.map((e) => ({
-    e,
-    package: alternatives(e.package ?? "*"),
-    kind: alternatives(e.kind ?? "*"),
-    case: globToRegExp(e.case ?? e["case-id"] ?? e.caseId ?? "*"),
-    count: 0,
-  }));
+  const problems = expectationProblems(expectations);
+  if (problems.length > 0) throw new Error(`the expect file is not usable:\n  ${problems.join("\n  ")}`);
+  const rules = expectations.map((e) => ({ e, package: alternatives(e.package ?? "*"), kind: alternatives(e.kind ?? "*"), case: globToRegExp(e.case), count: 0, of: 0 }));
   const uncovered = [];
   for (const c of changes) {
+    for (const r of rules) if (r.package.test(c.package) && r.kind.test(c.kind)) r.of++;
     const rule = rules.find((r) => r.package.test(c.package) && r.kind.test(c.kind) && r.case.test(c.id));
     if (rule) rule.count++;
     else uncovered.push(c);
   }
-  return { uncovered, unmatched: rules.filter((r) => r.count === 0).map((r) => r.e), covered: rules.filter((r) => r.count > 0).map((r) => ({ ...r.e, count: r.count })) };
+  return { uncovered, unmatched: rules.filter((r) => r.count === 0).map((r) => r.e), covered: rules.filter((r) => r.count > 0).map((r) => ({ ...r.e, count: r.count, of: r.of })) };
 }

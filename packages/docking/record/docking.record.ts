@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { askedName, load, need, outFile, recorder, seeded, tick } from "../../../record/canon";
+import { Absent, askedName, load, need, outFile, recorder, seeded, tick } from "../../../record/canon";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
 const src = (f: string): string => join(pkg, "src", f);
@@ -68,13 +68,16 @@ describe("record docking", () => {
     const landing: Any = await load(tst("landing-model.ts"));
     const api = (name: string): Any => need(lib?.[name], `@n-uf/docking ${name}`);
     try {
-      const { column, panel, byId } = fixture;
+      const { column, panel, byId } = need(fixture, "test/fixture");
       ASK = askedName((name) => {
         const a = { ...panel("a", 1), ...(name === "none" ? {} : { [name]: { column: 500 } }) };
         return api("solve")({ stage: { x: 0, y: 0, width: 1200, height: 900 }, edges: [column("left", "left", 0, ["a", "b"])], items: byId([a, panel("b", 2)]), floats: [], floatKinds: [] });
       });
-    } catch {
-      // No fixture helpers or no solve: nothing below can run either, and says so.
+      out.add("contract", "asked-lengths name", ASK);
+    } catch (error) {
+      // No fixture helpers or no solve: nothing below can run either, and says so. A probe that finds no name fails the run.
+      if (!(error instanceof Absent)) throw error;
+      out.add("contract", "asked-lengths name", { absent: error.message });
     }
 
     // --- the corpus -----------------------------------------------------------------------------------------------
