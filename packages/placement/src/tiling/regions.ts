@@ -26,9 +26,15 @@ export interface PaneRegionOptions {
   readonly hysteresis?: number;
   /** Device pixels per px: the center's edges snap to that grid, as the browser draws them. */
   readonly pixelRatio?: number;
+  /**
+   * The pane's center rectangle as the host already has it (pane-local px, as `paneCenter` gives), used as it is in
+   * place of measuring: `center`, `centerX`, `centerY`, `centerMin` and `pixelRatio` are not read. Only `paneRegion`
+   * reads it; its `width` and `height` are the pane's own size for the hold toward the middle.
+   */
+  readonly centerRect?: PaneCenter;
 }
 
-export const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY">> = { center: 0.34, centerMin: 24, hysteresis: 6, pixelRatio: 1 };
+export const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "centerRect">> = { center: 0.34, centerMin: 24, hysteresis: 6, pixelRatio: 1 };
 
 /** The center rectangle of a pane of `size`, in pane-local px (origin at the pane's top-left corner). */
 export interface PaneCenter {
@@ -95,10 +101,11 @@ function toward(p: Point, region: PaneRegion, by: number, c: PaneCenter): Point 
 /**
  * The drop region of `pane` (in the same coordinates as `point`) the point is in. With a `previous` region, the point
  * has to be `hysteresis` px past that region's boundary before the region changes: no time-based debounce, only
- * geometry.
+ * geometry. A host that has measured the center itself passes it as `options.centerRect`; the same center gives the
+ * same region as the one measured here.
  */
 export function paneRegion(pane: Rect, point: Point, previous: PaneRegion | null = null, options: PaneRegionOptions = {}): PaneRegion {
-  const c = paneCenter(pane, options);
+  const c = options.centerRect ?? paneCenter(pane, options);
   const p = { x: point.x - pane.x, y: point.y - pane.y };
   const raw = rawRegion(p, c);
   const by = Math.max(0, options.hysteresis ?? PANE_REGION_DEFAULTS.hysteresis);
