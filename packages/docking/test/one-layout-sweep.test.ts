@@ -537,8 +537,8 @@ describe("one layout: every held frame draws what its release commits", () => {
  * is home, not a spot of the held tile's column (decision 0002's rule, one answer).
  *
  * The windows are the declared-rail windows of `./rail-windows` (one and two folded columns, narrow too) and the sweep's
- * windows where the held item is a tile of a rail. There are no exceptions: a drawn rail owns its whole rect, so a
- * new-column line's zone starts where the rail ends (the rest of the rail is home), and the lanes of a new column give
+ * windows where the held item is a tile of a rail. There are no exceptions: a drawn rail owns its whole rect (less
+ * the held tile's own run), so a new-column line's zone starts where the rail ends (the rest of the rail is home), and the lanes of a new column give
  * way to the rail as seen, in `targets()` and in the lanes alike.
  */
 const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
@@ -584,12 +584,14 @@ describe("one answer over a rail: the lanes and targets() decide the same", () =
   let points = 0;
   for (const w of wins) {
     const l = solve(w.s, w.previous ? { previous: w.previous } : {});
-    for (const rail of Object.values(l.rails)) {
+    for (const [side, rail] of Object.entries(l.rails)) {
       if (!rail || !rail.segments.some((g) => g.id === w.held)) continue;
       // Down the rail's middle and a little past either end, off the tiles' ends (1.37 px) so a point is in one tile only;
-      // and down both its sides (1 px in), within the rail: its sides are where a column line's zone meets it.
+      // down both its sides (1 px in), within the rail: its sides are where a column line's zone meets it; and down the
+      // columns 2 and 6 px either side of its inner side, where the rail meets what lies beside it.
       const mid = rail.rect.x + rail.rect.width / 2;
-      for (const x of [mid, rail.rect.x + 1, rail.rect.x + rail.rect.width - 1]) {
+      const inner = side === "left" ? rail.rect.x + rail.rect.width : rail.rect.x;
+      for (const x of [mid, rail.rect.x + 1, rail.rect.x + rail.rect.width - 1, inner - 6, inner - 2, inner + 2, inner + 6]) {
         const past = x === mid ? 20 : 0;
         for (let y = Math.max(0, rail.rect.y - past) + 1.37; y < Math.min(w.s.stage.height, rail.rect.y + rail.rect.height + past); y += 3) {
           points++;
