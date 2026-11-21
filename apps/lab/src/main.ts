@@ -343,6 +343,7 @@ function reset(count = 3): void {
   intent = null;
   raised = null;
   roomFor = null;
+  restAt = null;
   drop = null;
   hint.hidden = true;
   for (let i = 0; i < count; i++) {
@@ -448,6 +449,7 @@ function beginDrag(w: Win, px: number, py: number): void {
   startEpisode();
   const d = { ...w.item.drawn };
   roomFor = null;
+  restAt = null;
   lifted = w;
   raised = w;
   // The real window follows the pointer 1:1 from where it was grabbed, at the size it has now.
@@ -726,9 +728,10 @@ async function scriptedDrag(): Promise<void> {
     await until(() => !hint.hidden, 1500);
     if (hint.hidden) lacks.push("Outline: the outline never showed within 1.5 s");
   } else {
-    await until(() => roomFor !== null && wins.every((o) => o === lifted || o.item.settled) && (dropMode !== "glide" || (held?.snapped != null && w.item.settled)), 2500);
-    if (roomFor === null || !wins.every((o) => o === lifted || o.item.settled)) episode?.room.push(`no room within 2.5 s (${DROP_LABEL[dropMode]})`);
-    if (dropMode === "glide" && held?.snapped == null) lacks.push("Glide: the window never glided into its slot within 2.5 s");
+    await until(() => roomFor !== null && wins.every((o) => o === lifted || o.item.settled) && (dropMode !== "glide" || (held?.snapped != null && w.item.settled)), 2500 / speed);
+    // The windows settle on the scaled clock (Slow motion), so the wait scales with it.
+    if (roomFor === null || !wins.every((o) => o === lifted || o.item.settled)) episode?.room.push(`no room within ${2.5 / speed} s (${DROP_LABEL[dropMode]})`);
+    if (dropMode === "glide" && held?.snapped == null) lacks.push(`Glide: the window never glided into its slot within ${2.5 / speed} s`);
   }
   if (episode) episode.preview = lacks;
   // A last frame of rest, so the slot is on screen when it lets go.
