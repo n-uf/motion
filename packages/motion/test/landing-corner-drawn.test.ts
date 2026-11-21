@@ -191,3 +191,57 @@ describe("the corner decision compares marks as they are drawn, on both sides", 
     }
   });
 });
+
+describe("what a lane returns is never clipped to its hit rect", () => {
+  // A held layout draws a lane's marks outside its hit rect (placement keeps the hit rect as seen): a rail whose
+  // hit rect starts at y 32 has a head line at y 0.
+  const rail = (): LandingRegions => ({
+    lanes: [
+      {
+        id: "rail",
+        rect: rect(0, 32, RAIL, 576),
+        axis: "y",
+        spots: [{ id: "rail/start/^|$", along: [32, 608], landing: rect(0, 250, RAIL, 100) }],
+        refused: [],
+        marks: [
+          { id: "rail/line/^|x", kind: "line", rect: rect(0, 0, RAIL, 0) },
+          { id: "rail/box/^|$", kind: "box", rect: rect(0, 4, RAIL, 600) },
+        ],
+      },
+    ],
+    refused: [],
+    content: rect(0, 0, W, H),
+    blocked: [],
+    stage: rect(0, 0, W, H),
+    item: { width: 100, height: 30 },
+  });
+  for (const mode of ["near", "all"] as const)
+    it(`under "${mode}", the held rail keeps its head line and its box above its rect`, () => {
+      const f = settled(rail(), mode, { x: 15, y: 300 });
+      expect(f.lane).toBe("rail");
+      expect(f.guides.find((g) => g.id === "rail/line/^|x")?.rect).toEqual(rect(0, 0, RAIL, 0));
+      expect(f.guides.some((g) => g.id.startsWith("rail/box/") && g.rect.y === 4)).toBe(true);
+    });
+});
+
+describe("the named lane's kept marks are its drawn ones, and the held landing is left out", () => {
+  it("a bar lane at x 20–848 with marks over the full width: at (10, 20) exactly the rail draws", () => {
+    const regions = swap(window(15, 642), "top", { rect: rect(20, 0, 828, BAR) });
+    for (const to of [{ x: 15, y: 300 }, { x: 40, y: 300 }]) {
+      const f = settled(regions, "all", to);
+      expect(drawn(f, regions).filter((d) => covers(d.rect, { x: 10, y: 20 })).map((d) => d.lane), `${to.x}`).toEqual(["rail-left"]);
+    }
+  });
+
+  it("held, the bar draws nothing under the toolbar at the corner; the stub outside the landing stays the bar's", () => {
+    // The rail's landing is y 5–105: the 5 px above it is a stub, not drawn by the rail.
+    const base = window(0, H);
+    const rail = base.lanes.find((l) => l.id === "rail-left")!;
+    const regions = swap(base, "rail-left", { spots: [{ ...rail.spots[0]!, landing: rect(0, 5, RAIL, 100) }] });
+    for (const to of [{ x: 15, y: 60 }, { x: 40, y: 60 }]) {
+      const f = settled(regions, "all", to);
+      expect(drawn(f, regions).filter((d) => covers(d.rect, { x: 15, y: 20 })).map((d) => d.lane), `under ${to.x}`).toEqual([]);
+      expect(drawn(f, regions).filter((d) => covers(d.rect, { x: 15, y: 3 })).map((d) => d.lane), `stub ${to.x}`).toEqual(["top"]);
+    }
+  });
+});
