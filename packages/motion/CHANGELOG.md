@@ -18,14 +18,16 @@ a removal, with the name or the call to use instead.
   → `budget`; `FrameStats.lastMs` → `lastFrame`, `maxMs` → `longestFrame`, `meanMs` → `meanFrame`, `phaseMs` →
   `perPhase`; `FakeClockOptions.frameMs` and `FakeClock.frameMs` → `frameInterval`.
 - **`./values`.** `MotionValue.subscribe(listener)` (new): each change of the value, no signals needed.
-  `Animator.setVelocity` is required (a tween ignores it). `Settle.hold` is removed: use `jumpTo`.
+  `Animator.setVelocity` is required (a tween ignores it). `Settle.hold` is removed: use `jumpTo`. The step's
+  parameter `dtMs` → `dt` (ms) in `Animator.step`, `springStep` and `./layout`'s `AnchoredMorph.step`: a name only,
+  calls are unchanged.
 - **`./gestures`.** One `ModifierKey` for the package: `"shift" | "alt" | "ctrl" | "meta" | "mod"` (`"mod"`: ⌘ or
   Ctrl, either one); `isHeld` takes a partial set of keys and knows `"mod"`. `RecognizerOptions.toCanvas` is optional
   (identity). `modifierDrag` leaves `press` and `dragStart`, and `ModifierDrag` is removed: a host derives it from
   `origin.button` and `isHeld`. `RawPointerEvent.lostBy` `"surface"` → `"view"`. `DOUBLE_CLICK` is exported here (no
   longer from `./drag`). `RecognizerOptions.staleMs` → `stale`, `DwellConfig.dwellMs` → `dwell`,
   `TouchPressConfig.holdMs` → `hold`, `PagedSwipeConfig.idleMs` → `idle`, `lockoutMs` → `lockout`, `thresholdPx` →
-  `threshold`.
+  `threshold`; `wheelDeltaPx` → `wheelDelta`.
 - **`./drag`, the intent.** `DragTuning.railArmDwellMs` → `armAfter`; `DragModifiers.railKey` → `armKey`;
   `DragFrame.forced` `"rail"` → `"armed"`. `liftRect`, `floating`, `earlyRelease` and `DragFrame.refusedSinceShown`
   are removed. `DragFrame.landing` is required. New `bounds` and `setBounds`: the intent clamps the pointer onto the

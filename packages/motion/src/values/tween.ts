@@ -125,9 +125,9 @@ class TweenAnimator implements Tween<Animatable> {
     this.settled = true;
   }
 
-  step(dtMs: number): boolean {
+  step(dt: number): boolean {
     if (this.settled) return false;
-    this.elapsed += Math.max(0, dtMs);
+    this.elapsed += Math.max(0, dt);
     const p = this.duration <= 0 ? 1 : Math.min(1, this.elapsed / this.duration);
     if (p >= 1) {
       this.snap();

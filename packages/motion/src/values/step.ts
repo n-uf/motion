@@ -96,10 +96,10 @@ export abstract class ComponentAnimator implements Animator<Animatable> {
   /** Whether component `i`, now `d` from its target at `v` per second, counts as arrived. */
   protected abstract rests(i: number, d: number, v: number): boolean;
 
-  step(dtMs: number): boolean {
+  step(dt: number): boolean {
     if (this.settled) return false;
-    if (!(dtMs > 0)) return true;
-    const t = dtMs / 1000;
+    if (!(dt > 0)) return true;
+    const t = dt / 1000;
     const { x, v, goal, scratch } = this;
     this.begin(t);
     let resting = true;

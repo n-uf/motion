@@ -129,12 +129,12 @@ export interface SpringState {
 }
 
 /**
- * One pure spring step for a scalar: where `state` is after `dtMs` heading for
+ * One pure spring step for a scalar: where `state` is after `dt` ms heading for
  * `target`. Doesn't settle or snap; {@link createSpring} does that.
  */
-export function springStep(state: SpringState, target: number, params: SpringParams, dtMs: number): SpringState {
+export function springStep(state: SpringState, target: number, params: SpringParams, dt: number): SpringState {
   const out = new Float64Array(2);
-  advance(solverFor(params), state.value - target, state.velocity, dtMs / 1000, out);
+  advance(solverFor(params), state.value - target, state.velocity, dt / 1000, out);
   return { value: target + out[0]!, velocity: out[1]! };
 }
 

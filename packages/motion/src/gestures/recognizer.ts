@@ -33,7 +33,7 @@ import type {
   RawWheelEvent,
   GesturePointer,
 } from "./types";
-import { classifyWheel, WHEEL_DEFAULTS, wheelDeltaPx, type WheelOptions } from "./wheel";
+import { classifyWheel, WHEEL_DEFAULTS, wheelDelta, type WheelOptions } from "./wheel";
 
 /** The timer half of a ClockPort: any clock (createBrowserClock, createFakeClock) is one. */
 export type RecognizerTimers = Pick<ClockPort, "setTimer" | "clearTimer">;
@@ -424,7 +424,7 @@ export function createRecognizer(options: RecognizerOptions, emit: (gesture: Inp
     const modifiers = toModifiers(e.modifiers);
     const screen = finitePoint(e.screen);
     const at = { screen, canvas: toCanvas(screen) };
-    const intent = classifyWheel(wheelDeltaPx(e.deltaX, e.deltaY, e.deltaMode, wheelCfg), modifiers, wheelCfg);
+    const intent = classifyWheel(wheelDelta(e.deltaX, e.deltaY, e.deltaMode, wheelCfg), modifiers, wheelCfg);
     if (intent.kind === "zoom") {
       if (intent.factor !== 1) emit({ type: "zoom", factor: intent.factor, at, modifiers, time: e.time });
       return;

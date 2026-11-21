@@ -9,11 +9,21 @@ import {
   dwellReducer,
   isHeld,
   platformButton,
+  WHEEL_DEFAULTS,
+  wheelDelta,
   type DwellState,
   type InputGesture,
   type RawPointerEvent,
 } from "../src/gestures";
 import { effect } from "../src/signals";
+
+describe("wheelDelta", () => {
+  it("turns a wheel event's delta into px: pixels as given, lines and pages by their heights", () => {
+    expect(wheelDelta(3, -5, 0)).toEqual({ x: 3, y: -5 });
+    expect(wheelDelta(1, 2, 1)).toEqual({ x: WHEEL_DEFAULTS.lineHeight, y: 2 * WHEEL_DEFAULTS.lineHeight });
+    expect(wheelDelta(0, 1, 2)).toEqual({ x: 0, y: WHEEL_DEFAULTS.pageHeight });
+  });
+});
 
 describe("one ModifierKey for the package", () => {
   it('"mod" is ⌘ or Ctrl, either one; a key left out of the held keys is not held', () => {

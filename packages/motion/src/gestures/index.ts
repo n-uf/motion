@@ -15,7 +15,7 @@ export {
   dampWheelPan,
   WHEEL_DEFAULTS,
   WHEEL_PAN_DEFAULTS,
-  wheelDeltaPx,
+  wheelDelta,
   type WheelIntent,
   type WheelOptions,
   type WheelPanOptions,

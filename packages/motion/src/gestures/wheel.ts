@@ -19,7 +19,8 @@ export interface WheelOptions {
 
 export const WHEEL_DEFAULTS: Readonly<WheelOptions> = Object.freeze({ lineHeight: 40, pageHeight: 800, zoomSensitivity: 300 });
 
-export function wheelDeltaPx(deltaX: number, deltaY: number, deltaMode: 0 | 1 | 2, opts: WheelOptions = WHEEL_DEFAULTS): Point {
+/** A wheel event's delta in px: pixels as given, lines and pages by `lineHeight` and `pageHeight`. */
+export function wheelDelta(deltaX: number, deltaY: number, deltaMode: 0 | 1 | 2, opts: WheelOptions = WHEEL_DEFAULTS): Point {
   const k = deltaMode === 1 ? opts.lineHeight : deltaMode === 2 ? opts.pageHeight : 1;
   return { x: finite(deltaX) * k, y: finite(deltaY) * k };
 }

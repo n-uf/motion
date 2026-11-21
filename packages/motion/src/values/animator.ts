@@ -20,6 +20,6 @@ export interface Animator<T> {
   jumpTo(value: T): void;
   /** Put the value on the target and stop. */
   snap(): void;
-  /** Advance by `dtMs` milliseconds. Returns `true` while still moving. */
-  step(dtMs: number): boolean;
+  /** Advance by `dt` ms. Returns `true` while still moving. */
+  step(dt: number): boolean;
 }
