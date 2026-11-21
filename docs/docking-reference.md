@@ -937,7 +937,7 @@ where the item lies (false: no folded form on that axis, and `foldItem(…, on)`
 double-click off. **Dividers**: `DockItem.length` (`{ column?, row? }`, px along the edge, per axis) is the length a person
 asked an item to have; `solve` hands it to the edge's stack, which reads it in place of the natural of a growing form
 (`@n-uf/placement/stack`, "Dividers"). `length` is in ask units, not drawn px; with room to spare a drawn size is the ask
-times the shared scale. `resizeBetween` writes it for the two items of the pair only; a bystander keeps what it had, none
+times the shared scale. `resizeBetween` and `resetBetween` write it for the two items of the pair only; a bystander keeps what it had, none
 when nobody sized it. `dividers(state, layout?)` lists one `DockDivider` (`{ edge, before, after, rect,
 range }`, stage px) per pair of neighboring open growing items of each edge; `resizeBetween(state, before, after, delta,
 { layout? })` trades `delta` px between the two (a negative one the other way, clamped to `range`), `resetBetween(state,

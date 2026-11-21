@@ -192,10 +192,11 @@ resetLengths(input: StackInput): StackInput;
 ```
 
 - **`StackItem.length`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
-  that form grows (`main.grows`, not the menu; a `wrap` form that grows shares spare length, so it reads it too). The least stays the form's `main.min`: a length under
-  it is the least, and one that isn't a finite number from 0 up is no length. There is no new formula. With spare length
-  the sized items share it in proportion to their lengths, as a splitter does; short of length they interpolate between
-  their least and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
+  that form grows (`main.grows`, not the menu; a `wrap` form that grows shares spare length, so it reads it too). The least stays the form's `main.min`, a floor on
+  the drawn size, not on the ask; a length that isn't a finite number from 0 up is no length. There is no new formula. With
+  spare length the sized items share it in proportion to their lengths, as a splitter does, and one whose share would be
+  under its least is drawn at its least while the others share the rest; short of length they interpolate between
+  their least (an ask under it reads as the least) and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
   rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
   declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `length` is
   plain data: store it, read it back, and an older state without it lays out as it always did. `length` is in ask
@@ -211,12 +212,10 @@ resetLengths(input: StackInput): StackInput;
   to another stack as the item it is. The lengths are asks, not drawn sizes: with room to spare the pair's ask is its drawn
   size over `scale` (`scale` = how much longer than it asks a growing form is drawn); short of length it is
   `least + (drawn - least) / share`, `share` being the share of the way from least to ask the stack was drawn at. The
-  pair's drawn sizes add up to what they did and so do its asks, so the weight the length is shared by and the scale are
-  unchanged, and nothing else shifts; the pair lays out exactly as drawn, whatever the items that don't grow do. With spare
-  length one case is written for the whole stack instead: an end drawn under `scale` times its least would ask for less
-  than its least, which reads as its least and is drawn longer, so the stack is written at the drawn sizes (every growing
-  item, and for each collapsed item that has no length and a form that grows `scale` times that form's natural, so it keeps
-  its proportion when it reopens). Neither goes under its least: `delta` is clamped to
+  pair's drawn sizes add up to what they did and every other item draws as it did, so the scale is unchanged and nothing
+  else shifts; the pair lays out exactly as drawn, whatever the items that don't grow do. An end dragged to its least with
+  room to spare asks `least / scale`, under its least, and is drawn at its least. A collapsed item gets no length from a
+  drag: reopened, it asks its natural beside the pair's asks, which add up to what they did. Neither goes under its least: `delta` is clamped to
   the divider's `range`, so nothing collapses and nothing is pushed. It returns the same object when nothing changes
   (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0). A drag computes each frame from the state
   at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`.
@@ -231,8 +230,8 @@ resetLengths(input: StackInput): StackInput;
 - **`resetBetween(input, before, after)`** gives the two items the split they would be drawn at if both asked for their
   natural, their combined drawn length kept and nothing else moving: in proportion to their naturals (`main.natural`) with
   room for both, and `least + (natural - least) * s` with one shared `s` when short. The double-click action. The same
-  object when the two are at that split already, which a pair nobody resized always is, in every regime. Unlike a drag it
-  writes the length every growing item is drawn at.
+  object when the two are at that split already, which a pair nobody resized always is, in every regime. Like a drag it
+  writes the lengths of the two items only, in ask units.
 - **`resetLengths(input)`** deletes every length of the stack's axis, back to the split a stack with none has. An item's
   length for the other axis stays; the same object when no item had a length for this axis.
 

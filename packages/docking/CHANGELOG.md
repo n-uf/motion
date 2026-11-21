@@ -13,8 +13,9 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   the length and `readDockState` reads it back (a bad entry is dropped as `item:<id>:length:<axis>`; a store without it
   reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
   only when it was solved from that very state object; otherwise the verb solves the state again.
-- Fixed: **`resizeBetween` writes `DockItem.length` for the dragged pair only, in ask units** (not drawn px; with room to
-  spare a drawn size is the ask times the shared scale), as placement's does. A bystander of a drag gets no length, so an
+- Fixed: **`resizeBetween` and `resetBetween` write `DockItem.length` for the pair only, in ask units** (not drawn px; with
+  room to spare a drawn size is the ask times the shared scale), as placement's do; an ask under an item's least is a
+  weight there, and the item is drawn at its least. A bystander of a drag gets no length, so an
   item moved to another edge after a drag next to it is laid out as an item nobody resized, not at a length inflated by the
   column's scale.
 

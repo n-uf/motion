@@ -15,9 +15,11 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   resized. `length` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, so
   the pair's ask is its drawn size over that scale (short of room, `least + (drawn - least) / share`), which leaves the
   scale and every other drawn size as they were. A collapsed item no longer gets a length from a drag of its neighbors:
-  reopened, it keeps its proportion all the same. One case still writes the whole stack at the drawn sizes: with room, an
-  end dragged under the scale times its least (it would ask for less than its least), so it still reaches its least.
-  `resetBetween` is as it was.
+  reopened, it keeps its proportion all the same. `resetBetween` writes the pair only, too. An ask is a weight and the
+  least a floor on the drawn size: with room to spare, an item whose share of the length would be under its least is drawn
+  at its least and the others share the rest in proportion to their asks (before, an ask under the least was read as the
+  least), so an end dragged to its least asks `least / scale`; short of room an ask under the least still reads as the
+  least.
 
 ## 26.11.54
 
