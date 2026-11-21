@@ -93,7 +93,7 @@ export const isReservedEdgeId = (id: string): boolean => RESERVED_EDGE_IDS.has(i
 /** Throws when a real edge of `state` takes a virtual edge's id (`column:<side>`, `rail:<side>`); `solve`, `targets` and `readDockState` check it. */
 export function checkEdgeIds(state: DockState): void {
   for (const e of state.edges) {
-    if (isReservedEdgeId(e.id)) throw new Error(`placement: the edge id "${e.id}" is reserved for a side's virtual edge (column:<side>, rail:<side>); name the edge otherwise`);
+    if (isReservedEdgeId(e.id)) throw new Error(`docking: the edge id "${e.id}" is reserved for a side's virtual edge (column:<side>, rail:<side>); name the edge otherwise`);
   }
 }
 
