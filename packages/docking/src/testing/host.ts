@@ -320,7 +320,7 @@ export function createReferenceHost(options: ReferenceHostOptions = {}): Referen
     switch (g.key) {
       case undefined: {
         if (it.closed) settle(markUsed(openItem(s, id), id));
-        else if ((it.from ?? 0) > 0) settle(markUsed(foldItem(s, id,false), id));
+        else if ((it.from ?? 0) > 0) settle(markUsed(foldItem(s, id, false), id));
         else if (prev().items[id]?.floating) settle(raiseFloat(s, id));
         return;
       }
@@ -331,9 +331,9 @@ export function createReferenceHost(options: ReferenceHostOptions = {}): Referen
       case "close":
         return settle(closeItem(s, id));
       case "fold":
-        return settle(markUsed(foldItem(s, id,true), id));
+        return settle(markUsed(foldItem(s, id, true), id));
       case "unfold":
-        return settle(markUsed(foldItem(s, id,false), id));
+        return settle(markUsed(foldItem(s, id, false), id));
       case "float":
         return settle(markUsed(floatAt(s, id), id));
       case "dock": {

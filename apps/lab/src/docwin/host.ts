@@ -123,9 +123,9 @@ export function createDocwinHost(c: Docwin): AsyncCaseHost {
       case "close":
         return c.commit(closeItem(s, id));
       case "fold":
-        return c.commit(markUsed(foldItem(s, id,true), id));
+        return c.commit(markUsed(foldItem(s, id, true), id));
       case "unfold":
-        return c.commit(markUsed(foldItem(s, id,false), id));
+        return c.commit(markUsed(foldItem(s, id, false), id));
       case "float":
         return c.commit(markUsed(floatAt(s, id), id));
       case "dock":
