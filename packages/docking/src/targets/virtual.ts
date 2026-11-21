@@ -57,8 +57,10 @@ export function collapsesAt(c: Ctx, result: DropResult, side: "left" | "right"):
  */
 export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean): EdgeSpec[] {
   const { state, now, dragged } = c;
-  // `sideColumns: "one"`: a side that keeps a column with the item lifted offers no new one.
-  if (state.sideColumns === "one" && c.rest.edges.some((e) => e.side === side && e.items.length > 0 && isSideColumn(c.rest, e))) return [];
+  // `sideColumns: "one"`: a side that keeps a column with the item lifted offers no new one. A declared column edge (not a
+  // dynamic one, which an empty column loses) is the side's column whether it holds items or not: empty, or emptied by the
+  // lift, it keeps its box and a drop there lands in it, so its place is that column's, not a new column's on the same line.
+  if (state.sideColumns === "one" && c.rest.edges.some((e) => e.side === side && isSideColumn(c.rest, e) && (e.items.length > 0 || e.column !== true))) return [];
   const cols = state.edges
     .filter((e) => e.side === side && e.column === true)
     .map((edge) => ({ edge, l: now.edges[edge.id] }))

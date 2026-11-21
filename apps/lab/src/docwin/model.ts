@@ -169,7 +169,7 @@ const TITLE_BAR_PRIORITY = -1;
 function itemOf(id: ItemId, used: number): DockItem {
   if (isPanel(id)) return { id, kind: "panel", forms: { column: panelColumn(id) }, floatSizes: { column: floatSize(id) }, used };
   // A toolbar group declares its row forms first, so it floats as a row (`floatOrientOf`).
-  if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSize: floatSize(id), used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
+  if (isGroup(id)) return { id, kind: "group", forms: { row: groupRow(id), column: groupColumn(id) }, floatSizes: { row: floatSize(id) }, used, ...(PRIORITY[id] !== undefined ? { priority: PRIORITY[id] } : {}) };
   // The title takes the bar's spare length and shrinks to its minimum; the controls are one fixed size at the end.
   if (id === "title") return { id, kind: "chrome", forms: { row: [f("row", { min: 140, natural: 220, grows: true }, BAR)] }, used: 0, fixed: true };
   return { id, kind: "chrome", forms: { row: [f("row", 3 * 22 + 8, BAR)] }, used: 0, fixed: true, align: "end" };

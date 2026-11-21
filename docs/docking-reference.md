@@ -265,9 +265,10 @@ panel has no stop there. It is a declaration too, never stored.
 **One column per side.** With `DockState.sideColumns: "one"`, a side has at most one column (`isSideColumn`: a left or right
 edge that takes something and is neither a compact rail nor a toolbar bar). A drag offers a new-column line only on a side
 with no column holding an item once the dragged item is lifted; where the side has a column, an item goes into it by its
-gaps. A declared column that only the lift empties (a lone panel's column that the dock state declares as an edge, not
-a dynamic one) counts as the side's column too: it keeps its box and a drop there lands in it, so no `column:<side>:$`
-lane or target is offered for the same place, and no two lanes draw one rect. `mergeSideColumns(state)` merges a side's columns into the outermost, its items first and the others' after in
+gaps. A side with a declared column edge (not a dynamic `column: true` one, which an empty side loses), empty or not,
+has that column as its column: empty already, or emptied by the lift of a lone panel, it keeps its box and a drop there
+lands in it, so no `column:<side>:$` lane or target is offered for the same place, and no two lanes draw one rect.
+`mergeSideColumns(state)` merges a side's columns into the outermost, its items first and the others' after in
 ring order, keeping the outermost's id and size; a host calls it as it reads a stored layout, so what it stores next is
 what it shows and what a drag reads. A declaration, never stored.
 

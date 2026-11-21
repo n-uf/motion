@@ -43,9 +43,9 @@ export interface HandSpeedOptions {
   /** A gap between two samples this long or longer starts the hand again, ms. */
   readonly gap: number;
   /**
-   * The longest step over a gap that still reads as the speed it is, px (a landing model passes what its
-   * `gates.stepSpeed` covers in 8 ms): a
-   * hand creeping a pixel or two at a time reads slow; a longer step over a gap (a fling out of a rest) is unknown.
+   * The longest step over a gap that still reads as the speed it is, px (`HAND_SLOW_STEP`, 3 by default; a length, not
+   * a speed, so a landing model's `gates.stepSpeed` does not set it): a hand creeping a pixel or two at a time reads
+   * slow; a longer step over a gap (a fling out of a rest) is unknown.
    */
   readonly slowStep: number;
   /** How much faster than `long` the newest step may be and the hand still be steady (a slide). */

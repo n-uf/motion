@@ -5,14 +5,14 @@
  * same rect. A side with no declared column still offers one, and so does a dynamic (`column: true`) one's side.
  */
 import { describe, expect, it } from "vitest";
-import type { Rect } from "../src/geometry";
-import { lanes, solve, targets, type Edge, type Scene } from "../src/scene";
-import { FLUSH, INSET, kitScene, type KitShape } from "./kit-scene";
+import type { Rect } from "@n-uf/placement";
+import { lanes, solve, targets, type DockEdge, type DockState } from "../src";
+import { FLUSH, INSET, kitState, type KitShape } from "./kit-window";
 
 /** The kit-shaped window with both side columns declared (no `column: true`), so a lifted lone panel leaves its column. */
-function declared(k: KitShape, drop?: "left" | "right"): Scene {
-  const s = kitScene(k, { left: [["pages", "notes"]], right: [["findings"]] });
-  const edges: Edge[] = s.edges.filter((e) => e.side !== drop).map(({ column: _column, ...e }) => e);
+function declared(k: KitShape, drop?: "left" | "right"): DockState {
+  const s = kitState(k, { left: [["pages", "notes"]], right: [["findings"]] });
+  const edges: DockEdge[] = s.edges.filter((e) => e.side !== drop).map(({ column: _column, ...e }) => e);
   return { ...s, edges, sideColumns: "one" };
 }
 const SHAPES = [
@@ -51,7 +51,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
   });
 
   it("the kit twin's dynamic columns (`column: true`, the lone panel's column deleted by the lift) offer the side one lane too", () => {
-    const s: Scene = { ...kitScene(k), sideColumns: "one" };
+    const s: DockState = { ...kitState(k), sideColumns: "one" };
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
       const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
@@ -62,7 +62,7 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
   it("a declared column already empty before the drag is the side's column too: one lane, no `column:right:$`, no equal mark rects", () => {
     const base = declared(k);
     const { findings: _gone, ...items } = base.items;
-    const s: Scene = { ...base, items, edges: base.edges.map((e) => (e.side === "right" ? { ...e, items: [] } : e)) };
+    const s: DockState = { ...base, items, edges: base.edges.map((e) => (e.side === "right" ? { ...e, items: [] } : e)) };
     const previous = solve(s);
     for (const spot of [undefined, "left-0/start/pages|notes"]) {
       const r = lanes(s, "pages", { previous, ...(spot ? { spot } : {}) });

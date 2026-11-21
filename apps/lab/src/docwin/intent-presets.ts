@@ -24,18 +24,18 @@ interface IntentPreset {
   check(c: Docwin): Verdict;
 }
 
-const FRAME = 1000 / 60;
+export const FRAME = 1000 / 60;
 /** A pointer path: [time ms, x, y] keys, in window px. */
-type Key = readonly [number, number, number];
+export type Key = readonly [number, number, number];
 
-const mid = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
+export const mid = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 const dist = (a: Point, b: Point): number => Math.hypot(a.x - b.x, a.y - b.y);
-const sameRect = (a: Rect | null | undefined, b: Rect | null | undefined): boolean =>
+export const sameRect = (a: Rect | null | undefined, b: Rect | null | undefined): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= 0.5 && Math.abs(a.y - b.y) <= 0.5 && Math.abs(a.width - b.width) <= 0.5 && Math.abs(a.height - b.height) <= 0.5;
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)}`;
 
 /** Keys along `points` at `speed` px/ms, one per frame, from `t0`. */
-function through(points: readonly Point[], speed: number, t0 = 0): Key[] {
+export function through(points: readonly Point[], speed: number, t0 = 0): Key[] {
   const out: Key[] = [[t0, points[0]!.x, points[0]!.y]];
   let t = t0;
   for (let i = 1; i < points.length; i++) {
@@ -47,11 +47,11 @@ function through(points: readonly Point[], speed: number, t0 = 0): Key[] {
   return out;
 }
 /** The path held still at its end for `ms`. */
-const hold = (keys: Key[], ms: number): Key[] => [...keys, [keys.at(-1)![0] + ms, keys.at(-1)![1], keys.at(-1)![2]]];
+export const hold = (keys: Key[], ms: number): Key[] => [...keys, [keys.at(-1)![0] + ms, keys.at(-1)![1], keys.at(-1)![2]]];
 
 /**
  * Drive `id` along the path `build` makes from its grip, a frame every 1/60 s of the session's clock, `at` run once the
- * clock passes its time, then let go. The drag's trace, the drop, and the path's last time.
+ * clock passes its time, `each` after every frame, then let go. The drag's trace, the drop, and the path's last time.
  */
 export function drive(c: Docwin, id: ItemId, build: (grip: Point) => Key[], at: { t: () => number; run: () => void }[] = [], each?: (t: number) => void): { trace: DragTrace; drop: LastDrop | null; atRelease: Rect | null } | null {
   const g = c.gripOf(id);
@@ -74,6 +74,7 @@ export function drive(c: Docwin, id: ItemId, build: (grip: Point) => Key[], at: 
         p.run();
       }
       c.frame(T0 + t);
+      each?.(t);
     }
     const atRelease = c.trace?.frames.at(-1)?.item ?? null;
     c.release(T0 + end + FRAME);
