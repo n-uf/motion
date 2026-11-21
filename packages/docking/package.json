@@ -64,7 +64,8 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "DOCKING_RUN=rest vitest run",
     "test:sweep": "DOCKING_RUN=sweep vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm test:sweep && pnpm build",
+    "check:quick": "pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm check:quick && pnpm test:sweep",
     "prepack": "pnpm --filter @n-uf/placement build && pnpm run build"
   },
   "dependencies": {
