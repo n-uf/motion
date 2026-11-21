@@ -160,12 +160,14 @@ export function rectField(draw: (rects: Map<string, Rect>) => void): { set(targe
     omega: omega(),
     phase: "write",
     reducedMotion: reduced,
-    onDraw: () => {
-      const rects = new Map<string, Rect>();
-      motion.items.forEach((item, key) => rects.set(key, item.drawn));
-      draw(rects);
-    },
+    onDraw: () => drawAll(),
   });
+  /** Every item's drawn rect, handed to `draw`. */
+  function drawAll(): void {
+    const rects = new Map<string, Rect>();
+    motion.items.forEach((item, key) => rects.set(key, item.drawn));
+    draw(rects);
+  }
   // A change of tempo reaches every item, in flight too (the speed rides on the loop's clock).
   onMotionChange(() => motion.configure({ omega: omega() }));
   return {
@@ -177,7 +179,13 @@ export function rectField(draw: (rects: Map<string, Rect>) => void): { set(targe
         else if (animate) item.moveTo(r);
         else item.jumpTo(r);
       });
-      motion.flush();
+      // Every set ends in a draw of the whole layout: the batch draws only items that changed, and an item that left
+      // (or one whose target did not change) marks nothing, so the picture would keep what is gone.
+      if (motion.items.size === 0) drawAll();
+      else {
+        motion.items.forEach((item) => item.redraw());
+        motion.flush();
+      }
     },
   };
 }
