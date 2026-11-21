@@ -1,4 +1,4 @@
-<!-- The tiling stage (src/main.ts), behind Settle and tempo and Tiling: the shell renders its header. -->
+<!-- The tiling stage (src/main.ts), behind Settle and tiling: the shell renders its header. -->
       <section class="controls" aria-label="Controls">
         <fieldset>
           <legend>Tempo</legend>
@@ -15,9 +15,9 @@
         </fieldset>
         <fieldset>
           <legend>Drop preview while dragging</legend>
-          <label><input type="radio" name="drop" value="indicator" checked /> Indicator only (window under the pointer, slot outlined)</label>
-          <label><input type="radio" name="drop" value="snap" /> Snap to slot (window glides into the slot under the pointer, the others make room)</label>
-          <label><input type="checkbox" id="make-room" /> Indicator only: others make room too (live reorder)</label>
+          <label><input type="radio" name="drop" value="outline" checked autocomplete="off" /> Outline (the window stays under the pointer, the slot is outlined)</label>
+          <label><input type="radio" name="drop" value="placeholder" autocomplete="off" /> Placeholder (the slot is outlined and, once the aim has held, the others make room)</label>
+          <label><input type="radio" name="drop" value="glide" autocomplete="off" /> Glide (once the others have made room the window glides into the slot, and back to the pointer when it leaves)</label>
         </fieldset>
         <fieldset>
           <legend>Do</legend>

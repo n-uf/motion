@@ -1,16 +1,19 @@
 /**
  * The motion lab: a small tiling stage whose windows move by the window
- * motion rules (settle, hold, reveal). Every frame of every move is sampled
- * and checked with @n-uf/motion/testing. The tiling is @n-uf/placement/tiling;
- * a drag goes through the lab's drag session (shared/session) and a drag
- * intent over the tiling's targets.
+ * motion rules (settle, hold, reveal). The windows are the items of one
+ * `createLayoutMotion` (`item.moveTo`, `item.show`), drawn onto their elements by
+ * `domDrawable`; a dragged window is held by `holdItem`, and the drop preview is
+ * `previewPlan`'s (Outline, Placeholder, Glide). Every frame of every move is sampled
+ * (from the layout motion's `onDraw`) and checked with @n-uf/motion/testing. The
+ * tiling is @n-uf/placement/tiling; a drag goes through the lab's drag session
+ * (shared/session) and a drag intent over the tiling's targets.
  *
  * `window.__motionLab.runAll()` runs the scripted scenarios and returns which
  * rules failed where (the headless try uses it).
  */
-import { createFrameLoop, createSettle, popIn, reveal, SETTLE_TEMPO, type FrameInfo, type Rect, type Settle } from "@n-uf/motion";
-import { createBrowserClock, drawBox, layOutBox } from "@n-uf/motion/browser";
-import { createDragIntent, type DragIntent } from "@n-uf/motion/drag";
+import { createFrameLoop, createLayoutMotion, holdItem, SETTLE_TEMPO, type ClockPort, type DrawEntry, type HeldDrag, type LayoutItem, type Rect } from "@n-uf/motion";
+import { createBrowserClock, domDrawable } from "@n-uf/motion/browser";
+import { createDragIntent, previewPlan, type DragIntent, type PreviewMode } from "@n-uf/motion/drag";
 import type { HeldSample, ScaleSample, TargetSample } from "@n-uf/motion/testing";
 import type { Point } from "@n-uf/placement";
 import {
@@ -62,10 +65,8 @@ interface Win {
   readonly el: HTMLDivElement;
   readonly frame: HTMLDivElement;
   readonly content: HTMLDivElement;
-  rect: Settle<Rect>;
-  /** Where the element is laid out (its content's size); the drawn rect glides toward it. */
-  target: Rect;
-  pop: Settle<number>;
+  /** The layout motion's item: where it is drawn (`drawn`), where it heads (`target`) and its appearance. */
+  readonly item: LayoutItem;
   closing: boolean;
   segment: Segment | null;
   /** Unheld frames, one run per stretch between lifts and drops. */
@@ -79,10 +80,9 @@ let wins: Win[] = [];
 let order: number[] = [];
 let maxId: number | null = null;
 
-// The drag: the lifted window, its grab offset, the pointer's place for it, and where it would land.
+// The drag: the lifted window, the hold the pointer has on it, and where it would land.
 let lifted: Win | null = null;
-let grab = { x: 0, y: 0 };
-let expected: Rect | null = null;
+let held: HeldDrag | null = null;
 /**
  * A place the lifted window could land: its slot, the whole layout with it there (so the others can make
  * room), and how to commit it. `key` names it across pointer moves.
@@ -98,41 +98,32 @@ interface Drop {
 }
 /** The drag intent of the drag in progress (@n-uf/motion/drag): what the indicator shows and what a release lands on. */
 let intent: DragIntent<TileTarget> | null = null;
-/** Unscaled ms for the intent (slow motion slows the windows, not the pointer). */
-let aimTime = 0;
 /** Where the lifted window would land now. */
 let drop: Drop | null = null;
 /** Where the pointer is, in stage units, while dragging. */
 let pointer = { x: 0, y: 0 };
-/** The lifted window's size when it was picked up: it keeps it while it follows the pointer. */
-let liftSize = { width: 0, height: 0 };
 /**
- * The drop preview while dragging: "indicator" (the window stays under the
- * pointer, a dashed outline marks the slot it would land in) or "snap" (the
- * window itself glides into the slot under the pointer, and back out to the
- * pointer when the pointer leaves the slot).
+ * The drop preview while dragging, `previewPlan`'s modes (@n-uf/motion/drag), each one showing the same landing:
+ * "outline" (the window stays under the pointer, a dashed outline marks the slot it would land in), "placeholder"
+ * (the same, and once the intent makes room the others move aside) and "glide" (once the room is made the window
+ * itself glides into the slot, and back to the pointer when the pointer leaves it; no outline).
  */
-type DropMode = "indicator" | "snap";
-let dropMode: DropMode = "indicator";
-/** Indicator mode only, opt-in: the others make room at the slot the indicator marks, once the intent says so. */
-let indicatorMakesRoom = false;
-/** Indicator mode: the drop the others make room for now (its key), or null. */
+type DropMode = Extract<PreviewMode, "outline" | "placeholder" | "glide">;
+const DROP_MODES: readonly DropMode[] = ["outline", "placeholder", "glide"];
+/** The mode as the page says it. */
+const DROP_LABEL: Readonly<Record<DropMode, string>> = { outline: "Outline", placeholder: "Placeholder", glide: "Glide" };
+let dropMode: DropMode = "outline";
+/** The drop the others make room for now (its key), or null. */
 let roomFor: string | null = null;
 
 /** Where the lifted window is previewed in the layout (the others make room there), or null. */
 function roomAt(): Drop | null {
-  if (!lifted) return null;
-  if (dropMode === "snap") return snapped;
-  return roomFor !== null && drop?.key === roomFor ? drop : null;
+  return lifted && roomFor !== null && drop?.key === roomFor ? drop : null;
 }
-/** In snap mode: the drop the window is snapped into, or null while it follows the pointer. */
-let snapped: Drop | null = null;
 /** The focused window: a new window splits it (dwindle). Set by a click, an open or a drop. */
 let focusId: number | null = null;
 /** The layout before the lift: a release with no target, or Escape, puts it back. */
 let home: { tree: Tree | null; order: number[]; maxId: number | null; layout: LayoutKind } | null = null;
-/** How far inside a slot the pointer must be to snap into it (it stays snapped until the pointer leaves the slot). */
-const SNAP_IN = 24;
 /** The window kept above all others: the one being dragged, and after the drop until it has settled. */
 let raised: Win | null = null;
 const Z_RAISED = "10";
@@ -147,17 +138,45 @@ let episode: {
   held: HeldSample[];
   /** Per frame of the raised window: null when nothing covered it, else what did. */
   onTop: (string | null)[];
-  /** Snap mode, per frame while snapped: null when no settled window overlaps the slot, else which does. */
+  /** Per frame while the others make room: null when no settled window overlaps the slot, else which does. */
   room: (string | null)[];
   /** The drop preview this move ran with. */
   drop: DropMode;
 } | null = null;
-let idleWaiters: Array<() => void> = [];
 
-const loop = createFrameLoop({ clock: createBrowserClock() });
-let running = false;
+/**
+ * The browser's clock, its time scaled by `speed`: slow motion slows the windows (the layout motion steps by the
+ * frame's delta) and not the pointer or the drag intent, which read real time.
+ */
+const baseClock = createBrowserClock();
+let scaledNow = baseClock.now();
+let realNow = scaledNow;
+const clock: ClockPort = {
+  ...baseClock,
+  now() {
+    const real = baseClock.now();
+    scaledNow += (real - realNow) * speed;
+    realNow = real;
+    return scaledNow;
+  },
+};
+const loop = createFrameLoop({ clock });
 
 const omega = (): number => SETTLE_TEMPO[tempo];
+
+/**
+ * Every window is an item of this one layout motion: `moveTo` settles it to a place, `show` pops it in or out, and
+ * `domDrawable` draws it onto its element (laid out at the target, moved to the drawn rect, the content clipped). The
+ * frames come in one batch per step (`onDraw`), which is where the checks sample them.
+ */
+const motion = createLayoutMotion({
+  loop,
+  omega: omega(),
+  onDraw: sampleFrame,
+  onActiveChange: (active) => {
+    if (!active) endEpisode();
+  },
+});
 
 /** The tiling layouts: Hyprland's master and dwindle, plus equal columns and a grid. */
 type LayoutKind = "master" | "dwindle" | "columns" | "grid";
@@ -234,6 +253,8 @@ function startEpisode(): void {
     w.runs = [[]];
     episode.runs.push(...w.runs);
   }
+  // A frame at least runs, so a change that moves nothing still ends the episode.
+  motion.wake();
 }
 
 function newRun(w: Win): void {
@@ -242,29 +263,23 @@ function newRun(w: Win): void {
   episode?.runs.push(run);
 }
 
-function ensureLoop(): void {
-  startEpisode();
-  if (running) return;
-  running = true;
-  loop.repeat("update", tick);
+/** The window's move to `to` as the checks read it: from `from` (where it is drawn), sampled until it is retargeted. */
+function startSegment(w: Win, to: Rect, from: Rect = w.item.drawn): void {
+  // The segment starts with the frame the move began on, so tempo counts from here.
+  w.segment = { id: w.id, t0: time, from: { ...from }, to: { ...to }, samples: [{ t: time, rect: { ...from } }] };
+  episode?.segments.push(w.segment);
 }
 
 function setTarget(w: Win, to: Rect): void {
-  if (same(w.target, to) && same(w.rect.target, to)) return;
-  ensureLoop();
-  const drawn = w.rect.value;
-  w.target = { ...to };
-  layOutBox(w.el, to);
-  // The segment starts with the frame the move began on, so tempo counts from here.
-  w.segment = { id: w.id, t0: time, from: { ...drawn }, to: { ...to }, samples: [{ t: time, rect: { ...drawn } }] };
-  episode?.segments.push(w.segment);
-  w.rect.configure({ omega: omega() });
-  w.rect.setTarget(to);
+  if (same(w.item.box, to) && same(w.item.target, to)) return;
+  startEpisode();
+  startSegment(w, to);
+  w.item.moveTo(to);
 }
 
 /**
- * Every window in the order glides to its place. While a window is snapped into a slot (snap mode), the
- * others make room for it: they take their places in the layout with it inserted at that slot.
+ * Every window in the order glides to its place. While the others make room for the lifted window, they take their
+ * places in the layout with it inserted at the previewed slot.
  */
 function relayout(): void {
   const slots = roomAt()?.layout ?? baseLayout();
@@ -277,7 +292,7 @@ function relayout(): void {
   for (const w of wins) w.el.classList.toggle("focused", w.id === focusId);
 }
 
-function makeWin(at: Rect): Win {
+function makeWin(at: Rect, shown = true): Win {
   const id = nextId++;
   const el = document.createElement("div");
   el.className = "win";
@@ -289,40 +304,34 @@ function makeWin(at: Rect): Win {
   content.innerHTML = `<div class="title">Window ${id}</div><div class="body">Meeting notes ${10 + id} · edited today<br>Page 2 of 5 · the quick brown fox</div>`;
   el.append(frame, content);
   stage.append(el);
-  const w: Win = {
-    id,
-    el,
-    frame,
-    content,
-    rect: createSettle(at, { omega: omega() }),
-    target: { ...at },
-    pop: createSettle(1, { omega: omega(), restDelta: 0.001 }),
-    closing: false,
-    segment: null,
-    runs: [[]],
-  };
-  layOutBox(el, at);
+  const item = motion.add(String(id), domDrawable({ node: el, frame, content }), at, { shown });
+  const w: Win = { id, el, frame, content, item, closing: false, segment: null, runs: [[]] };
   content.querySelector(".title")!.addEventListener("pointerdown", (e) => onPointerDown(w, e as PointerEvent));
   // A press anywhere on a window focuses it (a new window in dwindle splits the focused one).
   el.addEventListener("pointerdown", () => {
     if (!w.closing) focus(w.id);
   });
   wins.push(w);
-  draw(w);
   return w;
 }
 
+/** A window is gone: its item leaves the layout motion and its element the stage. */
+function dropWin(w: Win): void {
+  motion.remove(String(w.id));
+  w.el.remove();
+  wins = wins.filter((x) => x !== w);
+}
+
 function reset(count = 3): void {
-  for (const w of wins) w.el.remove();
-  wins = [];
+  for (const w of [...wins]) dropWin(w);
   order = [];
   maxId = null;
   // A reset mid-drag ends the drag: no session mark, no press listeners, no intent.
   if (lifted) session.ended();
   lifted = null;
+  held = null;
   intent = null;
   raised = null;
-  snapped = null;
   roomFor = null;
   drop = null;
   hint.hidden = true;
@@ -335,12 +344,9 @@ function reset(count = 3): void {
   const slots = baseLayout();
   for (const w of wins) {
     w.el.classList.toggle("focused", w.id === focusId);
-    const at = slots.get(w.id)!;
-    w.target = { ...at };
-    layOutBox(w.el, at);
-    w.rect.jumpTo(at);
-    draw(w);
+    w.item.jumpTo(slots.get(w.id)!);
   }
+  motion.flush();
   lastRows = [];
 }
 
@@ -362,11 +368,11 @@ function doOpen(): void {
   const target = focusId !== null && order.includes(focusId) ? focusId : (order.at(-1) ?? null);
   const nextTree = layoutKind === "dwindle" ? splitPane(tree, target, id) : null;
   const at = (nextTree ? layoutTree(nextTree) : layout([...order, id])).get(id)!;
-  const w = makeWin(at);
-  w.pop.jumpTo(0);
-  ensureLoop();
+  startEpisode();
+  // It is laid out at its place, not shown yet, then pops in.
+  const w = makeWin(at, false);
   newRun(w);
-  w.pop.setTarget(1);
+  w.item.show(true);
   if (nextTree) setTree(nextTree);
   else {
     order.push(w.id);
@@ -382,9 +388,9 @@ function doClose(): void {
   const id = focusId !== null && order.includes(focusId) ? focusId : order.at(-1);
   if (id === undefined) return;
   const w = wins.find((x) => x.id === id)!;
-  ensureLoop();
+  startEpisode();
   w.closing = true;
-  w.pop.setTarget(0);
+  w.item.show(false);
   if (layoutKind === "dwindle") setTree(removePane(tree, id));
   else {
     order = order.filter((x) => x !== id);
@@ -422,27 +428,27 @@ function stagePoint(e: { clientX: number; clientY: number }): Point {
 
 /**
  * The lab's one drag session (shared/session): a title's press lifts past the lift distance, the stage carries
- * `data-drag-session` while a window is dragged, Escape cancels, the click after the drop is the drag's. Frames are this
- * page's own loop (`tick`), which feeds the drag intent.
+ * `data-drag-session` while a window is dragged, Escape cancels, the click after the drop is the drag's. The frames of the
+ * drag are the layout motion's (`aim`, a task of it), which feeds the drag intent.
  */
 const session = createDragSession({ root: stage, point: stagePoint, frame: () => {} });
 
 function beginDrag(w: Win, px: number, py: number): void {
   if (w.closing || lifted) return;
-  ensureLoop();
-  const d = w.rect.value;
-  grab = { x: px - d.x, y: py - d.y };
-  liftSize = { width: d.width, height: d.height };
-  snapped = null;
+  startEpisode();
+  const d = { ...w.item.drawn };
   roomFor = null;
   lifted = w;
   raised = w;
+  // The real window follows the pointer 1:1 from where it was grabbed, at the size it has now.
+  held = holdItem(w.item, { x: px - d.x, y: py - d.y });
   w.el.style.zIndex = Z_RAISED;
   w.el.classList.add("lifted");
   // Home: the layout as it was, to put back on Escape or on a release with no target (over its own place, say).
   home = { tree, order: [...order], maxId, layout: layoutKind };
   places.clear();
-  intent = createDragIntent<TileTarget>({ home: { ...d }, lift: { x: px, y: py }, placeOf });
+  // The stage is the drawn space: the intent clamps every point onto it.
+  intent = createDragIntent<TileTarget>({ home: d, lift: { x: px, y: py }, bounds: { x: 0, y: 0, width: STAGE_W, height: STAGE_H }, placeOf });
   session.started("window", performance.now());
   if (maxId === w.id) maxId = null;
   // Lifted out of the layout (out of the tree and the order both): the others close the gap.
@@ -460,73 +466,55 @@ function beginDrag(w: Win, px: number, py: number): void {
 
 /** The pointer moved during the drag: the held window follows it at once; the intent reads it on the next frame. */
 function moveDrag(px: number, py: number): void {
-  if (!lifted) return;
+  if (!lifted || !held) return;
   pointer = { x: px, y: py };
-  expected = { x: px - grab.x, y: py - grab.y, width: liftSize.width, height: liftSize.height };
-  if (dropMode === "indicator") lifted.rect.jumpTo(expected);
+  held.move(pointer);
 }
 
 /**
- * One frame of the drag: the drag intent (@n-uf/motion/drag) over the tiling targets says which target the indicator
- * shows and when the others make room; a frame also counts when the pointer rests (a dwell).
+ * One frame of the drag: the drag intent (@n-uf/motion/drag) over the tiling targets says which target shows and
+ * when the others make room (a frame also counts when the pointer rests: a dwell), and `previewPlan` turns that into
+ * what the mode draws: the outline, the room, the window in its slot.
  */
 function aim(): void {
-  if (!lifted || !intent || !expected) return;
-  const { x: px, y: py } = pointer;
-  const f = intent.update(pointer, aimTime, targetsFor(lifted.id));
+  if (!lifted || !intent || !held) return;
+  const f = intent.update(pointer, performance.now(), targetsFor(lifted.id));
   drop = f.shown ? dropOf(f.shown, lifted.id) : null;
-
-  if (dropMode === "snap") {
-    // Snap in once the pointer is well inside the shown slot; stay until it leaves that slot.
-    const was = snapped?.key;
-    if (snapped !== null && !inside(snapped.slot, px, py)) snapped = null;
-    const slot = drop?.slot;
-    if (snapped === null && drop && slot && inside(slot, px, py, Math.min(SNAP_IN, Math.min(slot.width, slot.height) / 4))) snapped = drop;
-    if (snapped !== null) drop = snapped;
-    hint.hidden = true;
-    // The others make room in the slot it snaps into, and close the gap again when it leaves.
-    if (snapped?.key !== was) relayout();
-    // Snapped: glide into the slot. Not snapped: glide back under the pointer (no jump), at the lift size.
-    const goal = snapped !== null ? snapped.slot : expected;
-    if (!same(lifted.rect.target, goal)) {
-      // A new segment for the checks: from where it is drawn to the new goal.
-      const drawn = lifted.rect.value;
-      lifted.segment = { id: lifted.id, t0: time, from: { ...drawn }, to: { ...goal }, samples: [{ t: time, rect: { ...drawn } }] };
-      episode?.segments.push(lifted.segment);
-      lifted.rect.setTarget(goal);
-    }
-    return;
-  }
-
-  // Opt-in live reorder: the others make room at the shown slot once the intent says the aim has held.
-  const room = indicatorMakesRoom && f.room && drop ? drop.key : null;
+  const plan = previewPlan(f, dropMode);
+  // The others make room at the shown slot once the plan says so, and close the gap again when it goes.
+  const room = plan.makeRoom && drop ? drop.key : null;
   if (room !== roomFor) {
     roomFor = room;
     relayout();
   }
-  hint.hidden = drop === null;
-  if (drop) Object.assign(hint.style, { left: `${drop.slot.x}px`, top: `${drop.slot.y}px`, width: `${drop.slot.width}px`, height: `${drop.slot.height}px` });
+  hint.hidden = !(plan.showIndicator && drop);
+  if (drop && !hint.hidden) Object.assign(hint.style, { left: `${drop.slot.x}px`, top: `${drop.slot.y}px`, width: `${drop.slot.width}px`, height: `${drop.slot.height}px` });
+  // The held window: under the pointer, or (the plan snaps it) gliding into the slot and back out to the pointer.
+  const wasGliding = held.snapped !== null || held.returning;
+  const drawn = { ...lifted.item.drawn };
+  const change = held.preview(plan, drop?.slot ?? null);
+  // A segment for the checks: the glide from where it is drawn into the slot; leaving ends it (the way back chases the pointer).
+  if (change === "snapped" && drop) startSegment(lifted, drop.slot, drawn);
+  else if (change === "left") lifted.segment = null;
+  if (!wasGliding && (held.snapped !== null || held.returning)) newRun(lifted);
 }
 
 /**
- * Drop the lifted window where the drag intent says a release lands (in snap mode, the slot it is snapped into).
- * `cancel` (Escape), or a release with no target (over the window's own place), puts the whole layout back as it was
- * before the lift.
+ * Drop the lifted window where the drag intent says a release lands. `cancel` (Escape), or a release with no target
+ * (over the window's own place), puts the whole layout back as it was before the lift.
  */
 function endDrag(cancel = false): void {
   const w = lifted;
-  if (!w) return;
-  // The release point is fed to the intent first, so a last jump of the pointer counts (and its places are current).
-  const targets = targetsFor(w.id);
-  if (!cancel && intent) intent.update(pointer, aimTime, targets);
-  const target = !cancel && intent ? intent.release(pointer, aimTime, targets) : null;
-  const landing = cancel ? null : dropMode === "snap" && snapped ? snapped : target ? dropOf(target, w.id) : null;
+  const hold = held;
+  if (!w || !hold) return;
+  // The intent takes the release point as one more sample, so a last jump of the pointer counts (and its places are current).
+  const target = !cancel && intent ? intent.release(pointer, performance.now(), targetsFor(w.id)) : null;
+  const landing = cancel ? null : target ? dropOf(target, w.id) : null;
   const backHome = home && landing === null ? home : null;
   intent = null;
+  held = null;
   session.ended();
   lifted = null;
-  expected = null;
-  snapped = null;
   roomFor = null;
   hint.hidden = true;
   w.el.classList.remove("lifted");
@@ -551,7 +539,12 @@ function endDrag(cancel = false): void {
   else tree = splitFromOrder(order);
   focus(w.id);
   newRun(w);
-  // It stays raised (above every other window) until its drop settle ends.
+  // It stays raised (above every other window) until its drop settle ends. It is let go into its place in the
+  // layout (or sent home): the landing settles from the rect it was let go at, never from its old home.
+  const to = w.id === maxId ? FULL : baseLayout().get(w.id)!;
+  startSegment(w, to);
+  if (landing) hold.land(to);
+  else hold.cancel(to);
   relayout();
 }
 
@@ -580,12 +573,6 @@ function onPointerDown(w: Win, e: PointerEvent): void {
 
 // --- the frame ---------------------------------------------------------------
 
-/** Drawn by @n-uf/motion/layout's box writer: laid out at its target, moved to the drawn rect, the content clipped. */
-function draw(w: Win): void {
-  const drawn = w.rect.value;
-  drawBox({ node: w.el, frame: w.frame, content: w.content }, { drawn, box: w.target, reveal: reveal(drawn, w.target), pop: popIn(w.pop.value), shown: w.pop.value, gone: false });
-}
-
 /**
  * Whether the topmost element at stage point `want` belongs to `w`: null when it does, a failure message
  * when something else is on top, undefined when no point of it can be hit-tested (outside the stage's
@@ -604,87 +591,98 @@ function measure(w: Win): { scale: ScaleSample; frame: Rect } {
   return measureFrame(stage, STAGE_W, w, time);
 }
 
-function tick(frame: FrameInfo): boolean {
-  const dt = frame.delta * speed;
-  time += dt;
-  aimTime += frame.delta;
-  aim();
-  let moving = lifted !== null;
-  for (const w of [...wins]) {
-    if (w.rect.step(dt)) moving = true;
-    if (w.pop.step(dt)) moving = true;
-    draw(w);
-    if (!episode) continue;
+/**
+ * Each frame the layout motion draws (one batch per step, the DOM already written), sampled for the checks: the
+ * content's scale, and either the window held 1:1 under the pointer (compared with where the pointer puts it) or
+ * everything that glides, a lifted window gliding into a slot and back to the pointer included.
+ */
+function sampleFrame(batch: readonly DrawEntry[]): void {
+  if (!episode) return;
+  for (const { id, frame } of batch) {
+    const w = wins.find((x) => String(x.id) === id);
+    if (!w) continue;
     const seen = measure(w);
     episode.scale.push(seen.scale);
-    const drawn = w.rect.value;
-    if (w === lifted && dropMode === "indicator") {
-      // Held (indicator mode): compare what the page shows with where the pointer puts the window.
-      if (expected) episode.held.push({ t: time, rect: seen.frame, expected });
+    if (w === lifted && held && held.snapped === null && !held.returning) {
+      if (held.held) episode.held.push({ t: time, rect: seen.frame, expected: held.held });
     } else {
-      // Everything that glides, including a lifted window snapping into a slot and back to the pointer.
-      w.runs.at(-1)!.push({ t: time, rect: drawn, target: w.rect.target });
-      w.segment?.samples.push({ t: time, rect: drawn });
-    }
-    if (w.closing && w.pop.settled) {
-      w.el.remove();
-      wins = wins.filter((x) => x !== w);
+      w.runs.at(-1)!.push({ t: time, rect: { ...frame.drawn }, target: { ...w.item.target } });
+      w.segment?.samples.push({ t: time, rect: { ...frame.drawn } });
     }
   }
-  // On top: while dragged, and after the drop until it has settled, nothing covers it. Checked after
-  // every window of this frame is drawn.
-  // Room: once the others have settled, none of them overlaps the slot the lifted window is snapped into.
+}
+
+/**
+ * After every frame (the windows stepped and drawn): the drag's frame work, the closed windows leave, and the
+ * per-frame checks run.
+ */
+function afterFrame(): void {
+  for (const w of [...wins]) if (w.closing && w.item.shownSettled) dropWin(w);
+  if (!episode) return;
+  // Room: once the others have settled, none of them overlaps the slot the lifted window is previewed in.
   const room = roomAt();
-  if (lifted && room !== null && episode) {
+  if (lifted && room !== null) {
     const slot = room.slot;
     // Only once every other window has settled: before that the frame says nothing either way.
     const others = wins.filter((o) => o !== lifted && !o.closing);
-    const blocking = others.every((o) => o.rect.settled) ? others.filter((o) => overlap(o.rect.value, slot) > 1) : null;
+    const blocking = others.every((o) => o.item.settled) ? others.filter((o) => overlap(o.item.drawn, slot) > 1) : null;
     if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} window ${blocking.map((o) => o.id).join(", ")} still in the slot kept for window ${lifted.id}` : null);
   }
+  // On top: while dragged, and after the drop until it has settled, nothing covers it. Checked after
+  // every window of this frame is drawn.
   const r = raised;
-  if (r && episode) {
+  if (r) {
     const frameRect = measure(r).frame;
     const at = r === lifted && inside(frameRect, pointer.x, pointer.y) ? pointer : { x: frameRect.x + frameRect.width / 2, y: frameRect.y + frameRect.height / 2 };
     const verdict = onTopAt(r, at, frameRect);
     if (verdict !== undefined) episode.onTop.push(verdict);
-    if (r !== lifted && r.rect.settled) {
+    if (r !== lifted && r.item.settled) {
       raised = null;
       r.el.style.zIndex = r.id === maxId ? "3" : "1";
     }
   }
-  if (moving) return true;
-  running = false;
-  endEpisode();
-  return false;
 }
+
+/** Before every item steps: the clock of the checks, and the drag's frame. The frames keep coming while a window is held. */
+motion.task((frame) => {
+  time += frame.delta;
+  aim();
+  return lifted !== null;
+});
+motion.onFrame(afterFrame);
 
 // --- checks ------------------------------------------------------------------
 
 let lastRows: Row[] = [];
 
+/** The move is over (the layout motion went idle): its checks are read, shown, and drawn as a trace. */
 function endEpisode(): void {
   const ep = episode;
   episode = null;
   if (!ep) return;
   const { rows, segments: segs } = motionRows(ep, omega());
   lastRows = rows;
-  checksTitle.textContent =
-    "Checks of the last move" + (ep.onTop.length > 0 ? ` · drop preview: ${ep.drop === "snap" ? "snap to slot" : "drop indicator"}` : "");
+  checksTitle.textContent = "Checks of the last move" + (ep.onTop.length > 0 ? ` · drop preview: ${DROP_LABEL[ep.drop]}` : "");
   renderChecks(checksBody, lastRows);
   renderTrace(trace, ep.t0, segs);
-  const waiters = idleWaiters;
-  idleWaiters = [];
-  for (const resolve of waiters) resolve();
 }
 
 // --- scenarios ---------------------------------------------------------------
 
-const idle = (): Promise<void> => (running || episode ? new Promise((r) => idleWaiters.push(r)) : Promise.resolve());
+/** Wait for `ok` (checked every frame), at most `ms`: a person's rest on the stack before the release. */
+async function until(ok: () => boolean, ms: number): Promise<void> {
+  const end = performance.now() + ms;
+  while (!ok() && performance.now() < end) await nextFrame();
+}
 
+/**
+ * A drag from the first window's title to the stack, then a rest there as a person aims, then the release: the
+ * drag intent shows the slot after a dwell; with room (Placeholder, Glide) the others make room and settle first,
+ * and in Glide the window is in its slot.
+ */
 async function scriptedDrag(): Promise<void> {
   const w = wins.find((x) => x.id === order[0])!;
-  const d = w.rect.value;
+  const d = w.item.drawn;
   const from = { x: d.x + 60, y: d.y + 12 };
   beginDrag(w, from.x, from.y);
   const to = { x: STAGE_W - 120, y: STAGE_H - 60 };
@@ -695,10 +693,22 @@ async function scriptedDrag(): Promise<void> {
     const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
     moveDrag(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
   }
-  // Rest there as a person aims: the drag intent shows the slot after a dwell, and in snap mode the window snaps in
-  // and the others make room (and settle) before the release.
-  await wait(dropMode === "snap" ? 700 : 250);
+  if (dropMode === "outline") await until(() => !hint.hidden, 1500);
+  else await until(() => roomFor !== null && wins.every((o) => o === lifted || o.item.settled) && (dropMode !== "glide" || (held?.snapped != null && w.item.settled)), 2500);
+  // A last frame of rest, so the slot is on screen when it lets go.
+  await nextFrame();
   endDrag();
+}
+
+/** The scripted drag under the drop preview `mode` (the page's own choice is kept). */
+async function dragWith(mode: DropMode): Promise<void> {
+  const before = dropMode;
+  setDropMode(mode);
+  try {
+    await scriptedDrag();
+  } finally {
+    setDropMode(before);
+  }
 }
 
 const SCENARIOS: Record<string, () => Promise<void>> = {
@@ -715,16 +725,9 @@ const SCENARIOS: Record<string, () => Promise<void>> = {
     await wait(80);
     doMaximize();
   },
-  "drag to the stack": scriptedDrag,
-  "drag, snap to slot": async () => {
-    const before = dropMode;
-    setDropMode("snap");
-    try {
-      await scriptedDrag();
-    } finally {
-      setDropMode(before);
-    }
-  },
+  "drag, outline": () => dragWith("outline"),
+  "drag, placeholder": () => dragWith("placeholder"),
+  "drag, glide": () => dragWith("glide"),
   "switch layout": async () => {
     const before = layoutKind;
     // Switch, and switch back mid-flight: one move with a retarget across layouts.
@@ -750,7 +753,7 @@ async function runScenario(name: string): Promise<Run> {
   const layoutAtStart = layoutKind;
   const play = SCENARIOS[name]!;
   await play();
-  await idle();
+  await motion.idle();
   const failed = lastRows.filter((r) => r.result && !r.result.ok).map((r) => r.name);
   const run: Run = { scenario: name, mode: layoutAtStart, failed, rows: lastRows };
   runs.push(run);
@@ -798,6 +801,35 @@ function setDropMode(m: DropMode): void {
   (document.querySelector(`input[name=drop][value=${m}]`) as HTMLInputElement).checked = true;
 }
 
+/** The viewer's drop preview, kept in this browser only. */
+const PREVIEW_KEY = "motion-lab:settle:preview";
+/** A preview stored under the names from before the library's: Indicator is Outline, Snap is Glide. */
+const OLD_PREVIEW: Readonly<Record<string, DropMode>> = { indicator: "outline", snap: "glide" };
+
+/** The stored drop preview, or null (none stored, or no storage). An old name is read once: it is mapped and stored under the new one. */
+function storedDropMode(): DropMode | null {
+  try {
+    const v = localStorage.getItem(PREVIEW_KEY);
+    if (v === null) return null;
+    if (DROP_MODES.includes(v as DropMode)) return v as DropMode;
+    const mapped = OLD_PREVIEW[v];
+    if (mapped) localStorage.setItem(PREVIEW_KEY, mapped);
+    return mapped ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** The viewer picks a drop preview: the next drag uses it, and it is kept for the next visit. */
+function pickDropMode(m: DropMode): void {
+  setDropMode(m);
+  try {
+    localStorage.setItem(PREVIEW_KEY, m);
+  } catch {
+    // No storage (a private window, blocked site data): the choice lasts this visit.
+  }
+}
+
 /** A new layout: every window glides to its place in it (mid-drag too: the drop is found again in it). */
 function setLayout(k: LayoutKind): void {
   layoutKind = k;
@@ -808,7 +840,6 @@ function setLayout(k: LayoutKind): void {
   if (k === "dwindle" && panesOf(tree).join() !== order.join()) tree = splitFromOrder(order);
   if (lifted) {
     drop = null;
-    snapped = null;
     roomFor = null;
     relayout();
     moveDrag(pointer.x, pointer.y);
@@ -816,18 +847,15 @@ function setLayout(k: LayoutKind): void {
 }
 
 document.querySelectorAll<HTMLInputElement>("input[name=drop]").forEach((input) =>
-  input.addEventListener("change", () => setDropMode(input.value as DropMode)),
+  input.addEventListener("change", () => pickDropMode(input.value as DropMode)),
 );
 document.querySelectorAll<HTMLInputElement>("input[name=layout]").forEach((input) =>
   input.addEventListener("change", () => setLayout(input.value as LayoutKind)),
 );
-(document.getElementById("make-room") as HTMLInputElement).addEventListener("change", (e) => {
-  indicatorMakesRoom = (e.target as HTMLInputElement).checked;
-});
 document.querySelectorAll<HTMLInputElement>("input[name=tempo]").forEach((input) =>
   input.addEventListener("change", () => {
     tempo = input.value as Tempo;
-    for (const w of wins) w.rect.configure({ omega: omega() });
+    motion.configure({ omega: omega() });
   }),
 );
 const actions: Record<string, () => void> = {
@@ -858,8 +886,9 @@ document.querySelectorAll<HTMLButtonElement>("button[data-act]").forEach((b) =>
 const checked = (name: string): string | undefined => document.querySelector<HTMLInputElement>(`input[name=${name}]:checked`)?.value;
 tempo = (checked("tempo") as Tempo | undefined) ?? tempo;
 layoutKind = (checked("layout") as LayoutKind | undefined) ?? layoutKind;
-dropMode = (checked("drop") as DropMode | undefined) ?? dropMode;
-indicatorMakesRoom = (document.getElementById("make-room") as HTMLInputElement).checked;
+// The drop preview is the one stored (the controls are not restored by the browser: `autocomplete="off"`).
+setDropMode(storedDropMode() ?? dropMode);
+motion.configure({ omega: omega() });
 reset(4);
 
 window.__motionLab = { runAll, runs, lastRows: () => lastRows };
