@@ -64,11 +64,11 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
     </div>
     <ul class="loop-claims">
       <li><b>What you see is what you get:</b> the preview and the drop come from the same data.</li>
-      <li><b>Every layout change animates:</b> any rects, one settle.</li>
-      <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
+      <li><b>Motion animates any rects:</b> give it the rects a layout makes and one settle glides to them.</li>
+      <li><b>What you drag is drawn from the window's data:</b> the held item shows the form it will take, and it lands where you let go.</li>
       <li><b>Motion imports neither of the others:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo is the lab's Document window as it is: a <code>DockState</code> that docking's <code>solve</code> lays out and whose drops come from <code>targets</code>, with motion's drag intent (<code>createDragIntent</code>) deciding what a drag shows and its moves gliding on motion's settle. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
+    <p class="caveat">The demo is the lab's Document window as it is: a <code>DockState</code> that docking's <code>solve</code> lays out, whose drop places come from docking's <code>lanes()</code>, with motion's landing model (<code>createLandingModel</code>) deciding where a drag lands and the dragged item gliding on motion's settle. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
     </div>
   </section>
 
