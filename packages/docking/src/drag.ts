@@ -60,10 +60,16 @@ export interface DockAfter extends DropResult {
 /** A place guide as a frame draws it: a lane's mark in the layout its guide stands for. */
 export type DockGuide = DockLaneMark;
 
+/** One lane a frame shows guides for, with the state its guide stands for (`@n-uf/motion/drag`'s `LandingGuideRef`). */
+export interface DockGuideRef {
+  readonly lane: string;
+  readonly state: DockHeld | null;
+}
+
 /** What `guides` reads of a landing frame: the state on screen, and each lane shown with the state its guide stands for. */
 export interface DockGuideFrame {
   readonly state: DockHeld | null;
-  readonly guides: readonly { readonly lane: string; readonly state: DockHeld | null }[];
+  readonly guides: readonly DockGuideRef[];
 }
 
 /** A drag of one item: its hit-testing data as seen, and the one layout of each of its states. */

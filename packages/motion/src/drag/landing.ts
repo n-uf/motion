@@ -121,8 +121,14 @@ export interface LandingRegions {
   readonly content: Rect;
   readonly blocked: readonly Rect[];
   readonly stage: Rect;
-  /** The held item's size. */
-  readonly item: { readonly width: number; readonly height: number };
+  /** The held item's size: the model doesn't read it (the geometry lands the item); docking's regions carry it. */
+  readonly item?: { readonly width: number; readonly height: number };
+}
+
+/** One lane a frame shows place guides for, with the state its guide stands for (`LandingFrame.guides`). */
+export interface LandingGuideRef {
+  readonly lane: string;
+  readonly state: LandingState | null;
 }
 
 export interface LandingMargins {
@@ -255,7 +261,7 @@ export interface LandingFrame {
    * for the Near lane before entry (pending or approached), the state the pointer would land there (the spot it picks
    * along it). The host's geometry draws them (`@n-uf/docking`'s `guides(frame)`).
    */
-  readonly guides: readonly { readonly lane: string; readonly state: LandingState | null }[];
+  readonly guides: readonly LandingGuideRef[];
   /** Shift held: the region is open space wherever it was a lane or open space. */
   readonly shift: boolean;
   /**

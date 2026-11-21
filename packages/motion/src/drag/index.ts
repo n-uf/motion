@@ -36,6 +36,7 @@ export {
   type LandingFrame,
   type LandingGates,
   type LandingGeometry,
+  type LandingGuideRef,
   type LandingLane,
   type LandingMargins,
   type LandingModel,

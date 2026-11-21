@@ -11,7 +11,7 @@
  * Every row runs on every host that drags with a landing model.
  */
 import { rect, type Point, type Rect } from "@n-uf/placement";
-import { dockDrag, type DockHeld } from "../drag";
+import { dockDrag, type DockGuideRef, type DockHeld } from "../drag";
 import { lanes, type DockLane, type DockLaneOptions, type DockRegions, type DockSpot } from "../lanes";
 import type { DockEdge, DockState, DockItem, DockLayout } from "../index";
 import { solve } from "../solve";
@@ -69,7 +69,7 @@ export interface LandingModelLike {
     readonly landing: Rect | null;
     readonly room: boolean;
     /** The lanes whose guides show, each with the state its guide stands for (`DockDrag.guides` draws them). */
-    readonly guides: readonly { readonly lane: string; readonly state: DockHeld | null }[];
+    readonly guides: readonly DockGuideRef[];
     readonly pending?: string;
   };
   /** What a release at `point` and `time` lands (the last update's point: what its frame showed): a state, or null. */
