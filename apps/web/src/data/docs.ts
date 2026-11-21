@@ -1,8 +1,9 @@
 // The docs pages: /docs/ (the index) and one page per library, /docs/motion/, /docs/placement/ and /docs/docking/,
 // each rendered at build time from the library's own docs file with the package's version read from its package.json,
-// so a page can't drift from what npm shows. Motion and placement render their package README; docking renders its
-// design page (docs/docking.md: the README is only its short npm page) and links the full reference
-// (docs/docking-reference.md). The pages and their SEO text live here; the rendering is the site's markdown pipeline
+// so a page can't drift from what npm shows. Motion and placement render their package README, which opens with the
+// "Not yet stable" box the design pages don't have, and link the full reference (docs/motion-reference.md,
+// docs/placement-reference.md); docking renders its design page (docs/docking.md: the README is only its short npm
+// page) and links docs/docking-reference.md. The pages and their SEO text live here; the rendering is the site's markdown pipeline
 // (@astrojs/markdown-remark) plus the steps in docs-markdown.mjs.
 // Limits (n-uf-seo): title at most 60 characters, description 120 to 155. Facts come only from the docs files.
 import { createMarkdownProcessor, markdownConfigDefaults, type MarkdownHeading } from "@astrojs/markdown-remark";
@@ -59,7 +60,7 @@ export const DOCS: DocPage[] = [
     slug: "motion",
     path: "/docs/motion/",
     title: "@n-uf/motion docs: springs, settle and drag intent",
-    description: "Reference for @n-uf/motion: the frame loop, springs and tweens, layout motion, drag intent and the testing helpers, entry by entry, with code.",
+    description: "Docs for @n-uf/motion: install, the entry points, a frame and a drag in code, and a link to the full reference to every export on GitHub.",
     nav: "@n-uf/motion",
     pkg: "@n-uf/motion",
     version: motionPkg.version,
@@ -68,6 +69,7 @@ export const DOCS: DocPage[] = [
     source: `${repoUrl}/tree/main/packages/motion`,
     readmeUrl: `${repoUrl}/blob/main/packages/motion/README.md`,
     readmeLabel: "README on GitHub",
+    referenceUrl: `${repoUrl}/blob/main/docs/motion-reference.md`,
     dir: "packages/motion",
     markdown: motionReadme,
     entries: entriesOf("@n-uf/motion", motionPkg),
@@ -78,7 +80,7 @@ export const DOCS: DocPage[] = [
     slug: "placement",
     path: "/docs/placement/",
     title: "@n-uf/placement docs: popups, stacks and tiling",
-    description: "Reference for @n-uf/placement: rects, the popup positioner, the edge cut, stack fit, one edge's drop places and tiling, entry by entry, with code.",
+    description: "Docs for @n-uf/placement: install, the entry points, one edge and panes in code, and a link to the full reference to every export on GitHub.",
     nav: "@n-uf/placement",
     pkg: "@n-uf/placement",
     version: placementPkg.version,
@@ -87,6 +89,7 @@ export const DOCS: DocPage[] = [
     source: `${repoUrl}/tree/main/packages/placement`,
     readmeUrl: `${repoUrl}/blob/main/packages/placement/README.md`,
     readmeLabel: "README on GitHub",
+    referenceUrl: `${repoUrl}/blob/main/docs/placement-reference.md`,
     dir: "packages/placement",
     markdown: placementReadme,
     entries: entriesOf("@n-uf/placement", placementPkg),
