@@ -59,6 +59,9 @@ frame and the commit alike. Taken: the second.
   at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
   the commit. It is the DOM sweep's one exception (`one-layout-items-landing` checks only the landing on float
   frames). An open product call may lift it, and then a float frame draws `after(float)` like any other state.
+- **No two boxes overlap; a line may cross another lane's box.** A panel joint drawn across a new column's room is a
+  marker over a place, not two places claiming one room, and the box keeps the item's length (cutting it there would
+  lose a real place).
 - Per moved frame at most one solve, when a state's key changes (a new sliding start, a new float point); a fixed spot
   costs none after the lift.
 - Guarded by `packages/docking/test/one-layout-sweep.test.ts` (items, landing, store, hull, corner, overlap, near,
