@@ -1,7 +1,8 @@
 /**
- * `sideColumns: "one"` with column templates: lifting a lone panel empties its side's declared column, which is still
- * that side's column, the place a drop there takes. No `column:<side>:$` lane is offered for the same place, so the
- * side has one lane and under "all" no two lanes draw the same rect. A side with no declared column still offers one.
+ * `sideColumns: "one"` with column templates: a side with a declared column edge, empty or not (lifting a lone panel
+ * empties it, or it was empty already), has that column as its column, the place a drop there takes. No
+ * `column:<side>:$` lane is offered for the same place, so the side has one lane and under "all" no two lanes draw the
+ * same rect. A side with no declared column still offers one, and so does a dynamic (`column: true`) one's side.
  */
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/geometry";
@@ -56,6 +57,21 @@ describe.each(SHAPES)("lanes(), an emptied declared side column, %s window", (_n
       const r = lanes(s, "findings", { previous, ...(spot ? { spot } : {}) });
       expect(r.lanes.filter((l) => l.id === "right-0" || l.id.startsWith("column:right")).map((l) => l.id), `spot ${spot}`).toEqual(["right-0"]);
     }
+  });
+
+  it("a declared column already empty before the drag is the side's column too: one lane, no `column:right:$`, no equal mark rects", () => {
+    const base = declared(k);
+    const { findings: _gone, ...items } = base.items;
+    const s: Scene = { ...base, items, edges: base.edges.map((e) => (e.side === "right" ? { ...e, items: [] } : e)) };
+    const previous = solve(s);
+    for (const spot of [undefined, "left-0/start/pages|notes"]) {
+      const r = lanes(s, "pages", { previous, ...(spot ? { spot } : {}) });
+      expect(r.lanes.filter((l) => l.id === "right-0" || l.id.startsWith("column:right")).map((l) => l.id), `spot ${spot}`).toEqual(["right-0"]);
+      const marks = r.lanes.flatMap((l) => l.marks.map((m) => ({ lane: l.id, id: m.id, rect: m.rect })));
+      const twins = marks.flatMap((a, i) => marks.slice(i + 1).filter((b) => a.lane !== b.lane && same(a.rect, b.rect)).map((b) => `${a.id} = ${b.id}`));
+      expect(twins, `spot ${spot}`).toEqual([]);
+    }
+    expect(targets(s, "pages", { previous }).some((t) => t.id.startsWith("column:right"))).toBe(false);
   });
 
   it("a side with no declared column still gets its `column:<side>:$` lane", () => {

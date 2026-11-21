@@ -57,11 +57,10 @@ export function collapsesAt(c: Ctx, result: SceneAfter, side: "left" | "right"):
  */
 export function columnLines(c: Ctx, side: "left" | "right", railLands: boolean): EdgeSpec[] {
   const { scene, now, dragged } = c;
-  // `sideColumns: "one"`: a side that keeps a column with the item lifted offers no new one. A declared column that only
-  // the lift empties is that column still (it keeps its box, and a drop there lands in it): its place is that column's,
-  // not a new column's on the same line.
-  const liftedFrom = (e: Edge): boolean => scene.edges.some((o) => o.id === e.id && o.items.includes(dragged));
-  if (scene.sideColumns === "one" && c.rest.edges.some((e) => e.side === side && isSideColumn(c.rest, e) && (e.items.length > 0 || liftedFrom(e)))) return [];
+  // `sideColumns: "one"`: a side that keeps a column with the item lifted offers no new one. A declared column edge (not a
+  // dynamic one, which an empty column loses) is the side's column whether it holds items or not: empty, or emptied by the
+  // lift, it keeps its box and a drop there lands in it, so its place is that column's, not a new column's on the same line.
+  if (scene.sideColumns === "one" && c.rest.edges.some((e) => e.side === side && isSideColumn(c.rest, e) && (e.items.length > 0 || e.column !== true))) return [];
   const cols = scene.edges
     .filter((e) => e.side === side && e.column === true)
     .map((edge) => ({ edge, l: now.edges[edge.id] }))
