@@ -43,6 +43,10 @@ export interface EpisodeRecord {
   readonly onTop: readonly (string | null)[];
   /** Per frame while a slot is previewed: null when no settled neighbor is in it, else which is. */
   readonly room: readonly (string | null)[];
+  /** Per frame while an item is held and no room is made, once the others have settled: null when they stay put, else which moved. */
+  readonly stay?: readonly (string | null)[];
+  /** What a scripted drag's preview lacked when its wait ran out (the outline never showed, the window never glided into its slot), if anything. */
+  readonly preview?: readonly string[] | null;
   /** Windows that popped in or out (a uniform scale, not a rect move) */
   readonly pops?: number;
 }
@@ -94,6 +98,8 @@ export function motionRows(ep: EpisodeRecord, omega: number, name: (id: number) 
     { name: "Held 1:1 under the pointer", result: ep.held.length > 0 ? checkHeld(ep.held) : null },
     { name: "Dragged window stays on top", result: ep.onTop.length > 0 ? framesResult(ep.onTop) : null },
     { name: "Others make room in the previewed slot", result: ep.room.length > 0 ? framesResult(ep.room) : null },
+    { name: "Others stay put while no room is made", result: ep.stay && ep.stay.length > 0 ? framesResult(ep.stay) : null },
+    { name: "Preview reaches its state", result: ep.preview ? verdict(ep.preview) : null },
     { name: "Tempo of the longest move", result: tempo, info: tempoInfo },
   ];
   return { rows, segments: segs };
