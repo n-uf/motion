@@ -795,7 +795,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   stays as it is, still a stop.
   For a kind with a rail drop policy, the rail is a spring-loaded drop strip instead (below).
 - `none:<i>` (1) over each `state.blocked` rect, and `home:<id>` (1) over a docked item's own rect: a release there
-  commits nothing. A floating item has no home, so a move inside its own rect is a float move (on the landing model, the lift zone of a lift with no `home`: no lane takes the pointer within `lift` of the press). A gap, column line or rail
+  commits nothing. A floating item has no home, so a move inside its own rect is a float move (on the landing model, the lift zone of a float's lift, one with no spot marked `home`: no lane takes the pointer within `lift` of the press). A gap, column line or rail
   drop that would put the item back where it is (the gap beside it, its own column's line) keeps its id but is a home
   too: no slot, nothing committed. Every `rail:` target on the side whose rail already holds the item is a home: a
   segment dropped on a rail stop, even below the last segment, never splits the rail or opens a column. A tile of a

@@ -164,6 +164,18 @@ describe("landing model: a float's lift zone", () => {
     expect(f.room).toBe(true);
   });
 
+  it("a docked item lifted without `home` is not a float: a spot marked home in a lane keeps the lanes in play", () => {
+    const marked: LandingLane = { ...bar, spots: [{ ...bar.spots[0]!, home: true }] };
+    const docked = createLandingModel({ ...listed({ ...regions(), lanes: [marked, column] }, FLOAT), lift: PRESS });
+    docked.update(PRESS, 0);
+    // The bar still sees the pointer 6 px from the press (pending, its gate not passed): no zone of lane-less judgment.
+    expect(docked.update({ x: PRESS.x + 6, y: PRESS.y }, 40).pending).toBe("top");
+    // The same lift with no spot marked home is a float's: the zone, nothing pending.
+    const float = make();
+    float.update(PRESS, 0);
+    expect(float.update({ x: PRESS.x + 6, y: PRESS.y }, 40).pending).toBeUndefined();
+  });
+
   it("`lift` names the press when the first point is not it", () => {
     const m = createLandingModel({ ...listed(regions(), FLOAT), lift: PRESS });
     // The first update is already 30 px from the press: the zone is left at once.

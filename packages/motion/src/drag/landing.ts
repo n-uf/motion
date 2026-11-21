@@ -54,7 +54,8 @@ import type { LandingRegion } from "./region";
  *   item was lifted is home on every layout, so no nudge to a neighboring spot is reachable within `lift` of the press.
  *   The zone is a held state like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
  *   `lift - spot`, so a wobble at its edge never flips a cut near the press.
- * - **A float's lift zone.** A lift with no `home` (a float: a host passes `home` only for a docked item) has a zone of
+ * - **A float's lift zone.** A lift is a float's when it has no `home` option and no lane has a spot marked `home` (a
+ *   docked item's own place; docking always marks it), so a docked item lifted without `home` stays docked. A float has a zone of
  *   its own, the same `margins.lift` around the press: within it no lane takes the pointer, and the frame is judged as if
  *   the regions had no lanes (the float is at the hand, so a nudge moves it; blocked and refused places are judged as on
  *   any frame, so a float lying over one is refused there). No lane's path counts inside it. The zone is left once, at
@@ -108,6 +109,8 @@ export interface LandingSpot {
    * item. Absent: every change to or from it counts as moving others.
    */
   readonly others?: string;
+  /** The held item's own place at the lift (a docked item's; docking marks it): a lift with no spot marked home is a float's. */
+  readonly home?: boolean;
 }
 export interface LandingLane {
   readonly id: string;
@@ -363,7 +366,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let liftAt: Point | null = options.lift ?? null;
   /** Whether the pointer is held in the lift zone (`nearLift`). */
   let inLiftZone = true;
-  /** Whether a lift with no `home` (a float) has left its lift zone: once, for good (`floatZone`). */
+  /** The lift is a float's: no `home` option and no spot marked home in the lanes at the lift (a docked item has one). */
+  const floatLift = !options.home && !options.regions.lanes.some((l) => l.spots.some((s) => s.home));
+  /** Whether a float lift has left its lift zone: once, for good (`floatZone`). */
   let floatLeft = false;
   /** Whether the held lane's hold is refused for lying far beyond it (sticky, as the lift zone is). */
   let farHeld = false;
@@ -575,11 +580,11 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const fromRaw = last?.raw ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
-    // A float lift (no `home`): within `lift` of the press no lane takes the pointer (the frame is judged as if the regions
+    // A float lift (`floatLift`): within `lift` of the press no lane takes the pointer (the frame is judged as if the regions
     // had no lanes: blocked and refused places as on any frame), until the pointer first lies farther than `lift`; once
     // left it is never re-entered, so a slide back through the press point changes nothing (a held lane stays held).
-    if (!options.home && liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) > (margins.lift ?? 16)) floatLeft = true;
-    const floatZone = !options.home && !floatLeft && !!liftAt;
+    if (floatLift && liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) > (margins.lift ?? 16)) floatLeft = true;
+    const floatZone = floatLift && !floatLeft && !!liftAt;
     const regions = floatZone ? { ...base, lanes: [] } : base;
     // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
     // enters doesn't count, nor a fast one), so a crossing at `stepSpeed` or faster never enters by path at any angle.
