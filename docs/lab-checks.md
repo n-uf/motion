@@ -114,7 +114,7 @@ Each `*.json` dump (window px, origin at the window's top left):
 - `pending` and `cantGo` say what the host shows at the pointer: the lane being entered, and the "Can't go here" tag.
 - `spots` (optional): the held lane's landing spots as the model reads them on that frame (the held spot's room open), each `{ id, rect, axis, slide? }`: `rect` is its landing, `axis` the lane's axis (`"x"` or `"y"`), and a sliding spot's `slide` is `{ from, to }`, the range of its start along `axis`. Empty when no lane is held. It lets a check assert that the landing is the nearest spot to the pointer.
 - A dump holds no screenshot data and no page markup, only the facts a reviewer compares with the picture.
-- A case that plays no drag, such as a window resized step by step, marks its own key frames (`hop`, with a `note` such as the width), and each `items` entry carries the layout's `hidden` and `tiers` when it has them.
+- A case that plays no drag, such as a window resized step by step, marks its own key frames (`hop`, with a `note` such as the width; its `t` is its order among the dumps, not a time), and each `items` entry carries the layout's `hidden` and `tiers` when it has them. A pre-render diff that spans the change adding those two fields runs with `--ignore hidden,tiers`.
 
 ## Groups declared by their controls
 

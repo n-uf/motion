@@ -3,7 +3,7 @@
  * narrowed from wide to narrow and widened back, 1 px at a time. Each frame is read as drawn: every group's form, each
  * drawn control and its tier, the » cell and its popover, and the title's length.
  */
-import { LADDER, LADDER_IDS, ladderScene, type LadderId } from "./ladder";
+import { LADDER, LADDER_IDS, ladderScene, ownTiers, type LadderId } from "./ladder";
 import type { DocwinScene } from "./scene";
 
 interface Verdict {
@@ -27,6 +27,9 @@ const TITLE_NATURAL = 220;
 /** One group as drawn on one frame. */
 interface Group {
   readonly form: string;
+  /** The layout's choice: the form's index in the group's ladder, and its `tiers` (none on a fold). */
+  readonly index: number;
+  readonly tiers: Readonly<Record<string, number>> | null;
   /** The layout's hidden controls. */
   readonly hidden: readonly string[];
   /** The controls drawn, in order, each at the tier it shows (`data-tier`) and whether that is its last. */
@@ -72,7 +75,7 @@ function read(c: DocwinScene, width: number): Frame {
       more = { badge: cell.querySelector(".dw-cnt")?.textContent ?? "", lists: unique(buttons.map((b) => b.dataset.control!)), buttons: buttons.map((b) => b.dataset.hiddenControl!) };
       c.win.querySelector(".dw-scroll")?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
     }
-    groups[id] = { form: l.inMenu ? "menu" : l.formKind, hidden: l.hidden, drawn, more, clip: el ? clipOf(el) : null };
+    groups[id] = { form: l.inMenu ? "menu" : l.formKind, index: l.form, tiers: l.tiers ?? null, hidden: l.hidden, drawn, more, clip: el ? clipOf(el) : null };
   }
   return { width, groups, title: c.layout.items.title!.rect.width };
 }
@@ -128,6 +131,14 @@ function frameRules(f: Frame, bad: string[]): void {
     if (g.hidden.length > 0 && !g.more) bad.push(`${where(f)}: ${id} hides [${g.hidden.join(", ")}] and draws no » cell`);
     if (g.clip) bad.push(`${where(f)}: ${id} is clipped: ${g.clip}`);
   }
+  // The page draws each control from the layout's tiers.
+  for (const id of LADDER_IDS)
+    for (const d of at(f, id).drawn) if (d.tier !== at(f, id).tiers?.[d.id]) bad.push(`${where(f)}: ${id}'s ${d.id} is drawn at tier ${d.tier}, the layout says ${at(f, id).tiers?.[d.id]}`);
+  // Tier steps are levelled: once a control is at tier t, every shown control that has a tier t - 1 is at least there.
+  // Read from the layout's tiers, over every group.
+  const shown = LADDER_IDS.filter((id) => at(f, id).form === "row").flatMap((id) => controlsOf(id).filter((c) => !at(f, id).hidden.includes(c)).map((c) => ({ id, c, tier: at(f, id).tiers?.[c] ?? 0 })));
+  const top = Math.max(0, ...shown.map((s) => s.tier));
+  for (const s of shown) if (top >= 1 && ownTiers(s.id, s.c) > top - 1 && s.tier < top - 1) bad.push(`${where(f)}: ${s.id}'s ${s.c} is at tier ${s.tier} while another control is at tier ${top}`);
   // Every control left is at its last tier once anything hides, whichever group hid it.
   const anyHidden = LADDER_IDS.some((id) => at(f, id).hidden.length > 0);
   if (anyHidden)
@@ -203,6 +214,9 @@ function narrowRules(frames: readonly Frame[]): string[] {
     const waiting = LADDER_IDS.filter((id) => at(f, id).form === "row" && !lastPartial(at(f, id), id));
     if (f.title < TITLE_NATURAL - 0.5 && waiting.length) bad.push(`${where(f)}: the title gave way to ${Math.round(f.title)} px while ${waiting.join(", ")} still had steps left`);
   }
+  // It gives way before the whole folds: at the first frame where any group is folded, the title is already shorter.
+  const folding = frames.find((f) => LADDER_IDS.some((id) => at(f, id).form === "fold"));
+  if (folding && folding.title >= TITLE_NATURAL - 0.5) bad.push(`${where(folding)}: a group folded while the title still had its natural ${Math.round(folding.title)} px`);
   return bad;
 }
 
