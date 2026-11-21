@@ -26,6 +26,11 @@ export interface DropResult {
 export interface DockDrop extends Target {
   /** The item dragged. */
   readonly item: string;
+  /**
+   * Where a release here puts the item. A host tells a home (nothing committed) by `place.kind === "home"`, never by the
+   * id: a home keeps the id of the first of its edge's places that puts the item back (`gap:<edge>:<zone>:<at>` on a
+   * real edge, `rail:<side>:<ring>` on its rail), and `home:<id>` alone covers the item's own rect.
+   */
   readonly place: DropPlace;
   /** Gaps and strips: the line where the item's leading edge lands, zero thick, across the edge after the drop. */
   readonly marker?: Rect;

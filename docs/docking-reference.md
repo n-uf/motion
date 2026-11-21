@@ -739,7 +739,8 @@ facing halves is home's, and is no target of its own. The slot is where the item
   strip's below): its tile in the rail, or a rider bar over the side's open column when lifting the item lets a column
   that was folded by width reopen; the slot is that landing. The rail's tiles are also the places of a tile held from
   one of them: the gaps of its own column (`gap:<edge>:<zone>:<at>`), before each of the column's other tiles and after
-  the last, wherever the tile would stay a tile in the rail; its stops are home's, at its own tile. With no rail
+  the last, wherever the tile would stay a tile in the rail, over the column's own run of tiles only; its stops are
+  home's, and so is the rest of the rail. With no rail
   showing, the stop keeps its place only while
   one of its slots lands in the rail (home's counts): where every drop there is refused (a panel would ride over an
   open column), the outermost column line runs from the window's edge. A refused place is never drawn: no tint, outline
@@ -792,7 +793,10 @@ facing halves is home's, and is no target of its own. The slot is where the item
   too: no slot, nothing committed. Every `rail:` target on the side whose rail already holds the item is a home: a
   segment dropped on a rail stop, even below the last segment, never splits the rail or opens a column. A tile of a
   column folded into a declared rail also has that column's gaps (`gap:<edge>:<zone>:<at>`, the places a column drawn as
-  a rail offers), to move among its own column's tiles, staying a tile; its own place is the one home.
+  a rail offers), to move among its own column's tiles, staying a tile, and only over that column's own run of tiles in
+  the rail: over the tiles of the rail's other columns the place is home. A host tells a home by `place.kind ===
+  "home"`, never by the id: a home keeps the id of the first of its edge's places that puts the item back (`rail:<side>:<ring>`
+  stays a rail stop's id, `gap:<edge>:<zone>:<at>` a gap's), and `home:<id>` covers the item's own rect.
 
 **The target model.** `targets` and `refusals` come from one generation: edge, then zones, then slots, then tiles, then
 one ordered filter (accepts and zones, fit, clipping, `blocked`). A target wins only where its own hit is, and every point
