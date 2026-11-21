@@ -359,7 +359,9 @@ export function edgeSpec(c: Ctx, edge: DockEdge, as?: EdgeKind): EdgeSpec | null
  * The run of a column folded into its side's declared rail, as the edge of its own that it is for one of its tiles held:
  * `edgeSpec` of the column drawn where its tiles lie, `run` (the rail's tiles of that column, end to end). Its zones,
  * its slots and its cards are those of the column drawn as a rail, within the run; it reaches no further (no
- * `endReach`), so what lies beside the run in the rail stays with the rail's own stops. Null where the column offers
+ * `endReach`), so what lies beside the run in the rail stays with the rail's own stops. It is as deep as the rail, never
+ * deeper (a drop that would open the column draws it wider, but a place here stays in the rail), and its zones lie in the
+ * run (a tray's end zone is solved where the column would lie open, not in the rail). Null where the column offers
  * nothing (the item alone in it, which the lift deletes).
  */
 export function railColumnSpec(c: Ctx, edge: DockEdge, run: Rect): EdgeSpec | null {
@@ -367,5 +369,9 @@ export function railColumnSpec(c: Ctx, edge: DockEdge, run: Rect): EdgeSpec | nu
   if (!el) return null;
   const { folded: _folded, ...shown } = el;
   const seen = { ...c, reach: 0, now: { ...c.now, edges: { ...c.now.edges, [edge.id]: { ...shown, rect: run, cross: run.width } } } };
-  return edgeSpec(seen, edge, "railColumn");
+  const spec = edgeSpec(seen, edge, "railColumn");
+  if (!spec) return null;
+  const across: Span = [run.x, run.x + run.width];
+  const zones = spec.zones.map((z) => ({ ...z, a: Math.max(z.a, run.y), b: Math.min(z.b, run.y + run.height) })).filter((z) => z.b > z.a);
+  return { ...spec, zones, across: () => across, owned: across };
 }

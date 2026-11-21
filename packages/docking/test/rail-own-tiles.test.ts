@@ -222,6 +222,26 @@ describe("a tile among its own rail's tiles", () => {
     expect(after === undefined || after.place.kind === "home").toBe(true);
   });
 
+  it("a column with a tray of toolbars (its end zone): the places of its run lie in the rail, never over the content beside it", () => {
+    // Narrow: only the left column fits open; the right one (the least used) folds into the rail by width, with no hand
+    // fold, its tray's toolbar a tile of it too.
+    const base = window({ rails: true, width: 700, hand: [], right: ["annotations"] });
+    const tools = { id: "tools", kind: "group", used: 43, forms: { column: [{ kind: "icons", main: { min: 84, natural: 84 }, cross: { natural: 28 } }] } } as DockItem;
+    const s: DockState = {
+      ...base,
+      items: { ...base.items, tools, annotations: { ...base.items.annotations!, used: 22 }, pages: { ...base.items.pages!, used: 47 }, notes: { ...base.items.notes!, used: 48 } },
+      edges: base.edges.map((e) => (e.id === "right-0" ? { ...e, accepts: ["panel", "group"], zoneAccepts: { start: ["panel"], end: ["group"] }, items: [...e.items, "tools"] } : e)),
+      floatKinds: ["panel", "group"],
+    };
+    expect(solve(s).rails.right?.segments.map((x) => x.id)).toEqual(["annotations", "tools"]);
+    const rail = solve(s).rails.right!.rect;
+    for (const held of ["annotations"]) {
+      for (const t of targets(s, held).filter((x) => x.place.kind !== "float" && x.id.startsWith("rail:right:"))) {
+        for (const h of t.hits ?? [t.hit]) expect(h.x >= rail.x - 1e-6 && h.x + h.width <= rail.x + rail.width + 1e-6 && h.y >= rail.y - 1e-6 && h.y + h.height <= rail.y + rail.height + 1e-6, `${held} ${t.id} ${JSON.stringify(h)} in the rail ${JSON.stringify(rail)}`).toBe(true);
+      }
+    }
+  });
+
   it("an item from another column gets no gap among the rail's tiles: its places are the rail's, as they were", () => {
     for (const d of [{ folded: false, one: false }, { folded: true, one: false }]) {
       const s = window({ rails: true, ...d });
