@@ -1,18 +1,11 @@
-import { createFrameLoop, createSettle } from "@n-uf/motion";
-import { createBrowserClock } from "@n-uf/motion/browser";
+import { createFrameLoop, settleValue } from "@n-uf/motion";
+import { createBrowserClock, prefersReducedMotion } from "@n-uf/motion/browser";
 
 const box = document.querySelector<HTMLElement>("#box")!;
 const loop = createFrameLoop({ clock: createBrowserClock() });
-const x = createSettle(0); // 90 % of the way in 92 ms, never past the target
-let moving = false;
+// 90 % of the way in 92 ms, never past the target; reduced motion lands at once.
+const x = settleValue(loop, 0, { reducedMotion: prefersReducedMotion() });
 
-addEventListener("click", (e) => {
-  x.setTarget(e.clientX); // a retarget goes on from where the box is drawn
-  if (moving) return;
-  moving = true;
-  loop.repeat("write", (frame) => {
-    moving = x.step(frame.delta);
-    box.style.transform = `translateX(${x.value}px)`;
-    return moving; // the loop idles once it rests
-  });
-});
+// Written on each change; the loop idles once it rests.
+x.subscribe((v) => (box.style.transform = `translateX(${v}px)`));
+addEventListener("click", (e) => x.set(e.clientX)); // a retarget goes on from where the box is drawn
