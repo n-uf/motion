@@ -3,8 +3,8 @@
  * narrowed from wide to narrow and widened back, 1 px at a time. Each frame is read as drawn: every group's form, each
  * drawn control and its tier, the » cell and its popover, and the title's length.
  */
-import { LADDER, LADDER_IDS, ladderScene, ownTiers, type LadderId } from "./ladder";
-import type { DocwinScene } from "./scene";
+import { LADDER, LADDER_IDS, ladderState, ownTiers, type LadderId } from "./ladder";
+import type { Docwin } from "./dock-state";
 
 interface Verdict {
   readonly pass: boolean;
@@ -14,8 +14,8 @@ interface LadderPreset {
   readonly id: string;
   readonly title: string;
   readonly expected: string;
-  setup(c: DocwinScene): void;
-  check(c: DocwinScene): Verdict;
+  setup(c: Docwin): void;
+  check(c: Docwin): Verdict;
 }
 
 const WIDE = 1100;
@@ -45,7 +45,7 @@ interface Frame {
   readonly title: number;
 }
 
-const menuList = (c: DocwinScene): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
+const menuList = (c: Docwin): HTMLElement => c.win.querySelector<HTMLElement>(".dw-menu-list")!;
 const unique = (xs: readonly string[]): string[] => [...new Set(xs)];
 
 /** The first part of `el` drawn outside its box (1 px of slack), or null. */
@@ -59,7 +59,7 @@ function clipOf(el: HTMLElement): string | null {
 }
 
 /** The window at `width` as drawn: every group's form, controls, » cell and popover, and the title's length. */
-function read(c: DocwinScene, width: number): Frame {
+function read(c: Docwin, width: number): Frame {
   const groups = {} as Record<LadderId, Group>;
   for (const id of LADDER_IDS) {
     const l = c.layout.items[id]!;
@@ -90,7 +90,7 @@ const signature = (f: Frame): string => JSON.stringify([f.groups, Math.round(f.t
 const steps = (f: Frame): string => JSON.stringify([f.groups, f.title < TITLE_NATURAL - 0.5]);
 
 /** Every frame from `from` down to `to` (or up), each solved after the one before (a window being resized). */
-function sweep(c: DocwinScene, from: number, to: number, mark?: (f: Frame) => string | null): Frame[] {
+function sweep(c: Docwin, from: number, to: number, mark?: (f: Frame) => string | null): Frame[] {
   const out: Frame[] = [];
   const dir = to < from ? -1 : 1;
   let last = "";
@@ -108,7 +108,7 @@ function sweep(c: DocwinScene, from: number, to: number, mark?: (f: Frame) => st
   return out;
 }
 
-const start = (c: DocwinScene, width: number): void => c.setScene(ladderScene({ width, height: HEIGHT }));
+const start = (c: Docwin, width: number): void => c.setState(ladderState({ width, height: HEIGHT }));
 const where = (f: Frame): string => `${f.width} px`;
 
 /** Broken rules of one frame on its own: the » list is exactly what is hidden, the controls drawn are the rest. */
