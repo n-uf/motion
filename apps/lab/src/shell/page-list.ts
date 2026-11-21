@@ -1,6 +1,7 @@
 /**
- * Every page the Checks page runs (the listed pages and the fixtures), as the shell registers them at start: the
- * Checks page reads them here instead of importing ./pages, which loads it.
+ * Every page the Checks page runs (the pages listed in ./pages; the old routes are aliases of the Document window,
+ * not pages of their own), as the shell registers them at start: the Checks page reads them here instead of importing
+ * ./pages, which loads it.
  */
 import type { PageDef } from "./page-defs";
 

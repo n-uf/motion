@@ -14,8 +14,7 @@ import { routeHash } from "./api";
 import { GROUPS, type GroupId, type PageDef, type View } from "./page-defs";
 import { pageList } from "./page-list";
 
-/** The listed pages and the check fixtures (pages in no menu whose scenarios still run here). */
-/** Every page the shell registered (the listed pages and the fixtures). */
+/** Every page the shell registered: the pages listed in ./pages (the old routes are aliases, not pages). */
 const PAGES: readonly PageDef[] = pageList();
 
 /** The frame's size: the viewport the headless runs use. */
