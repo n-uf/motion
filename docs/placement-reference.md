@@ -23,14 +23,16 @@ at its side of what the bands before it left, so **the order decides the corners
 runs across the whole width and the left one starts below it; cut after it, the left one runs the whole height.
 
 - A `reserve` band (the default) shortens the leftover: what follows is cut from what it leaves.
-- An `over` band lies over the leftover without shortening it (a toolbar drawn over the pages). It is cut from the
-  room the reserved bands left less the `over` bands before it, so two `over` bands on one side lie side by side, and
-  `rest` stays whole.
+- An `over` band lies over the leftover without shortening it (a toolbar drawn over the pages). The `over` bands are
+  cut after every reserved band, whatever the list order, from the final `rest` less the `over` bands before them, so
+  each lies inside `rest`, two on one side lie side by side, and `rest` stays whole.
 - A band is never thicker than the room left across it; a negative or missing size is 0. `gap` is space after the
-  band, taken only when the band takes some room, and never more than the room left.
+  band, taken only when the band takes some room, and never more than the room left. A stage of negative size is cut
+  as one of size 0, so every rect has a size of 0 or more.
+- Band ids are unique: a repeated id throws.
 
-The reserved bands and `rest` tile the stage with no overlap, and each corner belongs to the band cut first along
-either side of it (`test/stack-cut.test.ts`, a property check over random cuts).
+The reserved bands and `rest` tile the stage with no overlap, each `over` band lies inside `rest`, and each corner
+belongs to the band cut first along either side of it (`test/stack-cut.test.ts`, a property check over random cuts).
 
 ```ts
 import { cutEdges } from "@n-uf/placement/stack";
