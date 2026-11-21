@@ -95,8 +95,12 @@ const EPS = 1e-6;
  * widened to it, centered on its own position, so the inset, the clear rects and `minThickness` below see a line of that
  * thickness; `lineThickness: 0` leaves lines as given. A thin guide (a line, a striped strip or end: its
  * shorter side is its thickness) keeps its thickness and moves inside rather than being clipped, so a line at a lane's
- * far end is as thick as at its head. Then it is thinned, from the content side, to stay that far clear of `clear`, so
- * a thin strip at the window's side lies between the inset and the content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
+ * far end is as thick as at its head. A clear rect over its thickness that meets only one end of its length (it covers the
+ * guide's start or its end, not both) shortens it, as it trims a box: the guide keeps the part away from the rect, at
+ * least `minLength` long, else it is left out; a toolbar over the last 10 px of a column's line costs 10 px of length
+ * (and the clearance), not the line. Then it is thinned, from the content side, to stay that far clear of the rects
+ * over its middle (or over all of its length), so a thin strip at the window's side lies between the inset and the
+ * content, the same on both sides. A guide with nothing left (or a thin one under `minThickness`) is left out. A clear rect whose x, y, width or height isn't finite is ignored. Pure; the guides come
  * back as given with their placed `rect`, the same object where nothing moved.
  */
 export function guideRects<G extends PlacedGuide>(guides: readonly G[], options: GuideRectsOptions): G[] {
@@ -244,20 +248,41 @@ export function guideRects<G extends PlacedGuide>(guides: readonly G[], options:
     if (lo + t > lim1) lo = lim1 - t;
     if (lo < lim0) lo = lim0;
     let hi = Math.min(lo + t, lim1);
-    const s0 = Math.max(thinX ? r.y : r.x, thinX ? y0 : x0);
-    const s1 = Math.min(thinX ? r.y + r.height : r.x + r.width, thinX ? y1 : x1);
-    if (s1 - s0 <= EPS) continue;
-    // Clear of what it must not cover: cut from the side the clear rect (grown by the clearance) lies on.
-    for (const { k: c, gap } of clear) {
-      const cs0 = (thinX ? c.y : c.x) - gap;
-      const cs1 = (thinX ? c.y + c.height : c.x + c.width) + gap;
-      if (cs1 <= s0 + EPS || cs0 >= s1 - EPS) continue;
-      const c0 = (thinX ? c.x : c.y) - gap;
-      const c1 = (thinX ? c.x + c.width : c.y + c.height) + gap;
-      if (c1 <= lo + EPS || c0 >= hi - EPS) continue;
+    const l0 = Math.max(thinX ? r.y : r.x, thinX ? y0 : x0);
+    const l1 = Math.min(thinX ? r.y + r.height : r.x + r.width, thinX ? y1 : x1);
+    if (l1 - l0 <= EPS) continue;
+    // Each clear rect, grown by its clearance: its extent along the guide's length (a, b) and across its thickness (c0, c1).
+    const around = clear.map(({ k: c, gap }) => ({
+      a: (thinX ? c.y : c.x) - gap,
+      b: (thinX ? c.y + c.height : c.x + c.width) + gap,
+      c0: (thinX ? c.x : c.y) - gap,
+      c1: (thinX ? c.x + c.width : c.y + c.height) + gap,
+    }));
+    // A rect over the thickness that meets only one end of the length (its start or its end, not both, not the middle)
+    // shortens the guide, as it trims a box: the guide keeps the part away from it. The ends are the clipped guide's, so
+    // the order of the rects never matters.
+    let s0 = l0;
+    let s1 = l1;
+    let shortened = false;
+    for (const k of around) {
+      if (k.b <= l0 + EPS || k.a >= l1 - EPS || k.c1 <= lo + EPS || k.c0 >= hi - EPS) continue;
+      const atStart = k.a <= l0 + EPS;
+      const atEnd = k.b >= l1 - EPS;
+      if (atStart === atEnd) continue;
+      if (atStart) s0 = Math.max(s0, k.b);
+      else s1 = Math.min(s1, k.a);
+      shortened = true;
+    }
+    // What is left of the length keeps `minLength`, as a part of a box a clear rect cut does.
+    if (s1 - s0 <= EPS || (shortened && s1 - s0 < Math.max(EPS, minLength - EPS))) continue;
+    // A rect over the middle of the length (or all of it) cuts across the thickness, from the side it lies on, where it
+    // still lies over what is left.
+    for (const k of around) {
+      if (k.b <= s0 + EPS || k.a >= s1 - EPS || k.c1 <= lo + EPS || k.c0 >= hi - EPS) continue;
+      if ((k.a <= l0 + EPS) !== (k.b >= l1 - EPS)) continue;
       // Keep the side away from the clear rect's middle.
-      if ((c0 + c1) / 2 >= (lo + hi) / 2) hi = Math.min(hi, c0);
-      else lo = Math.max(lo, c1);
+      if ((k.c0 + k.c1) / 2 >= (lo + hi) / 2) hi = Math.min(hi, k.c0);
+      else lo = Math.max(lo, k.c1);
     }
     if (hi - lo < Math.max(EPS, min)) continue;
     out.push(place(g, thinX ? { x: lo, y: s0, width: hi - lo, height: s1 - s0 } : { x: s0, y: lo, width: s1 - s0, height: hi - lo }));
