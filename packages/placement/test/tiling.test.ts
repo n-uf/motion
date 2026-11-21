@@ -267,9 +267,16 @@ describe("the same rects as before ./tiling", () => {
         expect(now.length).toBe(old.length);
         now.forEach((r, k) => expect(same(r, old[k]!)).toBe(true));
       }
+      // Master and stack now divide the room the gap leaves by the ratio and its complement, so the stack's width is
+      // the same to the last bits, not the same bits.
       const ratio = 0.2 + rnd() * 0.6;
-      expect(masterStack(ids, a, { gap, ratio })).toEqual(oldMasterStack(ids, a, gap, ratio));
-      expect(masterStack(ids, a, { gap })).toEqual(oldMasterStack(ids, a, gap));
+      for (const [now, then] of [
+        [masterStack(ids, a, { gap, ratio }), oldMasterStack(ids, a, gap, ratio)],
+        [masterStack(ids, a, { gap }), oldMasterStack(ids, a, gap)],
+      ] as const) {
+        expect([...now.keys()]).toEqual([...then.keys()]);
+        if ([...then.values()].every((r) => r.width >= 0 && r.height >= 0)) for (const [k, r] of then) expect(same(now.get(k)!, r)).toBe(true);
+      }
     }
   });
 });

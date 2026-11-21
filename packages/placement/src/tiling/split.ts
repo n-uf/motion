@@ -3,16 +3,26 @@
  * with an `axis` divides along it (`"x"`: `a` left of `b`; `"y"`: `a` above `b`) at `ratio`; one without divides
  * along the rect's longer side in halves, which is dwindle (split along the longer side). Pure: trees in, trees out.
  */
+import type { MasterOptions } from "./order";
 import type { PaneRegion, PaneSide } from "./regions";
 
 /**
  * A pane, or a split of its rect in two, `a` then `b`. A split takes its `axis` and its `ratio` (the first side's
  * share); `gap` replaces the layout's gap for this split (the handle stays global); `id` names the split so
- * `layoutSplitTree` reports its geometry.
+ * `layoutSplitTree` reports its geometry. With `master`, the split lays its subtree out flat: its panes, in order,
+ * as master and stack (`masterStack`) in its rect, by its `ratio` and gap; the splits under it are not laid out.
  */
 export type Split<K> =
   | { readonly pane: K }
-  | { readonly a: Split<K>; readonly b: Split<K>; readonly axis?: "x" | "y"; readonly ratio?: number; readonly gap?: number; readonly id?: string };
+  | {
+      readonly a: Split<K>;
+      readonly b: Split<K>;
+      readonly axis?: "x" | "y";
+      readonly ratio?: number;
+      readonly gap?: number;
+      readonly id?: string;
+      readonly master?: MasterOptions;
+    };
 
 /** The panes of `tree` in order (`a` before `b`). */
 export const panesOf = <K>(tree: Split<K> | null): K[] => (!tree ? [] : "pane" in tree ? [tree.pane] : [...panesOf(tree.a), ...panesOf(tree.b)]);

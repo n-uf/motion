@@ -3,8 +3,8 @@
  * have an id. See docs/placement.md, Entry: tiling.
  */
 import type { Rect } from "../geometry";
-import type { TileOptions } from "./order";
-import type { Split } from "./split";
+import { masterCount, masterRatio, masterStack, type MasterOptions, type TileOptions } from "./order";
+import { panesOf, type Split } from "./split";
 
 /** A px option: a finite number, never below 0 (anything else is 0). */
 const px = (v: number | undefined): number => (v !== undefined && Number.isFinite(v) && v > 0 ? v : 0);
@@ -65,10 +65,30 @@ function strip(box: Rect, x: boolean, mid: number, gutter: number): Rect {
   return x ? { x: lo, y: box.y, width: length, height: box.height } : { x: box.x, y: lo, width: box.width, height: length };
 }
 
+/** A split that lays its panes out flat as master and stack: the gap only, never the handle. */
+function layMaster<K>(tree: Extract<Split<K>, { a: unknown }>, master: MasterOptions, area: Rect, ctx: Ctx<K>): void {
+  const gap = tree.gap === undefined ? ctx.gap : px(tree.gap);
+  const panes = panesOf(tree);
+  const ratio = masterRatio(tree.ratio);
+  const side = master.side ?? "left";
+  for (const [pane, r] of masterStack(panes, area, { gap, ratio, ...master })) ctx.panes.set(pane, r);
+  if (tree.id === undefined) return;
+  const x = side === "left" || side === "right";
+  const stacked = panes.length > masterCount(master.count, panes.length);
+  const room = Math.max(0, (x ? area.width : area.height) - gap);
+  const first = side === "left" || side === "top" ? room * ratio : room * (1 - ratio);
+  const mid = (x ? area.x : area.y) + first + gap / 2;
+  ctx.splits.set(tree.id, { rect: { ...area }, axis: x ? "x" : "y", ratio, divider: stacked ? strip(area, x, mid, gap) : null });
+}
+
 function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>): void {
   if (!tree) return;
   if ("pane" in tree) {
     ctx.panes.set(tree.pane, { ...area });
+    return;
+  }
+  if (tree.master) {
+    layMaster(tree, tree.master, area, ctx);
     return;
   }
   const x = (tree.axis ?? (area.width >= area.height ? "x" : "y")) === "x";

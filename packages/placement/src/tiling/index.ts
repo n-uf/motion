@@ -12,7 +12,7 @@
  *
  * See docs/placement.md, Entry: tiling.
  */
-export { columns, grid, masterStack, type OrderLayout, type TileOptions } from "./order";
+export { columns, grid, masterStack, type MasterOptions, type OrderLayout, type TileOptions } from "./order";
 export { dropOnPane, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";
 export { layoutSplit, layoutSplitTree, type SplitGeometry, type SplitLayout } from "./layout";
 export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, type PaneCenter, type PaneRegion, type PaneRegionOptions, type PaneSide } from "./regions";
