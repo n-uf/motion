@@ -93,7 +93,7 @@ function guidesCheck(c: Docwin, bad: string[], counts: Record<string, number>, g
     const entered = g.lane === f.lane && f.region === "lane";
     if (!entered && g.state === f.state) continue;
     counts["entry"] = (counts["entry"] ?? 0) + 1;
-    const marks = m.drag.guides({ state: f.state, guides: [g] }).filter((x) => x.lane === g.lane);
+    const marks = m.drag.guides({ state: f.state, room: f.room, guides: [g] }).filter((x) => x.lane === g.lane);
     const landing = g.state ? m.drag.landingOf(g.state) : null;
     const mine = drawn.filter((x) => x.id.startsWith(`${g.lane}/`));
     for (const d of mine) {

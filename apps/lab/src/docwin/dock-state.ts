@@ -1354,6 +1354,8 @@ export function createDocwin(o: DocwinOptions) {
     // The room the window draws: a docked state's one layout. (Over the document, the one-preview model keeps the window
     // as committed until the release.)
     const room = plan.makeRoom && docking ? shown : null;
+    // The frame as the window draws it: the room open where the window makes one (not for a float, nor in Outline).
+    const drawn = { ...mf, room: room !== null };
     const floatAt = floats ? mf.landing : null;
     const sits = snapTo && spot ? spotLanding : onlyItem && homing ? (layout.items[d.id]?.rect ?? null) : null;
     // A refused place: the refusal under the pointer, if any, else nothing lands there; past the window, nothing lands.
@@ -1380,10 +1382,11 @@ export function createDocwin(o: DocwinOptions) {
       // Never inside a lane not yet entered (`pending`: an empty rail's strip before its slow step): that is no refused place.
       cantGo: nothing && !passing && !mf.pending ? NOTHING_LANDS : null,
       outline,
-      // The room: the frame's state's one layout, the layout a release commits.
+      // The room, when the window makes one: the frame's state's one layout, the layout a release commits (the layout
+      // `shown(drawn)` names; else the window stays as committed).
       roomAfter: room ? L.drag.after(mf.state) : null,
-      // Each lane's marks in the layout of the state it names (the drag draws them), with the host's cosmetics.
-      guides: () => guidesNow(L.drag.guides(mf), d, mf.lane),
+      // Each lane's marks in the layout the frame draws (`shown(drawn)`), with the host's cosmetics.
+      guides: () => guidesNow(L.drag.guides(drawn), d, mf.lane),
     };
   }
 
