@@ -275,6 +275,14 @@ function sweep(): Result {
             for (let j = i + 1; j < gs.length; j++)
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
+          // shown, spot frames: the model holds a spot only with its room open, so a spot frame's guides are the same read with
+          // the room forced open (the guides that were cut in `after(state)` before `shown`).
+          if (f.frame.state?.kind === "spot") {
+            count("spot frames");
+            if (!f.frame.room) fail(`shown | ${w.name} | spot frame without room | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: the model gave a spot with its room closed`);
+            if (JSON.stringify(d.drag.guides({ ...f.frame, guides: f.frame.named })) !== JSON.stringify(d.drag.guides({ ...f.frame, room: true, guides: f.frame.named })))
+              fail(`shown | ${w.name} | spot frame, room forced open | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: the guides differ with the room forced open`);
+          }
           // shown: the guides of a lane the frame draws, named with the frame's own state, are its marks in `shown(frame)`:
           // the window at rest while the room is closed, the state's layout once it is open. A float's frames are read with
           // the room closed (the model's) and open (a host that draws the float's layout).
@@ -324,6 +332,8 @@ function sweep(): Result {
             const l = d.regions.lanes.find((x) => x.id === g.lane);
             if (!l) continue;
             const entered = g.lane === f.frame.lane && f.frame.region === "lane";
+            // (A column the screen draws folded into its rail on a spot frame is exempted here: counted, so a loss of coverage shows.)
+            if (!entered && g.state !== f.frame.state && f.frame.state?.kind === "spot" && screen0.layout.edges[g.lane]?.folded && drawnIn(screen0.layout, g.lane)) count("entry exempted: folded on a spot frame");
             if (!entered && (g.state === f.frame.state || drawnIn(screen0.layout, g.lane))) continue;
             const mine = d.drag.after(g.state);
             count("entry");
@@ -502,6 +512,9 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts["created folded"] ?? 0, JSON.stringify(r.counts)).toBe(0);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
+    // Spot frames were all held with the room open and read the same with it forced open; the folded lanes the entry
+    // clause exempts on them are counted: none today (the `drawnIn` exemption removes no spot-frame coverage; a loss shows here).
+    expect([(r.counts["spot frames"] ?? 0) > 0, r.counts["entry exempted: folded on a spot frame"] ?? 0], JSON.stringify(r.counts)).toEqual([true, 0]);
     // The shown clause ran on float frames with the room closed and open, and on spot frames.
     expect([r.counts["shown float, room closed"] ?? 0, r.counts["shown float, room open"] ?? 0, r.counts["shown spot, room open"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true, true]);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
