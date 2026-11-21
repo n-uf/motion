@@ -32,7 +32,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do the three libraries work together?",
-      a: "Motion moves things, placement works out where they fit, and docking works out where they dock. Motion imports neither of the others. A target list from <code>targets</code> in <code>@n-uf/docking</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from placement or docking is what <code>@n-uf/motion/layout</code> glides to. Motion and placement also work alone.",
+      a: "Motion moves things, placement works out where they fit, and docking works out where they dock. Motion imports neither of the others. The targets from <code>targets</code> in <code>@n-uf/docking</code> are what the drag intent in <code>@n-uf/motion/drag</code> takes, its <code>lanes</code> feed the landing model, and a rect from placement or docking is what <code>@n-uf/motion/layout</code> glides to. Motion and placement also work alone.",
     },
     {
       q: "Does @n-uf/docking draw panels and tabs?",
@@ -78,7 +78,7 @@ export const FAQS: Record<string, QA[]> = {
   "/docking-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, which lists only the places the dock state's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each <code>DockDrop</code> carries what a release there makes: <code>target.after(point, grab)</code> returns the new dock state and its layout, so the preview is the result. Your app draws the rects.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>, or take <code>lanes(state, id)</code> for <code>createLandingModel</code>. Each <code>DockDrop</code> carries what a release there makes: <code>target.after(point, grab)</code> returns the new dock state and its layout, so the preview is the result. Your app draws the rects.",
     },
     {
       q: "Which docking layouts can I build?",
@@ -100,7 +100,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's home. Each target carries the layout a release makes: the group's rect once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>, or take <code>lanes(state, id)</code> for <code>createLandingModel</code>. Every gap in every bar that accepts the group is a target, plus the float target and the group's home. Each carries the layout a release makes: <code>target.after(point, grab).layout.items[id].rect</code>.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
