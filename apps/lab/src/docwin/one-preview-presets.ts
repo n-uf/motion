@@ -1,5 +1,5 @@
 /**
- * The dragged item as the only preview (`previewPlan`'s `"item"`), on the window's own drag session, frame by frame: over
+ * The dragged item as the only preview (`previewPlan`'s `"snap"` mode, the viewer's `"item"`), on the window's own drag session, frame by frame: over
  * a place that takes it the item sits there with the room open; over the document it follows the pointer and floats; over
  * a refused place nothing is marked and "Can't go here" shows at the pointer. What shows at release is what lands.
  */
@@ -22,7 +22,7 @@ interface OnePreset {
   check(c: Docwin): Verdict;
 }
 
-/** The viewer's three drop preview modes, by the library's plan: Outline, Placeholder, Snap (the `"item"` plan). */
+/** The viewer's three drop preview modes, by the viewer's names: Outline, Placeholder, Snap (`"item"`, the library's `"snap"` mode). */
 const VIEWER_MODES = ["indicator", "gap", "item"] as const;
 const LABEL: Record<(typeof VIEWER_MODES)[number], string> = { indicator: "Outline", gap: "Placeholder", item: "Snap" };
 const TOOLBAR: ItemId = "tools";

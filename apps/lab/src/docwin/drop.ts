@@ -33,7 +33,7 @@ export interface DropCall {
   readonly lane: string | null;
   readonly spot: string | null;
   readonly slides: boolean;
-  /** On a sliding spot, where the landing model's release said the landing starts along the lane (`release().at`), else null. */
+  /** On a sliding spot, where the landing model's release said the landing starts along the lane (`release(point, time).at`), else null. */
   readonly at: number | null;
   /** The id of the target that committed (a spot's, the float's, a gap's), or null. */
   readonly target: string | null;
