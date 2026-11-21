@@ -462,9 +462,9 @@ its spots are the column's gaps, as `targets()` offers them. The rest of the rai
 last tile) is the rail's, home for the tile, as it is in `targets()`. The lanes and `targets()` decide the same at every
 point of a rail, with no exceptions: a drawn rail owns its whole rect, less the held tile's own run (what its stops tile and what they leave), so a
 new-column line's zone starts where the rail ends, and a new column's lane gives way to the rail as seen (its hit rect
-stops at the rail's inner side, though its box lands where a lifted tile's rail was). A tile of the rail held has its place
-in the rail, so the strip beside the rail is open space: the new-column lines about its folded column are the same move as
-home but keep no piece there, and a pointer in the strip floats, as the lanes have it.
+stops at the rail's inner side, though its box lands where a lifted tile's rail was). With a tile of the rail held, the
+new-column lines about its folded column are the same move as home, their pieces home's (the strip beside the rail), and
+the lanes block that strip as well: a pointer there stays, it floats nowhere.
 
 **Column footers.** `DockEdge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`

@@ -335,10 +335,8 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   // `home:<id>`, for hosts that read it: over the item's own rect, inside home's tile (all of it when no slot names it).
   // A new column holding the item alone where its own column is (a column line beside it, as the lift counts rings) is
   // the same move as home: its pieces are home's, under home's id, never a target of their own (a sliver beside home).
-  // A tile of a rail has its place in the rail, drawn where the rail is: the open space beside the rail is open space (a
-  // pointer there is on no place of it, as the drag's lanes have it), so the lines about its folded column keep no piece.
   const sameAsHome = targets.filter((t) => t.place.kind === "home" && parseTargetId(t.id)?.kind === "column");
-  const homePieces = ownRect?.rail ? [] : sameAsHome.flatMap((t) => t.hits ?? [t.hit]);
+  const homePieces = sameAsHome.flatMap((t) => t.hits ?? [t.hit]);
   if (sameAsHome.length) targets.splice(0, targets.length, ...targets.filter((t) => !sameAsHome.includes(t)));
   // They join home's slot where one is home (a gap of its edge), else `home:<id>`.
   const homeSlot = targets.findIndex((t) => t.place.kind === "home");
