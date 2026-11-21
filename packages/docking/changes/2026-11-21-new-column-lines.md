@@ -3,6 +3,6 @@
   `column:<side>:<ring>` over the rest of a rail (past its last tile, or below a held tile's own run) where the lanes
   stayed, and a new column's lane gives way to the rail as seen: its hit rect stops at the rail's inner side, so a
   pointer on the held tile's own rail stays home or floats, as `targets()` says, instead of picking the new column whose
-  box lands where that rail was. With a tile of a rail held, the strip beside the rail is open space in `targets()` too
-  (the new-column lines about its folded column are no piece of home there), so a pointer in it floats, as the lanes
-  have it. The new column's marks are unchanged (they are laid in the layout that makes it).
+  box lands where that rail was. With a tile of a rail held, the strip beside the rail is
+  home's in `targets()` (the new-column lines about its folded column are the same move as home), and the lanes now
+  block it too (`regions.blocked` holds the rail's home pieces), so a pointer there stays instead of floating. The new column's marks are unchanged (they are laid in the layout that makes it).

@@ -533,6 +533,9 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     ...Object.entries(seen.items).filter(([id, it]) => id !== dragged && !it.floating && !it.inMenu).map(([, it]) => it.rect),
     ...keepClearFor(state, "targets"),
     ...rails,
+    // A held tile's own rail: every stop is home's in `targets()`, with the new-column lines about its folded column
+    // joined to it (the strip beside the rail). A home place takes no float, so it is blocked as `targets()` has it.
+    ...ts.filter((t) => t.place.kind === "home" && !t.id.startsWith("home:")).flatMap((t) => t.hits ?? [t.hit]),
     // Spots where a release cancels (`DockState.blocked`): no float lands there.
     ...(state.blocked ?? []),
   ];

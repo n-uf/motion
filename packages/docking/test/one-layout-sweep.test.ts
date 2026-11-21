@@ -385,11 +385,13 @@ function sweep(): Result {
           // pointer within the approach's reach, exactly: owned within it, none past it.
           if (mode === "all" && !f.frame.lane && !f.frame.pending && f.frame.region !== "open") {
             const dist = (r: Rect): number => Math.hypot(Math.max(r.x - f.point.x, 0, f.point.x - (r.x + r.width)), Math.max(r.y - f.point.y, 0, f.point.y - (r.y + r.height)));
-            const nearest = [...d.regions.lanes].map((l) => ({ id: l.id, dd: dist(l.rect) })).filter((x) => x.dd <= LANDING_APPROACH.reach).sort((a, b) => a.dd - b.dd)[0];
+            const within = [...d.regions.lanes].map((l) => ({ id: l.id, dd: dist(l.rect) })).filter((x) => x.dd <= LANDING_APPROACH.reach);
+            // Lanes as near as the nearest are all nearest (a lane and the new-column lane beside it can be equally near).
+            const nearest = within.filter((x) => x.dd - Math.min(...within.map((y) => y.dd)) < 1e-6);
             const owner = f.frame.named.find((g) => g.held !== f.frame.held)?.lane;
             count("reach");
-            if (nearest ? owner !== nearest.id && f.frame.named.some((g) => g.lane === nearest.id && g.held === f.frame.held) && wouldPick(d, nearest.id, f.point) : owner !== undefined)
-              fail(`reach | ${w.name} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: owner ${owner ?? "-"}, nearest within reach ${nearest?.id ?? "-"}`);
+            if (nearest.length > 0 ? !nearest.some((x) => x.id === owner) && nearest.some((x) => f.frame.named.some((g) => g.lane === x.id && g.held === f.frame.held) && wouldPick(d, x.id, f.point)) : owner !== undefined)
+              fail(`reach | ${w.name} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: owner ${owner ?? "-"}, nearest within reach ${nearest.map((x) => x.id).join("+") || "-"}`);
           }
           // near: a populated lane's Near guide before entry is the screen's guide less the would-land landing.
           const nearLanes = [...new Set(gs.map((g) => g.lane))].filter((id) => id !== f.frame.lane);
