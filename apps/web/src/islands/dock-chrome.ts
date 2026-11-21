@@ -129,11 +129,23 @@ const shift = (r: Rect, dx: number, dy: number): Rect => ({ x: r.x + dx, y: r.y 
 const xr = (r: Rect): XR => ({ x: r.x, y: r.y, w: r.width, h: r.height });
 
 let openMenuEl: HTMLElement | null = null;
-const closeMenu = (): void => {
+/** What opened the menu (a grip, a bar's »): the focus goes back to it when the menu is dismissed. */
+let menuOpener: HTMLElement | null = null;
+/** Close the open menu; `refocus` (Escape, a click away) puts the focus back on what opened it. */
+const closeMenu = (refocus = false): void => {
+  const was = openMenuEl, opener = menuOpener;
   openMenuEl?.remove();
   openMenuEl = null;
+  menuOpener = null;
+  if (refocus && was && opener?.isConnected) opener.focus({ preventScroll: true });
 };
-document.addEventListener("pointerdown", (e) => { if (openMenuEl && !openMenuEl.contains(e.target as Node)) closeMenu(); });
+/** Show `m` as the open menu, opened from `opener`. */
+const showMenu = (m: HTMLElement, opener: HTMLElement): void => {
+  document.body.appendChild(m);
+  openMenuEl = m;
+  menuOpener = opener;
+};
+document.addEventListener("pointerdown", (e) => { if (openMenuEl && !openMenuEl.contains(e.target as Node)) closeMenu(true); });
 
 /** A control with a compact form for a side rail (styles/chrome.css); a group whose controls all have one has an icon form. */
 const compact = (el: Element): boolean =>
@@ -514,8 +526,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     m.className = "cmenu";
     m.setAttribute("role", "menu");
     m.innerHTML = `<div class="it head">${HOSTNAME[h]}: no room for</div><div class="sep"></div>${ids.map((id) => `<div class="it" role="menuitem" tabindex="-1" data-open="${id}">${label(id)}</div>`).join("")}`;
-    document.body.appendChild(m);
-    openMenuEl = m;
+    showMenu(m, btn);
     placeMenu(m, btn);
     m.addEventListener("click", (ev) => {
       const id = (ev.target as HTMLElement).closest<HTMLElement>("[data-open]")?.dataset.open;
@@ -546,7 +557,8 @@ export function createChrome(o: ChromeOptions): Chrome {
         (document.activeElement as HTMLElement | null)?.click();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        closeMenu();
+        e.stopPropagation();
+        closeMenu(true);
       }
     });
     items()[0]?.focus();
@@ -579,8 +591,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     m.className = "cmenu";
     m.setAttribute("role", "menu");
     m.innerHTML = items.join("");
-    document.body.appendChild(m);
-    openMenuEl = m;
+    showMenu(m, anchor);
     placeMenu(m, anchor);
     m.addEventListener("click", (ev) => {
       const act = (ev.target as HTMLElement).closest<HTMLElement>("[data-act]")?.dataset.act;
@@ -707,7 +718,7 @@ export function createChrome(o: ChromeOptions): Chrome {
       e.preventDefault();
       if (frozenNow(e.altKey)) return status("Frozen: hold Alt to move");
       stepStop(id, e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : -1);
-    } else if (e.key === "Escape") closeMenu();
+    } else if (e.key === "Escape") closeMenu(true);
   });
 
   // ---- ↺ Reset ----------------------------------------------------------------------------------------------------------
@@ -922,6 +933,8 @@ export function createChrome(o: ChromeOptions): Chrome {
       status(cancel ? "Canceled: back where it was" : refusedHere ? "Can't go there: back where it was" : t ? "Back in its place" : "Released with no target: back where it was");
     }
     xrayRest();
+    // A resize during the drag waited for it (refit holds off while a group is held): catch up now.
+    askRefit(false);
   }
   window.addEventListener("blur", () => end(true));
 
