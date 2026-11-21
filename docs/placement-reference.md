@@ -498,7 +498,10 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
   keeps its minimum of the room less the gutter, within 0.05..0.95 unless a side says `net: false`, and is 0.5 where
   the minimums cannot both fit. `fixed(child, axis)` gives `{ length, keep? }`: the first child that gives one takes
   its length when it fits with the gutter, and the other side fills the rest; with `keep` on both, each keeps its own
-  length and the leftover stays empty. `fixedAcross(child, axis)` gives a length across the split. A split with
+  length and the leftover stays empty (when they do not fit, the second runs past the end). `fixedAcross(child, axis)`
+  gives a length across the split, not checked against the cross extent. A negative or non-finite `gap` or `handle` is
+  0, and the area is taken as given, so pass one with no negative side. A repeated split `id` keeps the split laid out
+  last. Inside a master split a drop's side is one more slot next to `at` in the flat list. A split with
   `master: { count?, side? }` lays its panes out flat through `masterStack` by its ratio and its gap; the splits under
   it are not laid out. The callbacks are asked about the nodes of the tree being laid out, and `dropOnPane` copies the
   split nodes it changes, so answer by pane key and by split `id`.
@@ -509,8 +512,10 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
 - `neighbor(rects, from, direction)` gives the nearest pane that way, or null: a candidate's center must be strictly on
   that side of the center of `from`; its score is the center distance along the direction plus a quarter of the one
   across it, plus 100 when it does not overlap `from` across the direction; the lowest score wins, ties to the first in
-  the map's order. The host chooses the rects. Laid out in a unit square with px floors, every split goes to 0.5 (a
-  floor of tens of px cannot fit), so the choice follows the tree's shape and not its ratios.
+  the map's order. The host chooses the rects. One option: lay the tree out in a unit square with px floors. Every
+  split then goes to 0.5 (a floor of tens of px cannot fit) and fixed lengths along a split do not fit either, so the
+  choice follows the tree's shape and not its ratios. Fixed lengths across a split are not checked against the cross
+  extent and still apply there, so leave `fixedAcross` out of that layout.
 - `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum. It is the
   other policy of the same minimum: a floor moves the ratio while both sides can keep theirs, `giveWay` floats a pane
   when a minimum is still broken.

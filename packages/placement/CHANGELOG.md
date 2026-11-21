@@ -11,12 +11,15 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   agree (to the last bits), at any other ratio a split with a gap lays out differently. The promise that the second
   side never starts past the rect's end goes: no size is ever negative, and a split with no room may start its second
   side up to half a gutter past the end. Order layouts (`columns`, `grid`) keep their rule.
-- `./tiling`, **fixed: a ratio that is not finite**. A NaN or infinite `ratio` gave NaN rects; it is now 0.5.
+- `./tiling`, **fixed: a ratio or gap that is not finite**. A NaN or infinite `ratio` gave NaN rects; it is now 0.5.
+  A NaN `gap` did too; `layoutSplit` now treats a negative or non-finite `gap` (and `handle`) as 0.
 - `./tiling`, **`masterStack` count and side**: `count` (rounded, within 1 to n, default 1) and `side` (`"left"` by
   default, `"right"`, `"top"`, `"bottom"`). Left and right make the areas columns of stacked panes, top and bottom
   rows of panes side by side, right and bottom put the stack first in space, and with no stack the panes fill the area
   along the side's cross axis. Its `ratio` is now clamped to 0.05..0.95 (not finite: 0.5), and a negative or non-finite
-  `gap` is 0. With the defaults the rects are the earlier ones, to the last bits of the stack's width.
+  `gap` is 0. With the defaults the rects are the earlier ones, to the last bits of the stack's width. The two live in
+  `MasterOptions`; the order layouts and `orderTargets` take `OrderOptions` (`TileOptions` and `MasterOptions`), and a
+  split tree's options do not accept them.
 - `./tiling`, **gutters, split ids and `layoutSplitTree`**: `TileOptions.handle` (px, default 0) is the extra room a
   split's divider takes beside the gap, so a split's gutter is its gap plus the handle. A split may carry its own
   `gap` (the handle stays global) and an `id`. `layoutSplitTree(tree, area, options)` gives `{ panes, splits }`, and for

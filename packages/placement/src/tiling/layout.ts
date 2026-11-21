@@ -37,9 +37,11 @@ export interface MinLength {
  *   decides: it takes its length when the length is above 0 and, with the gutter, less than the extent, and the other
  *   side fills the rest (the gutter between). Otherwise, or with a length that does not fit, the split falls back to
  *   its ratio, and the other child's length is not read. When both report a length with `keep`, each keeps its own,
- *   in order, and the room left over stays empty. A split a fixed length decides has no divider and no floor.
+ *   in order, and the room left over stays empty; if the two (and the gutter) do not fit the extent, the second runs
+ *   past the end. A split a fixed length decides has no divider and no floor.
  * - `fixedAcross(child, axis)`: the child's fixed length across the split; the child takes it, when positive and
- *   finite, from the start of the cross axis instead of the whole cross extent.
+ *   finite, from the start of the cross axis instead of the whole cross extent. It is not checked against the cross
+ *   extent: a length larger than the cross extent makes a pane larger than the split's box.
  * - `floor(child, axis, split)`: the child's least length along the split. The ratio is clamped so each side keeps
  *   its floor of the room less the gutter, within the net (5..95 %) unless either side says `net: false`; where the
  *   two floors cannot both fit, the ratio is 0.5. With no `floor`, the ratio is only clamped to 0..1. `giveWay` is
@@ -88,14 +90,16 @@ interface Ctx<K> {
  * past it and is the rest less half the gutter. No size is ever negative: a side too short for half the gutter is 0
  * along the axis, and the second side of a split with no room may then start up to half a gutter past the rect's end.
  * At ratio 0.5 both sides are equal. `options.floor`, `fixed` and `fixedAcross` (see `SplitOptions`) read the host's
- * minimums and fixed lengths per split.
+ * minimums and fixed lengths per split. A negative or non-finite `gap` or `handle` is 0. The area is taken as given:
+ * with a negative width or height every length along that axis is 0 and a pane's size across it is copied as it
+ * is, so pass an area with no negative side.
  */
 export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: SplitOptions<K> = {}): Map<K, Rect> {
   return layoutSplitTree(tree, area, options).panes;
 }
 
 /**
- * `layoutSplit` and the geometry of every split that has an `id` (a repeated id keeps the last): the box it divides,
+ * `layoutSplit` and the geometry of every split that has an `id` (a repeated id keeps the one laid out last: a split under another, or a later one beside it): the box it divides,
  * its axis and ratio in effect (after the floors), and its divider, the gutter strip between its two sides. A split
  * that lays out as master and stack is reported too, its nested splits are not.
  */

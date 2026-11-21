@@ -12,10 +12,11 @@ export type Direction = "left" | "right" | "up" | "down";
  * distance across it, plus 100 when it does not overlap `from` across the direction (the overlap strictly above 0);
  * the lowest score wins, ties to the first in the map's order. A pane that is not in `rects` has no neighbor.
  *
- * The host chooses which rects to pass. A host that wants focus to follow a tree's shape, not its sizes, lays the tree
- * out in a unit square (`{ x: 0, y: 0, width: 1, height: 1 }`) with its px floors: a floor of tens of px cannot fit in
- * a unit square, so the floors of every split cannot both fit and it lays out at 0.5, whatever its ratio. Fixed
- * lengths in px do not fit either, and the area's size and the gap drop out.
+ * The host chooses which rects to pass. One option: lay the tree out in a unit square (`{ x: 0, y: 0, width: 1,
+ * height: 1 }`) with the host's px floors. A floor of tens of px cannot fit in a unit square, so a split's two floors
+ * cannot both fit and it lays out at 0.5 whatever its ratio; fixed lengths in px along a split do not fit either, and
+ * the area's size and the gap drop out. Fixed lengths across a split are not checked against the cross extent, so
+ * they still apply in a unit square, and a host leaves `fixedAcross` out there. The rects of the real layout work too.
  */
 export function neighbor<K>(rects: ReadonlyMap<K, Rect>, from: K, direction: Direction): K | null {
   const origin = rects.get(from);
