@@ -1,6 +1,6 @@
 /**
- * The rules the site's own demo layouts share (the home page's desk and the desk-layouts sketches), so the same layout
- * looks the same on both pages.
+ * The rules of the sketches the docking-layouts page draws itself (the layouts the library does not lay out): where a
+ * floated tile goes and how wide a scrolling column is.
  */
 import type { Rect } from "@n-uf/placement";
 

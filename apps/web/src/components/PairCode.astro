@@ -12,7 +12,7 @@ import dockingCode from "../snippets/pair-docking.ts?raw";
 import "../styles/code-tabs.css";
 
 const code: Record<PartId, string> = { motion: motionCode, placement: placementCode, docking: dockingCode };
-const entries: Record<PartId, string> = { motion: "/drag + /layout", placement: "/popup + /tiling", docking: "solve + targets" };
+const entries: Record<PartId, string> = { motion: "/drag + /layout + /browser", placement: "/popup + /tiling", docking: "solve + targets" };
 ---
 <div class="pair-grid">
   {PARTS.map((pt) => (
