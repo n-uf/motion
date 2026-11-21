@@ -40,14 +40,28 @@ describe("DockItem.length in the stored state", () => {
     const s = withLength(withLength(three(), "a", { column: 311.5 }), "b", { column: 0, row: 40 });
     const stored = storeDockState(s);
     expect(stored.items.a!.length).toEqual({ column: 311.5 });
-    expect(stored.items.b!.length).toEqual({ column: 0, row: 40 });
+    // A length of 0 is no length: it is not stored.
+    expect(stored.items.b!.length).toEqual({ row: 40 });
     expect(stored.items.c!.length).toBeUndefined();
     const read = readDockState(JSON.parse(JSON.stringify(stored)), three());
     expect(read.dropped).toEqual([]);
     expect(read.state.items.a!.length).toEqual({ column: 311.5 });
-    expect(read.state.items.b!.length).toEqual({ column: 0, row: 40 });
+    expect(read.state.items.b!.length).toEqual({ row: 40 });
     expect(read.state.items.c!.length).toBeUndefined();
     expect(solve(read.state)).toEqual(solve(s));
+  });
+
+  it("a zero round-trips as no length: not stored, and the length object is dropped when nothing is left", () => {
+    const s = withLength(withLength(three(), "a", { column: 0 }), "b", { column: 1e-9, row: 0 });
+    const stored = storeDockState(s);
+    expect(stored.items.a).not.toHaveProperty("length");
+    expect(stored.items.b).not.toHaveProperty("length");
+    const read = readDockState(JSON.parse(JSON.stringify(stored)), three());
+    expect(read.dropped).toEqual([]);
+    expect(read.state.items.a!.length).toBeUndefined();
+    expect(read.state.items.b!.length).toBeUndefined();
+    // The same layout as an item that never had a length.
+    expect(solve(read.state)).toEqual(solve(three()));
   });
 
   it("an older store has none: the items read with none, whatever base had", () => {
@@ -68,13 +82,16 @@ describe("DockItem.length in the stored state", () => {
         a: { ...stored.items.a!, length: { column: -3, row: 20 } },
         b: { ...stored.items.b!, length: { column: Infinity, depth: 4 } },
         c: { ...stored.items.c!, length: 7 },
+        d: { ...stored.items.a!, length: { column: 0, row: 1e-9 } },
       },
     } as unknown;
-    const read = readDockState(bad, three());
+    const read = readDockState(bad, { ...three(), items: { ...three().items, d: panel("d", 4) } });
     expect(read.state.items.a!.length).toEqual({ row: 20 });
     expect(read.state.items.b!.length).toBeUndefined();
     expect(read.state.items.c!.length).toBeUndefined();
-    expect([...read.dropped].sort()).toEqual(["item:a:length:column", "item:b:length:column", "item:b:length:depth", "item:c:length"].sort());
+    // A stored zero is no length, like any bad entry.
+    expect(read.state.items.d?.length).toBeUndefined();
+    expect([...read.dropped].sort()).toEqual(["item:a:length:column", "item:b:length:column", "item:b:length:depth", "item:c:length", "item:d:length:column", "item:d:length:row"].sort());
   });
 
   it("closing and reopening an item keeps its length", () => {

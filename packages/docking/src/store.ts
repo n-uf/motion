@@ -34,7 +34,7 @@
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
  * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
- * An item's asked length (`DockItem.length`) is stored per axis; one entry that isn't a number from 0 up, or an axis that
+ * An item's asked length (`DockItem.length`) is stored per axis; one entry that isn't a number over 0 (a 0 is no length, so it is not stored), or an axis that
  * isn't `row` or `column`, is dropped (`item:<id>:length:<axis>`), a `length` that isn't an object too
  * (`item:<id>:length`). A store from before has none, and an item then reads with none whatever `base` had: the store
  * is the state's own.
@@ -45,7 +45,7 @@
  * declares no `floatSizes` it is dropped (`item:<id>:floatSize`): such a float is framed at its stored rect, which the
  * size would replace.
  */
-import { rect, type Size } from "@n-uf/placement";
+import { EPS, rect, type Size } from "@n-uf/placement";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
 import { axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
@@ -161,12 +161,12 @@ function floatSizesStored(it: DockItem): { row?: Size; column?: Size } | undefin
   return out.row || out.column ? out : undefined;
 }
 
-/** The usable `length` of `it` (an axis that is a number from 0 up), as plain data; undefined when it has none. */
+/** The usable `length` of `it` (an axis that is a number over 0: a 0 is no length), as plain data; undefined when it has none. */
 function lengthStored(it: DockItem): { column?: number; row?: number } | undefined {
   const out: { column?: number; row?: number } = {};
   for (const o of ["column", "row"] as const) {
     const v = it.length?.[o];
-    if (isNum(v) && v >= 0) out[o] = v;
+    if (isNum(v) && v > EPS) out[o] = v;
   }
   return out.column !== undefined || out.row !== undefined ? out : undefined;
 }
@@ -279,7 +279,7 @@ function read(data: unknown, base: DockState): DockStateRead {
         const asked: { column?: number; row?: number } = {};
         for (const k of Object.keys(s.length)) {
           const v = s.length[k];
-          if ((k === "column" || k === "row") && isNum(v) && v >= 0) asked[k] = v;
+          if ((k === "column" || k === "row") && isNum(v) && v > EPS) asked[k] = v;
           else drop(`item:${id}:length:${k}`);
         }
         if (asked.column !== undefined || asked.row !== undefined) it = { ...it, length: asked };

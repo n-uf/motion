@@ -19,7 +19,8 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   nobody resized, not at a length inflated by the column's scale.
 - Behavior change (from `@n-uf/placement`): **a length under its least now reads as a weight with room**: the item is drawn
   at its least and the others share the rest by their asks. Short of room an ask under the least still reads as the least.
-  A length of 0 is no length: the item asks its natural.
+  A length of 0 is no length: the item asks its natural, `storeDockState` does not write one (and drops the `length`
+  object when nothing is left), and `readDockState` drops a stored one like any bad entry (`item:<id>:length:<axis>`).
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 
