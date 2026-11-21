@@ -4,10 +4,14 @@
  */
 import type { Rect } from "../geometry";
 
-/** How a layout spaces its panes: `gap` px between neighbors (default 0), `ratio` the master's share (default 0.5). */
+/**
+ * How a layout spaces its panes: `gap` px between neighbors (default 0), `ratio` the master's share (default 0.5),
+ * `handle` px a split's divider takes beside the gap (default 0; only a split tree reads it).
+ */
 export interface TileOptions {
   readonly gap?: number;
   readonly ratio?: number;
+  readonly handle?: number;
 }
 
 /** An order layout: `masterStack`, `columns`, `grid`, or the app's own of the same shape. */

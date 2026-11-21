@@ -5,9 +5,14 @@
  */
 import type { PaneRegion, PaneSide } from "./regions";
 
+/**
+ * A pane, or a split of its rect in two, `a` then `b`. A split takes its `axis` and its `ratio` (the first side's
+ * share); `gap` replaces the layout's gap for this split (the handle stays global); `id` names the split so
+ * `layoutSplitTree` reports its geometry.
+ */
 export type Split<K> =
   | { readonly pane: K }
-  | { readonly a: Split<K>; readonly b: Split<K>; readonly axis?: "x" | "y"; readonly ratio?: number };
+  | { readonly a: Split<K>; readonly b: Split<K>; readonly axis?: "x" | "y"; readonly ratio?: number; readonly gap?: number; readonly id?: string };
 
 /** The panes of `tree` in order (`a` before `b`). */
 export const panesOf = <K>(tree: Split<K> | null): K[] => (!tree ? [] : "pane" in tree ? [tree.pane] : [...panesOf(tree.a), ...panesOf(tree.b)]);
