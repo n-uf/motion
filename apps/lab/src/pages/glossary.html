@@ -19,6 +19,7 @@
       <tr><th scope="row">workspace</th><td>The whole arrangement of docks, panels, toolbars and documents in an app window.</td><td><code>DockState</code></td></tr>
       <tr><th scope="row">desk layout</th><td>One way of arranging a workspace: which docks exist, what floats, what collapses when. Written down as a dock state.</td><td><code>DockState</code>, <code>solve</code></td></tr>
       <tr><th scope="row">dock state</th><td>The whole window as one plain-data model: the stage, its edges, the items on them, the floats and the rects kept clear. <code>solve(state)</code> returns every rect, <code>targets(state, id)</code> every drop place.</td><td><code>DockState</code>, <code>solve</code>, <code>targets</code></td></tr>
+      <tr><th scope="row">stored state</th><td>A dock state written as plain data and read back over the app's own state after a reload.</td><td><code>storeDockState</code>, <code>readDockState</code></td></tr>
       <tr><th scope="row">edge</th><td>A stack of items along one side of the stage: a bar (runs across) or a column (runs down).</td><td><code>DockState.edges</code>, <code>DockEdge</code></td></tr>
       <tr><th scope="row">side</th><td>One of the four sides of the stage: top, right, bottom, left.</td><td><code>Side</code></td></tr>
       <tr><th scope="row">bar</th><td>A horizontal edge holding toolbar groups: top, bottom, or the window's title bar.</td><td><code>Orient</code> <code>"row"</code>, a <code>DockEdge</code> with <code>side: "top"</code> or <code>"bottom"</code></td></tr>
@@ -40,6 +41,7 @@
       <tr><th scope="row">Collapse / Expand</th><td>The reversible act of shrinking an item to a smaller form (a header, a rail icon, the overflow menu) and back.</td><td><code>foldItem</code>, <code>canFold</code>, <code>foldedBy</code></td></tr>
       <tr><th scope="row">header</th><td>A collapsed panel: just its title row.</td><td><code>formKind: "header"</code></td></tr>
       <tr><th scope="row">rail</th><td>A thin strip along a side with one icon per collapsed panel or column. Clicking an icon opens or docks it.</td><td><code>rail</code>, <code>DockState.rails</code></td></tr>
+      <tr><th scope="row">rail modes</th><td>How a side's rails show their items: Titles while they fit, or Icons only.</td><td><code>RailMode</code>, <code>railModeOf</code>, <code>setRailMode</code>, <code>DockState.railModes</code></td></tr>
       <tr><th scope="row">overflow menu</th><td>The menu behind the » control, holding the items that no longer fit.</td><td><code>menu</code> form, <code>DockEdgeLayout.menu</code></td></tr>
       <tr><th scope="row">keep priority</th><td>A number per toolbar group: a higher one stays in its full form longer.</td><td><code>DockItem.priority</code></td></tr>
       <tr><th scope="row">kept open</th><td>A panel marked "Keep open": it gives way after every unkept one.</td><td><code>keepItem(state, id, true)</code>, <code>kept</code></td></tr>
@@ -56,6 +58,7 @@
       <tr><th scope="row">float</th><td>An item that is not docked: drawn above the content at its own rect.</td><td><code>DockState.floats</code>, <code>floatAt</code></td></tr>
       <tr><th scope="row">floating panel</th><td>A panel that floats, at its natural size, with a title bar.</td><td><code>DockFloat</code>, <code>DockItem.floatSizes</code></td></tr>
       <tr><th scope="row">tear off / dock back</th><td>Dragging a docked panel out so it floats; dragging it back into a dock. <code>liftItem</code> takes the item out of the layout, <code>floatAt</code> makes the float.</td><td><code>liftItem</code>, <code>floatAt</code>, <code>dockHome</code></td></tr>
+      <tr><th scope="row">move to</th><td>Putting an item at a place: in a dock state, the change that does it; in layout motion, the call that sends an item settling to a new rect.</td><td><code>moveTo</code> (<code>@n-uf/docking</code>), <code>LayoutItem.moveTo</code> (<code>@n-uf/motion/layout</code>)</td></tr>
       <tr><th scope="row">drop target</th><td>Any place a dragged item can land.</td><td><code>Target</code>, <code>DragTarget</code></td></tr>
       <tr><th scope="row">hit area</th><td>The region where the pointer counts as being over a target.</td><td><code>Target.hit</code></td></tr>
       <tr><th scope="row">slot</th><td>The rect the dropped item will occupy: the landing rect.</td><td><code>Target.slot</code></td></tr>
@@ -65,6 +68,20 @@
       <tr><th scope="row">refusal</th><td>A place that cannot take the item: one that accepts its kind but has no room now, or a whole edge that doesn't accept the kind (<code>not-accepted</code>). A release over it goes home.</td><td><code>DockRefusal</code>, <code>reason</code></td></tr>
       <tr><th scope="row">home</th><td>The item's own place when a drag starts. Dropping there changes nothing, and a canceled or refused drag returns there.</td><td><code>home</code>, <code>own-place</code></td></tr>
       <tr><th scope="row">keyboard stops</th><td>The same drop targets in reading order, for the arrow keys and a "Move to" menu.</td><td><code>stops</code></td></tr>
+    </tbody>
+  </table>
+
+  <h2>Landing model and lanes</h2>
+  <table>
+    <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">landing model</th><td>Where a docking drag lands, kept as state: it takes the window's lanes and each pointer sample, and says which lane and spot the pointer holds, where the item lands and whether the room is open.</td><td><code>createLandingModel</code>, <code>LandingModel</code>, <code>LandingFrame</code></td></tr>
+      <tr><th scope="row">lane</th><td>A strip of the window along one axis (a bar, a rail, a column) where a drop lands on one of its spots.</td><td><code>LandingLane</code>, <code>DockLane</code>, <code>lanes</code></td></tr>
+      <tr><th scope="row">spot</th><td>One place a drop in a lane lands: its stretch of the lane and the rect the item takes there.</td><td><code>LandingSpot</code>, <code>DockSpot</code></td></tr>
+      <tr><th scope="row">region</th><td>Where the pointer is for the landing model: in a lane, in open space (a float lands there), over a refused place, or nowhere (past the stage).</td><td><code>LandingRegion</code>, <code>LandingFrame.region</code></td></tr>
+      <tr><th scope="row">gate</th><td>What the pointer must do before the landing model enters a lane: follow it slowly for a stretch, or rest deep inside it. A fast fly-through opens nothing.</td><td><code>LANDING_GATES</code>, <code>LandingGates</code></td></tr>
+      <tr><th scope="row">guide</th><td>A mark drawn in a lane to show where items can go: a line, a box, or a hatch over a neighbor that gives way.</td><td><code>LandingGuide</code>, <code>guideRects</code></td></tr>
+      <tr><th scope="row">place guides</th><td>Faint marks on the free places that take the held item, shown only while no landing shows: Off, Near (the places of the edge the pointer approaches) or All.</td><td><code>PlaceGuides</code>, <code>DragPreview.placeGuides</code>, <code>PLACE_GUIDES_DEFAULT</code></td></tr>
     </tbody>
   </table>
 
@@ -79,6 +96,8 @@
       <tr><th scope="row">pitch</th><td>Under Pitched stretch positions, the step between the places a toolbar group can take in a stretch, in px.</td><td><code>DockLaneOptions.pitch</code>, <code>SPOT_PITCH</code></td></tr>
       <tr><th scope="row">snap distance</th><td>Under Free stretch positions, how near a stretch's end or home a toolbar group snaps there, in px. A press, a small wobble and a release is home.</td><td><code>DockLaneOptions.snapDistance</code>, <code>LandingSlide.snapDistance</code>, <code>SNAP_DISTANCE</code></td></tr>
       <tr><th scope="row">grip</th><td>The control you press to move a panel or toolbar group. Drag it to move, double-click to collapse or expand, right-click for its menu.</td><td><code>createGripPress</code>, <code>StackForm.grip</code></td></tr>
+      <tr><th scope="row">control ladder</th><td>A toolbar group's forms made from its controls, so a bar runs short one control at a time and not group by group.</td><td><code>controlLadder</code>, <code>ControlLadderSpec</code></td></tr>
+      <tr><th scope="row">tier</th><td>One length per control of a group, longest first (full, shorter, shortest). A group steps through its tiers before it folds.</td><td><code>LadderControl.tiers</code>, <code>StackForm.tiers</code></td></tr>
       <tr><th scope="row">freeze / frozen</th><td>The switch that stops items being moved. Holding Alt lets you move them anyway, while it is held.</td><td>the app's own <code>freeze</code> flag</td></tr>
     </tbody>
   </table>
@@ -94,6 +113,16 @@
     </tbody>
   </table>
 
+  <h2>Fitting and placing</h2>
+  <table>
+    <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
+    <tbody>
+      <tr><th scope="row">edge cut</th><td>The stage cut into bands along its sides, in list order: each band takes its size across from what the earlier ones left, and what remains is the rest.</td><td><code>cutEdges</code>, <code>EdgeBand</code>, <code>EdgeCut</code></td></tr>
+      <tr><th scope="row">stack gaps</th><td>The places in a stack where a dragged item could go in, each with the stack it would make, or the reason it does not fit.</td><td><code>stackGaps</code>, <code>StackGap</code></td></tr>
+      <tr><th scope="row">popup position</th><td>Where a popup (a menu, a tooltip, a drop label) goes next to its anchor, flipped, slid or cut to stay inside the bounds.</td><td><code>positionPopup</code>, <code>PositionerRule</code></td></tr>
+    </tbody>
+  </table>
+
   <h2>Drag intent and motion</h2>
   <table>
     <thead><tr><th scope="col">Term</th><th scope="col">Definition</th><th scope="col">API name</th></tr></thead>
@@ -105,8 +134,14 @@
       <tr><th scope="row">hysteresis</th><td>The current target keeps the pointer until it is clearly in another one. Geometry, not time.</td><td><code>DragTuning.band</code>, <code>bandShare</code></td></tr>
       <tr><th scope="row">switch delay</th><td>While aiming, the shown target changes only after the new target has held this long.</td><td><code>switchHold</code></td></tr>
       <tr><th scope="row">spring-loading</th><td>A target that acts when the pointer rests on it during a drag, such as a rail that arms and takes the drop.</td><td><code>arm: "dwell"</code>, <code>DragTuning.armAfter</code>, <code>DragModifiers.armKey</code>, <code>DragFrame.forced</code> (<code>"armed"</code>)</td></tr>
+      <tr><th scope="row">arm key</th><td>A held key (⌘ or Ctrl) that sends the drop to the nearest spring-loaded target and arms it, without the pointer reaching it. The frame says the key forced it.</td><td><code>DragModifiers.armKey</code>, <code>DragFrame.forced</code> (<code>"armed"</code>)</td></tr>
+      <tr><th scope="row">intent bounds</th><td>The drawn space of a drag, usually the stage: the intent clamps every point onto it, so a pointer past the window picks what lies against its edge.</td><td><code>DragIntentOptions.bounds</code>, <code>DragIntent.setBounds</code></td></tr>
       <tr><th scope="row">direct drag</th><td>The real item, not a copy, follows the pointer 1:1, drawn exactly where the pointer puts it.</td><td><code>holdItem</code>, <code>LayoutItem.hold</code>, <code>HeldDrag.move</code></td></tr>
       <tr><th scope="row">settle</th><td>Motion toward a new target on one fast-then-gentle curve that never passes it. Velocity carries over a retarget.</td><td><code>createSettle</code></td></tr>
+      <tr><th scope="row">layout motion</th><td>Many items settling to their places on one frame loop: give an item a new rect and it glides there from where it is drawn. An item appears and disappears with a fade.</td><td><code>createLayoutMotion</code>, <code>LayoutItem.moveTo</code>, <code>LayoutItem.show</code>, <code>domDrawable</code></td></tr>
+      <tr><th scope="row">motion value</th><td>A value that steps toward its target on a frame loop. Follow it with a listener.</td><td><code>motionValue</code>, <code>settleValue</code>, <code>MotionValue.subscribe</code></td></tr>
+      <tr><th scope="row">frame loop</th><td>The loop that runs each frame's work in four phases (input, update, layout, write). It asks for a frame only while it has work.</td><td><code>createFrameLoop</code>, <code>Phase</code></td></tr>
+      <tr><th scope="row">clock</th><td>Where the loop reads time and frames from. The host gives one: the browser's, or a fake one for tests.</td><td><code>ClockPort</code>, <code>createBrowserClock</code>, <code>createFakeClock</code></td></tr>
       <tr><th scope="row">reveal</th><td>Drawing a gliding window without stretching its content: move, draw the frame at the animated size, clip the content.</td><td><code>reveal</code></td></tr>
       <tr><th scope="row">reduced motion</th><td>The user's OS-level preference for less animation. With it on, targets are reached at once.</td><td><code>reducedMotion</code></td></tr>
     </tbody>
