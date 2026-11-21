@@ -116,8 +116,8 @@ export function controlLadder(spec: ControlLadderSpec): ControlLadder {
   const at = controls.map(() => 0);
   const rowLength = (shown: readonly number[], extra: number): number => shown.reduce((s, i) => s + length(controls[i]!, at[i]!), 0) + Math.max(0, shown.length - 1) * gap + grip + extra;
   const all = controls.map((_, i) => i);
-  /** `StackForm.tiers` for the controls in `shown`: the tier each has now (a tier past a control's own list is its last length). */
-  const tiersOf = (shown: readonly number[]): Readonly<Record<string, number>> => Object.fromEntries(shown.map((i) => [controls[i]!.id, at[i]!]));
+  /** `StackForm.tiers` for the controls in `shown`: the tier each has now, held to its own list, so always a valid index into it. */
+  const tiersOf = (shown: readonly number[]): Readonly<Record<string, number>> => Object.fromEntries(shown.map((i) => [controls[i]!.id, Math.min(at[i]!, Math.max(0, controls[i]!.tiers.length - 1))]));
   row.push(form(rowLength(all, 0), { kind: "row", tiers: tiersOf(all) }));
   for (let t = 1; t < tierCount; t++) {
     for (let i = 0; i < n; i++) {

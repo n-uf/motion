@@ -4,7 +4,7 @@
  */
 import { EPS, rect, type Rect } from "@n-uf/placement";
 import { formMain, wrapLines, type StackFit, type StackForm, type StackInput } from "@n-uf/placement/stack";
-import { axisOf, foldedByOf, formsOf, zoneOf } from "../helpers";
+import { axisOf, controlsOf, foldedByOf, formsOf, zoneOf } from "../helpers";
 import type { DockEdge, DockState, DockEdgeLayout, DockItemLayout, DockLayout, DockNote, DockRailLayout, SolveOptions, Zone } from "../model";
 import type { EdgeSolve } from "./edge";
 import { cutOrder, finite, px } from "./order";
@@ -215,8 +215,7 @@ export function emit(d: Draft, edge: DockEdge, r: Rect, solved: EdgeSolve, extra
     const foldedBy = foldedByOf(it, formsOf(it, column ? "column" : "row"), p.form, solved.starts.get(p.id), edge);
     items[p.id] = {
       ...shape,
-      hidden: inMenu ? [] : (f?.hides ?? []),
-      ...(!inMenu && f?.tiers ? { tiers: f.tiers } : {}),
+      ...controlsOf(inMenu ? undefined : f),
       rect: drawnRect,
       kind: it.kind,
       axis: column ? "column" : "row",

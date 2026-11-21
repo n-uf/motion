@@ -283,6 +283,12 @@ export function railPolicyOf(state: DockState, kind: Kind): { readonly railStrip
 export const zoneOf = (item: DockItem | undefined): Zone => (item?.align === "center" || item?.align === "end" ? item.align : "start");
 export const formsOf = (item: DockItem, axis: Orient): readonly StackForm[] => item.forms[axis] ?? [];
 
+/**
+ * What a form tells of its controls, as an item's layout reports it: `hidden` (`StackForm.hides`) and `tiers`
+ * (`StackForm.tiers`, left out when the form has none). One reader for every path that lays an item out.
+ */
+export const controlsOf = (f: StackForm | undefined): { hidden: readonly string[]; tiers?: Readonly<Record<string, number>> } => ({ hidden: f?.hides ?? [], ...(f?.tiers ? { tiers: f.tiers } : {}) });
+
 const PANEL_FORMS: ReadonlySet<string> = new Set(["open", "header", "rail"]);
 /** A panel that counts as docked for `insetWhen: "docked"`: not closed, not fixed, its first column form a panel's (open, header or rail). */
 export const isDockingPanel = (item: DockItem): boolean => !item.closed && !item.fixed && PANEL_FORMS.has(formsOf(item, "column")[0]?.kind ?? "");
