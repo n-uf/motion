@@ -46,6 +46,8 @@ interface Case {
   readonly at: At;
   readonly bar: Bar;
   readonly inset: number;
+  /** The bar laid inside the inset (the rail outside it): the bar's own reach strip then lies across the rail's own span. */
+  readonly barInside?: boolean;
 }
 
 const RAIL = "rail";
@@ -69,7 +71,7 @@ function sceneOf(c: Case): Scene {
       cross: { min: 41, max: 41, rail: 41 },
       gap: 8,
       pad: { start: 8, end: 8 },
-      outsideInset: true,
+      outsideInset: !c.barInside,
     } as Edge);
   return {
     stage: { x: 0, y: 0, width: c.w, height: c.h },
@@ -156,7 +158,10 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
   ] as const)
     for (const side of ["left", "right"] as const)
       for (const at of ["end", "start"] as const)
-        for (const bar of ["empty", "holding", "absent"] as const) for (const inset of [0, 12]) cases.push({ w, h, side, at, bar, inset });
+        for (const bar of ["empty", "holding", "absent"] as const) {
+          for (const inset of [0, 12]) cases.push({ w, h, side, at, bar, inset });
+          if (bar !== "absent") cases.push({ w, h, side, at, bar, inset: 12, barInside: true });
+        }
 
   it(`every point of the rail's own span is one of its zone targets, none refused for reach (${cases.length} scenes)`, () => {
     for (const c of cases) {
@@ -171,7 +176,8 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
           // At most one of the rail's targets anywhere along it.
           expect(p.mine.length, `${tag} y ${p.y}`).toBeLessThanOrEqual(1);
           // A point of the rail's own span (on no other edge's target) is the rail's: one zone target, never refused.
-          if (!p.other) expect(p.mine.length, `${tag} y ${p.y}: ${JSON.stringify(p)}`).toBe(1);
+          // (Past a bar holding items inside the inset, the inset's strip is nobody's, with or without reach.)
+          if (!p.other && !(c.bar === "holding" && c.barInside)) expect(p.mine.length, `${tag} y ${p.y}: ${JSON.stringify(p)}`).toBe(1);
           expect(p.refused, `${tag} y ${p.y}`).toEqual([]);
           // Reach never shrinks a target: what a zone's target holds at endReach 0 it holds at any reach.
           if (was.mine.length === 1) expect(p.mine, `${tag} y ${p.y}`).toEqual(was.mine);
