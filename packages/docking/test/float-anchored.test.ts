@@ -98,7 +98,7 @@ describe("an anchored float and the other floats", () => {
     expect([three.g1, three.g2]).toEqual([rects.g1, rects.g2]);
   });
 
-  it("an anchored float clears a float the user placed by hand, before or after it in the stack", () => {
+  it("an anchored float clears a float the user placed by hand before it was floated, before or after it in the stack", () => {
     const corner = solve(floatAt(base(), "g1")).items.g1!.rect;
     const hand = floatAt(base(), "g2", corner);
     const s = moveTo(hand, "g1", { kind: "float" });
@@ -109,13 +109,25 @@ describe("an anchored float and the other floats", () => {
     expect(Object.fromEntries(floatRects({ ...s, floats: [...s.floats].reverse() }))).toEqual(rects);
   });
 
-  it("a float placed by hand keeps its rect; the anchored float under it moves beside it", () => {
+  it("a float floated later and placed by hand over an anchored float keeps its rect, and the anchored float keeps its place: nothing else moves", () => {
     const anchored = floatAt(base(), "g1");
     const at = solve(anchored).items.g1!.rect;
     const s = floatAt(anchored, "g2", at);
     const rects = Object.fromEntries(floatRects(s));
     expect(rects.g2).toEqual(at);
-    expect(overlaps(rects.g1!, rects.g2!)).toBe(false);
+    expect(rects.g1).toEqual(at);
+  });
+
+  it("a float grown by hand over an anchored float covers it; the anchored float stays put", () => {
+    const s0 = floatAt(floatAt(base(), "g1"), "notes", { x: 400, y: 200, width: 280, height: 320 });
+    const g1 = solve(s0).items.g1!.rect;
+    const n = solve(s0).items.notes!.rect;
+    const grown = resizeFloat(s0, "notes", { x: n.x, y: g1.y + 4, width: g1.x + g1.width / 2 - n.x, height: n.y + n.height - g1.y - 4 }, { top: true, right: true });
+    const l = solve(grown);
+    expect(l.items.g1!.rect).toEqual(g1);
+    expect(overlaps(l.items.notes!.rect, g1)).toBe(true);
+    // Later in the stack: drawn over it.
+    expect(l.floats.indexOf("notes")).toBeGreaterThan(l.floats.indexOf("g1"));
   });
 
   it("the stacking order decides nothing: with no since, the smaller id wins among anchored floats", () => {
@@ -128,14 +140,14 @@ describe("an anchored float and the other floats", () => {
     expect(overlaps(ab.g1!, ab.g2!)).toBe(false);
   });
 
-  it("raise reshapes nothing: an anchored float under a hand float it avoids stays put when raised", () => {
+  it("raise reshapes nothing: an anchored float under a hand float floated as early (no since) stays put when either is raised", () => {
     const corner = solve(floatAt(base(), "g1")).items.g1!.rect;
     const a: DockFloat = { id: "g1", rect: { x: 0, y: 0, width: 200, height: 28 }, anchor: "content-top-right" };
     const b: DockFloat = { id: "g2", rect: { ...corner } };
     const s: DockState = { ...base(), floats: [a, b] };
     const before = Object.fromEntries(floatRects(s));
     expect(before.g2).toEqual(corner);
-    expect(overlaps(before.g1!, before.g2!)).toBe(false);
+    expect(before.g1).toEqual(corner);
     for (const id of ["g1", "g2"]) expect(Object.fromEntries(floatRects(raiseFloat(s, id)))).toEqual(before);
   });
 
@@ -283,7 +295,7 @@ describe("anchored floats, over generated states", () => {
     expect(pairs).toBeGreaterThan(300);
   });
 
-  it("an anchored float never overlaps a float that wins over it (one placed by hand, an anchored one floated earlier) when room exists", () => {
+  it("an anchored float never overlaps a float that wins over it (one floated before it, anchored or placed by hand) when room exists", () => {
     let checked = 0;
     for (const seed of SEEDS) {
       const s = generated(seed, true);
@@ -294,10 +306,16 @@ describe("anchored floats, over generated states", () => {
       for (const id of l.floats) {
         if (!anchored.has(id)) continue;
         for (const other of l.floats) {
-          if (other === id || (anchored.has(other) && later(other, id))) continue;
+          const wins = anchored.has(other) ? !later(other, id) : since.get(other)! < since.get(id)!;
+          if (other === id || !wins) continue;
           checked++;
           if (overlaps(l.items[id]!.rect, l.items[other]!.rect)) throw new Error(`seed ${seed}: ${id} covers ${other}`);
         }
+      }
+      // Without the floats placed by hand after it, every anchored float lies where it does with them.
+      for (const id of anchored) {
+        const without = solve({ ...s, floats: s.floats.filter((f) => f.anchor || since.get(f.id)! < since.get(id)!) });
+        if (l.items[id] && JSON.stringify(without.items[id]?.rect) !== JSON.stringify(l.items[id]!.rect)) throw new Error(`seed ${seed}: a float placed by hand later moved ${id}`);
       }
       expect(l.notes.filter((n) => n.code === "float-covers")).toEqual([]);
     }

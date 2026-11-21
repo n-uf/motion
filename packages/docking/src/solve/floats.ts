@@ -1,8 +1,10 @@
 /**
  * The floats: fitted inside the stage less the inset at its left and right, clear of every docked item (fixed ones and
  * » entries included), every bar and the chrome rects (`fitFloat`). An anchored float sits flush with that side or
- * corner of `content` first, then clear of every float with a rect of its own and of the anchored floats floated before
- * it (smaller `since`, then smaller id) too, where room exists (`fitBeside`); the stacking order plays no part. A float
+ * corner of `content` first, then clear of the floats floated before it too, where room exists (`fitBeside`): the
+ * anchored ones before it (smaller `since`, then smaller id) and those with a rect of their own floated strictly before
+ * it (smaller `since`). The float floated first wins the place both want; one floated later and put there by the hand
+ * (a drop, a resize) covers the anchored float, which keeps its place. The stacking order plays no part. A float
  * with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  */
 import { EPS, rect, type Rect, type Size } from "@n-uf/placement";
@@ -157,18 +159,24 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (floatShape(it, f).none) noForm.add(f.id);
     drawn.push(f);
   }
-  // Where each lies, apart from the stacking order (so `raiseFloat` reshapes nothing): a float with its own rect first, clear
-  // of what floats are kept clear of; then the anchored ones, earliest floated first (`since`, then id), each clear of
-  // every float with its own rect and of the anchored ones floated before it too, where room exists (`fitBeside`).
+  // Where each lies, apart from the stacking order (so `raiseFloat` reshapes nothing): a float with its own rect, clear of
+  // what floats are kept clear of; then the anchored ones, earliest floated first (`since`, then id), each clear of the
+  // floats floated before it too, where room exists (`fitBeside`): the anchored ones before it, and the ones with a rect
+  // of their own floated strictly before it (a smaller `since`). A float floated later (or as early) is placed over it by
+  // the hand, so the anchored float makes no way for it: dropped or grown there, it lies over or under the anchored float
+  // by the stacking order, and nothing else moves.
   const placed = new Map<string, ReturnType<typeof placeFloat>>();
   const place = (f: DockFloat, earlier: readonly Rect[] = []): void => {
     placed.set(f.id, placeFloat(state.items[f.id]!, f, floatRegion, avoid, content, stage, earlier, docked));
   };
   const live = drawn.filter((f) => !noForm.has(f.id));
-  for (const f of live) if (!f.anchor) place(f);
-  const own = [...placed.values()].map((p) => p.fit.rect);
+  const own = live.filter((f) => !f.anchor);
+  for (const f of own) place(f);
   const anchored = live.filter((f) => f.anchor).sort((a, b) => sinceOf(a) - sinceOf(b) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  anchored.forEach((f, i) => place(f, [...own, ...anchored.slice(0, i).map((a) => placed.get(a.id)!.fit.rect)]));
+  anchored.forEach((f, i) => {
+    const before = own.filter((o) => sinceOf(o) < sinceOf(f)).map((o) => placed.get(o.id)!.fit.rect);
+    place(f, [...before, ...anchored.slice(0, i).map((a) => placed.get(a.id)!.fit.rect)]);
+  });
   const floats: string[] = [];
   for (const f of drawn) {
     if (noForm.has(f.id)) {
