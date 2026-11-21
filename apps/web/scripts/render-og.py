@@ -18,7 +18,7 @@ INK, MUTED, FAINT, ACCENT = (27, 28, 31), (85, 86, 92), (104, 105, 112), (10, 11
 FAINT_LINE = (104, 105, 112)   # the mark's target line: the site's --text-3 in light
 # out file, small label, headline, sub line, capture (in scripts/og-src), picture box (width, height)
 CARDS = [
-    ("public/og.png", "n-uf motion", "Window motion and docking", "@n-uf/motion moves windows without overshoot; @n-uf/placement works out where they dock", "home.png", (560, 420)),
+    ("public/og.png", "n-uf motion", "Windows that move, fit and dock", "@n-uf/motion moves them, @n-uf/placement fits them, @n-uf/docking docks panels and toolbars", "home.png", (560, 420)),
     ("public/og/window-motion.png", "@n-uf/motion · Window motion", "Fast at the start, gentle at the end", "Settle against Hyprland's springs and hypr-tiling's tweens", "window-motion.png", (560, 470)),
     ("public/og/drag-intent.png", "@n-uf/motion · Drag intent", "A drop indicator only once you aim", "No flicker at boundaries; the drop lands where it showed", "drag-intent.png", (560, 440)),
     ("public/og/docking-layouts.png", "@n-uf/docking · Docking layouts", "Nine ways to lay out a workspace", "Four docked windows and five page sketches: docks, tabs and floating panels", "docking-layouts.png", (560, 440)),
