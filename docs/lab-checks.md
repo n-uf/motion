@@ -114,3 +114,8 @@ Each `*.json` dump (window px, origin at the window's top left):
 - `pending` and `cantGo` say what the host shows at the pointer: the lane being entered, and the "Can't go here" tag.
 - `spots` (optional): the held lane's landing spots as the model reads them on that frame (the held spot's room open), each `{ id, rect, axis, slide? }`: `rect` is its landing, `axis` the lane's axis (`"x"` or `"y"`), and a sliding spot's `slide` is `{ from, to }`, the range of its start along `axis`. Empty when no lane is held. It lets a check assert that the landing is the nearest spot to the pointer.
 - A dump holds no screenshot data and no page markup, only the facts a reviewer compares with the picture.
+- A case that plays no drag, such as a window resized step by step, marks its own key frames (`hop`, with a `note` such as the width), and each `items` entry carries the layout's `hidden` and `tiers` when it has them.
+
+## Groups declared by their controls
+
+`ladder-narrow` and `ladder-widen` (`apps/lab/src/docwin/ladder-presets.ts`, the wiring in `ladder.ts`) put three groups declared by their controls (`controlLadder`) in one bar. `ladder-narrow` narrows it 1 px at a time and asserts the order of steps: tier steps one control at a time, then partial folds levelled across the groups, the » list equal to the hidden controls on every frame, then whole-group folds, the growing title giving way after the groups' row steps. `ladder-widen` widens it back and asserts every frame equals the narrowing's frame at that width.

@@ -9,6 +9,7 @@ import { ZONES, floatOrientOf, floatSizeOf, liftItem, moveTo, orientFloat, parse
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultState, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { KIT_PRESETS } from "./kit-presets";
+import { LADDER_PRESETS } from "./ladder-presets";
 import { INTENT_PRESETS } from "./intent-presets";
 import { LANDING_PRESETS } from "./landing-presets";
 import { ONE_PREVIEW_PRESETS } from "./one-preview-presets";
@@ -286,7 +287,18 @@ function sweepState(edge: EdgeId, order: readonly ItemId[]): DockState {
 
 // --- the presets -------------------------------------------------------------------------------------------------------
 
-export const PRESETS: readonly Preset[] = [
+/**
+ * Every case, each with the behavior it checks: the docking, rail, kit and drag intent cases check the published
+ * libraries' rules; the one-preview cases check the window's own; the landing cases check the window's own on the
+ * landing model, which the viewer plays.
+ */
+export const PRESETS: readonly Preset[] = (() => {
+  const as = (behavior: Behavior, ps: readonly Preset[]): Preset[] => ps.map((p) => ({ ...p, behavior }));
+  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", CODE_PRESETS())];
+})();
+
+function PUBLISHED_PRESETS(): Preset[] {
+  return [
   {
     id: "no-slot-over-chrome",
     title: "No slot over the title or controls",
