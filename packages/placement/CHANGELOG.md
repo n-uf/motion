@@ -7,6 +7,14 @@ Unreleased entries live in `changes/` until a release joins them.
 
 ## Unreleased
 
+- `./tiling`, **added: the drop check in its two rules, `centerRect`, the master clamps and `Rect`**, for a host with its own
+  projected layout. `canSplitPane(target, side, { min, gap?, handle? })` is the room rule (along the split `2 * min`
+  plus the gutter, across it `min`, for the rect of a pane) and `dropFits(projected, dragged, at, area, { min, side })`
+  the fit rule (both panes at least `min` in a layout the host already projected) (`SplitRoomOptions`,
+  `DropFitsOptions`); `canDropOnPane` is now exactly the two in turn, with the same verdicts and reasons.
+  `paneRegion` takes a center the host measured as `options.centerRect` (a `PaneCenter`), the same region for the same
+  center. `masterRatio` and `masterCount`, the clamps `masterStack` applies, and the `Rect` type (the root's) are
+  exported. A ratio that is not finite stays 0.5.
 - `./tiling`, **behavior change: the gap rule**. A split of extent `W` at ratio `r` with a gutter `g` now puts the
   middle of the gutter at `W * r`: the first side is `max(0, W * r - g / 2)` long, the second starts at
   `start + W * r + g / 2` and is `max(0, W * (1 - r) - g / 2)` long. It replaces `(W - g) * r`. At ratio 0.5 both rules
