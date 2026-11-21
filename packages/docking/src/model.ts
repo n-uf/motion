@@ -531,6 +531,12 @@ export interface DockItemLayout {
    * draws a "+N" control with them. `form` already names the variant.
    */
   readonly hidden: readonly string[];
+  /**
+   * The chosen form's `StackForm.tiers`: each shown control's tier by control id, for a group whose forms `controlLadder`
+   * generated; absent for a hand-written form, a `fold`, a `menu` and a » menu entry. A host draws each control at
+   * `tiers[id]` and leaves out the `hidden` ones.
+   */
+  readonly tiers?: Readonly<Record<string, number>>;
 }
 
 /** An edge as laid out. */

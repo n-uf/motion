@@ -19,6 +19,9 @@
  *    folds next.
  * 4. `fold` (the grip and the `more` cell in line, `hides` every control), rank 500, then `menu`, rank 600.
  *
+ * Every row form carries `tiers`, each shown control's tier index (`StackForm.tiers`; `fold` and `menu` have none), so a
+ * host draws a control from the form the layout chose, with no knowledge of this order.
+ *
  * Every form is always emitted, even when it is no shorter than the one before: the solver passes over a form that
  * doesn't shorten the stack, and the shape (`n * T + 2` forms, `0` with no controls) depends on the control and tier
  * counts alone, so a form index stays valid when a length changes. When the control set itself changes, solve the group
@@ -113,16 +116,19 @@ export function controlLadder(spec: ControlLadderSpec): ControlLadder {
   const at = controls.map(() => 0);
   const rowLength = (shown: readonly number[], extra: number): number => shown.reduce((s, i) => s + length(controls[i]!, at[i]!), 0) + Math.max(0, shown.length - 1) * gap + grip + extra;
   const all = controls.map((_, i) => i);
-  row.push(form(rowLength(all, 0), { kind: "row" }));
+  /** `StackForm.tiers` for the controls in `shown`: the tier each has now (a tier past a control's own list is its last length). */
+  const tiersOf = (shown: readonly number[]): Readonly<Record<string, number>> => Object.fromEntries(shown.map((i) => [controls[i]!.id, at[i]!]));
+  row.push(form(rowLength(all, 0), { kind: "row", tiers: tiersOf(all) }));
   for (let t = 1; t < tierCount; t++) {
     for (let i = 0; i < n; i++) {
       at[order[i]!] = t;
-      row.push(form(rowLength(all, 0), { kind: "row", rank: tierRank(t, i) }));
+      row.push(form(rowLength(all, 0), { kind: "row", rank: tierRank(t, i), tiers: tiersOf(all) }));
     }
   }
   for (let k = 1; k < n; k++) {
     const hidden = new Set(order.slice(0, k));
-    row.push(form(rowLength(all.filter((i) => !hidden.has(i)), more), { kind: "row", rank: 4 * RANK_TIER + k / n + keep, hides: ids(hidden) }));
+    const shown = all.filter((i) => !hidden.has(i));
+    row.push(form(rowLength(shown, more), { kind: "row", rank: 4 * RANK_TIER + k / n + keep, hides: ids(hidden), tiers: tiersOf(shown) }));
   }
   row.push(form(grip + more, { kind: "fold", rank: 5 * RANK_TIER + keep, hides: ids(new Set(all)) }));
   row.push({ kind: "menu", main: { min: 0, natural: 0 }, cross: { natural: 0 }, rank: 6 * RANK_TIER + keep });

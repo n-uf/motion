@@ -251,7 +251,8 @@ console.log(row.map((f) => [f.kind, f.main.min, f.rank ?? 0, f.hides ?? []]));
   `(n - 1) / n`, so with a gap of 99 or more a step of one type can pass a step of the next.
 - **In a dock state.** `controlLadder(spec)` is a `DockItem.forms` (`@n-uf/docking`): `{ id, kind: "group", used, forms: controlLadder(spec) }`.
   The chosen form's `hides` are the item's `hidden`, so a host draws the shown controls and the group's » with exactly
-  those.
+  those, and each row form's `tiers` (control id to tier index, 0 the longest, for the controls it shows; `fold` and
+  `menu` have none) are the item's `tiers`, so a host draws each control at `tiers[id]` without knowing the ladder's order.
 
 ## A title bar, kinds an edge takes, a group's own size
 

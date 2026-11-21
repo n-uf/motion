@@ -106,6 +106,12 @@ export interface StackForm {
    */
   readonly hides?: readonly string[];
   /**
+   * Each shown control's tier, by control id (0 the longest), set by `controlLadder` on every row form it generates (not
+   * on `fold` and `menu`): a host draws each control at its tier from it, with no knowledge of the ladder's order. A
+   * hand-written form leaves it out. `./scene` reports the chosen form's as `tiers`.
+   */
+  readonly tiers?: Readonly<Record<string, number>>;
+  /**
    * A `rail` form that draws the item's title along the rail (its name and count, turned to run along it) instead of
    * its tile. Put it just before the item's tile `rail` form: in a rail the two are steps on the ladder, the title giving
    * way to the tile by the usual rules and coming back in exact reverse. Its `main` is the title's length along the rail,
