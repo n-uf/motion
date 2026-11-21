@@ -72,3 +72,5 @@ frame and the commit alike. Taken: the second.
 
 2026-11-20, not yet released: it ships in the release after the docking migration (26.11.54), `@n-uf/docking` and
 `@n-uf/motion` together. The release is named here when it ships.
+
+2026-11-21: `shown(frame)` names the drawn layout; guides are cut in it.

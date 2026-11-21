@@ -59,6 +59,13 @@ Unreleased entries live in `changes/` until a release joins them.
   sliding spot, the item is drawn where it lands and the room beside it is a box from 8 px; the bar keeps the corner
   between two empty lanes in a held frame. `./testing`'s `LandingRule` takes `{ regions, landingOf, spotsOf, home?,
   placeGuides? }`, and its host draws guides with `guides(frame)` and commits `after(release).state`.
+- Added: **`DockDrag.shown(frame)`**, the layout a landing frame draws (`after(frame.state).layout` while the frame's room
+  is open, else the window at rest), and **`DockGuideFrame.room`** (required; the landing model's `LandingFrame.room`, so a
+  landing frame still fits; a host that builds its own frame passes it, and passes false where it draws no room for a spot).
+- Fixed: **a float frame's guides are cut in the window as drawn.** `guides(frame)` took the screen from
+  `after(frame.state)`, so on a float frame (whose room is not open: the gap closes on release) the marks were cut in
+  the float's commit layout, the column closed up, while the host drew the window at rest. `guides(frame)` now cuts in
+  `shown(frame)`. A frame whose room is open (every spot frame the landing model gives) gives the guides it gave before.
 
 ### Docs only
 

@@ -437,16 +437,18 @@ windows), and a drag's states reuse that work.
 ### `dockDrag(state, dragged, options)`: one layout per state
 
 `dockDrag` takes `lanes()`' options and gives a `DockDrag`: `regions` (`lanes()`', for hit-testing only), `after(held)`,
-`landingOf(held)`, `spotsOf(spot)` and `guides(frame)`. A state, `DockHeld`, is `{ kind: "spot", spot, point, lane? }`,
+`landingOf(held)`, `spotsOf(spot)`, `shown(frame)` and `guides(frame)`. A state, `DockHeld`, is `{ kind: "spot", spot, point, lane? }`,
 `{ kind: "float", point }` or null (rest). `after(held)` is a `DockAfter`: `state` (what a release commits; a host stores
 it), `layout` (that state solved with `options.previous`, as the commit solves it), `landing` (the held item's rect
 there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
 spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
 remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
 a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. **Which layout a held frame draws** is
-the draw rule of docs/docking.md ("What a held frame draws"). `landingOf(held)` is
+the draw rule of docs/docking.md ("What a held frame draws"), and `shown(frame)` reads it (`after(frame.state).layout`
+while `frame.room` is open, else the window at rest). `landingOf(held)` is
 `after(held).landing`; `spotsOf(spot)` is a spot's lane's stretches in its own layout. `guides(frame)` takes a landing
-frame (`DockGuideFrame`: its `state` and its `guides`, `{ lane, state }` each) and gives its guides (`DockGuide`): each
+frame (`DockGuideFrame`: its `state`, its `room` (the landing model's `LandingFrame.room`) and its `guides`,
+`{ lane, state }` each) and gives its guides (`DockGuide`), cut in `shown(frame)`: each
 lane's marks in the layout of the state it names; a lane drawn on screen less the landing the pointer would take in
 it (a box part 8 px or shorter that cut leaves is dropped); a lane the screen doesn't draw in the layout that creates
 it (the Near lane's would-land state's; any other's one spot's, its room whole, giving up where it meets a lane drawn
