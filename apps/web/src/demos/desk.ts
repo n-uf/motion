@@ -99,13 +99,15 @@ function panel(id: string, used: number, last: boolean): DockItem {
   };
 }
 
-/** The toolbar's room: a fixed item that holds a bar's height and takes no drops. */
-const TOOLBAR_ROOM: DockItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, forms: { row: [{ kind: "row", main: { min: 0, natural: 0 }, cross: { natural: ROOM }, setsCross: true }] } };
+/** The toolbar's pill: a fixed item, centered in its bar (320 px, less when the bar is shorter), that takes no drops. Its bar is the room. */
+const TOOLBAR: DockItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true, align: "center", forms: { row: [{ kind: "row", main: { min: 120, natural: 320 }, cross: { natural: ROOM }, setsCross: true }] } };
+/** The pill's margin from each end of its bar: the documents' half gap and 12 px. */
+const PILL_MARGIN = G / 2 + 12;
 
 /**
  * The card's dock state at W × H: a column on each side (it narrows, then folds to its rail), the bottom dock (reserved or
- * over the documents, between the columns or full width) with History in it, the toolbar's room as a bar between the
- * columns, and for dockTear Inspector torn off, floating next to the left column.
+ * over the documents, between the columns or full width) with History in it, the toolbar's pill as an item of a bar
+ * between the columns (reserved or overlay), and for dockTear Inspector torn off, floating next to the left column.
  */
 function deskState(card: DockCard, W: number, H: number, o: Opt): DockState {
   const dock = card !== "navigator" && o.band !== "off" ? { mode: o.band as "reserved" | "overlay", span: o.span as "between" | "full" } : null;
@@ -121,7 +123,7 @@ function deskState(card: DockCard, W: number, H: number, o: Opt): DockState {
   column(right);
   if (dock) items.History = panel("History", order.indexOf("History") + 1, true);
   if (tear) items.Inspector = panel("Inspector", order.indexOf("Inspector") + 1, true);
-  if (reserved) items.toolbar = TOOLBAR_ROOM;
+  items.toolbar = TOOLBAR;
   const side = (s: "left" | "right", ids: readonly string[]): DockEdge => ({
     id: s, side: s, ring: 0, giveWay: true, accepts: ["panel"], items: ids, cross: { min: COLUMN.min, max: COLUMN.max, rail: RAIL }, gap: 0,
     // The navigator's left column shows one panel under a row of tabs: the tabs sit in its top padding.
@@ -132,16 +134,18 @@ function deskState(card: DockCard, W: number, H: number, o: Opt): DockState {
     side("right", right),
     // The dock gives way by height: it shrinks, then folds to its title bar, to keep the documents their least height.
     ...(dock ? [{ id: "bottom", side: "bottom", ring: 0, span: dock.span, mode: dock.mode, giveWay: true, accepts: ["panel"], items: ["History"], cross: { min: TITLE, max: DOCK.max } } satisfies DockEdge] : []),
-    ...(reserved ? [{ id: "toolbar", side: toolbar, ring: toolbar === "bottom" && dock ? 1 : 0, span: "between", accepts: [], items: ["toolbar"], cross: { min: ROOM, max: ROOM } } satisfies DockEdge] : []),
+    // The toolbar's bar: reserved keeps its room clear of the documents, overlay floats it over them.
+    { id: "toolbar", side: toolbar, ring: toolbar === "bottom" && dock ? 1 : 0, span: "between", mode: reserved ? "reserved" : "overlay", accepts: [], items: ["toolbar"], cross: { min: ROOM, max: ROOM }, pad: { start: PILL_MARGIN, end: PILL_MARGIN } },
   ];
-  // Torn off next to the left column, clear of a toolbar at the top.
-  const torn = { x: COLUMN.natural + 24, y: 24 + (toolbar === "top" ? ROOM : 0), width: 200, height: 150 };
+  // Torn off at the content's top-left corner, 24 px in: next to the left column and under a toolbar at the top, wherever
+  // the columns are (the float follows the content). A floating toolbar lies over the content, so at the top its room is added.
+  const torn = { size: { x: 0, y: 0, width: 200, height: 150 }, anchor: { at: "content-top-left", dx: 24, dy: 24 + (toolbar === "top" && !reserved ? ROOM : 0) } } as const;
   return {
     stage: { x: 0, y: 0, width: W, height: H },
     gutter: 0,
     edges,
     items,
-    floats: tear ? [{ id: "Inspector", rect: torn }] : [],
+    floats: tear ? [{ id: "Inspector", rect: torn.size, anchor: torn.anchor }] : [],
     floatKinds: tear ? ["panel"] : [],
     rails: { left: { width: RAIL, accepts: ["panel"] }, right: { width: RAIL, accepts: ["panel"] } },
     contentMin: DOCS_AT_LEAST,
@@ -176,13 +180,12 @@ function noteText(card: DockCard, n: DockNote, l: DockLayout): string | null {
 
 /**
  * Lay card `card` out with `solve` at W × H and draw it: rails and the navigator's tab strip, columns, the bottom dock
- * (outlined), floats, then the documents in the content rect and the toolbar pill in the room kept for it (or over the
- * documents). Every rect comes from the layout; the drawing only insets them by half a gap.
+ * (outlined), floats, then the documents in the content rect and the toolbar pill, the toolbar item's rect in its bar
+ * (the room kept for it, or over the documents). Every rect comes from the layout; the drawing only insets them.
  */
 function dockedDesk(card: DockCard, W: number, H: number, n: number, o: Opt): { boxes: Box[]; notes: Note[] } {
   const state = deskState(card, W, H, o);
   const l = solve(state);
-  const toolbar = o.toolbar === "bottom" ? "bottom" : "top";
   const reserved = o.toolbarSpace !== "overlay";
   const dock = state.edges.find((e) => e.id === "bottom");
   const overlayDock = dock?.mode === "overlay";
@@ -215,13 +218,9 @@ function dockedDesk(card: DockCard, W: number, H: number, n: number, o: Opt): { 
   const docs = inset(l.content);
   out.unshift(...tiles(docs, DOCS.slice(0, n)));
 
-  const pw = Math.min(320, docs.w - 24), ph = BAR - 4;
-  const room = l.edges.toolbar?.rect;
-  let py: number;
-  if (reserved && room) py = room.y + (room.height - ph) / 2;
-  else if (toolbar === "top") py = l.content.y + G;
-  else py = (overlayDock && l.edges.bottom ? l.edges.bottom.rect.y : l.content.y + l.content.height) - G - ph;
-  out.push(box(docs.x + docs.w / 2 - pw / 2, py, pw, ph, "toolbar", "Toolbar", { round: true, shadow: !reserved }));
+  // The pill: the toolbar item's rect from the layout, a little shorter than its bar and centered across it.
+  const bar = l.items.toolbar!.rect, ph = BAR - 4;
+  out.push(box(bar.x, bar.y + (bar.height - ph) / 2, bar.width, ph, "toolbar", "Toolbar", { round: true, shadow: !reserved }));
 
   const notes: Note[] = [];
   for (const note of l.notes) {
