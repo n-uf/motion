@@ -5,10 +5,10 @@
  * compare it with a naive model that is the page's own. The server drew the desk, the panel and the case rail; this
  * feeds the model the pointer and draws what it says.
  */
-import { createDragIntent, DRAG_DEFAULTS, inRect, liftDecision, previewPlan, targetAt, type DragFrame, type DragKeys, type DragTarget, type Point, type PreviewMode, type Rect } from "@n-uf/motion/drag";
+import { createDragIntent, DRAG_DEFAULTS, inRect, liftDecision, previewPlan, targetAt, type DragFrame, type DragKeys, type DragTarget, type Point, type Rect } from "@n-uf/motion/drag";
 import { $, caseRail } from "./rail";
 import { drive, newSettle, reduced } from "./motion";
-import { dropMode } from "./drop-mode";
+import { dropPreview } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { xrayOf, type XR } from "./xray";
 import { CASES, CHIP_HOME, HOME, PATHS, STAGE, T, type Key, type Path, type R } from "../demos/drag";
@@ -62,9 +62,6 @@ function createModel(mode: Mode, lift: Point) {
 }
 
 const clampTo = (r: Rect, p: Point): Point => ({ x: Math.min(Math.max(p.x, r.x), r.x + r.width), y: Math.min(Math.max(p.y, r.y), r.y + r.height) });
-
-/** The site's drop preview modes (and the ids they had before) as the library's. */
-const PREVIEW: Record<string, PreviewMode> = { outline: "outline", placeholder: "placeholder", glide: "glide", indicator: "outline", gap: "placeholder", snap: "glide" };
 
 // ---- Rendering --------------------------------------------------------------------------------------------------
 const stage = $("stage"), ind = $("ind"), indlabel = $("indlabel");
@@ -170,7 +167,7 @@ function beginDrag(grab: Point, lift: Point) {
     move(p: Point, t: number, keys?: DragKeys): void {
       const frame = model.update(p, t, keys);
       const { shown } = frame;
-      const plan = previewPlan(frame, PREVIEW[dropMode()] ?? "glide");
+      const plan = previewPlan(frame, dropPreview());
       const room = plan.makeRoom;
       if (plan.snapItem && shown) {
         if (snapped !== shown) {
@@ -238,8 +235,23 @@ const tick = (): void => {
   if (lastP) live.move(lastP, performance.now(), keysNow());
   pump = requestAnimationFrame(tick);
 };
+// Keys only count while a drag is live: the listeners are added on lift and removed when it ends. Shift pressed or let go
+// while the pointer rests is read by the next frame; a window that loses focus drops Shift (its keyup may never come).
+const onKeyDown = (e: KeyboardEvent): void => {
+  if (e.key === "Shift") shift = true;
+  if (e.key === "Escape" && live) {
+    live.end({ x: -1, y: -1 }, performance.now(), true);
+    setStatus(yours("canceled: the panel went back home."));
+    endPress();
+  }
+};
+const onKeyUp = (e: KeyboardEvent): void => void (e.key === "Shift" && (shift = false));
+const onBlur = (): void => void (shift = false);
 const endPress = (): void => {
   cancelAnimationFrame(pump);
+  window.removeEventListener("keydown", onKeyDown);
+  window.removeEventListener("keyup", onKeyUp);
+  window.removeEventListener("blur", onBlur);
   live = null;
   press = null;
   lastP = null;
@@ -268,6 +280,9 @@ chip.addEventListener("pointermove", (e) => {
     live = beginDrag(press.grab, press.p);
     markCase(0);
     setStatus("Dragging…");
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     pump = requestAnimationFrame(tick);
   }
   lastP = p;
@@ -281,16 +296,9 @@ const finish = (e: PointerEvent, cancelled: boolean): void => {
 };
 chip.addEventListener("pointerup", (e) => finish(e, false));
 chip.addEventListener("pointercancel", (e) => finish(e, true));
-// Shift pressed or let go while the pointer rests: the next frame reads it.
-window.addEventListener("keyup", (e) => void (e.key === "Shift" && (shift = false)));
-window.addEventListener("keydown", (e) => {
-  if (e.key === "Shift") shift = true;
-  if (e.key === "Escape" && live) {
-    live.end({ x: -1, y: -1 }, performance.now(), true);
-    setStatus(yours("canceled: the panel went back home."));
-    endPress();
-  }
-});
+// The capture is lost without a release (the element goes, the browser takes the pointer): cancel, as the 404 does. After
+// a normal release the drag has already ended, so this finds nothing live.
+chip.addEventListener("lostpointercapture", (e) => finish(e, true));
 
 function at(keys: Key[], t: number): Point {
   for (let i = 1; i < keys.length; i++) if (t <= keys[i]![0]) {
