@@ -85,6 +85,10 @@ pnpm lab     # the motion lab on http://localhost:3060
 
 ## Contributing checks
 
+Docking's heaviest test files (the sweeps, listed in `packages/docking/vitest.config.ts`) run apart from the rest:
+`pnpm --filter @n-uf/docking test` skips them and `pnpm --filter @n-uf/docking test:sweep` runs only them. `pnpm check`
+runs both; `pnpm check:quick` is the same without the sweeps (CI runs the two as parallel jobs).
+
 `pnpm check` runs, besides the typechecks, tests, builds and the lab's typecheck, repository checks:
 
 - `pnpm changes`: the changelog fragments (see "Changelog entries" below) are well formed, and `scripts/changelog.test.mjs` passes.
