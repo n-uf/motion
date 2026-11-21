@@ -19,6 +19,7 @@ import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
 import motionPkg from "../../../../packages/motion/package.json";
 import placementPkg from "../../../../packages/placement/package.json";
+import dockingPkg from "../../../../packages/docking/package.json";
 import { layoutSplit, type Split } from "@n-uf/placement/tiling";
 const [motionPart, placementPart, dockingPart] = [partOf("motion"), partOf("placement"), partOf("docking")];
 
@@ -32,9 +33,9 @@ const jsonLd = [
   faqJsonLd("/"),
   orgNode,
 ];
-// The packages' versions, read from their package.json at build time (never written by hand). @n-uf/docking has no
-// package here until its release; the issue's rule is one version for all of them, so the line says "all three".
-const versions = motionPkg.version === placementPkg.version ? `all three at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}`;
+// The packages' versions, read from their package.json at build time (never written by hand). The three go out at one
+// version, so the line says "all three at X"; if they ever differ it names each.
+const versions = motionPkg.version === placementPkg.version && motionPkg.version === dockingPkg.version ? `all three at ${motionPkg.version}` : `@n-uf/motion ${motionPkg.version}, @n-uf/placement ${placementPkg.version}, @n-uf/docking ${dockingPkg.version}`;
 // Placement's docs card previews its tiling: a split tree (one pane left, two stacked right) laid out by the library in the
 // preview's 280 × 150.
 const tree: Split<string> = { a: { pane: "a" }, b: { a: { pane: "b" }, b: { pane: "c" }, axis: "y", ratio: 0.5 }, axis: "x", ratio: 0.55 };
