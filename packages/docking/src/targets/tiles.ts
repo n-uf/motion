@@ -8,6 +8,7 @@ import { ZONES, type DockLayout, type Zone } from "../model";
 import { distinctSlots, roomReason } from "./edges";
 import { targetId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
+import { meet } from "./meet";
 import { less, type Ctx, type EdgeSpec, type Room, type DockRefusal, type Slot, type Span, type Tile } from "./model";
 import type { Ownership } from "./ownership";
 
@@ -43,15 +44,6 @@ function tilerOf(spec: EdgeSpec): Tiler {
     return [core, ...beyond.map(([a, b]): Tile => ({ ...t, kind: "reach", of: core, order: data.overreach, hit: part(a, b), keep: null }))];
   };
   return { band, keepAt, tile, split };
-}
-
-/** The part two rects share, or null when it has no area. */
-function meet(a: Rect, b: Rect): Rect | null {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  const w = Math.min(a.x + a.width, b.x + b.width) - x;
-  const h = Math.min(a.y + a.height, b.y + b.height) - y;
-  return w > EPS && h > EPS ? rect(x, y, w, h) : null;
 }
 
 /**

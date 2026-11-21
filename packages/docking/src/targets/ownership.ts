@@ -14,6 +14,7 @@ import { axisOf, formsOf, hitBandOf } from "../helpers";
 import { DEFAULT_HIT_BAND, type DockEdge } from "../model";
 import { pushes, type LayKey } from "../solve";
 import { EDGE_KINDS } from "./kinds";
+import { meet } from "./meet";
 import { less, type Ctx, type EdgeSpec, type Room, type Span } from "./model";
 
 /** Whether a drawn form shows its body (an open panel's). */
@@ -152,16 +153,56 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const [t0, t1] = s.thinOwned!;
     return s.vertical ? rect(t0, b.y, t1 - t0, b.height) : rect(b.x, t0, b.width, t1 - t0);
   };
+  // Reach only adds: the part of an edge's band past its own ends (its `endReach` strips) never takes another real
+  // edge's own span (that edge's owned band along its length). There it neither wins over that edge nor keeps its tile.
+  const endsOf = (s: EdgeSpec): Span | null => {
+    const e = s.edge ? now.edges[s.id] : undefined;
+    if (!e || EDGE_KINDS[s.kind].virtual) return null;
+    const span: Span = s.vertical ? [e.rect.y, e.rect.y + e.rect.height] : [e.rect.x, e.rect.x + e.rect.width];
+    return span[1] - span[0] > EPS ? span : null;
+  };
+  const pastEnds = (s: EdgeSpec, r: Rect): Rect[] => {
+    const ends = endsOf(s);
+    if (!ends) return [];
+    const [lo, hi] = s.vertical ? [r.y, r.y + r.height] : [r.x, r.x + r.width];
+    return less([[lo, hi]], [ends]).map(([u, w]) => (s.vertical ? rect(r.x, u, r.width, w - u) : rect(u, r.y, w - u, r.height)));
+  };
+  const ownSpanOf = (s: EdgeSpec): Rect | null => {
+    const ends = endsOf(s);
+    if (!ends) return null;
+    const [o0, o1] = s.owned;
+    return s.vertical ? rect(o0, ends[0], o1 - o0, ends[1] - ends[0]) : rect(ends[0], o0, ends[1] - ends[0], o1 - o0);
+  };
+  // `o`'s rect `r` less where its reach crosses `s`'s own span.
+  const reachLess = (o: Owner, r: Rect, s: EdgeSpec): Rect[] => {
+    const span = ownSpanOf(s);
+    if (!o.spec || !span) return [r];
+    return pastEnds(o.spec, r).flatMap((p) => meet(p, span) ?? []).reduce<Rect[]>((acc, cut) => acc.flatMap((q) => subtract(q, cut)), [r]);
+  };
+  // Where `s`'s reach crosses another edge's own span, along that edge's surviving slots.
+  const reachYields = (s: EdgeSpec): Rect[] => {
+    const past = pastEnds(s, bandOf(s));
+    if (past.length === 0) return [];
+    return live
+      .filter((d) => d !== s)
+      .flatMap((d) => {
+        const span = ownSpanOf(d);
+        return span ? ownedRectsOf(d, alongOf(d)).flatMap((r) => meet(r, span) ?? []) : [];
+      })
+      .flatMap((q) => past.flatMap((p) => meet(p, q) ?? []));
+  };
   // What each edge yields: the owners that win over it (an empty rail's or bar's depth less the zones it takes nothing
-  // from); a virtual edge (a column line) also every other owner's rect outside its own band, where its tile is
-  // overreach; an empty rail or bar also, past its thin band, the drawn edges' zones that take the item.
+  // from), less their reach over its own span; a virtual edge (a column line) also every other owner's rect outside its
+  // own band, where its tile is overreach; an empty rail or bar also, past its thin band, the drawn edges' zones that
+  // take the item; and its own reach over another edge's own span.
   const taken = new Map<EdgeSpec, readonly Rect[]>(
     live.map((s) => [
       s,
       [
-        ...owners.filter((o) => wins(o, s)).flatMap((o) => (o.deep ? takingRects(s).reduce<Rect[]>((acc, t) => acc.flatMap((r) => subtract(r, t)), [o.rect]) : [o.rect])),
+        ...owners.filter((o) => wins(o, s)).flatMap((o) => (o.deep ? takingRects(s).reduce<Rect[]>((acc, t) => acc.flatMap((r) => subtract(r, t)), [o.rect]) : [o.rect]).flatMap((r) => reachLess(o, r, s))),
         ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.spec !== s && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s))) : []),
         ...(s.thinOwned ? live.filter((d) => d !== s).flatMap((d) => takingRects(d).flatMap((t) => subtract(t, thinRectOf(s)))) : []),
+        ...reachYields(s),
       ],
     ]),
   );
