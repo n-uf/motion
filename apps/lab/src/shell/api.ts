@@ -1,7 +1,7 @@
 /**
  * What a page module may use from the shell: the route it runs under, and the header's Reset.
  *
- * Routes are `#/<page id>` with optional flags: `#/placement/desk?embed=1&all=1`. `embed` hides the sidebar and the
+ * Routes are `#/<page id>` with optional flags: `#/docwin?embed=1&all=1`. `embed` hides the sidebar and the
  * header (the Checks page runs pages in frames); `all` runs (and shows) all of the page module's scenarios, not only
  * the page's view. `view=window` or `view=code` is the Document window page's Window | Code switch (a page that has
  * none ignores it); changing it never reloads the page.
