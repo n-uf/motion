@@ -21,6 +21,7 @@
     "@n-uf/docking": "workspace:*",
     "@n-uf/motion": "workspace:*",
     "@n-uf/placement": "workspace:*",
+    "@vercel/analytics": "2.0.1",
     "astro": "^7.4.2"
   },
   "devDependencies": {
