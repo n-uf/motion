@@ -13,8 +13,9 @@
  *   it draws, the hit data along a held lane). Remembered per state.
  * - **`guides(frame)`**: the place guides of a landing frame, each lane's from the state it names (rule B): a lane's guide
  *   is drawn in the layout on screen (`frame.state`'s), less the landing the pointer would take there; only a lane that
- *   isn't drawn on screen takes the layout that creates it (its would-land state's). Under "all", the Near lane's marks
- *   win where they meet another lane's: the others are cut there.
+ *   isn't drawn on screen takes the layout that creates it (its would-land state's for the Near lane, its one spot's for
+ *   any other), and gives up where it meets a lane drawn on screen (between two such, the bar keeps the corner). Under
+ *   "all", the Near lane's marks win where they meet another lane's: the others are cut there.
  *
  * The shapes fit `@n-uf/motion/drag`'s landing model as they are (`regions`, `landingOf`, `spotsOf`; the frame's
  * `state` and `guides`), though neither package imports the other.
@@ -132,6 +133,21 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
     return a;
   };
 
+  /**
+   * An empty edge lane's marks in the layout that creates it: its one spot's (a sliding spot's at rest), where that
+   * drop draws the lane; null for a lane with more than one spot, a virtual lane, or one no drop draws.
+   */
+  const createdMemo = new Map<string, DockLaneMark[] | null>();
+  const created = (lane: string): DockLaneMark[] | null => {
+    if (createdMemo.has(lane)) return createdMemo.get(lane)!;
+    const l = base.lanes.find((x) => x.id === lane);
+    const raw = l && l.spots.length === 1 && state.edges.some((e) => e.id === lane) ? rawSpot(base, l.spots[0]!.id) : null;
+    const out = raw && (raw.layout.edges[lane]?.cross ?? 0) > EPS ? flat(marksIn(base, state, dragged, raw.layout, raw.slide ? "slide" : "spot", options.emptyLanes)).filter((m) => m.lane === lane) : null;
+    // (An edge the item fills whole leaves no room beside it there: the lane keeps the screen's box, its room at real size.)
+    createdMemo.set(lane, out && out.length > 0 ? out : null);
+    return createdMemo.get(lane)!;
+  };
+
   const landingOf = (held: DockHeld): Rect | null => after(held).landing;
   const spotsOf = (spot: string): readonly DockSpot[] | null => {
     const raw = rawSpot(base, spot);
@@ -143,11 +159,14 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
     const screen = after(frame.state);
     // The Near lane: the one shown with another state than the screen's (a would-land state), at most one.
     let near: { lane: string; marks: DockLaneMark[] } | null = null;
-    const shown: { lane: string; marks: DockLaneMark[] }[] = [];
+    const shown: { lane: string; marks: DockLaneMark[]; created?: true }[] = [];
     for (const g of frame.guides) {
       const mine = after(g.state);
       if (mine === screen) {
-        shown.push({ lane: g.lane, marks: screen.marks.filter((m) => m.lane === g.lane) });
+        // Rule B: a lane the screen doesn't draw (an empty edge with no band there) is drawn in the layout that creates
+        // it, its one spot's; every other lane in the screen's layout.
+        const made = (screen.layout.edges[g.lane]?.cross ?? 1) <= EPS ? created(g.lane) : null;
+        shown.push(made ? { lane: g.lane, marks: made, created: true } : { lane: g.lane, marks: screen.marks.filter((m) => m.lane === g.lane) });
         continue;
       }
       // Rule B: a lane drawn on screen is drawn there, less the landing the pointer would take in it; a lane the screen
@@ -158,10 +177,20 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
       near = { lane: g.lane, marks };
       shown.push(near);
     }
+    // A lane drawn in the layout that creates it gives up where it meets a lane drawn on screen; between two such, the
+    // bar keeps the corner (the bars first, each cut by the ones before).
+    const onScreen = shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect));
+    const axis = (id: string): "x" | "y" => axisOf.get(id) ?? "x";
+    const made = shown.filter((s) => s.created).sort((a, b) => (axis(a.lane) === axis(b.lane) ? 0 : axis(a.lane) === "x" ? -1 : 1));
+    const kept: Rect[] = [];
+    for (const s of made) {
+      s.marks = marksLess(s.marks, axis(s.lane), [...onScreen, ...kept]) as DockLaneMark[];
+      kept.push(...s.marks.map((m) => m.rect));
+    }
     if (!near) return shown.flatMap((s) => s.marks);
-    // Under "all", the Near lane's marks win where they meet another lane's: the others are cut there.
+    // The Near lane's marks win where they meet another lane's: the others are cut there.
     const cut = near.marks.map((m) => m.rect);
-    return shown.flatMap((s) => (s === near ? s.marks : (marksLess(s.marks, axisOf.get(s.lane) ?? "x", cut) as DockLaneMark[])));
+    return shown.flatMap((s) => (s === near ? s.marks : (marksLess(s.marks, axis(s.lane), cut) as DockLaneMark[])));
   };
 
   return { regions, after, landingOf, spotsOf, guides };
