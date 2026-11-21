@@ -1,11 +1,15 @@
 /**
  * X-ray: a demo window's switch (the title bar's "X-ray", window chrome like ↺ Reset) that shows which package does
- * what. Each part draws its own layer over the window, in its own color:
+ * what. Each part draws its own layer over the window, in its own color (violet placement, rose docking, cyan motion):
  *
- * - placement (where things go): every drop target's hit zone as a thin dashed outline labelled with its id and
- *   priority, and the slot rects it computed (the one shown drawn stronger);
+ * - placement (where things fit): the hit zones a demo computes as a thin dashed outline labelled with its id and
+ *   priority, and the slot rects (the one shown drawn stronger);
+ * - docking (where the bars' groups dock): at rest the rect `solve` gave each group, labelled with the form it took;
+ *   during a drag docking's targets (each hit dashed), its refusals (hatched) and the shown target's slot;
  * - motion (how things move): the settle's target against the rect drawn now, the held item's trail, and the aiming
  *   state as a dot at the pointer (gray while travelling, accent while aiming, a ring once the room opens).
+ *
+ * The key under the stage names only the layers drawn.
  *
  * Owners (the window's chrome, its demo) draw frames in viewport coordinates; the layer keeps them relative to the
  * window, so a static frame stays right while the page scrolls. Off by default, and never stored.
@@ -18,6 +22,13 @@ export interface XrayFrame {
   zones?: { r: XR; label?: string }[];
   /** Placement: slot rects (labelled when a label is given); `on` is the one the drop shows. */
   slots?: { r: XR; label?: string; on?: boolean }[];
+  /** Docking: `solve`'s rects (labelled), its targets' hits, its refusals, and the slot of the target shown (`on`). */
+  dock?: {
+    rects?: { r: XR; label?: string }[];
+    hits?: { r: XR; label?: string }[];
+    refused?: { r: XR }[];
+    slots?: { r: XR; label?: string; on?: boolean }[];
+  };
   /** Motion: the settle's target, and the rect drawn now. */
   target?: XR | null;
   drawn?: XR | null;
@@ -32,9 +43,10 @@ export interface Xray {
   onChange(f: (on: boolean) => void): void;
   /** Draw this owner's layer (null clears it). A no-op while X-ray is off. */
   draw(owner: string, frame: XrayFrame | null): void;
-  /** Show only one package's layer (the home page's lit step), or both (null). */
-  focus(part: "placement" | "motion" | null): void;
+  /** Show only one package's layer (the home page's lit step), or all (null). */
+  focus(part: Part | null): void;
 }
+type Part = "placement" | "docking" | "motion";
 
 const SVG = "http://www.w3.org/2000/svg";
 const all = new WeakMap<HTMLElement, Xray>();
@@ -45,7 +57,7 @@ export function xrayOf(win: HTMLElement): Xray {
   const have = all.get(win);
   if (have) return have;
   let on = false;
-  let only: "placement" | "motion" | null = null;
+  let only: Part | null = null;
   const listeners = new Set<(on: boolean) => void>();
   const frames = new Map<string, XrayFrame>();
   const layer = document.createElementNS(SVG, "svg");
@@ -55,8 +67,16 @@ export function xrayOf(win: HTMLElement): Xray {
   const key = document.createElement("div");
   key.className = "xray-key";
   key.setAttribute("aria-hidden", "true");
-  key.innerHTML = `<span class="xk-p">placement</span> hit zones · slots <span class="xk-m">motion</span> target · trail · aim`;
   win.appendChild(key);
+  /** The key: each layer drawn now, in its color, with what it shows. */
+  const keyOf = (parts: ReadonlySet<Part>): string =>
+    [
+      parts.has("placement") ? `<span class="xk-p">placement</span> hit zones · slots` : "",
+      parts.has("docking") ? `<span class="xk-d">docking</span> solve's rects · targets · refusals` : "",
+      parts.has("motion") ? `<span class="xk-m">motion</span> target · trail · aim` : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
   const render = (): void => {
     if (!on) {
@@ -79,12 +99,23 @@ export function xrayOf(win: HTMLElement): Xray {
       const x = Math.max(3, Math.min(r.x + 3, o.width - 120)), y = Math.max(11, Math.min(r.y + r.h - 3, o.height - 3));
       return `<text class="xp-label${cls}" x="${x.toFixed(1)}" y="${y.toFixed(1)}">${esc(text)}</text>`;
     };
+    const drawn = new Set<Part>();
     for (const f of frames.values()) {
-      if (only !== "motion") {
+      if (!only || only === "placement") {
         for (const z of f.zones ?? []) out.push(`<rect class="xp-zone" ${R(z.r)}/>${z.label ? label(z.r, z.label) : ""}`);
         for (const s of f.slots ?? []) out.push(`<rect class="xp-slot${s.on ? " on" : ""}" ${R(s.r)}/>${s.label ? label(s.r, s.label, s.on ? " on" : "") : ""}`);
+        if (f.zones?.length || f.slots?.length) drawn.add("placement");
       }
-      if (only === "placement") continue;
+      if (f.dock && (!only || only === "docking")) {
+        const d = f.dock;
+        for (const r of d.rects ?? []) out.push(`<rect class="xd-rect" ${R(r.r)}/>${r.label ? label(r.r, r.label, " xd") : ""}`);
+        for (const r of d.refused ?? []) out.push(`<rect class="xd-refused" ${R(r.r)}/>`);
+        for (const h of d.hits ?? []) out.push(`<rect class="xd-hit" ${R(h.r)}/>${h.label ? label(h.r, h.label, " xd") : ""}`);
+        for (const s of d.slots ?? []) out.push(`<rect class="xd-slot${s.on ? " on" : ""}" ${R(s.r)}/>${s.label ? label(s.r, s.label, " xd on") : ""}`);
+        drawn.add("docking");
+      }
+      if (only && only !== "motion") continue;
+      if (f.trail?.length || f.drawn || f.target || f.aim) drawn.add("motion");
       if (f.trail && f.trail.length > 1) out.push(`<polyline class="xm-trail" points="${f.trail.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")}"/>`);
       if (f.drawn) out.push(`<rect class="xm-drawn" ${R(f.drawn)}/>`);
       if (f.target) out.push(`<rect class="xm-target" ${R(f.target)}/><circle class="xm-dot" cx="${f.target.x.toFixed(1)}" cy="${f.target.y.toFixed(1)}" r="3"/>`);
@@ -95,6 +126,8 @@ export function xrayOf(win: HTMLElement): Xray {
       }
     }
     layer.innerHTML = out.join("");
+    key.innerHTML = keyOf(drawn);
+    key.hidden = drawn.size === 0;
   };
   const x: Xray = {
     get on() { return on; },
@@ -128,6 +161,12 @@ export function xrayOf(win: HTMLElement): Xray {
     return {
       zones: f.zones?.map((z) => ({ ...z, r: r(z.r) })),
       slots: f.slots?.map((s) => ({ ...s, r: r(s.r) })),
+      dock: f.dock && {
+        rects: f.dock.rects?.map((x) => ({ ...x, r: r(x.r) })),
+        hits: f.dock.hits?.map((x) => ({ ...x, r: r(x.r) })),
+        refused: f.dock.refused?.map((x) => ({ r: r(x.r) })),
+        slots: f.dock.slots?.map((x) => ({ ...x, r: r(x.r) })),
+      },
       target: f.target && r(f.target),
       drawn: f.drawn && r(f.drawn),
       trail: f.trail?.map(pt),
