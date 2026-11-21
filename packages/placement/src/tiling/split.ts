@@ -3,48 +3,11 @@
  * with an `axis` divides along it (`"x"`: `a` left of `b`; `"y"`: `a` above `b`) at `ratio`; one without divides
  * along the rect's longer side in halves, which is dwindle (split along the longer side). Pure: trees in, trees out.
  */
-import type { Rect } from "../geometry";
-import type { TileOptions } from "./order";
 import type { PaneRegion, PaneSide } from "./regions";
 
 export type Split<K> =
   | { readonly pane: K }
   | { readonly a: Split<K>; readonly b: Split<K>; readonly axis?: "x" | "y"; readonly ratio?: number };
-
-/**
- * The rect of every pane of `tree` in `area`, `gap` px between the two sides of each split. A split's `ratio` is
- * clamped to 0..1; each side gets its share of the room the gap leaves (none when the gap is wider than the rect), so
- * no size is ever negative, and at ratio 0.5 both sides are exactly equal. A split with no room lays both sides at no
- * size inside its rect: the first at its start, the second at its end, never past it.
- */
-export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: TileOptions = {}): Map<K, Rect> {
-  const out = new Map<K, Rect>();
-  lay(tree, area, Math.max(0, options.gap ?? 0), out);
-  return out;
-}
-
-function lay<K>(tree: Split<K> | null, area: Rect, gap: number, out: Map<K, Rect>): void {
-  if (!tree) return;
-  if ("pane" in tree) {
-    out.set(tree.pane, { ...area });
-    return;
-  }
-  const ratio = Math.min(1, Math.max(0, tree.ratio ?? 0.5));
-  if ((tree.axis ?? (area.width >= area.height ? "x" : "y")) === "x") {
-    const room = Math.max(0, area.width - gap);
-    const w = room * ratio;
-    lay(tree.a, { x: area.x, y: area.y, width: w, height: area.height }, gap, out);
-    // With no room, the second side sits at the rect's end, not a gap past its start.
-    const bx = room > 0 ? area.x + w + gap : area.x + Math.max(0, area.width);
-    lay(tree.b, { x: bx, y: area.y, width: room * (1 - ratio), height: area.height }, gap, out);
-  } else {
-    const room = Math.max(0, area.height - gap);
-    const h = room * ratio;
-    lay(tree.a, { x: area.x, y: area.y, width: area.width, height: h }, gap, out);
-    const by = room > 0 ? area.y + h + gap : area.y + Math.max(0, area.height);
-    lay(tree.b, { x: area.x, y: by, width: area.width, height: room * (1 - ratio) }, gap, out);
-  }
-}
 
 /** The panes of `tree` in order (`a` before `b`). */
 export const panesOf = <K>(tree: Split<K> | null): K[] => (!tree ? [] : "pane" in tree ? [tree.pane] : [...panesOf(tree.a), ...panesOf(tree.b)]);

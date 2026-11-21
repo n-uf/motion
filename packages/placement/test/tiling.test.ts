@@ -19,6 +19,7 @@ import {
   type Split,
 } from "../src/tiling";
 import { shuffle } from "./stack-fixture";
+import { same } from "./tiling-fixture";
 
 const AREA: Rect = { x: 10, y: 20, width: 900, height: 600 };
 const REGIONS: readonly PaneRegion[] = ["center", "top", "right", "bottom", "left"];
@@ -54,23 +55,12 @@ function bounds(layout: ReadonlyMap<number, Rect>, node: Split<number>): Rect {
 }
 
 /**
- * Every split's two sides plus the gap make exactly its rect along its axis (its own, else the rect's longer side), and
- * across it each side spans the whole rect: the rects the spec gives each side, down to every pane. A split whose rect
- * is no longer than the gap has no room: the documented clamp makes every pane under it zero along the axis, none
- * negative, and no two of them overlap.
+ * Every split's two sides are exactly the rects the spec gives them (the gutter's middle at `extent * ratio`), down to
+ * every pane. A side with no room is zero along the axis, never negative.
  */
 function gapsExact(layout: ReadonlyMap<number, Rect>, node: Split<number>, rect: Rect, gap: number): string[] {
   if ("pane" in node) return near(layout.get(node.pane)!, rect) ? [] : [`pane ${node.pane}: ${JSON.stringify(layout.get(node.pane))} != ${JSON.stringify(rect)}`];
   const s = sides(node, rect, gap);
-  if (!s) {
-    const x = axisOf(node, rect) === "x";
-    const rs = panesOf(node).map((p) => layout.get(p)!);
-    const e = 1e-9;
-    const outside = (r: Rect): boolean => r.x < rect.x - e || r.y < rect.y - e || r.x + r.width > rect.x + rect.width + e || r.y + r.height > rect.y + rect.height + e;
-    const bad = rs.filter((r) => r.width < 0 || r.height < 0 || (x ? r.width : r.height) !== 0 || outside(r));
-    const touching = rs.some((r, i) => rs.some((q, j) => j > i && overlap(r, q) > 0));
-    return bad.length || touching ? [`clamped split ${JSON.stringify(rect)} (gap ${gap}): ${JSON.stringify(rs)}`] : [];
-  }
   return [...gapsExact(layout, node.a, s.a, gap), ...gapsExact(layout, node.b, s.b, gap)];
 }
 
@@ -78,26 +68,28 @@ type Branch = Exclude<Split<number>, { readonly pane: number }>;
 /** A split's axis in `rect`: its own, else the rect's longer side. */
 const axisOf = (node: Branch, rect: Rect): "x" | "y" => node.axis ?? (rect.width >= rect.height ? "x" : "y");
 
-/** The rects the spec gives a split's two sides in `rect`, or null where the gap leaves no room (the documented clamp). */
-function sides(node: Branch, rect: Rect, gap: number): { a: Rect; b: Rect } | null {
+/**
+ * The rects the spec gives a split's two sides in `rect`: the gutter's middle at `extent * ratio`, so the first side
+ * is `extent * ratio` less half the gap and the second starts half a gap past it (neither below 0).
+ */
+function sides(node: Branch, rect: Rect, gap: number): { a: Rect; b: Rect } {
   const x = axisOf(node, rect) === "x";
   const along = x ? rect.width : rect.height;
-  if (along <= gap) return null;
   const ratio = Math.min(1, Math.max(0, node.ratio ?? 0.5));
-  const room = along - gap;
-  const first = room * ratio;
+  const first = Math.max(0, along * ratio - gap / 2);
+  const second = Math.max(0, along * (1 - ratio) - gap / 2);
+  const start = along * ratio + gap / 2;
   return {
     a: x ? { ...rect, width: first } : { ...rect, height: first },
-    b: x ? { ...rect, x: rect.x + first + gap, width: room - first } : { ...rect, y: rect.y + first + gap, height: room - first },
+    b: x ? { ...rect, x: rect.x + start, width: second } : { ...rect, y: rect.y + start, height: second },
   };
 }
 
-/** The rect the spec gives `target`, a node of `tree`, in `rect`; null when a clamped split lies above it. */
-function rectOfNode(tree: Split<number>, target: Split<number>, rect: Rect, gap: number): Rect | null {
+/** The rect the spec gives `target`, a node of `tree`, in `rect`. */
+function rectOfNode(tree: Split<number>, target: Split<number>, rect: Rect, gap: number): Rect {
   if (tree === target) return rect;
-  if ("pane" in tree) return null;
+  if ("pane" in tree) throw new Error("target is not in the tree");
   const s = sides(tree, rect, gap);
-  if (!s) return null;
   const inA = panesOf(target).every((p) => panesOf(tree.a).includes(p));
   return rectOfNode(inA ? tree.a : tree.b, target, inA ? s.a : s.b, gap);
 }
@@ -153,8 +145,9 @@ function covers(rects: readonly Rect[], whole: Rect, gap: number): string[] {
   const out: string[] = [];
   const e = 1e-6;
   for (const r of rects) {
-    // Panes of no size too (a split with no room for its gap): inside the area, never negative.
+    // Panes of no size too (a split with no room for its gap): never negative; one may sit up to half a gap past the end.
     if (r.width < 0 || r.height < 0) out.push(`negative ${JSON.stringify(r)}`);
+    if (r.width === 0 || r.height === 0) continue;
     if (r.x < whole.x - e || r.y < whole.y - e || r.x + r.width > whole.x + whole.width + e || r.y + r.height > whole.y + whole.height + e) out.push(`outside ${JSON.stringify(r)}`);
   }
   for (let i = 0; i < rects.length; i++) for (let j = i + 1; j < rects.length; j++) if (overlap(rects[i]!, rects[j]!) > e) out.push(`overlap ${i} ${j}`);
@@ -187,15 +180,15 @@ describe("order layouts", () => {
 });
 
 describe("the split tree", () => {
-  it("a split with no room for its gap lays both sides at no size inside its rect: at its start and at its end", () => {
+  it("a split with no room for its gap lays both sides at no size: the second half a gap past the middle", () => {
     const tree: Split<string> = { a: { pane: "a" }, b: { pane: "b" }, axis: "x" };
     const l = layoutSplit(tree, { x: 10, y: 20, width: 4, height: 50 }, { gap: 6 });
     expect([l.get("a"), l.get("b")]).toEqual([
       { x: 10, y: 20, width: 0, height: 50 },
-      { x: 14, y: 20, width: 0, height: 50 },
+      { x: 15, y: 20, width: 0, height: 50 },
     ]);
     const tall = layoutSplit({ ...tree, axis: "y" }, { x: 10, y: 20, width: 50, height: 3 }, { gap: 6 });
-    expect(tall.get("b")).toEqual({ x: 10, y: 23, width: 50, height: 0 });
+    expect(tall.get("b")).toEqual({ x: 10, y: 24.5, width: 50, height: 0 });
     // With room, the second side starts a gap after the first, as ever.
     expect(layoutSplit(tree, { x: 10, y: 20, width: 106, height: 50 }, { gap: 6 }).get("b")).toEqual({ x: 66, y: 20, width: 50, height: 50 });
   });
@@ -268,7 +261,12 @@ describe("the same rects as before ./tiling", () => {
       const ids = Array.from({ length: n }, (_, k) => k);
       // Where the old code gave a negative size (more panes than room for their gaps) the new one clamps to 0 instead.
       const old = oldDwindle(a, n, gap);
-      if (old.every((r) => r.width >= 0 && r.height >= 0)) expect([...layoutSplit(splitFromOrder(ids), a, { gap }).values()]).toEqual(old);
+      // The gap rule puts the gutter's middle at the ratio (at 0.5, the old halves); the sums differ in the last bits.
+      if (old.every((r) => r.width >= 0 && r.height >= 0)) {
+        const now = [...layoutSplit(splitFromOrder(ids), a, { gap }).values()];
+        expect(now.length).toBe(old.length);
+        now.forEach((r, k) => expect(same(r, old[k]!)).toBe(true));
+      }
       const ratio = 0.2 + rnd() * 0.6;
       expect(masterStack(ids, a, { gap, ratio })).toEqual(oldMasterStack(ids, a, gap, ratio));
       expect(masterStack(ids, a, { gap })).toEqual(oldMasterStack(ids, a, gap));
