@@ -48,7 +48,7 @@ export function handBound(gap: number, beforeHop = false): number {
  */
 export const NEAR_REACH = 12;
 
-/** A hand faster than this, px/ms, may leave a hop that reflows the window for later (the landing model's `step`, 3 px per 8 ms). */
+/** A hand faster than this, px/ms, may leave a hop that reflows the window for later (the landing model's `gates.stepSpeed`, 0.375 px/ms). */
 export const HAND_FAST = 0.375;
 
 export type LandingRegionName = "lane" | "open" | "refused" | "nowhere";

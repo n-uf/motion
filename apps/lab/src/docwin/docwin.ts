@@ -45,8 +45,8 @@ const countInputs: Partial<Record<keyof Counts, HTMLInputElement>> = { notes: $(
 /** The drop preview: one button per mode, always in view at the top of the page. */
 const previewModes = $<HTMLDivElement>("dw-preview");
 /**
- * The viewer's modes: Outline, Placeholder and Snap. Snap is the library's `"item"` plan (the item is the only preview,
- * no outline anywhere); the library's old `"snap"` plan, which outlines a float, is no viewer mode.
+ * The viewer's modes: Outline, Placeholder and Snap. Snap is the library's `"snap"` mode (the viewer's `"item"`: the
+ * item is the only preview, no outline anywhere); the library's `"glide"` mode, which outlines a float, is no viewer mode.
  */
 const PREVIEWS: readonly ViewerPreview[] = ["indicator", "gap", "item"];
 /** One line per mode, under the buttons (Outline, Placeholder, Snap). */

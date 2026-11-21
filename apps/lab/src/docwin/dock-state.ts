@@ -285,8 +285,11 @@ export function createDocwin(o: DocwinOptions) {
   /** The last drag's trace (the drag in progress, or the one before). */
   let lastTrace: DragTrace | null = null;
   /**
-   * The drop preview (`@n-uf/motion/drag`'s `previewPlan`): the dashed slot only (`"indicator"`), the slot and the room
-   * made for it (`"gap"`, the default), or the room with the item settling into its slot (`"snap"`).
+   * The drop preview, by the viewer's names (`ViewerPreview`), each mapped to a `PreviewMode` of `@n-uf/motion/drag`'s
+   * `previewPlan`: the dragged item as the only preview (`"item"`, the library's `"snap"`, what this window does), or
+   * for the cases that exercise the library's other modes, the dashed slot only (`"indicator"`, its `"outline"`), the
+   * slot and the room made for it (`"gap"`, its `"placeholder"`), or the room with the item settling into its slot
+   * (`"snap"`, its `"glide"`).
    */
   let dropPreview: ViewerPreview = "item";
   /** Where things land (`Behavior`): the window's own rules for the viewer; a case may ask for the published ones. */

@@ -880,7 +880,7 @@ never changes another. The policy's fields, each default with its reason:
 | `magnet` | `DEFAULT_RAIL_MAGNET` (6 px) | Once armed, the strip grows inward so a hand that wobbles keeps it: that grown strip (`armedHit`) is the armed target's band. Moving out past its outer edge disarms it, and re-entering needs a new full dwell. A host draws the growth with no animation under `prefers-reduced-motion: reduce`. |
 | `floatNearEdge` | `true` | Before the strip arms, a float may sit near the window's edge, as it may anywhere; `false` keeps a float's rect clear of every strip. |
 
-The time and the keys are the drag intent's (`@n-uf/motion/drag`): `railArmDwellMs` (200 ms) arms a target marked
+The time and the keys are the drag intent's (`@n-uf/motion/drag`): `armAfter` (200 ms) arms a target marked
 `arm: "dwell"` (spring-loading), and `modifiers` let Shift float anywhere and ⌘/Ctrl collapse into the nearest rail (Alt stays free: it unfreezes a frozen layout).
 
 **Over an unarmed strip.** While the pointer is in a strip that hasn't armed yet, the intent shows no target there (a
