@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.54
 
 **The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes
 back to its general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers
