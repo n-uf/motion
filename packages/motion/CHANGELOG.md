@@ -3,9 +3,9 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## 26.11.54
+## Unreleased
 
-### One layout: the landing model takes states (breaking; for the release after the docking migration)
+### One layout: the landing model takes states (breaking; with `@n-uf/docking`'s `dockDrag`)
 
 The landing model picks states and does no layout: every rect of a state is the host's geometry's, so a held frame draws
 exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geometry as it is.
@@ -30,7 +30,7 @@ exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geom
   only the held lane's spot stretches come from `spotsOf` (before, all of it came from the held spot's regions,
   `regionsFor`). `LandingRegions.item` is optional: the model doesn't read it. New type: `LandingGuideRef`.
 
-### The SDK
+## 26.11.54
 
 **The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes
 back to its general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers

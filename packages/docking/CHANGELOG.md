@@ -14,13 +14,15 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
   only when it was solved from that very state object; otherwise the verb solves the state again.
 
-### One layout for the held frame and the commit (for the release after the first; with `@n-uf/motion`'s states)
+### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 
 - **New: `dockDrag(state, dragged, options)`** (`DockDrag`): `regions` (hit-testing, as seen), `after(held)`
   (`DockAfter`: the `state` a release commits, its `layout` solved with the drag's one `previous`, the `landing`, every
   lane's `marks` in that one layout as `DockLaneMark`s, and for a spot its lane's `spots`), `landingOf(held)`,
-  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame` → `DockGuide[]`, rule B: a lane on screen less the would-land
-  landing; a lane the screen doesn't draw in the layout that creates it; the Near lane's marks win). `DockHeld` is
+  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame`, whose `guides` are `DockGuideRef`s `{ lane, state }`, →
+  `DockGuide[]`, rule B: a lane on screen less the would-land
+  landing; a lane the screen doesn't draw in the layout that creates it, giving way to whatever the screen draws: another
+  lane's marks, a drawn bar or rail, the landing; the Near lane's marks win). `DockHeld` is
   `{ kind: "spot", spot, point, lane? }` or `{ kind: "float", point }`. It fits `@n-uf/motion/drag`'s
   `LandingGeometry` as it is; `./testing` adds `AssertGeometry`.
 - **Removed (breaking): the held-frame path of `lanes()`.** `DockLaneOptions.spot` and `lanes(…, { spot })`,
