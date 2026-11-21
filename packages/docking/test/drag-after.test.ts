@@ -59,12 +59,15 @@ describe("after(held): the state a release commits and its one layout", () => {
       for (const { held } of [...states(d), { held: null }]) {
         const a = d.after(held);
         // (Two lanes of no edge, new columns on one side, each mark their landing in its own layout, the layout that
-        // creates it: `guides` has them give way to each other, as the sweep's overlap clause checks.)
+        // creates it: `guides` has them give way to each other, as the sweep's overlap clause checks. A new column's
+        // room gives way to every other lane's box, but a joint between two panels, a line, lies across it: the column
+        // moves aside as the new one opens.)
         const edgeless = (lane: string): boolean => !w.state.edges.some((e) => e.id === lane);
+        const jointOverNew = (m: { lane: string; kind: string }, k: { lane: string; kind: string }): boolean => (edgeless(m.lane) && k.kind === "line") || (edgeless(k.lane) && m.kind === "line");
         for (let i = 0; i < a.marks.length; i++)
           for (let j = i + 1; j < a.marks.length; j++) {
             const [m, k] = [a.marks[i]!, a.marks[j]!];
-            if (m.lane !== k.lane && !(edgeless(m.lane) && edgeless(k.lane)) && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
+            if (m.lane !== k.lane && !(edgeless(m.lane) && edgeless(k.lane)) && !jointOverNew(m, k) && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
           }
         if (a.landing) for (const m of a.marks) if (m.kind !== "line" && overlap(m.rect, a.landing)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over the landing`);
       }
