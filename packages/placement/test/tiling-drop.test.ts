@@ -59,6 +59,15 @@ describe("canDropOnPane", () => {
     expect(canDropOnPane(two, "b", "b", "left", AREA, { min: 10 }).ok).toBe(false);
     expect(canDropOnPane(null, "c", "b", "left", AREA, { min: 10 }).ok).toBe(false);
   });
+
+  it("a center drop on a pane that is not in the tree has nothing to swap with", () => {
+    const missing = canDropOnPane(two, "c", "z", "center", AREA, { min: 10 });
+    expect(missing).toEqual({ ok: false, reason: "center rejected: no pane to swap" });
+    expect(canDropOnPane(two, "a", "z", "center", AREA, { min: 10 }).ok).toBe(false);
+    expect(canDropOnPane(null, "c", "b", "center", AREA, { min: 10 }).ok).toBe(false);
+    // A pane from outside dropped on one in the tree is still fine.
+    expect(canDropOnPane(two, "c", "b", "center", AREA, { min: 10 }).ok).toBe(true);
+  });
 });
 
 describe("canDropOnPane, seeded sweeps", () => {

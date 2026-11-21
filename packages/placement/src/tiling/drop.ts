@@ -5,7 +5,7 @@
 import type { Rect } from "../geometry";
 import { layoutSplit, type SplitOptions } from "./layout";
 import type { PaneRegion } from "./regions";
-import { dropOnPane, removePane, type Split } from "./split";
+import { dropOnPane, panesOf, removePane, type Split } from "./split";
 
 /** The layout options a drop is judged under, and `min`: the least width and height, px, a pane must keep. */
 export interface DropOptions<K> extends SplitOptions<K> {
@@ -23,7 +23,7 @@ const px = (v: number | undefined): number => (v !== undefined && Number.isFinit
 /**
  * Whether dropping `dragged` on pane `at`'s `region` leaves both at least `options.min` wide and high.
  *
- * - The center is fine unless `dragged` is `at`.
+ * - The center is fine unless `dragged` is `at`, or `at` is not in the tree (nothing to swap with).
  * - A side needs, in the layout of the tree without `dragged` (so `at` is measured where it will be when `dragged` is
  *   lifted out), a span of `at` along the split of at least `2 * min` plus the gutter (the options' gap plus handle)
  *   and across it of at least `min`; and in the layout of `dropOnPane(tree, dragged, at, region)` both `dragged` and
@@ -31,7 +31,10 @@ const px = (v: number | undefined): number => (v !== undefined && Number.isFinit
  *   not in the tree counts as one being added; an `at` that is not in it (or is `dragged`) has no place to split.
  */
 export function canDropOnPane<K>(tree: Split<K> | null, dragged: K, at: K, region: PaneRegion, area: Rect, options: DropOptions<K>): DropVerdict {
-  if (region === "center") return dragged === at ? { ok: false, reason: "center swap blocked: a pane dropped on itself" } : { ok: true };
+  if (region === "center") {
+    if (dragged === at) return { ok: false, reason: "center swap blocked: a pane dropped on itself" };
+    return panesOf(tree).includes(at) ? { ok: true } : { ok: false, reason: "center rejected: no pane to swap" };
+  }
   const min = px(options.min);
   const gutter = px(options.gap) + px(options.handle);
   const target = layoutSplit(removePane(tree, dragged), area, options).get(at);
