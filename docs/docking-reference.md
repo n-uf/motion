@@ -575,9 +575,10 @@ rect, any other (a toolbar group) its `floatSizes` for the orient, else its natu
 rect it leaves under its old orient, so turning back restores it, and a hand size for each orient survives any number
 of turns. Rotating a toolbar there and back gives the same rect, and an upright 36 × 107 strip turned to a row is the
 row's 88 × 28, never the old frame around the new content. A state stored with the old single `floatSize` (before
-sizes were kept per orient) reads it as `floatSizes` for the orient its float is in (`readDockState`) on an item whose
-store declares `floatSizes`, so a float stored at that size draws the same frame; on an item that declares none it is
-dropped (`item:<id>:floatSize`), as that item is framed at its stored rect.
+sizes were kept per orient) reads it as `floatSizes` for the orient its float is in (`readDockState`; a docked item's
+own orient), so a float stored at that size draws the same frame and a docked item keeps it for its next float-out. On
+a float whose store declares no `floatSizes` it is dropped (`item:<id>:floatSize`): that float is framed at its stored
+rect.
 
 **Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(state, id,
 { kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float with a rect of its own
@@ -945,8 +946,8 @@ item's place left empty and nothing else moved (a release there commits nothing)
 width, height, orient?, anchor?, since? }], items: { [id]: { used, kept?, from?, closed?, align?, space?, floatSizes? } } }`; no float has a
 pinned field. An item's `floatSizes` is `{ row?, column? }`, each a size; an entry that isn't one is dropped and listed
 (`item:<id>:floatSizes:<orient>`), and a store with the old single `floatSize` reads as `floatSizes` for the orient its
-float is in (the item's own orient where it floats nowhere) on an item whose store declares `floatSizes`, and is
-dropped (`item:<id>:floatSize`) on one that declares none. A float's `since` (when it was floated) is kept as stored; one that isn't a number from 0 to
+float is in (the item's own orient where it floats nowhere), but on a float whose store declares no `floatSizes` it
+is dropped (`item:<id>:floatSize`). A float's `since` (when it was floated) is kept as stored; one that isn't a number from 0 to
 `Number.MAX_SAFE_INTEGER` is dropped and listed (`float:<id>:since`), and a new `since` never goes past that. A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
 on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
 listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readDockState(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
