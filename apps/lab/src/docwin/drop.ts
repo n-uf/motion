@@ -4,7 +4,7 @@
  * with, where the pointer held the item, the lane and the spot released on, the place that commits.
  */
 import type { Point, Rect } from "@n-uf/placement";
-import type { DockDrop } from "@n-uf/docking";
+import type { DockDrop, EmptyLanes } from "@n-uf/docking";
 import type { ItemId } from "./model";
 
 /** The settings a drag's `lanes()` / `targets()` calls ran with (`DockLaneOptions`), as the window used them. */
@@ -17,8 +17,10 @@ export interface DragSettings {
   readonly stretchPositions: "free" | "pitched";
   /** The pitch of the spots, px; counts under `"pitched"` only. */
   readonly pitch: number;
-  /** How near a stretch's end or the item's own place a landing snaps there, px; counts under `"free"` only. */
-  readonly snapDistance: number;
+  /** How near a stretch's end or the item's own place a landing snaps there, px, or undefined (docking's default); counts under `"free"` only. */
+  readonly snapDistance: number | undefined;
+  /** How an empty lane's guides draw: at its real size or as a thin striped edge. */
+  readonly emptyLanes: EmptyLanes;
 }
 
 /** The calls one drop made. */

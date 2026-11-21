@@ -73,8 +73,6 @@ import {
   type DockGuide,
 } from "@n-uf/docking";
 
-/** A sliding spot's snap distance, px, until the viewer sets one: the docking layer's default. */
-const SNAP_DISTANCE = 8;
 /** A landing frame as the window draws it: the model's answer, its guides drawn by the drag. */
 export type DrawnLandingFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockGuide[] };
 
@@ -333,8 +331,8 @@ export function createDocwin(o: DocwinOptions) {
    * default), where the hand holds it, snapped within `snapDistance`; `"pitched"`, a spot every `pitch` px.
    */
   let stretchPositions: "free" | "pitched" = "free";
-  /** Under `"free"`, how near a stretch's end or the item's own place a landing snaps there, px. */
-  let snapDistance = SNAP_DISTANCE;
+  /** Under `"free"`, how near a stretch's end or the item's own place a landing snaps there, px; unset, docking's default. */
+  let snapDistance: number | undefined;
   /**
    * The preview `previewPlan` reads: under the window's own rules a mode and the viewer's guides for it; under the
    * published rules, and for the libraries' glide, no guides.
@@ -716,7 +714,7 @@ export function createDocwin(o: DocwinOptions) {
   };
   const reachOf = (): { previous: DockLayout; endReach: number; floatFromHeld: boolean } => ({ previous: layout, endReach: rowRules?.endReach ?? END_REACH, floatFromHeld: approved() });
   /** The settings a drag's `lanes()` / `targets()` calls run with now (what the Code view writes out). */
-  const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance });
+  const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
   const targetsOf = (id: ItemId): DockDrop[] => stateTargets(ruled(), id, reachOf());
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
@@ -1339,9 +1337,12 @@ export function createDocwin(o: DocwinOptions) {
     const mf = L.model.update(d.pointer, now, d.keys);
     const spot = mf.region === "lane" && mf.spot ? spotOf(L, mf.spot) : null;
     const target = landingTarget(L, mf.region, mf.spot);
-    // A sliding spot lands where the frame says (the hand, snapped), and is home only at the item's own place.
-    const spotLanding = spot?.slide ? mf.landing : (spot?.landing ?? null);
-    const homing = !!spot?.home && (!spot.slide || (!!spotLanding && Math.round(spotLanding.x) === Math.round(spot.landing.x) && Math.round(spotLanding.y) === Math.round(spot.landing.y)));
+    // Every spot lands where the frame says (`landingOf` its state: a sliding one at the hand), and is home where the
+    // model's release says so (the item's own spot, landing where it lies). (At the frame's own point a release
+    // samples nothing: it reads the frame.)
+    const spotLanding = spot ? mf.landing : null;
+    const rel = spot ? L.model.release(d.pointer, now, d.keys) : null;
+    const homing = !!rel && rel.kind === "spot" && rel.home;
     const shown = target && !homing ? target : null;
     const plan = previewPlan({ shown, room: mf.room && !homing }, previewOf());
     const onlyItem = dropPreview === "item";
@@ -2220,12 +2221,12 @@ export function createDocwin(o: DocwinOptions) {
     setStretchPositions(v: "free" | "pitched"): void {
       stretchPositions = v === "pitched" ? "pitched" : "free";
     },
-    /** Under `"free"`, the snap distance, px (`SNAP_DISTANCE` by default). */
-    get snapDistance(): number {
+    /** Under `"free"`, the snap distance, px, or undefined: docking's default. */
+    get snapDistance(): number | undefined {
       return snapDistance;
     },
-    setSnapDistance(v: number): void {
-      snapDistance = Number.isFinite(v) ? Math.min(40, Math.max(0, Math.round(v))) : SNAP_DISTANCE;
+    setSnapDistance(v: number | undefined): void {
+      snapDistance = v !== undefined && Number.isFinite(v) ? Math.min(40, Math.max(0, Math.round(v))) : undefined;
     },
     /** Where things land (`Behavior`): the window's own rules (the default) or, for a case, the published ones. */
     get behavior(): Behavior {

@@ -133,8 +133,10 @@ export function CODE_PRESETS(): CodePreset[] {
         try {
           c.setStretchPositions("pitched");
           c.setPitch(25);
+          // (A snap distance the page sets is written out; left unset, docking's default, it isn't.)
+          c.setSnapDistance(8);
           const p = codeOf(c).state;
-          if (!p.includes(`  stretchPositions: "pitched",\n`) || !p.includes("  pitch: 25,\n") || !p.includes(`counts under "free" only`)) bad.push("Pitched at 25 px isn't what the code says");
+          if (!p.includes(`  stretchPositions: "pitched",\n`) || !p.includes("  pitch: 25,\n") || !p.includes(`counts under "free" only`) || !p.includes(`  emptyLanes: "`)) bad.push("Pitched at 25 px isn't what the code says");
           else said.push("Pitched, pitch 25");
           c.setStretchPositions("free");
           c.setSnapDistance(13);

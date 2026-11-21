@@ -104,13 +104,14 @@ function rulesCode(state: DockState, dragState: DockState): { lines: string[]; e
   return { lines, edges };
 }
 
-/** The options of a drag's `lanes()` call as the page uses them, one per line, from `indent` spaces. */
+/** The options of a drag's `dockDrag()` call as the page uses them, one per line, from `indent` spaces. */
 const optionLines = (o: DragSettings, indent: string): string[] => [
   `${indent}previous: layout,`,
   `${indent}endReach: ${num(o.endReach)},`,
   `${indent}floatFromHeld: ${o.floatFromHeld},`,
+  `${indent}emptyLanes: ${JSON.stringify(o.emptyLanes)},`,
   `${indent}stretchPositions: ${JSON.stringify(o.stretchPositions)},`,
-  `${indent}snapDistance: ${num(o.snapDistance)},${o.stretchPositions === "free" ? "" : " // counts under \"free\" only"}`,
+  ...(o.snapDistance === undefined ? [] : [`${indent}snapDistance: ${num(o.snapDistance)},${o.stretchPositions === "free" ? "" : " // counts under \"free\" only"}`]),
   `${indent}pitch: ${num(o.pitch)},${o.stretchPositions === "pitched" ? "" : " // counts under \"pitched\" only"}`,
 ];
 
@@ -210,7 +211,7 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
     const state = `{ kind: "spot", lane: ${JSON.stringify(call.lane)}, spot: ${JSON.stringify(call.spot)}, point: ${point(call.pointer)}, home: ${call.home} }`;
     if (call.home) out.push(`// The release: ${state}.`, "// The spot is the item's own place: a release there commits nothing, `state` stays as it is.");
     else {
-      out.push(call.slides ? `// A sliding spot: it lands where the hand holds the item (pointer less grab), snapped within ${num(call.settings.snapDistance)} px.` : "// A fixed spot: the pointer and the grab don't move it, the place is what commits.", ...commitState(state));
+      out.push(call.slides ? `// A sliding spot: it lands where the hand holds the item (pointer less grab), snapped within ${call.settings.snapDistance === undefined ? "docking's default snap distance" : `${num(call.settings.snapDistance)} px`}.` : "// A fixed spot: the pointer and the grab don't move it, the place is what commits.", ...commitState(state));
       out.push(landed(" is docked"));
     }
   } else if (call.via === "lanes" && call.placeOf?.kind === "float") {
