@@ -57,6 +57,7 @@ export { anchorName, declaresFloatSizes, floatOrientOf, floatSizeOf, heldRect, i
 /** Whether an edge takes a kind anywhere: its `accepts` lists it and some zone takes it (the test drop targets ask). */
 export { edgeTakes, namesZone, zoneIn } from "./helpers";
 export { solve } from "./solve";
+export { dividers, resetBetween, resetLengths, resizeBetween, type DockDivider } from "./dividers";
 export {
   canFold,
   closeItem,
