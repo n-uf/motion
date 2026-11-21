@@ -1580,12 +1580,13 @@ function PUBLISHED_PRESETS(): Preset[] {
       const r1 = rectOf(c, "findings")!;
       const t1 = rectOf(c, "tools");
       if (!sameRect(r1, { x: r0.x, y: to.y, width: to.x - r0.x, height: r0.y + r0.height - to.y })) bad.push(`grown to ${say(r1)} from ${say(r0)}`);
-      if (!t1 || !sameRect(t1, t0)) bad.push(`Tools moved from ${say(t0)} to ${say(t1)}`);
+      const t1s = t1 ? say(t1) : "nothing";
+      if (!t1 || !sameRect(t1, t0)) bad.push(`Tools moved from ${say(t0)} to ${t1s}`);
       if (!t1 || overlap(r1, t1) <= 0) bad.push("Findings doesn't cover Tools");
       const order = c.layout.floats;
       if (order.indexOf("findings") < order.indexOf("tools")) bad.push("Findings is under Tools");
       if (rest() !== others) bad.push("something else moved");
-      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)}; Tools ${say(t0)} → ${say(t1)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Tools stayed, covered."}` };
+      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)}; Tools ${say(t0)} → ${t1s}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Tools stayed, covered."}` };
     },
   },
   {
