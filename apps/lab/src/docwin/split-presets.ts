@@ -262,11 +262,17 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const sum = ids.reduce((s, id) => s + tall(c, id), 0);
         if (!near(sum, total)) bad.push(`the three take ${r0(sum)}, the column had ${r0(total)}`);
         for (const id of ids) if (tall(c, id) < least[id] - 0.6) bad.push(`${id} is ${r0(tall(c, id))}, under its least ${least[id]}`);
-        const asked = ids.reduce((s, id) => s + len(id), 0);
-        // With room each is drawn at its length times one factor; short, each is the same share of the way from its least to its length.
-        const share = (id: (typeof ids)[number]): number => (asked <= total + 0.6 ? tall(c, id) / len(id) : (tall(c, id) - least[id]) / (len(id) - least[id]));
-        const shares = ids.map(share);
-        if (Math.max(...shares) - Math.min(...shares) > 0.01) bad.push(`the shares differ: ${ids.map((id, i) => `${id} ${r0(shares[i]! * 1000) / 1000}`).join(", ")} (${asked <= total + 0.6 ? "with room" : "short"})`);
+        // Room is judged as the floor rule does: each asks at least its least, and the column holds all of that.
+        const room = ids.reduce((s, id) => s + Math.max(len(id), least[id]), 0) <= total + 0.6;
+        // With room each is drawn at its length times one factor, or at its least when that is more (an item held there has
+        // a length times the factor under its least); short, each is the same share of the way from its least to its length
+        // (an ask under the least reads as the least, and the item is at its least).
+        const held = (id: (typeof ids)[number]): boolean => tall(c, id) <= least[id] + 0.6;
+        const free = ids.filter((id) => !held(id));
+        const share = (id: (typeof ids)[number]): number => (room ? tall(c, id) / len(id) : (tall(c, id) - least[id]) / (len(id) - least[id]));
+        const shares = free.map(share);
+        if (shares.length > 0 && Math.max(...shares) - Math.min(...shares) > 0.01) bad.push(`the shares differ: ${free.map((id, i) => `${id} ${r0(shares[i]! * 1000) / 1000}`).join(", ")} (${room ? "with room" : "short"})`);
+        if (room && shares.length > 0) for (const id of ids) if (held(id) && len(id) * shares[0]! > least[id] + 0.6) bad.push(`${id} is held at its least ${least[id]}, but its length ${r0(len(id))} at the factor ${r0(shares[0]! * 1000) / 1000} is over it`);
         return { pass: bad.length === 0, now: `Notes asks ${r0(len("notes"))}; reopened: ${ids.map((id) => `${id} ${r0(tall(c, id))}`).join(", ")} of ${r0(total)}.${report(bad)}` };
       },
     },
