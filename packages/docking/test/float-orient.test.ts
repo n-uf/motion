@@ -98,22 +98,13 @@ describe("a float turned to the other orient", () => {
 });
 
 describe("a float's size by orient", () => {
-  it("floatSizeOf: the size set for that orient, else the legacy floatSize in the orient it was set in, else the form's natural size", () => {
+  it("floatSizeOf: the size set for that orient, else the form's natural size", () => {
     const tb = toolbar();
     expect(floatSizeOf(tb, "row")).toEqual(flat);
     expect(floatSizeOf(tb, "column")).toEqual(upright);
     const sized = toolbar("tb", { floatSizes: { column: { width: 40, height: 120 } } });
     expect(floatSizeOf(sized, "column")).toEqual({ width: 40, height: 120 });
     expect(floatSizeOf(sized, "row")).toEqual(flat);
-    // On an item that declares `floatSizes`, the old single size belongs to the orient the float is in.
-    const both = toolbar("tb", { floatSize: { width: 50, height: 130 }, floatSizes: {} });
-    expect(floatSizeOf(both, "column", "column")).toEqual({ width: 50, height: 130 });
-    expect(floatSizeOf(both, "row", "column")).toEqual(flat);
-    expect(floatSizeOf(both, "row", "row")).toEqual({ width: 50, height: 130 });
-    // An item that declares none reads it as before them: in any orient.
-    const legacy = toolbar("tb", { floatSize: { width: 50, height: 130 } });
-    expect(floatSizeOf(legacy, "row", "column")).toEqual({ width: 50, height: 130 });
-    expect(floatSizeOf(legacy)).toEqual({ width: 50, height: 130 });
   });
 
   it("floatAt with a rect and the float's resize write the size for the orient the float is in", () => {
@@ -161,88 +152,51 @@ describe("a state stored with the old single floatSize", () => {
     items: { tb: { used: 12, floatSize: { ...at } } },
   });
 
-  it("reads as before the per-orient sizes (the item declares none): its floatSize kept, framed at its stored rect", () => {
-    const read = readDockState(stored("column", upright), base());
-    expect(read.dropped).toEqual([]);
-    expect(read.state.items.tb!.floatSizes).toBeUndefined();
-    expect(read.state.items.tb!.floatSize).toEqual(upright);
-    expect(sizeOf(read.state, "tb")).toEqual(upright);
-    // Turned, it keeps its rect, as before the per-orient sizes.
-    expect(sizeOf(orientFloat(read.state, "tb", "row"), "tb")).toEqual(upright);
+  it("reads the same frames: the old size is `floatSizes` for the orient its float is in, the float at its stored rect", () => {
+    for (const [o, at] of [
+      ["column", upright],
+      ["row", flat],
+    ] as const) {
+      const read = readDockState(stored(o, at), base());
+      expect(read.dropped).toEqual([]);
+      expect(read.state.items.tb!.floatSizes).toEqual({ [o]: at });
+      expect(solve(read.state).items.tb!.rect).toEqual({ x: 300, y: 300, ...at });
+      // It writes back as `floatSizes`, never the old field.
+      expect(storeDockState(read.state).items.tb).toEqual({ used: 12, floatSizes: { [o]: at } });
+    }
   });
 
-  it("a turn keeps its rect and its floatSize, as before; turned back it is as it was", () => {
+  it("read, it turns as a declared float: the other orient's size, and back its own", () => {
     const read = readDockState(stored("row", flat), base());
-    expect(read.state.items.tb!.floatSize).toEqual(flat);
     const up = orientFloat(read.state, "tb", "column");
-    expect(up.items.tb!.floatSizes).toBeUndefined();
-    expect(up.items.tb!.floatSize).toEqual(flat);
-    expect(sizeOf(up, "tb")).toEqual(flat);
+    expect(sizeOf(up, "tb")).toEqual(upright);
     expect(solve(orientFloat(up, "tb", "row")).items.tb!.rect).toEqual(solve(read.state).items.tb!.rect);
-    // Once it declares `floatSizes`, the old size is read for the orient its float is in only, and a turn takes the
-    // other orient's size.
-    const carried: DockState = { ...base(), items: { ...base().items, tb: toolbar("tb", { floatSize: flat, floatSizes: {} }) }, floats: [{ id: "tb", rect: { x: 300, y: 300, ...flat } }] };
-    expect(sizeOf(carried, "tb")).toEqual(flat);
-    const turned = orientFloat(carried, "tb", "column");
-    expect(sizeOf(turned, "tb")).toEqual(upright);
-    expect(turned.items.tb!.floatSize).toBeUndefined();
-    expect(turned.items.tb!.floatSizes).toEqual({ row: flat });
-    expect(sizeOf(orientFloat(turned, "tb", "row"), "tb")).toEqual(flat);
   });
 
-  it("an item not floating reads it as it is (it declares no floatSizes); one that declares them takes it for its own orient", () => {
+  it("an item not floating takes it for its own orient; a stored size for that orient wins over it", () => {
     const read = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 } } } }, base());
-    expect(read.state.items.card!.floatSizes).toBeUndefined();
-    expect(read.state.items.card!.floatSize).toEqual({ width: 310, height: 380 });
+    expect(read.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 } });
     expect(read.dropped).toEqual([]);
     const declared = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { row: { width: 500, height: 150 } } } } }, base());
     expect(declared.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 }, row: { width: 500, height: 150 } });
-  });
-});
-
-describe("a legacy floatSize in memory is not lost", () => {
-  /** The base state with the card's old single size, set in its own orient (column, its first axis). */
-  const legacy = (): DockState => {
-    const s = base();
-    return { ...s, items: { ...s.items, card: { ...s.items.card!, floatSize: { width: 333, height: 444 } } } };
-  };
-  const size = { width: 333, height: 444 };
-
-  it("floatAt with no rect in the other orient frames it at that size, as before; a turn and back keeps it", () => {
-    const row = floatAt(legacy(), "card", undefined, "row");
-    expect(row.items.card!.floatSize).toEqual(size);
-    expect(row.items.card!.floatSizes).toBeUndefined();
-    expect(sizeOf(row, "card")).toEqual(size);
-    // Turned, it keeps its rect, as before the per-orient sizes, and turned back it is as it was.
-    const col = orientFloat(row, "card", "column");
-    expect(sizeOf(col, "card")).toEqual(size);
-    expect(sizeOf(orientFloat(col, "card", "row"), "card")).toEqual(size);
+    const own = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { column: { width: 320, height: 390 } } } } }, base());
+    expect(own.state.items.card!.floatSizes).toEqual({ column: { width: 320, height: 390 } });
   });
 
-  it("readDockState leaves a base item's legacy floatSize as it is (the item declares no floatSizes)", () => {
-    const read = readDockState({ v: 1, edges: [], floats: [], items: {} }, legacy());
-    expect(read.state.items.card!.floatSize).toEqual(size);
+  it("drops an old size that isn't a size", () => {
+    const read = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 0, height: 380 } } } }, base());
     expect(read.state.items.card!.floatSizes).toBeUndefined();
+    expect(read.dropped).toContain("item:card:floatSize");
   });
 });
 
-describe("an item that declares no floatSizes is framed as before the per-orient sizes", () => {
-  /** A toolbar with only the old single size, a row's, floating upright at a stored rect of its own. */
+describe("an item that declares no floatSizes is framed at its stored rect", () => {
   const upright40 = { width: 40, height: 120 };
-  const undeclared = (): DockState => ({ ...base(), items: { ...base().items, tb: toolbar("tb", { floatSize: flat }) }, floats: [{ id: "tb", rect: { x: 300, y: 300, ...upright40 }, orient: "column" }] });
+  const undeclared = (): DockState => ({ ...base(), items: { ...base().items, tb: toolbar("tb") }, floats: [{ id: "tb", rect: { x: 300, y: 300, ...upright40 }, orient: "column" }] });
 
-  it("floated upright with only a row floatSize: its frame is its stored rect, the first form", () => {
+  it("floated upright at a rect of its own: its frame is that rect, the first form", () => {
     expect(solve(undeclared()).items.tb).toMatchObject({ floating: true, rect: { x: 300, y: 300, ...upright40 } });
-    expect(floatSizeOf(undeclared().items.tb!, "column")).toEqual(flat);
-  });
-
-  it("a stored state with no floatSizes reads and renders as before: the stored rect, its floatSize kept", () => {
-    const stored = { v: 1, edges: [], floats: [{ id: "tb", x: 300, y: 300, ...upright40, orient: "column" }], items: { tb: { used: 12, floatSize: flat } } };
-    const read = readDockState(stored, { ...base(), items: { ...base().items, tb: toolbar("tb") } });
-    expect(read.dropped).toEqual([]);
-    expect(read.state.items.tb!.floatSizes).toBeUndefined();
-    expect(read.state.items.tb!.floatSize).toEqual(flat);
-    expect(sizeOf(read.state, "tb")).toEqual(upright40);
+    expect(floatSizeOf(undeclared().items.tb!, "column")).toEqual(upright);
   });
 
   it("an item that declares floatSizes keeps the per-orient frame: upright, its form's natural size, whatever the rect", () => {

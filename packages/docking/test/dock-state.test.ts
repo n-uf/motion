@@ -213,11 +213,11 @@ describe("floats", () => {
     expect(floatOrientOf(group("g", 0))).toBe("row");
     expect(floatOrientOf(panel("p", 0))).toBe("column");
     expect(floatOrientOf(group("g", 0, { floatOrient: "column" }))).toBe("column");
-    // No floatSize: the row form's natural size (200 × 28); a panel's card grows, so it keeps 280 × 360.
+    // No floatSizes: the row form's natural size (200 × 28); a panel's card grows, so it keeps 280 × 360.
     expect(floatSizeOf(group("g", 0))).toEqual({ width: 200, height: 28 });
     expect(floatSizeOf(group("g", 0), "column")).toEqual(DEFAULT_FLOAT_SIZE);
     expect(floatSizeOf(panel("p", 0))).toEqual({ width: 280, height: 360 });
-    expect(floatSizeOf(panel("p", 0, { floatSize: { width: 300, height: 200 } }))).toEqual({ width: 300, height: 200 });
+    expect(floatSizeOf(panel("p", 0, { floatSizes: { column: { width: 300, height: 200 } } }))).toEqual({ width: 300, height: 200 });
     // floatAt with no rect: the toolbar group floats as a row at its natural size, its words kept.
     const l = solve(floatAt(s0, "views"));
     expect(l.items.views).toMatchObject({ floating: true, formKind: "row" });

@@ -116,13 +116,6 @@ export interface DockItem {
    */
   readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
   /**
-   * Its one size as a float, from before sizes were kept per orient. Read for the orient the float is in (a stored state
-   * with it reads as `floatSizes` for its float's orient); nothing writes it any more.
-   *
-   * @deprecated Use `floatSizes`. Removed in the next breaking release.
-   */
-  readonly floatSize?: Size;
-  /**
    * Which of its forms it uses as a float when the float names no `orient` (`floatOrientOf`). Default: the axis of its
    * first form, the first of `forms.row` / `forms.column` it declares (a group declared row first floats as a row).
    */

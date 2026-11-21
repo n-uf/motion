@@ -150,7 +150,7 @@ function adapt(raw0: RawState, width: number, height: number, hosts = true): Doc
   return {
     stage: { x: 0, y: 0, width, height },
     edges,
-    items: Object.fromEntries(Object.entries(items).map(([id, it]) => [id, raw.floats?.some((f) => f.id === id) ? { ...it, floatSize } : it])),
+    items: Object.fromEntries(Object.entries(items).map(([id, it]) => [id, raw.floats?.some((f) => f.id === id) ? { ...it, floatSizes: { column: floatSize } } : it])),
     floats: (raw.floats ?? []).map((f) => ({ id: f.id, rect: { x: f.rect.x, y: f.rect.y, width: f.rect.w, height: f.rect.h } })),
     floatKinds: raw.floatKinds ?? ["panel"],
     columns: raw.columns!,

@@ -344,13 +344,9 @@ function naturalFloatSize(item: DockItem, orient: Orient): Size | undefined {
   return orient === "row" ? { width: main, height: cross } : { width: cross, height: main };
 }
 
-/**
- * `item`'s float sizes by orient: its `floatSizes`, with its legacy `floatSize` among them for `floatOrient` (the orient
- * it was set in, default `floatOrientOf`) where that orient has none. Undefined when it has no size at all.
- */
-export function floatSizesOf(item: DockItem, floatOrient: Orient = floatOrientOf(item)): { row?: Size; column?: Size } | undefined {
+/** `item`'s usable float sizes by orient (its `floatSizes`); undefined when it has none. */
+export function floatSizesOf(item: DockItem): { row?: Size; column?: Size } | undefined {
   const out: { row?: Size; column?: Size } = {};
-  if (sized(item.floatSize)) out[floatOrient] = item.floatSize;
   for (const o of ["row", "column"] as const) {
     const s = item.floatSizes?.[o];
     if (sized(s)) out[o] = s;
@@ -359,20 +355,13 @@ export function floatSizesOf(item: DockItem, floatOrient: Orient = floatOrientOf
 }
 
 /**
- * A float's size along `orient` (default `floatOrientOf`) when nothing else gives one, in this order: the item's
- * `floatSizes` for that orient; its legacy `floatSize`, only where `orient` is the orient that size was set in
- * (`floatOrient`: the float's own, default `floatOrientOf`, so a float turned to the other orient never takes the old
- * one's size); else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form grows (a
- * panel's card has no natural float length) or the item has no form there.
- *
- * Per-orient sizes apply only to an item that declares `floatSizes`. One that declares none keeps the rule from before
- * them: its legacy `floatSize` in any orient, else its first form's natural size along `orient`, else the default.
+ * A float's size along `orient` (default `floatOrientOf`) when nothing else gives one: the item's `floatSizes` for that
+ * orient, else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's
+ * card has no natural float length) or the item has no form there.
  */
-export function floatSizeOf(item: DockItem, orient: Orient = floatOrientOf(item), floatOrient: Orient = floatOrientOf(item)): Size {
-  if (!declaresFloatSizes(item)) return sized(item.floatSize) ? item.floatSize : (naturalFloatSize(item, orient) ?? DEFAULT_FLOAT_SIZE);
+export function floatSizeOf(item: DockItem, orient: Orient = floatOrientOf(item)): Size {
   const own = item.floatSizes?.[orient];
   if (sized(own)) return own;
-  if (sized(item.floatSize) && orient === floatOrient) return item.floatSize;
   return naturalFloatSize(item, orient) ?? DEFAULT_FLOAT_SIZE;
 }
 
@@ -464,8 +453,8 @@ export function pastWrap(forms: readonly StackForm[], from: number): number | un
  * form there (`none`: `solve` leaves it out with a `no-vertical-form` note), so a word group needs an `icons` form.
  * Otherwise a float with `from` over 0 is its bar (that form's natural length along its orient, its other size kept), and
  * one at its first form is its rect's size where that form grows, else `floatSizeOf(item, orient)`: the size kept for
- * that orient (`floatSizes`, which `floatAt` with a rect and a hand resize write; a legacy `floatSize` in the orient it
- * was set in), and only without one that form's natural size along its orient. So a toolbar group's float given an
+ * that orient (`floatSizes`, which `floatAt` with a rect and a hand resize write), and only without one that form's
+ * natural size along its orient. So a toolbar group's float given an
  * explicit size keeps it; one given none fits its content; and one turned to the other orient never keeps the rect it
  * had in the old one. Per-orient sizes apply only to an item that declares `floatSizes` (`declaresFloatSizes`); one
  * that declares none keeps its stored rect at its first form, as before them.
@@ -488,5 +477,5 @@ export function floatShape(item: DockItem, f: { readonly rect: Rect; readonly or
   // The first form: a form that grows (a panel's card) is the rect's size, the one the user sizes; any other (a toolbar
   // group) is the size kept for its orient (an explicit size stays), else its own natural size (`floatSizeOf`), never a
   // rect left from the other orient. An item that declares no `floatSizes` keeps its stored rect, as before them.
-  return { form, ...(fm.main.grows || !declaresFloatSizes(item) ? { width: w, height: h } : floatSizeOf(item, orient, f.orient ?? floatOrientOf(item))) };
+  return { form, ...(fm.main.grows || !declaresFloatSizes(item) ? { width: w, height: h } : floatSizeOf(item, orient)) };
 }

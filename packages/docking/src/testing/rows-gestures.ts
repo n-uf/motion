@@ -248,7 +248,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
     title: "A float keeps its place and last size",
     expect: "Floated from the menu, Annotations leaves its column and floats at the content's top-right corner at its last float size; scrolling never moves it.",
     group: "gestures",
-    state: { ...win(), items: { ...win().items, annotations: { ...win().items.annotations!, floatSize: { width: 300, height: 440 } } } },
+    state: { ...win(), items: { ...win().items, annotations: { ...win().items.annotations!, floatSizes: { column: { width: 300, height: 440 } } } } },
     gestures: [g.click("annotations", "float"), g.scroll(600)],
     expectLayout: { items: { annotations: { floating: true, edge: null, rect: r(496, 0, 300, 440) }, pages: { rect: r(12, 0, 300, 800) } }, floats: ["annotations"], columns: { left: [["pages"]] } },
     // Only a page can show that the float didn't scroll with the pages: it measures where the float is drawn.
