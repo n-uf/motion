@@ -337,8 +337,10 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
         if (!fitted || (clear && contains(fitted, on))) return placed(at.x, at.y, false);
         // Otherwise it lies at the hand, over what it covers, marked so that no later solve moves it clear.
         const left = placed(hand.x, hand.y, true);
+        // (Kept clear of the bars and the chrome there, it may cover nothing: then it is an ordinary float at that rect.)
         const covers = left.layout.notes.some((n) => n.code === "float-covers" && n.id === dragged);
-        return covers ? left : placed(hand.x, hand.y, false);
+        const kept = left.layout.items[dragged]?.rect ?? hand;
+        return covers ? left : placed(kept.x, kept.y, false);
       },
     });
   }
