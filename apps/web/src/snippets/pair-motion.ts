@@ -1,6 +1,6 @@
 import { createFrameLoop } from "@n-uf/motion";
 import { createBrowserClock, domDrawable } from "@n-uf/motion/browser";
-import { createDragIntent, type DragTarget } from "@n-uf/motion/drag";
+import { createDragIntent, previewPlan, type DragTarget } from "@n-uf/motion/drag";
 import { createLayoutMotion, holdItem } from "@n-uf/motion/layout";
 
 const loop = createFrameLoop({ clock: createBrowserClock() });
@@ -15,8 +15,9 @@ const dock: DragTarget = {
   slot: { x: 620, y: 40, width: 240, height: 120 },
 };
 
-// How it moves: held 1:1, a drop shown only once the pointer aims,
-// then a settle from where it was let go: into the slot, or home.
+// How it moves: held 1:1; once the pointer aims at the dock and the room
+// opens it glides into the slot (previewPlan); on release a settle from
+// where it was let go: into the slot, or home.
 const held = holdItem(panel, { x: 20, y: 10 });
 const intent = createDragIntent({ home });
 let pointer = { x: 60, y: 50 };
@@ -24,7 +25,8 @@ addEventListener("pointermove", (e) => {
   held.move((pointer = { x: e.clientX, y: e.clientY }));
 });
 const stop = loop.repeat("input", (frame) => {
-  intent.update(pointer, frame.time, [dock]);
+  const f = intent.update(pointer, frame.time, [dock]);
+  held.preview(previewPlan(f, "glide"), f.shown?.slot ?? null);
 });
 addEventListener("pointerup", () => {
   stop();
