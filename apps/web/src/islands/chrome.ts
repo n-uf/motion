@@ -863,7 +863,7 @@ export function createChrome(o: ChromeOptions): Chrome {
       removeEverywhere(d.id);
       model[tg.h][tg.z].splice(tg.i, 0, d.id);
       status(`${label(d.id)} → ${tg.label}`);
-    } else status(cancel ? "Cancelled: back where it was" : "Released with no target: back where it was");
+    } else status(cancel ? "Canceled: back where it was" : "Released with no target: back where it was");
     render();
     if (tg) changed();
     setDragging(false);
