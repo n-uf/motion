@@ -54,6 +54,13 @@ import type { LandingRegion } from "./region";
  *   item was lifted is home on every layout, so no nudge to a neighboring spot is reachable within `lift` of the press.
  *   The zone is a held state like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
  *   `lift - spot`, so a wobble at its edge never flips a cut near the press.
+ * - **A float's lift zone.** A lift with no `home` (a float: a host passes `home` only for a docked item) has a zone of
+ *   its own, the same `margins.lift` around the press: within it no lane takes the pointer, and the frame is judged as if
+ *   the regions had no lanes (the float is at the hand, so a nudge moves it; blocked and refused places are judged as on
+ *   any frame, so a float lying over one is refused there). No lane's path counts inside it. The zone is left once, at
+ *   the first point farther than `lift` from the press, and never re-entered: the lanes act as usual from then on, a
+ *   held lane included, so a slide back through the press point changes nothing. A float lying inside a lane's band
+ *   (an empty bar's) stays a float for the first `lift` px, and the lane takes it by its gates after.
  * - **Along a lane** the spot changes once the pointer is `spot` px past the boundary; where the change moves another
  *   item (the two spots' `others` keys differ), on a step of at most `stepSpeed`, or once the held landing trails the
  *   pointer by more than `trail` (`landingOf` the spot held): the item chases only as far as it must. A change that
@@ -356,6 +363,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let liftAt: Point | null = options.lift ?? null;
   /** Whether the pointer is held in the lift zone (`nearLift`). */
   let inLiftZone = true;
+  /** Whether a lift with no `home` (a float) has left its lift zone: once, for good (`floatZone`). */
+  let floatLeft = false;
   /** Whether the held lane's hold is refused for lying far beyond it (sticky, as the lift zone is). */
   let farHeld = false;
   /**
@@ -566,7 +575,12 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const fromRaw = last?.raw ?? null;
     last = { p, raw, t };
     const shift = !!keys?.shift;
-    const regions = base;
+    // A float lift (no `home`): within `lift` of the press no lane takes the pointer (the frame is judged as if the regions
+    // had no lanes: blocked and refused places as on any frame), until the pointer first lies farther than `lift`; once
+    // left it is never re-entered, so a slide back through the press point changes nothing (a held lane stays held).
+    if (!options.home && liftAt && Math.hypot(p.x - liftAt.x, p.y - liftAt.y) > (margins.lift ?? 16)) floatLeft = true;
+    const floatZone = !options.home && !floatLeft && !!liftAt;
+    const regions = floatZone ? { ...base, lanes: [] } : base;
     // The path inside each lane: the part along the lane of slow steps from a point inside it to another (the step that
     // enters doesn't count, nor a fast one), so a crossing at `stepSpeed` or faster never enters by path at any angle.
     // From a held lane, a touching lane counts the path along it and across it while the hand reads steady and no
