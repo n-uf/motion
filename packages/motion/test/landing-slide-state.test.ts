@@ -1,12 +1,12 @@
 /**
- * Sliding spots: a free stretch exposed as one spot. The model names the spot and the pointer (`frame.state`); where it
+ * Sliding spots: a free stretch exposed as one spot. The model names the spot and the pointer (`frame.held`); where it
  * lands is the geometry's (`landingOf`: here a stand-in for the docking layer's rule, the pointer less the grab,
  * clamped, snapped within 8 px). A step comes only where the order changes (passing a neighbor); a release names the
- * state, and is home only where the geometry lands it at the item's own place.
+ * held place, and is home only where the geometry lands it at the item's own place.
  */
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
-import { createLandingModel, type LandingFrame, type LandingGeometry, type LandingOptions, type LandingRegions, type LandingState } from "../src/drag";
+import { createLandingModel, type LandingFrame, type LandingGeometry, type LandingOptions, type LandingHeld, type LandingRegions } from "../src/drag";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -42,8 +42,8 @@ const RANGES: Record<string, { from: number; to: number; snaps: number[] }> = {
 };
 const GRAB = { x: 30, y: 14 };
 /** The stand-in geometry: a sliding spot's start at the pointer less the grab, clamped, snapped within 8, whole px. */
-function geometry(): LandingGeometry & { asked: LandingState[] } {
-  const asked: LandingState[] = [];
+function geometry(): LandingGeometry & { asked: LandingHeld[] } {
+  const asked: LandingHeld[] = [];
   return {
     regions: regions(),
     asked,
@@ -81,12 +81,12 @@ function drive(o: LandingOptions, points: readonly Point[], speed = 0.2, rest = 
 }
 
 describe("landing model: sliding spots name the pointer, the geometry lands them", () => {
-  it("along the stretch every frame names the spot and the pointer, and its landing is the geometry's for that state: no steps", () => {
+  it("along the stretch every frame names the spot and the pointer, and its landing is the geometry's for that held place: no steps", () => {
     const g = geometry();
     const { frames } = drive({ ...g, home: HOME }, [PRESS, at(326)]);
     for (const { p, f } of frames) {
-      expect(f.state).toEqual({ kind: "spot", lane: "top", spot: HOME.spot, point: p });
-      expect(f.landing).toEqual(g.landingOf(f.state!));
+      expect(f.held).toEqual({ kind: "spot", lane: "top", spot: HOME.spot, point: p });
+      expect(f.landing).toEqual(g.landingOf(f.held!));
     }
   });
 
@@ -107,7 +107,7 @@ describe("landing model: sliding spots name the pointer, the geometry lands them
     expect(frames.at(-1)!.f.landing!.x).toBe(760 - GRAB.x);
   });
 
-  it("release() names the state: the spot and the pointer, home only where it lands at the item's own place", () => {
+  it("release() names the held place: the spot and the pointer, home only where it lands at the item's own place", () => {
     expect(drive({ ...geometry(), home: HOME }, [PRESS, at(250.4)]).release).toEqual({ kind: "spot", lane: "top", spot: HOME.spot, point: at(250.4), home: false });
     expect(drive({ ...geometry(), home: HOME }, [PRESS, at(700)]).release).toEqual({ kind: "spot", lane: "top", spot: "top/start/n|$@slide", point: at(700), home: false });
   });

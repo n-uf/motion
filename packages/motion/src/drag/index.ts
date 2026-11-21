@@ -37,6 +37,7 @@ export {
   type LandingGates,
   type LandingGeometry,
   type LandingGuideRef,
+  type LandingHeld,
   type LandingLane,
   type LandingMargins,
   type LandingModel,
@@ -45,7 +46,6 @@ export {
   type LandingRegions,
   type LandingRelease,
   type LandingSpot,
-  type LandingState,
 } from "./landing";
 export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type PlaceGuides, type PreviewFrame, type PreviewMode, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";

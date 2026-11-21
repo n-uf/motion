@@ -5,11 +5,11 @@ import type { PlaceGuides } from "./preview";
 import type { LandingRegion } from "./region";
 
 /**
- * The landing model: where a docking drag's item lands, as state rather than a per-frame guess. A host gives it the
+ * The landing model: where a docking drag's item lands, as a held place rather than a per-frame guess. A host gives it the
  * drag's geometry (`@n-uf/docking`'s `dockDrag(...)` fits `LandingGeometry` as it is: the regions for hit-testing and
- * `landingOf(state)`) and each pointer sample; it says the region the pointer is in, the lane and spot held, the state a
- * release lands (`frame.state`), where the item lands, whether the room is open, and which lanes' place guides show with
- * the state each stands for. It picks states and does no layout: every rect of a state comes from the geometry. Every
+ * `landingOf(held)`) and each pointer sample; it says the region the pointer is in, the lane and spot held, the held place a
+ * release lands (`frame.held`), where the item lands, whether the room is open, and which lanes' place guides show with
+ * the held place each stands for. It picks held places and does no layout: every rect of a held place comes from the geometry. Every
  * change comes from where the pointer is and how it moved (margins, a path length, a step size): the model has no waits
  * of its own.
  *
@@ -52,7 +52,7 @@ import type { LandingRegion } from "./region";
  *   lane the pointer came through (a plain lane's band over the home lane's corner included), and its spot is the
  *   item's own (`home.spot`; a sliding one still lets the landing follow the hand and snap): away and back to where the
  *   item was lifted is home on every layout, so no nudge to a neighboring spot is reachable within `lift` of the press.
- *   The zone is a held state like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
+ *   The zone is held like a held lane: the drag starts in it, leaves it past `lift` and re-enters only within
  *   `lift - spot`, so a wobble at its edge never flips a cut near the press.
  * - **A float's lift zone.** A lift is a float's when it has no `home` option and no lane has a spot marked `home` (a
  *   docked item's own place; docking always marks it), so a docked item lifted without `home` stays docked. A float has a zone of
@@ -75,17 +75,17 @@ import type { LandingRegion } from "./region";
  *   the float at its landing; outside the stage (past `edge`), nowhere; else (docked content that takes nothing and
  *   refuses nothing) refused.
  * - **Shift** turns a lane or open space into open space (the float), and hides the guides.
- * - **Guides** name lanes and the state each lane's guide stands for (`frame.guides`); the geometry draws them (a lane's
- *   marks in that state's layout). `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
+ * - **Guides** name lanes and the held place each lane's guide stands for (`frame.guides`); the geometry draws them (a lane's
+ *   marks in that held place's layout). `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
  *   refused stretch); else the pending lane's (the pointer inside it, its gate not passed: a release floats or goes
  *   home); else, with the pointer in open space, the approached lane's (the nearest within `reach`, by default the
  *   entry margin `exit`, acquired within `max(reach - spot, reach / 2)` and kept to `reach`, so it never blinks at the
  *   edge: a release floats). Over a refused place outside every lane no guide shows, however near the lane behind it
  *   lies; a host that wants the early guide sets `approach.reach` (in open space only: over a refused place none shows
- *   at any reach). That lane (the one the Near rule picks), held, stands for the frame's state; pending or approached,
- *   for the state the pointer would land in there (the spot it picks along it), so its guide before entry is its mark
- *   after it. `"all"` shows every lane's, every other lane standing for the frame's state (the screen); with no Near
- *   lane, the lane nearest the pointer within `reach` stands for its would-land state, for the corner only (not made
+ *   at any reach). That lane (the one the Near rule picks), held, stands for the frame's held place; pending or approached,
+ *   for the held place the pointer would land in there (the spot it picks along it), so its guide before entry is its mark
+ *   after it. `"all"` shows every lane's, every other lane standing for the frame's held place (the screen); with no Near
+ *   lane, the lane nearest the pointer within `reach` stands for its would-land held place, for the corner only (not made
  *   Near, pending or enterable), switching exactly at `reach`. Where that lane's guide meets another's, the geometry
  *   gives it that lane.
  * - Steps are speeds (px/ms) between points that differ, so the gates read the same at any input rate. A repeated
@@ -135,10 +135,10 @@ export interface LandingRegions {
   readonly item?: { readonly width: number; readonly height: number };
 }
 
-/** One lane a frame shows place guides for, with the state its guide stands for (`LandingFrame.guides`). */
+/** One lane a frame shows place guides for, with the held place its guide stands for (`LandingFrame.guides`). */
 export interface LandingGuideRef {
   readonly lane: string;
-  readonly state: LandingState | null;
+  readonly held: LandingHeld | null;
 }
 
 export interface LandingMargins {
@@ -214,25 +214,25 @@ export const LANDING_GATES: LandingGates = { path: 40, depth: 8, stillSpeed: 0.1
 export const LANDING_APPROACH: LandingApproach = { reach: LANDING_MARGINS.exit, keep: LANDING_MARGINS.exit, nearer: 16 };
 
 /**
- * A state of the drag: where a release now lands. A spot of a lane with the pointer (a sliding spot lands where the hand
+ * A held place of the drag: where a release now lands. A spot of a lane with the pointer (a sliding spot lands where the hand
  * holds it: the geometry says where), or the float at the pointer. A frame with none is at rest (it lands nowhere).
  */
-export type LandingState =
+export type LandingHeld =
   | { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly point: Point }
   | { readonly kind: "float"; readonly point: Point };
 
 /**
  * The drag's geometry, from the host's docking layer (`@n-uf/docking`'s `dockDrag(...)` fits it as it is): the regions
- * for hit-testing, as seen, and the one rect the model reads of a state.
+ * for hit-testing, as seen, and the one rect the model reads of a held place.
  */
 export interface LandingGeometry {
   /** Hit-testing: the lanes (hit rects, spots' stretches, refused stretches), refused places, content, blocked, stage. */
   readonly regions: LandingRegions;
   /**
-   * Where the held item lands in a state (its rect in that state's layout), or null where it lands nowhere (a float
+   * Where the item lands in a held place (its rect in that held place's layout), or null where it lands nowhere (a float
    * where the item doesn't float). The frame's landing, and the trail gate's: the model does no geometry of its own.
    */
-  readonly landingOf: (state: LandingState) => Rect | null;
+  readonly landingOf: (held: LandingHeld) => Rect | null;
   /**
    * A spot's lane with its stretches cut in that spot's own layout (a panel column by halves of what it draws), or null:
    * the stretches along a held lane, and the fixed-point check. Absent: the stretches as seen. Asked once per spot until
@@ -260,15 +260,15 @@ export interface LandingFrame {
   readonly lane: string | null;
   /** The spot held, or null. */
   readonly spot: string | null;
-  /** The state a release now lands (the screen's: what the host draws), or null at rest. */
-  readonly state: LandingState | null;
-  /** Where a release now lands: `landingOf(state)`; null where it lands nowhere (the item goes home). */
+  /** The held place a release now lands (the screen's: what the host draws), or null at rest. */
+  readonly held: LandingHeld | null;
+  /** Where a release now lands: `landingOf(held)`; null where it lands nowhere (the item goes home). */
   readonly landing: Rect | null;
   /** The room is open: a spot is held in a lane, no Shift. */
   readonly room: boolean;
   /**
-   * The lanes whose place guides show, each with the state its guide stands for: the frame's `state` (the screen), or,
-   * for the Near lane before entry (pending or approached), the state the pointer would land there (the spot it picks
+   * The lanes whose place guides show, each with the held place its guide stands for: the frame's `held` (the screen), or,
+   * for the Near lane before entry (pending or approached), the held place the pointer would land there (the spot it picks
    * along it). The host's geometry draws them (`@n-uf/docking`'s `guides(frame)`).
    */
   readonly guides: readonly LandingGuideRef[];
@@ -283,8 +283,8 @@ export interface LandingFrame {
 }
 
 /**
- * What a release lands: the last frame's state (a spot with the pointer, `home` when it lands at the item's own place;
- * the float at the pointer), or nothing. The host commits that state's layout (`@n-uf/docking`'s `after(release)`).
+ * What a release lands: the last frame's held place (a spot with the pointer, `home` when it lands at the item's own place;
+ * the float at the pointer), or nothing. The host commits that held place's layout (`@n-uf/docking`'s `after(release)`).
  */
 export type LandingRelease =
   | { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly point: Point; readonly home: boolean }
@@ -404,7 +404,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     return kept && depthIn(deepest, p, stage) <= depthIn(kept, p, stage) + margins.spot ? kept.id : deepest.id;
   };
   let previous: LandingRegion = laneId ? "lane" : "open";
-  let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, state: null, landing: null, room: !!spotId, guides: [], shift: false };
+  let frame: LandingFrame = { region: previous, lane: laneId, spot: spotId, held: null, landing: null, room: !!spotId, guides: [], shift: false };
   /** The spot the last frame lands on, as its lane lists it, or null. */
   let landedOn: LandingSpot | null = null;
 
@@ -453,21 +453,21 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   }
 
   /**
-   * The lanes whose guides show, each with the state its guide stands for. `"near"`: the Near lane only; `"all"`: every
-   * lane. The Near lane held stands for the frame's state; pending or approached, for the state the pointer would land in
+   * The lanes whose guides show, each with the held place its guide stands for. `"near"`: the Near lane only; `"all"`: every
+   * lane. The Near lane held stands for the frame's held place; pending or approached, for the held place the pointer would land in
    * there (the spot it picks along it), so its guide before entry is its mark after it. Every other lane stands for the
-   * frame's state (the screen). The geometry draws them; the model does none.
+   * frame's held place (the screen). The geometry draws them; the model does none.
    */
-  function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null, state: LandingState | null): LandingFrame["guides"] {
+  function guidesFor(p: Point, region: LandingRegion, shift: boolean, pending: string | null, held: LandingHeld | null): LandingFrame["guides"] {
     if (guidesLevel === "off" || shift) return [];
     const near = nearLane(p, region, pending, base);
-    const wouldLand = (l: LandingLane): LandingState | null => {
-      if (l.id === laneId) return state;
+    const wouldLand = (l: LandingLane): LandingHeld | null => {
+      if (l.id === laneId) return held;
       const s = pick(l, alongOf(l, p));
-      return s ? { kind: "spot", lane: l.id, spot: s.id, point: p } : state;
+      return s ? { kind: "spot", lane: l.id, spot: s.id, point: p } : held;
     };
-    if (guidesLevel === "near") return near ? [{ lane: near.id, state: wouldLand(near) }] : [];
-    // "all": with no Near lane, the lane nearest the pointer within `reach` stands for its would-land state too, for the
+    if (guidesLevel === "near") return near ? [{ lane: near.id, held: wouldLand(near) }] : [];
+    // "all": with no Near lane, the lane nearest the pointer within `reach` stands for its would-land held place too, for the
     // corner only (it isn't made Near, pending or enterable): its guide is what entry draws, and it owns the corners it
     // meets. The switch lies exactly at `reach` of its rect.
     let owner = near;
@@ -481,7 +481,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         }
       }
     }
-    return base.lanes.map((l) => ({ lane: l.id, state: owner && l.id === owner.id ? wouldLand(l) : state }));
+    return base.lanes.map((l) => ({ lane: l.id, held: owner && l.id === owner.id ? wouldLand(l) : held }));
   }
 
   /**
@@ -629,7 +629,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       // been outside it since the lift): a press in a column's outer edge, or a slow reorder along it, stays in the column.
       // Never within `lift` of where the item was lifted: away and back there is home, wherever a strip lies, while the
       // rest of the strip (all of it over a lone panel's own place) still takes it.
-      // The zone is a held state, like a held lane: the drag starts in it, leaves it past `lift` of the lift point and
+      // The zone is held, like a held lane: the drag starts in it, leaves it past `lift` of the lift point and
       // re-enters it only within `lift - spot`, so a wobble at its edge never flips a cut that lies near the press.
       const liftR = margins.lift ?? 16;
       if (liftAt) {
@@ -719,17 +719,17 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const heldLane = lane0 ? heldLaneOf(lane0, spotId) : undefined;
     const spot = spotIn(heldLane, spotId);
     landedOn = shown === "lane" && spot ? spot : null;
-    // The state a release lands now, and where it lands: the geometry's (a sliding spot's landing follows the hand).
-    const state: LandingState | null = shown === "lane" ? (spot && laneId ? { kind: "spot", lane: laneId, spot: spot.id, point: p } : null) : shown === "open" ? { kind: "float", point: p } : null;
-    const landing = state ? landingOf(state) : null;
+    // The held place a release lands now, and where it lands: the geometry's (a sliding spot's landing follows the hand).
+    const held: LandingHeld | null = shown === "lane" ? (spot && laneId ? { kind: "spot", lane: laneId, spot: spot.id, point: p } : null) : shown === "open" ? { kind: "float", point: p } : null;
+    const landing = held ? landingOf(held) : null;
     frame = {
       region: shown,
       lane: laneId,
       spot: shown === "lane" ? spotId : null,
-      state: state && (state.kind === "spot" || landing) ? state : null,
+      held: held && (held.kind === "spot" || landing) ? held : null,
       landing,
       room: shown === "lane" && !!spot,
-      guides: guidesFor(p, shown, shift, pending && shown !== "lane" ? pending : null, state && (state.kind === "spot" || landing) ? state : null),
+      guides: guidesFor(p, shown, shift, pending && shown !== "lane" ? pending : null, held && (held.kind === "spot" || landing) ? held : null),
       shift,
       ...(pending && shown !== "lane" ? { pending } : {}),
     };
@@ -741,7 +741,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     release(point: Point, time: number, keys?: DragKeys): LandingRelease {
       // The last update's sample is the release's: a point that differs from it is one more sample first.
       if (!last || last.raw.x !== point.x || last.raw.y !== point.y) update(point, time, keys ?? lastKeys);
-      const s = frame.state;
+      const s = frame.held;
       if (s?.kind === "spot" && frame.region === "lane") {
         // Home only at the item's own place: its own spot, landing where it lies (a sliding spot anywhere else on its
         // stretch moves it).

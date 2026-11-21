@@ -153,9 +153,9 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
-  it("P5: the guides are the held lane's, standing for the frame's state on every frame the lane is held, and none with Shift", () => {
+  it("P5: the guides are the held lane's, standing for the frame's held place on every frame the lane is held, and none with Shift", () => {
     const { frames } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
-    for (const x of frames.filter((y) => y.f.lane === "rail-left" && y.f.region === "lane")) expect(x.f.guides).toEqual([{ lane: "rail-left", state: x.f.state }]);
+    for (const x of frames.filter((y) => y.f.lane === "rail-left" && y.f.region === "lane")) expect(x.f.guides).toEqual([{ lane: "rail-left", held: x.f.held }]);
     const { frames: shifted } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
     expect(shifted.every((x) => x.f.guides.length === 0)).toBe(true);
   });
@@ -297,10 +297,10 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(m.frame.lane).toBe("top");
   });
 
-  it("guides: the held lane standing for the frame's state; over a refused place outside every lane, none", () => {
+  it("guides: the held lane standing for the frame's held place; over a refused place outside every lane, none", () => {
     const held = run(base({ placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
-    expect(held.f.state).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/tools|$", point: { x: 15, y: 300 } });
-    expect(held.f.guides).toEqual([{ lane: "rail-left", state: held.f.state }]);
+    expect(held.f.held).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/tools|$", point: { x: 15, y: 300 } });
+    expect(held.f.guides).toEqual([{ lane: "rail-left", held: held.f.held }]);
     const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
     expect(over.f.region).toBe("refused");
     expect(over.f.guides).toEqual([]);
@@ -663,10 +663,10 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     const home = run(sliding(corner()), [...there, [t + 300, PRESS.x, PRESS.y]]).frames.at(-1)!;
     expect(home.release).toEqual(homeRelease);
     expect(home.f.landing!.y).toBe(29);
-    // Slid down the rail 120 px (out of the lift zone, in the rail only): the state names the hand, and it isn't home.
+    // Slid down the rail 120 px (out of the lift zone, in the rail only): the held place names the hand, and it isn't home.
     const slid = run(sliding(corner()), [...path([PRESS, { x: 15, y: 160 }], 0.15), [1200, 15, 160]]).frames.at(-1)!;
     expect(slid.f.lane).toBe("rail");
-    expect(slid.f.state).toMatchObject({ kind: "spot", lane: "rail", point: { x: 15, y: 160 } });
+    expect(slid.f.held).toMatchObject({ kind: "spot", lane: "rail", point: { x: 15, y: 160 } });
     expect(slid.release).toMatchObject({ kind: "spot", lane: "rail", home: false });
   });
 
@@ -687,7 +687,7 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     expect(last.f.lane).toBe("top");
   });
 
-  it("the zone is a held state: wobbling at its edge with a cut about 10 px from the press keeps one spot", () => {
+  it("the zone is held: wobbling at its edge with a cut about 10 px from the press keeps one spot", () => {
     // A column of three spots, the cut between `^|A` and `A|B` at y 100; the item pressed at y 105 (home `A|B`), the pointer
     // flicked up to 88.5 (past the zone's 16 px) and wobbled 89.4 <-> 88.6 across the zone's edge.
     const col: LandingRegions = {
@@ -717,7 +717,7 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     const seq: (string | null)[] = [];
     for (let i = 0; i < 8; i++) seq.push(m.update({ x: 100, y: i % 2 ? 88.6 : 89.4 }, (t += 16)).spot);
     expect([...new Set(seq)]).toEqual(["col/^|A"]);
-    // Back inside `lift - spot` of the press, it is home again; the zone's edge is a held state both ways.
+    // Back inside `lift - spot` of the press, it is home again; the zone's edge is held both ways.
     m.update({ x: 100, y: 100 }, (t += 16));
     expect(m.update({ x: 100, y: 104 }, (t += 16)).spot).toBe("col/A|B");
   });

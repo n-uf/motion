@@ -1,11 +1,11 @@
 /**
- * The states the landing model names, on its own (no docking): the Near lane's would-land state, the corner owner by
+ * The held places the landing model names, on its own (no docking): the Near lane's would-land held place, the corner owner by
  * reach under "all", and the trail gate reading `landingOf` the spot held. The geometry here lands a spot somewhere
  * other than its listed landing where it matters, so each rule is pinned to what the model reads.
  */
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
-import { createLandingModel, LANDING_APPROACH, type LandingFrame, type LandingOptions, type LandingRegions, type LandingState } from "../src/drag";
+import { createLandingModel, LANDING_APPROACH, type LandingFrame, type LandingOptions, type LandingHeld, type LandingRegions } from "../src/drag";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -36,7 +36,7 @@ function regions(): LandingRegions {
   };
 }
 /** `A` lands at the hand (its start at the pointer less 50, clamped to 0–400); `B` at its listed landing. */
-const atHand = (s: LandingState): Rect | null => (s.kind !== "spot" ? null : s.spot === "bottom/A" ? rect(Math.min(400, Math.max(0, s.point.x - 50)), 604, 100, 32) : rect(600, 604, 100, 32));
+const atHand = (s: LandingHeld): Rect | null => (s.kind !== "spot" ? null : s.spot === "bottom/A" ? rect(Math.min(400, Math.max(0, s.point.x - 50)), 604, 100, 32) : rect(600, 604, 100, 32));
 const opts = (more: Partial<LandingOptions> = {}): LandingOptions => ({ regions: regions(), landingOf: atHand, ...more });
 
 /** Frames along `points` at `speed` px/ms, every 8 ms, then `rest` ms still. */
@@ -58,8 +58,8 @@ function play(o: LandingOptions, points: readonly Point[], speed: number, rest =
   return out;
 }
 
-describe("landing model: the states it names", () => {
-  it('"near": an approached lane stands for the state the pointer would land in there, the spot it picks along it', () => {
+describe("landing model: the held places it names", () => {
+  it('"near": an approached lane stands for the held place the pointer would land in there, the spot it picks along it', () => {
     // In open space, 4 px above the bar (within the 6 px it acquires at), over A's stretch and then B's.
     for (const [x, spot] of [
       [300, "bottom/A"],
@@ -68,7 +68,7 @@ describe("landing model: the states it names", () => {
       const p = { x, y: 596 };
       const last = play(opts({ placeGuides: "near" }), [{ x, y: 300 }, p], 0.2, 40).at(-1)!.f;
       expect([last.region, last.lane]).toEqual(["open", null]);
-      expect(last.guides).toEqual([{ lane: "bottom", state: { kind: "spot", lane: "bottom", spot, point: p } }]);
+      expect(last.guides).toEqual([{ lane: "bottom", held: { kind: "spot", lane: "bottom", spot, point: p } }]);
     }
   });
 
@@ -78,15 +78,15 @@ describe("landing model: the states it names", () => {
       const p = { x: 800, y: 600 - d };
       const f = play(opts({ placeGuides: "all" }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
       expect([d, f.region, f.lane]).toEqual([d, "refused", null]);
-      return f.guides.find((g) => g.state !== f.state)?.lane;
+      return f.guides.find((g) => g.held !== f.held)?.lane;
     };
     expect(ownerAt(reach - 1)).toBe("bottom");
     expect(ownerAt(reach)).toBe("bottom");
     expect(ownerAt(reach + 1)).toBeUndefined();
-    // The owner stands for its would-land state: the spot the pointer picks along it.
+    // The owner stands for its would-land held place: the spot the pointer picks along it.
     const p = { x: 800, y: 600 - reach };
     const f = play(opts({ placeGuides: "all" }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
-    expect(f.guides.find((g) => g.lane === "bottom")!.state).toEqual({ kind: "spot", lane: "bottom", spot: "bottom/B", point: p });
+    expect(f.guides.find((g) => g.lane === "bottom")!.held).toEqual({ kind: "spot", lane: "bottom", spot: "bottom/B", point: p });
   });
 
   it("the trail gate reads landingOf the spot held: a sliding landing at the hand doesn't trail, so a fast reflowing change waits", () => {
