@@ -105,7 +105,7 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const pressed = c.state;
         if (!drag(c, "pages", "notes", [60, 0])) bad.push("the divider went missing after the first drag");
         if (c.state !== pressed || !near(tall(c, "pages"), moved.pages)) bad.push("dragged out and back to the press, the state is not the one before the press");
-        if (before.items.pages?.length !== undefined) bad.push("the untouched window already asked a length");
+        if (before.items.pages?.lengths !== undefined) bad.push("the untouched window already asked a length");
         drag(c, "pages", "notes", [200, 5000]);
         if (!near(tall(c, "notes"), 120) || !near(tall(c, "pages"), total - 120) || kind(c, "notes") !== "open") bad.push(`far down: Notes ${r0(tall(c, "notes"))} (${kind(c, "notes")}) and Pages ${r0(tall(c, "pages"))}, not 120 and ${r0(total - 120)}`);
         if (others(c, ["pages", "notes"]) !== rest) bad.push("far down, something besides the two moved");
@@ -198,12 +198,12 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const { bad, was } = fresh(c);
         drag(c, "pages", "notes", [50]);
         const s = c.state;
-        c.commit({ ...s, items: { ...s.items, findings: { ...s.items.findings!, length: { column: 300 } } } });
+        c.commit({ ...s, items: { ...s.items, findings: { ...s.items.findings!, lengths: { column: 300 } } } });
         const findings = tall(c, "findings");
-        if (c.state.items.pages?.length === undefined || c.state.items.notes?.length === undefined) bad.push("the drag asked no lengths");
+        if (c.state.items.pages?.lengths === undefined || c.state.items.notes?.lengths === undefined) bad.push("the drag asked no lengths");
         double(c, "pages", "notes", true);
-        if (c.state.items.pages?.length !== undefined || c.state.items.notes?.length !== undefined) bad.push("a left panel still asks a length");
-        if (c.state.items.findings?.length?.column !== 300) bad.push("the right column's length was cleared");
+        if (c.state.items.pages?.lengths !== undefined || c.state.items.notes?.lengths !== undefined) bad.push("a left panel still asks a length");
+        if (c.state.items.findings?.lengths?.column !== 300) bad.push("the right column's length was cleared");
         if (!near(tall(c, "pages"), was.pages) || !near(tall(c, "notes"), was.notes)) bad.push(`the left column is ${r0(tall(c, "pages"))}/${r0(tall(c, "notes"))}, not its untouched ${r0(was.pages)}/${r0(was.notes)}`);
         if (!near(tall(c, "findings"), findings)) bad.push("Findings moved");
         return { pass: bad.length === 0, now: `left back to ${r0(tall(c, "pages"))}/${r0(tall(c, "notes"))}, Findings still ${r0(tall(c, "findings"))}.${report(bad)}` };
@@ -254,8 +254,8 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const total = tall(c, "pages") + tall(c, "notes") + tall(c, "findings");
         drag(c, "pages", "findings", [40]);
         // A panel that asked for no length asks its natural.
-        const len = (id: "pages" | "notes" | "findings"): number => c.state.items[id]?.length?.column ?? open[id];
-        if (c.state.items.notes?.length?.column !== undefined) bad.push(`Notes was written a length (${r0(c.state.items.notes.length.column)}), a bystander of the drag gets none`);
+        const len = (id: "pages" | "notes" | "findings"): number => c.state.items[id]?.lengths?.column ?? open[id];
+        if (c.state.items.notes?.lengths?.column !== undefined) bad.push(`Notes was written a length (${r0(c.state.items.notes.lengths.column)}), a bystander of the drag gets none`);
         c.commit(foldItem(c.state, "notes", false));
         const ids = ["pages", "notes", "findings"] as const;
         if (ids.some((id) => kind(c, id) !== "open")) bad.push(`the forms are ${ids.map((id) => kind(c, id)).join("/")}, open all three expected`);
