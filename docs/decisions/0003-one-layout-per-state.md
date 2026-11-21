@@ -50,8 +50,12 @@ frame and the commit alike. Taken: the second.
   in node and within 1 px in the DOM.
 - A host draws every item but the held one from `after(frame.state).layout`, the guides from `guides(frame)` through
   `guideRects` for cosmetics only, and stores `after(release).state`. It passes no item and no held toolbar as a clear
-  rect. Exception, named: over the document the libraries' lab keeps the window as committed until the release (its
-  one-preview model); the float's landing still equals the commit.
+  rect.
+- **The float exception, part of the contract.** A held frame draws `after(state)`, except that a float state draws
+  the rest layout (`after(null)`) until release; `after(float)` is what the drop commits, so docked items close the gap
+  at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
+  the commit. It is the DOM sweep's one exception (`one-layout-items-landing` checks only the landing on float
+  frames). An open product call may lift it, and then a float frame draws `after(float)` like any other state.
 - Per moved frame at most one solve, when a state's key changes (a new sliding start, a new float point); a fixed spot
   costs none after the lift.
 - Guarded by `packages/docking/test/one-layout-sweep.test.ts` (items, landing, store, hull, corner, overlap, near,

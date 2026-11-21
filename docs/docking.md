@@ -207,6 +207,8 @@ Marks have ids that stay while the items either side stay, so a host keys its dr
 
 A host draws every item but the held one from `after(frame.state).layout`, the held item at the pointer or gliding to `frame.landing`, the guides from `guides(frame)` through `guideRects` for cosmetics only, and stores `after(release).state`. Under "near" a rail beside refused columns shows its guide first at entry (pending or held), already at its after-entry box.
 
+**The float exception.** A held frame draws `after(state)`, except that a float state draws the rest layout (`after(null)`) until release; `after(float)` is what the drop commits, so docked items close the gap at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals the commit. This is the one exception of the DOM sweep (the lab's `one-layout-items-landing` checks only the landing on float frames), and an open product call may lift it ([decision 0003](decisions/0003-one-layout-per-state.md)).
+
 Ids. A spot id is `<lane>/<zone>/<item before or ^>|<item after or $>`, an empty edge's `<lane>/<zone>`, a pitched spot's `…@<pitches from its neighbor>` (`@0` keeping no space; a stretch's end keeping some space `…@to:<neighbor>`), a spot over a neighbor itself `…@in:<neighbor>`, a sliding spot's `…@slide`, a virtual lane's `<lane>/line` or `<lane>/end`. A new column's lane is keyed by the column it lies beside, not its ring.
 
 `owns` marks a lane whose rect is its own: a rail drop strip at the window's side (`DockState.railDrop`), which every other target of the drag gives up, so a landing model gives it the pointer inside it over any lane it overlaps.
