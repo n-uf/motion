@@ -37,6 +37,7 @@ import {
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   closeItem,
+  dividers,
   fitResize,
   type EmptyLanes,
   foldItem,
@@ -50,6 +51,9 @@ import {
   refusals as stateRefusals,
   stops as stateStops,
   railModeOf,
+  resetBetween,
+  resetLengths,
+  resizeBetween,
   resizeEdge as resizeEdgeOf,
   resizeFloat as resizeFloatOf,
   setRailMode as setRailModeOf,
@@ -342,6 +346,7 @@ export function createDocwin(o: DocwinOptions) {
     <div class="dw-edges"></div>
     <div class="dw-scroll" tabindex="0" aria-label="Pages"><div class="dw-sheets"></div></div>
     <div class="dw-items"></div>
+    <div class="dw-dividers"></div>
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
     <div class="dw-resize" data-resize="right" title="Drag to change the column's width"></div>
     <div class="dw-strips" aria-hidden="true"></div>
@@ -353,6 +358,7 @@ export function createDocwin(o: DocwinOptions) {
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const edgeLayer = q<HTMLDivElement>(".dw-edges");
   const layer = q<HTMLDivElement>(".dw-items");
+  const dividerLayer = q<HTMLDivElement>(".dw-dividers");
   const scroll = q<HTMLDivElement>(".dw-scroll");
   const sheets = q<HTMLDivElement>(".dw-sheets");
   const slot = q<HTMLDivElement>(".dw-slot");
@@ -532,6 +538,29 @@ export function createDocwin(o: DocwinOptions) {
       return m ? [`<button type="button" class="dw-menu" data-edge="${e}" title="${esc(m.items.map((id) => titleOf(id)).join(", "))}" style="left:${px(m.rect.x)};top:${px(m.rect.y)};width:${px(m.rect.width)};height:${px(m.rect.height)}">» ${m.items.length}</button>`] : [];
     });
     layer.innerHTML = docked.join("") + menus.join("") + floats.join("");
+    drawDividers(s, l);
+  }
+
+  /** The grab zone over a divider, px across its line. */
+  const DIVIDER_HIT = 8;
+  /**
+   * The dividers between neighboring open panels (`dividers(state, layout)`), each a thin strip centered on the line the
+   * library gives, a grab zone over it. None while a drag holds an item (the layout drawn is then the room's).
+   */
+  function drawDividers(s: DockState, l: DockLayout): void {
+    dividerLayer.innerHTML = drag
+      ? ""
+      : dividers(s, l)
+          .map((d) => {
+            const side = l.edges[d.edge]?.side;
+            const across = side === "left" || side === "right";
+            const r = across
+              ? { x: d.rect.x, y: d.rect.y + d.rect.height / 2 - DIVIDER_HIT / 2, width: d.rect.width, height: DIVIDER_HIT }
+              : { x: d.rect.x + d.rect.width / 2 - DIVIDER_HIT / 2, y: d.rect.y, width: DIVIDER_HIT, height: d.rect.height };
+            const title = "Drag to trade length between the two panels; double-click for their natural split, Shift+double-click for the column's";
+            return `<div class="dw-divider" data-divider data-edge="${esc(d.edge)}" data-before="${esc(d.before)}" data-after="${esc(d.after)}" data-across="${across}" role="separator" aria-orientation="${across ? "horizontal" : "vertical"}" tabindex="0" title="${title}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}"></div>`;
+          })
+          .join("");
   }
 
   // --- committing ------------------------------------------------------------------------------------------------
@@ -1518,6 +1547,8 @@ export function createDocwin(o: DocwinOptions) {
   win.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || drag) return;
     const t = e.target as HTMLElement;
+    const dv = t.closest<HTMLElement>("[data-divider]");
+    if (dv) return resizeDivider(e, dv);
     const rz = t.closest<HTMLElement>("[data-resize]");
     if (rz) return resizeEdge(e, rz.dataset.resize as "left" | "right");
     const fh = t.closest<HTMLElement>("[data-fh]");
@@ -1799,6 +1830,45 @@ export function createDocwin(o: DocwinOptions) {
     e.preventDefault();
     const r = (e.target as Element).getBoundingClientRect();
     openRailMenu(side, { x: r.left, y: r.top, width: r.width, height: r.height }, true);
+  });
+
+  /**
+   * A divider, the canonical wiring (what a kit mirrors). A drag: each frame is the state at the press moved by the pointer's
+   * distance from the press, `resizeBetween(pressState, before, after, delta, { layout: pressLayout })`, committed. Double-click:
+   * `resetBetween` (Shift: `resetLengths` of its edge). Arrow keys: a step (Shift: more), Home and End: the divider's `range`
+   * (`dividers(state, layout)`), then the focus goes back to the redrawn divider.
+   */
+  function resizeDivider(e: PointerEvent, el: HTMLElement): void {
+    const { before, after } = el.dataset;
+    if (frozen() || !before || !after) return;
+    e.preventDefault();
+    const along = (p: { clientX: number; clientY: number }): number => (el.dataset.across === "true" ? p.clientY : p.clientX);
+    const press = { state, layout, at: along(e) };
+    const mv = (ev: PointerEvent): void => void commit(resizeBetween(press.state, before, after, along(ev) - press.at, { layout: press.layout }));
+    const up = (): void => {
+      window.removeEventListener("pointermove", mv);
+      window.removeEventListener("pointerup", up);
+    };
+    window.addEventListener("pointermove", mv);
+    window.addEventListener("pointerup", up);
+  }
+  win.addEventListener("dblclick", (e) => {
+    const dv = (e.target as HTMLElement).closest<HTMLElement>("[data-divider]");
+    if (!dv || frozen()) return;
+    commit(e.shiftKey ? resetLengths(state, dv.dataset.edge!) : resetBetween(state, dv.dataset.before!, dv.dataset.after!, { layout }));
+  });
+  win.addEventListener("keydown", (e) => {
+    const dv = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-divider]");
+    if (!dv || frozen()) return;
+    const { before, after } = dv.dataset;
+    const d = dividers(state, layout).find((x) => x.before === before && x.after === after);
+    const [less, more] = dv.dataset.across === "true" ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
+    const step = e.shiftKey ? 48 : 16;
+    const delta = !d ? null : e.key === less ? -step : e.key === more ? step : e.key === "Home" ? d.range.min : e.key === "End" ? d.range.max : null;
+    if (delta === null) return;
+    e.preventDefault();
+    commit(resizeBetween(state, before!, after!, delta, { layout }));
+    dividerLayer.querySelector<HTMLElement>(`[data-before="${before}"][data-after="${after}"]`)?.focus({ preventScroll: true });
   });
 
   /** The column's resize edge: a plain pointer drag that sets the user's size across (`resizeEdge`). */

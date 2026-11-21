@@ -119,3 +119,14 @@ Each `*.json` dump (window px, origin at the window's top left):
 ## Groups declared by their controls
 
 `ladder-narrow` and `ladder-widen` (`apps/lab/src/docwin/ladder-presets.ts`, the wiring in `ladder.ts`) put three groups declared by their controls (`controlLadder`) in one bar. `ladder-narrow` narrows it 1 px at a time and asserts the order of steps: tier steps one control at a time, then partial folds levelled across the groups, the » list equal to the hidden controls on every frame, then whole-group folds, the growing title giving way after the groups' row steps. `ladder-widen` widens it back and asserts every frame equals the narrowing's frame at that width.
+
+## The panel split
+
+`split-drag-clamps`, `split-reset-pair`, `split-reset-column`, `split-collapsed-between` and `split-reopen-keeps-proportion` (`apps/lab/src/docwin/split-presets.ts`) play the panel split's gestures on the window's own divider elements, with real pointer, mouse and key events, and read what the layout draws. The wiring is the one a host mirrors (`drawDividers`, `resizeDivider` and the `dblclick` and `keydown` listeners in `apps/lab/src/docwin/dock-state.ts`):
+
+- **Draw**: one grab zone per `dividers(state, layout)` entry, 8 px across, centered on the strip the library gives (`rect`), with `data-before`, `data-after` and `data-edge`; none while a drag holds an item.
+- **Drag**: each frame is `resizeBetween(stateAtPress, before, after, pointerDistance, { layout: layoutAtPress })`, committed; dragged back to the press, the state is the one before it.
+- **Double-click**: `resetBetween(state, before, after, { layout })`; with Shift, `resetLengths(state, edge)`.
+- **Keys**: arrows move a step, Home and End go to the divider's `range`; the focus returns to the redrawn divider.
+
+The cases: the drag with both clamps at each end's least; the reset of the pair (and no change on an untouched one); the reset of the column that leaves another column's length alone; a collapsed panel between two open ones (one divider, starting on its lower edge); and a panel collapsed through a resize, reopened in proportion.
