@@ -209,7 +209,8 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
         .map((e) => screen.layout.edges[e.id]!.rect),
       ...Object.values(screen.layout.rails).flatMap((r) => r?.segments.filter((g) => g.id !== dragged).map((g) => g.rect) ?? []),
     ];
-    // (The landing term states the rule; in every state found so far a drawn bar already holds the landing, or no created lane reaches it.)
+    // (The landing term is the only cut where a column the lift deletes is created in its own layout over a column
+    // landing beside it: two columns on a side.)
     const onScreen = [...shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect)), ...drawnStays, ...(screen.landing ? [screen.landing] : [])];
     const axis = (id: string): "x" | "y" => axisOf.get(id) ?? "x";
     const made = shown.filter((s) => s.created).sort((a, b) => (axis(a.lane) === axis(b.lane) ? 0 : axis(a.lane) === "x" ? -1 : 1));
