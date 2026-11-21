@@ -22,8 +22,10 @@ Lane fixes that were unreleased in `@n-uf/placement/scene` and ship here:
   before, an empty bar was cut at the columns that move aside once the held lane opens.
 
 Host notes: install `@n-uf/docking`, change the imports, and apply the renames below (each a rename only, with the
-same shape and meaning). A stored state from `storeScene` reads back with `readDockState` unchanged: the stored form
-and its version are the same.
+same shape and meaning). A stored state from `storeScene` reads back with `readDockState` unchanged (the stored form
+and its version are the same), but for one field: a stored `floatSize` reads back as `floatSizes` for its float's
+orient (see below). `@n-uf/docking/testing`'s types name `@n-uf/motion/drag`'s: `@n-uf/motion` is an optional peer
+dependency, needed only by a suite that runs the landing rows.
 
 Entries:
 - `@n-uf/placement/scene` → `@n-uf/docking`.
