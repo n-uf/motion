@@ -5,7 +5,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`; their history is in
 [placement's CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/placement/CHANGELOG.md).
 
-## Unreleased
+## 26.11.54
 
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from
 `@n-uf/placement/scene/cases` to `@n-uf/docking/testing`. Behavior is unchanged: for the same input, `solve`,
