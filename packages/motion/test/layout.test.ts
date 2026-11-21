@@ -10,8 +10,8 @@ import { SETTLE_TEMPO } from "../src/values";
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const OMEGA = SETTLE_TEMPO.default;
 
-/** A surface on the fake clock (with `extra` options), and a drawable that records what it was asked to lay out and draw. */
-function surface(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
+/** A layout motion on the fake clock (with `extra` options), and a drawable that records what it was asked to lay out and draw. */
+function layout(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
   const clock = createFakeClock();
   const loop = createFrameLoop({ clock });
   // Whether frames run, as `onActiveChange` tells it (the one way to learn it).
@@ -42,7 +42,7 @@ function surface(extra: Partial<Omit<LayoutMotionOptions, "loop">> = {}) {
 
 describe("layout motion: settle to every new target", () => {
   it("retargets from the drawn rect: the redraw at the retarget is where it was drawn, then no jump", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 100, 50));
     item.moveTo(rect(300, 0, 100, 50));
     for (let i = 0; i < 5; i++) s.clock.frame();
@@ -67,7 +67,7 @@ describe("layout motion: settle to every new target", () => {
   });
 
   it("never overshoots or jumps, however often it is retargeted", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 100, 100));
     const goals = [rect(400, 0, 100, 100), rect(380, 300, 220, 60), rect(-50, 120, 90, 300), rect(10, 10, 100, 100)];
     for (const g of goals) {
@@ -88,7 +88,7 @@ describe("layout motion: settle to every new target", () => {
   });
 
   it("reveals a size change: the content is laid out once at the target size, the frame clipped, never scaled", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 100, 100));
     const before = s.layOuts.length;
     const at = s.frames.length;
@@ -109,7 +109,7 @@ describe("layout motion: settle to every new target", () => {
   it("draws a DOM box with one move, the frame at the drawn size and the content clipped: no non-uniform scale", () => {
     const style = (): StyleLike => ({ left: "", top: "", width: "", height: "", transform: "", opacity: "", clipPath: "", visibility: "" });
     const nodes = { node: { style: style() }, frame: { style: style() }, content: { style: style() } };
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", domDrawable(nodes), rect(10, 20, 200, 100));
     expect([nodes.node.style.left, nodes.node.style.width]).toEqual(["10px", "200px"]);
     item.moveTo(rect(10, 20, 400, 100));
@@ -132,7 +132,7 @@ describe("layout motion: settle to every new target", () => {
 
 describe("held drag", () => {
   it("holds the real item 1:1 from the grab offset, and lands from the release rect (exactly)", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(50, 50, 120, 40));
     const held = holdItem(item, { x: 20, y: 10 });
     for (const p of [{ x: 90, y: 70 }, { x: 160, y: 140 }, { x: 241.5, y: 233.25 }]) {
@@ -151,7 +151,7 @@ describe("held drag", () => {
   });
 
   it("cancels back home from the release rect", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
     const held = holdItem(item, { x: 5, y: 5 });
     held.move({ x: 305, y: 205 });
@@ -164,7 +164,7 @@ describe("held drag", () => {
   });
 
   it("snaps into a slot, glides back to the pointer when it leaves, and a release in the slot finishes that glide", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
     const held = holdItem(item, { x: 0, y: 0 });
     held.move({ x: 100, y: 100 });
@@ -199,7 +199,7 @@ describe("held drag: the three drop previews", () => {
    * drag model's frame aiming at that slot and the room made.
    */
   function over(preview: PreviewMode) {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("held", s.drawable, rect(0, 0, 100, 40));
     const neighbour = s.motion.add("next", s.drawable, rect(300, 0, 100, 40));
     const held = holdItem(item, { x: 10, y: 10 });
@@ -259,7 +259,7 @@ describe("held drag: the three drop previews", () => {
 describe("held drag: a new size mid-drag", () => {
   /** A 120 × 30 item held 12, 15 in, the pointer at 200, 200. */
   function lifted() {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 120, 30));
     const held = holdItem(item, { x: 12, y: 15 });
     held.move({ x: 200, y: 200 });
@@ -338,7 +338,7 @@ describe("held drag: a new size mid-drag", () => {
 
 describe("enter, exit and fold", () => {
   it("appears and disappears with a uniform fade; gone at rest", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 100, 100), { shown: false });
     expect(s.frames.at(-1)!.frame.gone).toBe(true);
     item.show(true);
@@ -354,7 +354,7 @@ describe("enter, exit and fold", () => {
   });
 
   it("folds through reveal: the content laid out at the folded size, never squashed", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 200, 160));
     const at = s.frames.length;
     item.moveTo(rect(0, 0, 200, 22));
@@ -369,7 +369,7 @@ describe("enter, exit and fold", () => {
 
 describe("FLIP for DOM groups", () => {
   it("records where each node is drawn, changes the DOM, and glides each item from its old rect", () => {
-    const s = surface();
+    const s = layout();
     // Two containers; moving a node from the first to the second changes its page rect and its local coordinates.
     const origins = { a: { x: 0, y: 0 }, b: { x: 500, y: 300 } };
     let parent: keyof typeof origins = "a";
@@ -398,7 +398,7 @@ describe("FLIP for DOM groups", () => {
 describe("one shared frame loop", () => {
   it("runs tasks before the items step, listeners after, and stops (idle) once nothing moves", async () => {
     let idled = 0;
-    const s = surface({ onActiveChange: (on) => void (on || idled++) });
+    const s = layout({ onActiveChange: (on) => void (on || idled++) });
     const a = s.motion.add("a", s.drawable, rect(0, 0, 10, 10));
     const b = s.motion.add("b", s.drawable, rect(0, 0, 10, 10));
     const order: string[] = [];
@@ -422,11 +422,11 @@ describe("one shared frame loop", () => {
 });
 
 describe("batched drawing, flush, retain, reduced motion, active changes", () => {
-  /** A batched surface: each batch recorded with the frame time. */
+  /** A batched layout motion: each batch recorded with the frame time. */
   function batched(extra: Partial<Omit<LayoutMotionOptions, "loop" | "onDraw">> = {}) {
     const batches: { t: number; ids: string[]; entries: readonly DrawEntry[] }[] = [];
     let now = (): number => 0;
-    const s = surface({ ...extra, onDraw: (batch) => void batches.push({ t: now(), ids: batch.map((e) => e.id), entries: batch }) });
+    const s = layout({ ...extra, onDraw: (batch) => void batches.push({ t: now(), ids: batch.map((e) => e.id), entries: batch }) });
     now = () => s.clock.now();
     return { ...s, batches };
   }
@@ -471,7 +471,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
   });
 
   it("without batching flush does nothing, and every item is drawn as it changes", () => {
-    const s = surface();
+    const s = layout();
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     const at = s.frames.length;
     a.moveTo(rect(200, 0, 50, 50));
@@ -499,7 +499,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
 
   it("reduced motion, read on every new target: placed at once, shown and hidden at once; off again, it glides", () => {
     let reduce = true;
-    const s = surface({ reducedMotion: () => reduce });
+    const s = layout({ reducedMotion: () => reduce });
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     a.moveTo(rect(300, 0, 80, 50));
     expect(a.drawn).toEqual(rect(300, 0, 80, 50));
@@ -522,7 +522,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
   });
 
   it("reduced motion as a plain option", () => {
-    const s = surface({ reducedMotion: true });
+    const s = layout({ reducedMotion: true });
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     a.moveTo(rect(300, 0, 50, 50));
     expect(a.drawn).toEqual(rect(300, 0, 50, 50));
@@ -531,7 +531,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
 
   it("calls the active change once when the frames start and once when they stop, and on dispose while running", () => {
     const changes: boolean[] = [];
-    const s = surface({ onActiveChange: (on) => void changes.push(on) });
+    const s = layout({ onActiveChange: (on) => void changes.push(on) });
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     expect(changes).toEqual([]);
     a.moveTo(rect(300, 0, 50, 50));
@@ -543,16 +543,16 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
     s.clock.frame();
     s.motion.dispose();
     expect(changes).toEqual([true, false, true, false]);
-    // Disposing an idle surface changes nothing, so it fires nothing.
+    // Disposing an idle layout motion changes nothing, so it fires nothing.
     const idleChanges: boolean[] = [];
-    const idle = surface({ onActiveChange: (on) => void idleChanges.push(on) });
+    const idle = layout({ onActiveChange: (on) => void idleChanges.push(on) });
     idle.motion.add("a", idle.drawable, rect(0, 0, 50, 50));
     idle.motion.dispose();
     expect(idleChanges).toEqual([]);
   });
 
   it("retarget chases a moving point without laying the content out again; a new size lays it out once", () => {
-    const s = surface();
+    const s = layout();
     const a = s.motion.add("a", s.drawable, rect(0, 0, 50, 50));
     const laid = s.layOuts.length;
     for (let i = 1; i <= 20; i++) {
@@ -569,7 +569,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
   });
 
   it("the held drag's glide back to the pointer lays nothing out while the pointer moves", () => {
-    const s = surface();
+    const s = layout();
     const item = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
     const held = holdItem(item, { x: 0, y: 0 });
     held.move({ x: 100, y: 100 });
@@ -588,7 +588,7 @@ describe("batched drawing, flush, retain, reduced motion, active changes", () =>
   });
 
   it("the held drag works on an item without retarget (one from 26.11.4, or a test double): it glides back by moveTo", () => {
-    const s = surface();
+    const s = layout();
     const real = s.motion.add("a", s.drawable, rect(0, 0, 80, 30));
     const older = new Proxy(real, { get: (t, k) => (k === "retarget" ? undefined : Reflect.get(t, k)) });
     const held = holdItem(older, { x: 0, y: 0 });
