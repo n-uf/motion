@@ -47,6 +47,14 @@ interface Win {
 let ASK: "lengths" | "length" = "lengths";
 const asked = (n: number): Any => ({ [ASK]: { column: n } });
 const lengthsOf = (it: Any): Any => it?.[ASK];
+/** What the commit under record calls a landing frame's (or a guide ref's) held place: `held`, or `state` before the rename. */
+const heldName = (o: Any): "held" | "state" => ("held" in o ? "held" : "state");
+const heldOf = (o: Any): Any => o[heldName(o)];
+/** A frame as recorded, the held place under `held` on either side of the rename, so only the contract case below sees the name. */
+const framed = (shown: Any, refs: Any[]): Any => {
+  const { state: _s, held: _h, ...rest } = shown;
+  return { ...rest, held: heldOf(shown), guides: refs.map((g: Any) => ({ lane: g.lane, held: heldOf(g) })) };
+};
 
 /** `layout` without each edge's `stack` (the fit's inner state): items, edges, rails, content, notes. */
 const slim = (layout: Any): Any => (layout ? { ...layout, edges: Object.fromEntries(Object.entries(layout.edges ?? {}).map(([k, { stack: _s, ...e }]: Any) => [k, e])) } : layout);
@@ -183,6 +191,7 @@ describe("record docking", () => {
 
     // --- the drags ------------------------------------------------------------------------------------------------
     let frames = 0;
+    let probedHeld = false;
     for (const w of spread(wins.filter((x) => x.play && x.dragged), DRAG_WINDOWS)) {
       if (!w.dragged) continue;
       const { name, state, dragged } = w;
@@ -235,9 +244,13 @@ describe("record docking", () => {
               const { p, f, r } = played[i]!;
               const id = `${name} | ${path.id} | ${mode} | #${i}/${played.length}`;
               const { guides: _drawn, named, ...shown } = f;
-              out.add("landing-frames", id, { point: p, frame: { ...shown, guides: named }, release: r });
+              out.add("landing-frames", id, { point: p, frame: framed(shown, named), release: r });
+              if (!probedHeld) {
+                probedHeld = true;
+                out.add("contract", "landing frame held name", { frame: heldName(f), guideRef: named.length > 0 ? heldName(named[0]) : heldName(f) });
+              }
               out.attempt("guides", id, () => drag.guides(f).map((g: Any) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })));
-              out.attempt("after", id, () => result(drag.after(f.state)));
+              out.attempt("after", id, () => result(drag.after(heldOf(f))));
               out.attempt("release-after", id, () => (r && !(r.kind === "spot" && r.home) ? result(drag.after(r)) : null));
               recorded++;
               frames++;
