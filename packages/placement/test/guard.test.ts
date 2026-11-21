@@ -37,8 +37,10 @@ describe("the library stays pure", () => {
   }
 
   it("scans every entry", () => {
-    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports: Record<string, { default: string }> };
-    for (const e of Object.values(pkg.exports)) expect(sources).toContain(join(root, e.default));
+    const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8")) as { exports: Record<string, string | { default: string }> };
+    // The one plain-string entry is the manifest itself, not code to scan.
+    expect(Object.entries(pkg.exports).filter(([, e]) => typeof e === "string").map(([k]) => k)).toEqual(["./package.json"]);
+    for (const e of Object.values(pkg.exports)) if (typeof e !== "string") expect(sources).toContain(join(root, e.default));
   });
 
   it("has no dependencies", () => {
