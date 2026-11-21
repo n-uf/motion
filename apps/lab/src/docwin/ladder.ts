@@ -75,6 +75,8 @@ export type LadderId = keyof typeof LADDER;
 export const LADDER_IDS = Object.keys(LADDER) as LadderId[];
 const NO_COUNTS: Counts = { notes: 0, findings: 0, marked: 0, pages: 0, zoom: 0 };
 const controlsOf = (id: LadderId): readonly ControlDecl[] => LADDER[id];
+/** How many tiers a control declares (its labels). */
+export const ownTiers = (id: LadderId, control: string): number => controlsOf(id).find((c) => c.id === control)!.labels(NO_COUNTS).length;
 const tierCount = (id: LadderId): number => Math.max(...controlsOf(id).map((c) => c.labels(NO_COUNTS).length));
 
 /** A group's measured lengths, px: each control per tier, the gap between controls, the grip cell and the » cell. */
@@ -95,7 +97,8 @@ export function measureLadder(id: LadderId, draw: (tiers: Readonly<Record<string
   const n = ids.length;
   const len = (x: number): number => Math.ceil(x - 0.01);
   const rowAt = (tier: number, hidden: readonly string[] = []): { widths: number[]; box: number; span: number } => {
-    const el = draw(Object.fromEntries(ids.map((c) => [c, tier])), hidden);
+    // Every control at this tier, or at its own last when it declares fewer: the host's knowledge, as the library's `tiers` are.
+    const el = draw(Object.fromEntries(controlsOf(id).map((c) => [c.id, Math.min(tier, c.labels(NO_COUNTS).length - 1)])), hidden);
     const rects = [...el.querySelectorAll<HTMLElement>("[data-control]")].map((x) => x.getBoundingClientRect());
     const out = { widths: rects.map((r) => len(r.width)), box: len(Math.max(el.getBoundingClientRect().width, el.scrollWidth)), span: rects.length > 1 ? rects[rects.length - 1]!.right - rects[0]!.left - rects.reduce((s, r) => s + r.width, 0) : 0 };
     el.remove();
@@ -108,7 +111,8 @@ export function measureLadder(id: LadderId, draw: (tiers: Readonly<Record<string
   const grip = first.box - first.widths.reduce((s, w) => s + w, 0) - gap * (n - 1);
   // The » cell is what the row grows by when it draws one (a made-up hidden id, so every control is still drawn).
   const more = rowAt(0, ["·"]).box - first.box;
-  return { controls: ids.map((_, i) => tiers.map((t) => t.widths[i]!)), gap, grip, more };
+  // Each control lists only the tiers it declares: `controlLadder` holds a shorter list to its last, as the page draws it.
+  return { controls: controlsOf(id).map((c, i) => tiers.slice(0, c.labels(NO_COUNTS).length).map((t) => t.widths[i]!)), gap, grip, more };
 }
 
 let sizes: Readonly<Record<LadderId, LadderSize>> | null = null;
@@ -131,14 +135,14 @@ function ladderRow(id: LadderId): readonly StackForm[] {
 export const isLadder = (s: Scene, id: string): boolean => !!s.items[id]?.forms.row && ROWS.has(s.items[id]!.forms.row!);
 
 /**
- * The words of `id`'s row from its layout: each control but the `hidden` ones, at `tiers[id]` (a label with no tier
- * left keeps its last), each carrying its id and the tier it is drawn at.
+ * The words of `id`'s row from its layout: each control but the `hidden` ones, drawn with its label at `tiers[id]` (a
+ * valid index into its labels, as the layout reports it), each carrying its id and the tier it is drawn at.
  */
 export function ladderWords(id: LadderId, tiers: Readonly<Record<string, number>>, hidden: readonly string[], counts: Counts, open: (control: string) => boolean): string[] {
   return controlsOf(id).flatMap((c) => {
     if (hidden.includes(c.id)) return [];
     const labels = c.labels(counts);
-    const tier = Math.min(tiers[c.id] ?? 0, labels.length - 1);
+    const tier = tiers[c.id]!;
     const pressed = id === "views" ? ` aria-pressed="${open(c.id)}"` : "";
     const name = tier > 0 ? ` aria-label="${labels[0]}" title="${labels[0]}"` : "";
     const type = c.tag === "button" ? ' type="button"' : "";
