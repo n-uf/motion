@@ -107,7 +107,8 @@ export interface StackForm {
   readonly hides?: readonly string[];
   /**
    * Each shown control's tier, by control id (0 the longest), set by `controlLadder` on every row form it generates (not
-   * on `fold` and `menu`): a host draws each control at its tier from it, with no knowledge of the ladder's order. A
+   * on `fold` and `menu`): a host draws each control at its tier from it, with no knowledge of the ladder's order. It is
+   * always a valid index into the control's own `tiers` (a control with fewer tiers than the group stays on its last). A
    * hand-written form leaves it out. `./scene` reports the chosen form's as `tiers`.
    */
   readonly tiers?: Readonly<Record<string, number>>;

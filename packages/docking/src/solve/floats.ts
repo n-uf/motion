@@ -7,7 +7,7 @@
  */
 import { EPS, rect, type Rect, type Size } from "@n-uf/placement";
 import { fitFloat, formFolded, type FloatFit, type StackForm } from "@n-uf/placement/stack";
-import { anchorName, axisOf, keepClearFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
+import { anchorName, axisOf, controlsOf, keepClearFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, DockFloat, DockItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
@@ -168,7 +168,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (fit.covers.length > 0) notes.push({ code: "float-covers", id: f.id });
     // A float never gives way: it is folded by hand or not at all.
     const foldedBy = foldedByOf(it, formsOf(it, fo), from);
-    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), hidden: form?.hides ?? [], ...(form?.tiers ? { tiers: form.tiers } : {}), rect: fit.rect, kind: it.kind, axis: fo, form: from, formKind: form?.kind ?? "open", floating: true, ...(foldedBy ? { foldedBy } : {}) };
+    items[f.id] = { ...shapeOf(form, fit.rect, fo, fit.rect.width), ...controlsOf(form), rect: fit.rect, kind: it.kind, axis: fo, form: from, formKind: form?.kind ?? "open", floating: true, ...(foldedBy ? { foldedBy } : {}) };
     floats.push(f.id);
   }
   return floats;
