@@ -58,13 +58,13 @@ describe("after(held): the state a release commits and its one layout", () => {
     for (const { w, d } of all)
       for (const { held } of [...states(d), { held: null }]) {
         const a = d.after(held);
-        // (A lane of no edge, a new column beside one, marks its landing in its own layout, the layout that creates it:
-        // `guides` has it give way, as the sweep's overlap clause checks.)
+        // (Two lanes of no edge, new columns on one side, each mark their landing in its own layout, the layout that
+        // creates it: `guides` has them give way to each other, as the sweep's overlap clause checks.)
         const edgeless = (lane: string): boolean => !w.state.edges.some((e) => e.id === lane);
         for (let i = 0; i < a.marks.length; i++)
           for (let j = i + 1; j < a.marks.length; j++) {
             const [m, k] = [a.marks[i]!, a.marks[j]!];
-            if (m.lane !== k.lane && !edgeless(m.lane) && !edgeless(k.lane) && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
+            if (m.lane !== k.lane && !(edgeless(m.lane) && edgeless(k.lane)) && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
           }
         if (a.landing) for (const m of a.marks) if (m.kind !== "line" && overlap(m.rect, a.landing)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over the landing`);
       }

@@ -33,9 +33,9 @@ export function sweepWindows(): SweepWindow[] {
 function twoColumnWindows(): SweepWindow[] {
   const { sideColumns: _one, ...base } = JSON.parse(readFileSync(join(here, "fixtures", "columns-corner.json"), "utf8")) as DockState;
   const out: SweepWindow[] = [];
-  const add = (name: string, s: DockState): void => {
+  const add = (name: string, s: DockState, emptyLanes: "real" | "edge" = "real"): void => {
     for (const p of Object.keys(s.items).filter((k) => s.items[k]!.kind === "panel" && !s.items[k]!.fixed))
-      out.push({ name: `${name}, panel ${p}`, state: s, dragged: p, options: { endReach: 24, emptyLanes: "real" }, previous: solve(s) });
+      out.push({ name: `${name}, panel ${p}${emptyLanes === "edge" ? ", empty lanes as edges" : ""}`, state: s, dragged: p, options: { endReach: 24, emptyLanes }, previous: solve(s) });
   };
   /** `s` with a second column beside `id` at `ring`, holding `items` (taken off the other columns). */
   const second = (s: DockState, id: string, ring: number, items: readonly string[] = []): DockState => {
@@ -50,6 +50,9 @@ function twoColumnWindows(): SweepWindow[] {
     add(`two right columns, ring ${ring} empty`, second(base, "col-right", ring));
     add(`two left columns, ring ${ring} holding p2`, second(base, "col-left", ring, ["p2"]));
     add(`two right columns, ring ${ring} holding p1`, second(base, "col-right", ring, ["p1"]));
+    // Under `emptyLanes: "edge"`, a column drawn folded is drawn: never thinned into an empty lane's strip.
+    add(`two left columns, ring ${ring} holding p2`, second(base, "col-left", ring, ["p2"]), "edge");
+    add(`two right columns, ring ${ring} holding p1`, second(base, "col-right", ring, ["p1"]), "edge");
   }
   add("two columns a side, the second ones empty", second(second(base, "col-left", 0), "col-right", 0));
   add("two left columns, the right one emptied", second(base, "col-left", 2, ["p3"]));

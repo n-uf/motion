@@ -46,6 +46,13 @@ const inter = (a: Rect, b: Rect, m = 1): Rect | null => {
   const y1 = Math.min(a.y + a.height, b.y + b.height);
   return x1 - x0 > m && y1 - y0 > m ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
 };
+/** An edge drawn in `layout`: open, or a column folded into its side's rail. */
+const drawnIn = (layout: DockLayout, id: string): boolean => {
+  const e = layout.edges[id];
+  return !!e && (e.cross > 1e-6 || !!e.folded);
+};
+/** The rail a folded column of `layout` lies in. */
+const railOf = (layout: DockLayout, id: string): Rect | undefined => Object.values(layout.rails).find((r) => r?.segments.some((g) => g.edge === id))?.rect;
 const contains = (a: Rect, b: Rect): boolean => b.x >= a.x - 1e-6 && b.y >= a.y - 1e-6 && b.x + b.width <= a.x + a.width + 1e-6 && b.y + b.height <= a.y + a.height + 1e-6;
 const EXACT = 1e-6;
 
@@ -256,19 +263,30 @@ function sweep(): Result {
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
           // rail-free: no guide but a line covers a rail segment the frame draws: a side rail's tabs (its folded columns'
-          // members) and the items of a toolbar rail. (A lane shown for another state than the screen's, the Near lane or
-          // the corner's owner by reach, draws its own layout and wins: the bar keeps the corner over a rail it moves.)
-          const otherState = new Set(f.frame.named.filter((g) => g.state !== f.frame.state).map((g) => g.lane));
+          // members) and the items of a toolbar rail. (A lane shown for another state than the screen's that the screen
+          // doesn't draw, and the corner's owner by reach, draw their own layout and win: the bar keeps the corner over a
+          // rail it moves.)
+          const onScreen = d.drag.after(f.frame.state).layout;
+          const reachOwner = f.frame.lane ? undefined : f.frame.named.find((g) => g.state !== f.frame.state)?.lane;
+          const exempt = new Set(f.frame.named.filter((g) => g.lane === reachOwner || (g.state !== f.frame.state && !drawnIn(onScreen, g.lane))).map((g) => g.lane));
+          // folded: a column the screen draws folded into its side's rail shows its marks along that rail, as wide as it.
+          for (const g of f.frame.named) {
+            if (g.state !== f.frame.state || !onScreen.edges[g.lane]?.folded) continue;
+            const rail = railOf(onScreen, g.lane);
+            count("folded on screen");
+            for (const x of gs)
+              if (x.lane === g.lane && x.kind !== "line" && (!rail || !contains(rail, x.rect) || Math.abs((axisOfEdge(s, g.lane) === "y" ? x.rect.width - rail.width : x.rect.height - rail.height)) > 1e-6))
+                fail(`folded | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${x.id} ${fmt(x.rect)} in the rail ${fmt(rail)}`);
+          }
           if (gs.length > 0) {
-            const shown = d.drag.after(f.frame.state).layout;
             const segments = [
-              ...Object.values(shown.rails).flatMap((r) => r?.segments.filter((g) => g.id !== w.dragged).map((g) => ({ id: g.id, rect: g.rect })) ?? []),
-              ...s.edges.filter((e) => e.compact && e.side !== "top" && e.side !== "bottom").flatMap((e) => (shown.edges[e.id]?.items ?? []).filter((id) => id !== w.dragged && shown.items[id]).map((id) => ({ id, rect: shown.items[id]!.rect }))),
+              ...Object.values(onScreen.rails).flatMap((r) => r?.segments.filter((g) => g.id !== w.dragged).map((g) => ({ id: g.id, rect: g.rect })) ?? []),
+              ...s.edges.filter((e) => e.compact && e.side !== "top" && e.side !== "bottom").flatMap((e) => (onScreen.edges[e.id]?.items ?? []).filter((id) => id !== w.dragged && onScreen.items[id]).map((id) => ({ id, rect: onScreen.items[id]!.rect }))),
             ];
             if (segments.length > 0) count("rail segments");
             for (const g of gs)
               for (const t of segments)
-                if (g.kind !== "line" && !otherState.has(g.lane) && inter(g.rect, t.rect, 0.5)) fail(`rail-free | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${g.id} ${fmt(g.rect)} over ${t.id} ${fmt(t.rect)}`);
+                if (g.kind !== "line" && !exempt.has(g.lane) && inter(g.rect, t.rect, 0.5)) fail(`rail-free | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${g.id} ${fmt(g.rect)} over ${t.id} ${fmt(t.rect)}`);
           }
           // entry: a lane shown for another state than the screen's (the Near lane, or the corner's owner by reach), or
           // the entered lane, shows its entry: its marks in that state's layout, which leave out only the landing there.
@@ -286,17 +304,19 @@ function sweep(): Result {
             if (spanDiff(want.box, got.box) > 1e-6 || want.lines.join() !== got.lines.join()) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: guide ${JSON.stringify(got)} vs entry ${JSON.stringify(want)}`);
             if (mine.landing) for (const x of gs) if (x.lane === g.lane && x.kind !== "line" && inter(x.rect, mine.landing, 0.01)) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `${x.id} under the landing`);
           }
-          // created: under "all", a lane the screen doesn't draw (an empty edge, no band) shows its room whole in the layout
-          // that creates it (its one spot's: the marks there and the landing), but where it meets another lane's guide.
-          if (mode === "all")
+          // created: under "all", a lane the screen doesn't draw (an empty edge, no band, or a column the lift deletes)
+          // shows its room whole in the layout that creates it (its one spot's: the marks there and the landing, the column
+          // open or folded into its rail there), but where it meets another lane's guide.
+          if (mode === "all" && w.options.emptyLanes !== "edge")
             for (const g of f.frame.named) {
               const l = d.regions.lanes.find((x) => x.id === g.lane);
-              if (!l || g.state !== f.frame.state || l.spots.length !== 1 || !edgeOf(s, g.lane) || (screen0.layout.edges[g.lane]?.cross ?? 1) > 1e-6) continue;
+              if (!l || g.state !== f.frame.state || l.spots.length !== 1 || !edgeOf(s, g.lane) || drawnIn(screen0.layout, g.lane)) continue;
               const sp = l.spots[0]!;
               const made = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } });
               const want = made.marks.filter((m) => m.lane === g.lane);
-              if (want.length === 0 || (made.layout.edges[g.lane]?.cross ?? 0) <= 1e-6) continue;
+              if (want.length === 0 || !drawnIn(made.layout, g.lane)) continue;
               count("created");
+              if (made.layout.edges[g.lane]!.folded) count("created folded");
               const others = gs.filter((x) => x.lane !== g.lane).map((x) => x.rect);
               const wanted = spans([...want, ...(made.landing ? [{ lane: g.lane, id: "landing", kind: "box" as const, rect: made.landing }] : [])], l.axis).box;
               const got = spans(gs.filter((x) => x.lane === g.lane), l.axis).box;
@@ -307,7 +327,8 @@ function sweep(): Result {
               // What it gives up lies under something the screen draws, in 2-D: another lane's guide, a drawn bar or toolbar
               // rail (its items stay put), or the landing on screen.
               const stay = s.edges.filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen0.layout.edges[e.id]?.cross ?? 0) > 1e-6).map((e) => screen0.layout.edges[e.id]!.rect);
-              const blockers = [...others, ...stay, ...(screen0.landing ? [screen0.landing] : [])];
+              const tabs = Object.values(screen0.layout.rails).flatMap((r) => r?.segments.filter((x) => x.id !== w.dragged).map((x) => x.rect) ?? []);
+              const blockers = [...others, ...stay, ...tabs, ...(screen0.landing ? [screen0.landing] : [])];
               const c0 = Math.min(...want.map((m) => (l.axis === "x" ? m.rect.y : m.rect.x)));
               const c1 = Math.max(...want.map((m) => (l.axis === "x" ? m.rect.y + m.rect.height : m.rect.x + m.rect.width)));
               const slab = (v: number): Rect => (l.axis === "x" ? { x: v - 1, y: c0, width: 2, height: c1 - c0 } : { x: c0, y: v - 1, width: c1 - c0, height: 2 });
@@ -438,6 +459,8 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts["near populated"] ?? 0).toBeGreaterThan(20);
     // Frames that draw a rail segment (a side rail's tab or a toolbar rail's item) were checked against the guides.
     expect(r.counts["rail segments"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(100);
+    // Columns drawn folded into a rail, on screen and in the layout that creates a deleted one, were checked.
+    expect([r.counts["folded on screen"] ?? 0, r.counts["created folded"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true]);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
