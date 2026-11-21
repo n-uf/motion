@@ -26,14 +26,30 @@
 .caveat { font-size: var(--t-xs); color: var(--text-3); }
 
 /*
- * The loop, right under the hero: the desk window, the status bar of the four steps directly under it (telemetry.css;
- * islands/home.ts sets data-step on the bar), then the section head and four claims.
+ * The loop, right under the hero: the live demo (the lab's Document window), then the section head and four claims.
+ * The demo's slot keeps the window's height (islands/home.ts: 460 px, 400 under 720 px of width), so the still miniature
+ * the server draws and the live window take the same box and nothing moves when the island starts. The window's own look is
+ * the lab's (apps/lab/src/docwin/docwin.css); this is only the slot around it.
  */
 .section.loop { padding-top: var(--s5); }
 .loop-body { margin-top: var(--s7); }
-/* Without the desk's island these do nothing (tempo and speed, the swap, X-ray, ↺ Reset, the tool pill): they show once it
-   has started (`.go`, set by islands/home.ts), and their room is kept, so nothing moves when they appear. */
-.demo-fig:not(.go) :is([data-tempo], [data-speed], .xray-btn, .tb.reset, [id$="shuffle"], .floating) { visibility: hidden; }
+.docdemo { margin: 0; }
+.docdemo-slot { position: relative; height: 460px; }
+/* The lab's window takes every touch (touch-action: none), which on a phone would trap the page's scroll in a 400 px box:
+   here only what is dragged takes it (a grip, a panel's header, a resize handle), the rest of the window lets the page scroll. */
+.docdemo .dw-win { touch-action: pan-y; }
+.docdemo :is([data-grip], .dw-head, .dw-fh, [data-resize]) { touch-action: none; }
+.docdemo-still { position: absolute; inset: 0; display: grid; place-items: center; background: var(--win-well); border: 1px solid var(--win-edge); border-radius: var(--win-r); overflow: hidden; }
+.docdemo-still .hdw { width: min(100%, 620px); }
+.docdemo.go .docdemo-still { display: none; }
+.docdemo-foot { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s3); margin-top: var(--s2); }
+.docdemo-status { flex: 1; min-width: 0; }
+/* Reset does nothing without the island: it shows once the window is live (`.go`), its room kept. */
+.docdemo-reset { flex: none; visibility: hidden; border: 1px solid var(--line-2); border-radius: 6px; background: var(--bg-raised); color: var(--text-2); font: inherit; font-size: 13px; padding: 2px 10px; cursor: pointer; }
+.docdemo-reset:hover { color: var(--text); border-color: var(--accent-line); }
+.docdemo-reset:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.docdemo.go .docdemo-reset { visibility: visible; }
+@media (max-width: 719px) { .docdemo-slot { height: 400px; } }
 
 /* The loop's claims: a 2 x 2 grid of cells divided by hairlines (columns 5-12), the caveat a muted note under it on the
    same left edge. */
@@ -45,7 +61,6 @@
   .loop-claims { grid-template-columns: minmax(0, 1fr); }
   .loop-claims li { padding: var(--s3) var(--s4); }
 }
-.loop .tstatus { border-radius: 2px; }
 
 /* What each package does: the label (columns 1-4) with "Alone or together" beside it as the section's lead (5-12), then
    two framed sheets of 6 columns each. A sheet is a rule of its package's colour on top, a header row (the name in its
@@ -165,47 +180,8 @@
   .card-body h3 { transition: none; }
 }
 
-/* The demo: three windows on the flat well of a figure window (components/Chrome.astro). */
-.demo { position: relative; height: 380px; container-type: size; overflow: hidden; background: var(--win-well); touch-action: none; user-select: none; -webkit-user-select: none; }
-.bar [data-showcase-hint]::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 7px; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
-
-/* The hero's drop indicator: the signal outline on the slot the dragged window will take, with its label. */
-.dw-ind { position: absolute; z-index: 3; pointer-events: none; border: 2px dashed var(--signal); border-radius: var(--r); background: var(--signal-soft); opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)) ease-out; }
-.dw-ind.on { opacity: 1; }
-.dw-ind-label { position: absolute; left: 8px; top: 8px; padding: 2px 9px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: var(--t-xs); font-weight: 620; white-space: nowrap; box-shadow: var(--shadow-1); }
-@media (max-width: 640px) { .demo { height: 320px; } }
-
-.dw { position: absolute; cursor: grab; will-change: transform; }
-.dw.held { z-index: 2; cursor: grabbing; }
-.dw-frame { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border-radius: var(--r); background: var(--win-paper); box-shadow: 0 0 0 1px var(--win-edge), 0 2px 6px rgba(0, 0, 0, 0.08), 0 12px 24px -14px rgba(0, 0, 0, 0.3); }
-.dw.held .dw-frame { box-shadow: 0 0 0 1px var(--accent-line), var(--shadow-pop); }
-.dw-body { position: absolute; inset: 0; overflow: hidden; border-radius: var(--r); }
-.dw-bar { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px; border-bottom: 1px solid var(--win-edge); background: var(--win-bar); white-space: nowrap; cursor: grab; transition: background-color var(--fast) var(--ease); }
-.dw-grip { display: grid; grid-template-columns: repeat(2, 3px); gap: 2px; flex: none; }
-.dw-grip i { width: 3px; height: 3px; border-radius: 50%; background: var(--grip); transition: background-color var(--fast) var(--ease); }
-/* A window is grabbed by its title bar: the hovered one's bar and grip dots brighten a little. */
-@media (hover: hover) {
-  .dw:hover .dw-bar { background: color-mix(in srgb, var(--win-bar), var(--text) 6%); }
-  .dw:hover .dw-grip i { background: var(--grip-hot); }
-}
-.dw.held .dw-bar, .demo:has(.dw.held) { cursor: grabbing; }
-.dw.held .dw-grip i { background: var(--accent); }
-
-/* The desk's controls read as buttons: a hairline and a tint on hover, a firmer tint while pressed, the accent ring on focus. */
-.demo-fig .tb { transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease), color var(--fast) var(--ease); }
-.demo-fig .tb:not([disabled]):hover { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--win-text); box-shadow: inset 0 0 0 1px var(--accent-line); }
-.demo-fig .tb[aria-pressed="true"]:not([disabled]):hover { box-shadow: inset 0 0 0 1.5px var(--accent); }
-.demo-fig .tb:not([disabled]):active { background: color-mix(in srgb, var(--accent) 26%, transparent); }
-.demo-fig .tb:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-
-/* The invitation above the desk (index.astro): a mono label in motion's cyan; plain text in the server HTML, so its lines are reserved. */
+/* The invitation above the demo (index.astro): a mono label in motion's cyan; plain text in the server HTML, so its lines are reserved. */
 .try-note { margin: 0 0 var(--s2); font: 600 11px / 1.6 var(--font-mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--accent-strong); }
-.dw-title { font-size: 12px; font-weight: 650; color: var(--text); overflow: hidden; text-overflow: ellipsis; }
-.dw-meta { margin-left: auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-2); }
-.dw-lines { display: grid; gap: 9px; padding: 14px 14px 0; }
-.dw-lines i { display: block; height: 5px; border-radius: 3px; background: var(--win-paper-line); }
-.dw-lines i:nth-child(3n) { width: 62%; }
-.dw-lines i:nth-child(3n + 2) { width: 84%; }
 
 /* The interactive pages' previews: each page's figure, static, in the preview pane above. */
 .t-target { stroke: var(--line-3); stroke-dasharray: 2 3; }

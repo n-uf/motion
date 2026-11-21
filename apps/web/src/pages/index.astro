@@ -3,7 +3,6 @@ import Site from "../layouts/Site.astro";
 import ExtLink from "../components/ExtLink.astro";
 import HeroDemo from "../components/HeroDemo.astro";
 import HeroScope from "../components/HeroScope.astro";
-import LoopStrip from "../components/LoopStrip.astro";
 import { pageOf } from "../data/pages";
 import { npmDockingUrl, npmPlacementUrl, npmUrl, repoUrl } from "../data/site";
 import { orgNode, software, webPage, webSite } from "../data/schema";
@@ -13,7 +12,6 @@ import { CURVE, curveSVG, deskThumbSVG } from "../demos/home";
 import "../styles/home.css";
 import "../styles/hero.css";
 import "../styles/hero-doc.css";
-import "../styles/telemetry.css";
 import CodeTabs from "../components/CodeTabs.astro";
 import PairCode from "../components/PairCode.astro";
 import { partOf } from "../data/parts";
@@ -51,14 +49,13 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
   <HeroScope />
 
   <!--
-    The loop, second on the page, right under the hero: the live desk window first, then its legend, the four steps of a
-    drag (each by its package, lit live while you drag the desk), and only then the section head that says why they come
-    together, the claims and the caveat.
+    The loop, second on the page, right under the hero: the live demo first (the lab's Document window, mounted as it is:
+    components/HeroDemo.astro), and only then the section head that says why the three libraries come together, the claims
+    and the caveat.
   -->
   <section class="wrap section loop hx" aria-labelledby="loop-title">
-    <p class="try-note">Live demo · drag a window by its title onto another to swap them</p>
-    <HeroDemo id="demo-fig" label="Live demo: three windows that glide between layouts and swap when dragged; X-ray shows each package's layer" />
-    <LoopStrip />
+    <p class="try-note">Live demo · drag a panel by its header or a toolbar by its dots to dock it elsewhere</p>
+    <HeroDemo id="demo-fig" label="Live demo: a document window docked with @n-uf/docking; drag its panels and toolbars to dock them in another place" />
     <div class="sx loop-body">
     <div class="section-head">
       <span class="eyebrow">The loop</span>
@@ -71,7 +68,7 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
       <li><b>The real element moves:</b> no copies, it lands from where you let go.</li>
       <li><b>Motion imports neither of the others:</b> plain data between them, any framework or none.</li>
     </ul>
-    <p class="caveat">The demo windows' slots are rects from placement's tiling; they glide on motion's settle, and the swap runs motion's own drag intent (<code>createDragIntent</code>). The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
+    <p class="caveat">The demo is the lab's Document window as it is: a <code>DockState</code> that docking's <code>solve</code> lays out and whose drops come from <code>targets</code>, with motion's drag intent (<code>createDragIntent</code>) deciding what a drag shows and its moves gliding on motion's settle. The examples below are compiled against the libraries. Young and still changing: {versions}, versioned together by date, so pin an exact one. <ExtLink href={repoUrl}>Source on GitHub</ExtLink> · on npm: <ExtLink href={npmUrl}>@n-uf/motion</ExtLink>, <ExtLink href={npmPlacementUrl}>@n-uf/placement</ExtLink>, <ExtLink href={npmDockingUrl}>@n-uf/docking</ExtLink></p>
     </div>
   </section>
 
@@ -207,13 +204,9 @@ const tileThumb = [...layoutSplit(tree, { x: 14, y: 14, width: 252, height: 122 
 
 <script>
   import { whenVisible } from "../islands/rail";
-  // The desk demo starts when it scrolls into view.
+  // The live demo (the lab's Document window) starts when it scrolls into view.
   const fig = document.getElementById("demo-fig")!;
-  whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig, "", "__desk")));
-  // The legend island starts when the desk's status bar (right under the desk) scrolls into view: it owns the slow-motion
-  // control there.
-  const strip = document.getElementById("tstrip")!;
-  whenVisible(strip, () => void import("../islands/telemetry").then((m) => m.startTelemetry(strip)));
+  whenVisible(fig, () => void import("../islands/home").then((m) => m.startHero(fig)));
   // The hero's Copy buttons.
   void import("../islands/copy").then((m) => m.startCopy());
   // The interactive pages' preview follows the hovered or focused entry.
