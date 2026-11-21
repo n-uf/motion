@@ -609,14 +609,17 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
           const tools = run(TOOLBAR, defaultState());
           c.setState(defaultState());
           const cols = ["left", "right"].map((e) => c.layout.edges[e]?.rect).filter((r): r is Rect => !!r);
+          // The lanes empty in the window the drag starts from (read once: each release below moves the toolbar).
+          const startLayout = c.layout;
           // Overlap more than a hairline each way: a guide drawn in a panel column.
           const inside = (g: Rect, r: Rect): boolean => Math.min(g.x + g.width, r.x + r.width) - Math.max(g.x, r.x) > 1 && Math.min(g.y + g.height, r.y + r.height) - Math.max(g.y, r.y) > 1;
           for (const [id, { lane, r }] of tools) {
             const edge = c.state.edges.find((e) => e.id === lane);
             if (!edge || !edge.accepts.includes("group")) bad.push(`toolbar guide ${id} lies in ${lane}, which takes no toolbar`);
-            // An empty side rail's mark over a column's outer strip is the room it takes (the column moves aside), at its real
-            // size or as a thin edge; any other toolbar guide in a column is wrong.
-            const emptyLane = (c.layout.edges[lane as keyof typeof c.layout.edges]?.cross ?? 0) <= 0;
+            // An empty lane's mark over a column is the room it takes (the column moves aside: an empty side rail's outer
+            // strip, an empty bar's band over a column's top), at its real size or as a thin edge; any other toolbar guide
+            // in a column is wrong. Empty in the window the drag starts from, not in the one the last release left.
+            const emptyLane = (startLayout.edges[lane as keyof typeof startLayout.edges]?.cross ?? 0) <= 0;
             if (!emptyLane && cols.some((col) => inside(r, col))) bad.push(`toolbar guide ${id} is drawn in a panel column`);
             // A release with the pointer at the guide docks the toolbar in its lane.
             c.setState(defaultState());
