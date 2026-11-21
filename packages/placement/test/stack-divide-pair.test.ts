@@ -135,7 +135,8 @@ describe("properties over seeded stacks", () => {
         if (r < 0.4 && it.id.startsWith("p")) return { ...it, fixed: true };
         return it;
       });
-      const sized = base.map((it) => (rand() < 0.4 && it.forms[0]!.main.grows ? { ...it, length: { [axis]: 100 + Math.floor(rand() * 300) } } : it));
+      // Some lengths are 0, which is no length: the item asks its natural.
+      const sized = base.map((it) => (rand() < 0.4 && it.forms[0]!.main.grows ? { ...it, length: { [axis]: rand() < 0.2 ? 0 : 100 + Math.floor(rand() * 300) } } : it));
       const input = stack(sized, lengths(rand), axis);
       const fit = fitStack(input);
       const list = dividers(input, fit);
@@ -276,8 +277,28 @@ describe("an ask under the least", () => {
 
   it("when every ask is under the least, the column is still filled, as every ask at the least fills it", () => {
     const all = (v: number): StackFit => fitStack(stack([1, 2, 3].map((i) => ({ ...panel(`p${i}`, i, 300), length: { column: v } })), 1200));
-    expect(all(0)).toEqual(all(90));
-    expect(mainOf(all(0), "p1")).toBeCloseTo(400, 6);
+    expect(all(1)).toEqual(all(90));
+    expect(mainOf(all(1), "p1")).toBeCloseTo(400, 6);
+  });
+
+  it("a length of 0 (or under EPS) is no length: the item asks its natural", () => {
+    const sized = (v: number | undefined): StackFit => fitStack(stack([1, 2, 3].map((i) => ({ ...panel(`p${i}`, i, 300), ...(v === undefined ? {} : { length: { column: v } }) })), 1200));
+    expect(sized(0)).toEqual(sized(undefined));
+    expect(sized(1e-9)).toEqual(sized(undefined));
+    // So a drag next to bystanders whose length is 0 leaves them where they were.
+    const zeros = stack([1, 2, 3].map((i) => ({ ...panel(`p${i}`, i, 300), length: { column: 0 } })), 1200);
+    const next = resizeBetween(zeros, "p1", "p2", 40);
+    expect(mainOf(fitStack(next), "p3")).toBeCloseTo(mainOf(fitStack(zeros), "p3"), 6);
+    expect(mainOf(fitStack(next), "p1")).toBeCloseTo(mainOf(fitStack(zeros), "p1") + 40, 6);
+  });
+
+  it("an end whose least is 0 dragged to it is drawn at 0, not at its natural", () => {
+    const flat = (id: string, used: number): StackItem => ({ ...panel(id, used, 300), forms: [{ kind: "open", main: { min: 0, natural: 300, grows: true }, cross: { natural: 240 } }, ...panel(id, used).forms.slice(1)] });
+    const input = stack([flat("a", 1), flat("b", 2), flat("c", 3)], 1200);
+    const next = resizeBetween(input, "a", "b", 10_000);
+    const fit = fitStack(next);
+    expect(mainOf(fit, "b")).toBeLessThan(1e-3);
+    expect(mainOf(fit, "c")).toBeCloseTo(mainOf(fitStack(input), "c"), 4);
   });
 
   it("short of room it still reads as the least", () => {

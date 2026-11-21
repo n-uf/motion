@@ -10,7 +10,7 @@
  * `menu` form has no room of its own (the » entry stands for it), and under `ownCross` the group kinds (`row`,
  * `stacked`, `wrap`, `icons`, `fold`) are drawn at their own size across. Panel and group kinds may be mixed on one item.
  */
-import type { Rect } from "../geometry";
+import { EPS, type Rect } from "../geometry";
 
 /** `"column"` runs the stack down (its main size is a height, its cross size a width); `"row"` runs it across. */
 export type StackAxis = "column" | "row";
@@ -274,14 +274,14 @@ export interface StackItem {
   /**
    * The length asked for along the stack (default none). While the item is in a form that grows (`main.grows`; a `wrap`
    * form that grows shares spare length too), the solver reads it, for the stack's axis, in place of that form's `main.natural`; the form's
-   * `main.min` stays the least, a floor on the drawn size and not on the ask, and a value that isn't a finite number from
-   * 0 up is no asked length. There is no new formula: with spare length the sized items share it in proportion to their
+   * `main.min` stays the least, a floor on the drawn size and not on the ask, and a value that isn't a finite number over
+   * 0 is no asked length (a 0 asks nothing: the item reads its natural). There is no new formula: with spare length the sized items share it in proportion to their
    * lengths (one whose share would be under its least is drawn at its least, the others share the rest), short of length
    * they interpolate between their least (an ask under it reads as the least) and their length, so a stack too short for
    * all of them still trades room between them. A form that doesn't grow ignores it (the length is kept for when the item grows again), and so does a
    * stack of the other axis. A stack whose items declare none is laid out exactly as before. What gives way and in
    * which order never reads it. It is in ask units, not drawn px: with room to spare a drawn size is the ask times the
-   * shared scale. `resizeBetween` and `resetBetween` write it for the pair only; `resetLengths` clears it.
+   * shared scale, or its least when that is more. `resizeBetween` and `resetBetween` write it for the pair only; `resetLengths` clears it.
    */
   readonly length?: StackLengths;
 }
@@ -377,12 +377,13 @@ export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? formBody(
 
 /**
  * The length item `item` asks for along an `axis` stack while it is in `form`, or undefined: it asks for none, the
- * value isn't a finite number from 0 up, or the form doesn't grow (a form with no `main.grows`, the menu). A `wrap` form
- * that grows reads it like any growing form: it shares spare length, so its length is one a divider drag writes.
+ * value isn't a finite number over 0 (a length of 0, or under `EPS`, is no length: the item reads its natural), or the
+ * form doesn't grow (a form with no `main.grows`, the menu). A `wrap` form that grows reads it like any growing form: it
+ * shares spare length, so its length is one a divider drag writes.
  */
 export function askedLength(item: StackItem, form: StackForm, axis: StackAxis): number | undefined {
   const v = item.length?.[axis];
-  if (v === undefined || !Number.isFinite(v) || v < 0) return undefined;
+  if (v === undefined || !Number.isFinite(v) || v <= EPS) return undefined;
   return form.kind !== "menu" && form.main.grows === true ? v : undefined;
 }
 

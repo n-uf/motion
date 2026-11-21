@@ -211,6 +211,19 @@ describe("resizeBetween", () => {
     // `c` was not part of the drag: it asks its natural, as it did before.
     expect(mainOf(fitStack(remeasured((it) => it.id === "c")), "c")).toBeGreaterThan(mainOf(fitStack(sized), "c"));
   });
+
+  it("a re-measured natural of an unsized bystander re-shares the column: the pair keeps its proportion, not its px", () => {
+    // [a, b, c], naturals 300, a column of 1200: drag a|b by 40 (440 / 360 / 400), then `c` is measured 77 longer.
+    const three = stack([panel("a", 1, 300), panel("b", 2, 300), panel("c", 3, 300)], 1200);
+    const sized = resizeBetween(three, "a", "b", 40);
+    const before = fitStack(sized);
+    const after = fitStack({ ...sized, items: sized.items.map((it): StackItem => (it.id === "c" ? { ...it, forms: it.forms.map((f, i): StackForm => (i === 0 ? { ...f, main: { ...f.main, natural: 377 } } : f)) } : it)) });
+    expect(mainOf(after, "c")).toBeGreaterThan(mainOf(before, "c"));
+    expect(mainOf(after, "a")).toBeLessThan(mainOf(before, "a") - 1);
+    expect(mainOf(after, "b")).toBeLessThan(mainOf(before, "b") - 1);
+    expect(mainOf(after, "a") / mainOf(after, "b")).toBeCloseTo(mainOf(before, "a") / mainOf(before, "b"), 9);
+    expect([mainOf(after, "a"), mainOf(after, "b"), mainOf(after, "c")].map((x) => Math.round(x * 10) / 10)).toEqual([405.3, 331.6, 463.1]);
+  });
 });
 
 describe("resetBetween", () => {

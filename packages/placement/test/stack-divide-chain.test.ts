@@ -164,22 +164,57 @@ describe("resetLengths", () => {
 
 describe("a collapsed item that was never sized", () => {
   it("gets no length from a drag of its neighbors, and keeps its proportion when it reopens", () => {
+    // The reopened column by the model, worked out here on its own: asks (all least 90) in a column of `total`. With room
+    // each is drawn at its ask times one scale, an item whose share would be under its least held at it and the scale
+    // refigured for the others; short of room each is `least + (max(ask, least) - least) * t`.
+    const expected = (asks: readonly number[], total: number): number[] => {
+      const least = 90;
+      const nat = asks.map((a) => Math.max(least, a));
+      if (nat.reduce((s, x) => s + x, 0) > total) {
+        const t = (total - least * asks.length) / (nat.reduce((s, x) => s + x, 0) - least * asks.length);
+        return nat.map((n) => least + (n - least) * t);
+      }
+      const held = new Set<number>();
+      let scale = 1;
+      for (;;) {
+        scale = (total - least * held.size) / asks.reduce((s, a, i) => (held.has(i) ? s : s + a), 0);
+        const under = asks.map((_, i) => i).filter((i) => !held.has(i) && asks[i]! * scale < least);
+        if (under.length === 0) break;
+        under.forEach((i) => held.add(i));
+      }
+      return asks.map((a, i) => (held.has(i) ? least : a * scale));
+    };
+    let unchanged = 0;
+    let gave = 0;
     for (const length of [700, 450, 330]) {
-      // (A short length reads an ask under its least as the least, so `c` dragged under it there is another matter.)
-      for (const delta of length === 700 ? [-20, 20] : [-20]) {
+      for (const delta of [-60, -20, 20, 60, 10_000, -10_000]) {
         const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], length);
         const next = resizeBetween(input, "a", "c", delta);
         expect(next).not.toBe(input);
         expect(next.items[1]).toBe(input.items[1]);
         expect(next.items[1]!.length).toBeUndefined();
-        // Reopened, it is drawn as it is when nobody resized the others: the pair's asks still add up to what they did.
         const open = (s: StackInput): StackInput => ({ ...s, items: s.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) });
-        const was = fitStack(open(input));
         const now = fitStack(open(next));
-        expect(mainOf(now, "b")).toBeCloseTo(mainOf(was, "b"), 5);
-        expect(mainOf(now, "a") + mainOf(now, "c")).toBeCloseTo(mainOf(was, "a") + mainOf(was, "c"), 5);
+        // The reopened column is the model's, with `b` asking its natural beside the pair's written asks.
+        const asks = [next.items[0]!.length!.column!, 160, next.items[2]!.length!.column!];
+        const want = expected(asks, length);
+        ["a", "b", "c"].forEach((id, i) => expect(mainOf(now, id)).toBeCloseTo(want[i]!, 5));
+        // It keeps its proportion unless an end of the pair is held at its least (its ask under the least, and its share
+        // of the column under it too); then it gives up that end's excess. An ask under the least whose share is over it
+        // is a plain weight, and `b` keeps its proportion all the same.
+        const was = fitStack(open(input));
+        const held = asks.some((a, i) => a < 90 - 1e-9 && want[i]! <= 90 + 1e-6);
+        if (!held) {
+          expect(mainOf(now, "b")).toBeCloseTo(mainOf(was, "b"), 5);
+          unchanged++;
+        } else {
+          expect(mainOf(now, "b")).toBeLessThan(mainOf(was, "b") - 1e-6);
+          gave++;
+        }
       }
     }
+    expect(unchanged).toBeGreaterThan(3);
+    expect(gave).toBeGreaterThan(3);
   });
 
   it("dragged to an end's least with room, it still gets none, and reopened it asks its natural next to the pair's asks", () => {
