@@ -70,8 +70,8 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
     { part: "placement", kind: "uses", what: "masterStack, layoutSplit and splitFromOrder from /tiling (the tiles inside the documents' area)" },
   ],
   "/toolbar-groups/": [
-    { part: "motion", kind: "uses", what: "createSettle" },
-    { part: "docking", kind: "shows", what: "toolbar areas, zones, overflow and drop targets" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
+    { part: "docking", kind: "uses", what: "a DockState of three bars and two side rails; solve (each group's place and form as room runs out), targets and refusals (where a drag can drop), stops (the arrow keys), moveTo and dockHome (the menu), storeDockState and readDockState (your arrangement)" },
+    { part: "motion", kind: "uses", entry: "/drag", what: "createGripPress (drag or double-click), createDragIntent and previewPlan from /drag (the page draws three of the library's four preview modes: outline, placeholder and glide)" },
+    { part: "motion", kind: "uses", entry: "/layout", what: "holdItem (the real group, held) and createLayoutMotion (every group glides) from /layout, drawn with domDrawable and flip from /browser" },
   ],
 };
