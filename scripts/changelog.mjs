@@ -6,11 +6,15 @@
 //
 //   node scripts/changelog.mjs check              fails on an empty fragment, one that starts with neither a bullet
 //                                                 nor a `###` line, or a malformed name
-//   node scripts/changelog.mjs preview [version]  prints what `join` would write per package
+//   node scripts/changelog.mjs preview [version]  prints what `join` would write per package (the version defaults to
+//                                                 the next release's, as `pnpm release:next-version` prints it)
 //   node scripts/changelog.mjs join [version]     puts the existing `## Unreleased` body, then each fragment, under
-//                                                 `## <version>` where `## Unreleased` was, and deletes the fragments
+//                                                 `## <version>` where `## Unreleased` was, and deletes the fragments;
+//                                                 ungrouped bullets come first, then the `###` groups in order. The
+//                                                 version defaults to packages/motion's and must be every package.json's.
 //
-// The version defaults to packages/motion's. `--root <dir>` runs it on another checkout (the tests use it).
+// `--root <dir>` runs it on another checkout (the tests use it).
+import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -76,10 +80,20 @@ export function joinInto(text, fragments, version) {
     if (end < 0) end = lines.length;
   }
   const body = at >= 0 ? lines.slice(at + 1, end).join("\n").trim() : "";
-  const parts = [body, ...fragments.map((f) => f.text.trim())].filter((p) => p !== "");
-  if (parts.length === 0) return null;
-  let section = parts[0];
-  for (const p of parts.slice(1)) section += (continuesList(section, p) ? "\n" : "\n\n") + p;
+  // Ungrouped text first (the old body's top-level bullets, then the bullet fragments), then the `###` groups in
+  // order (the old body's, then the grouped fragments'): a bullet after a group would otherwise sit inside it.
+  const loose = [];
+  const groups = [];
+  for (const text of [body, ...fragments.map((f) => f.text.trim())]) {
+    const cut = text.search(/^### /m);
+    const head = (cut < 0 ? text : text.slice(0, cut)).trim();
+    if (head !== "") loose.push(head);
+    if (cut >= 0) groups.push(...text.slice(cut).split(/\n(?=### )/).map((g) => g.trim()));
+  }
+  if (loose.length === 0 && groups.length === 0) return null;
+  let section = loose.length > 0 ? loose[0] : "";
+  for (const p of loose.slice(1)) section += (continuesList(section, p) ? "\n" : "\n\n") + p;
+  for (const g of groups) section += (section === "" ? "" : "\n\n") + g;
   if (at >= 0) {
     const tail = lines.slice(end);
     return [...lines.slice(0, at), `## ${version}`, "", ...section.split("\n"), ...(tail.length > 0 ? ["", ...tail] : [""])].join("\n");
@@ -119,8 +133,26 @@ export function plan(root, version) {
   return out;
 }
 
+/** Throws unless every package's package.json (with a CHANGELOG) says `version`: a join is for a bumped release. */
+export function assertBumped(root, version) {
+  const off = [];
+  for (const pkg of packagesOf(root)) {
+    const path = join(root, "packages", pkg, "package.json");
+    const have = existsSync(path) ? JSON.parse(readFileSync(path, "utf8")).version : undefined;
+    if (have !== version) off.push(`packages/${pkg}/package.json is ${have ?? "missing"}`);
+  }
+  if (off.length > 0) throw new Error(`cannot join ${version}: ${off.join(", ")} (run the bump first, or give the bumped version)`);
+}
+
+/** The next release's version, as `release:next-version` computes it (motion's calendar bump, dry run). */
+export function nextVersion(root) {
+  const dir = join(root, "packages", "motion");
+  return execFileSync("node", [join(dir, "scripts", "calendar-version-bump.mjs"), "--dry-run"], { cwd: dir, encoding: "utf8" }).trim();
+}
+
 /** Writes the joins and deletes the fragments; nothing is written when any package refuses. */
 export function apply(root, version) {
+  assertBumped(root, version);
   const planned = plan(root, version);
   for (const { pkg, next, fragments } of planned) {
     writeFileSync(join(root, "packages", pkg, "CHANGELOG.md"), next);
@@ -144,7 +176,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const r = args.indexOf("--root");
   const root = r >= 0 ? args.splice(r, 2)[1] : join(dirname(fileURLToPath(import.meta.url)), "..");
   const [command, given] = args;
-  const versionOf = () => given ?? JSON.parse(readFileSync(join(root, "packages", "motion", "package.json"), "utf8")).version;
+  // `join` takes the bumped version (motion's package.json by default, which the bump has just set); `preview` the
+  // next release's, as `release:next-version` computes it.
+  const versionOf = () => given ?? (command === "preview" ? nextVersion(root) : JSON.parse(readFileSync(join(root, "packages", "motion", "package.json"), "utf8")).version);
   try {
     if (command === "check") {
       const bad = checkAll(root);

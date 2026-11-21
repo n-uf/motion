@@ -32,8 +32,20 @@ test("a fragment starts with a bullet or a ### line, and is not empty", () => {
 test("the join puts the old Unreleased body first, then the fragments in order, under the version", () => {
   const text = `${HEAD}## Unreleased\n\n- old one\n- old two\n\n## 26.11.1\n\n- history\n`;
   const next = joinInto(text, [{ text: "- a\n" }, { text: "### Group\n\n- b\n" }, { text: "- c\n" }], "26.11.2");
-  assert.equal(next, `${HEAD}## 26.11.2\n\n- old one\n- old two\n- a\n\n### Group\n\n- b\n- c\n\n## 26.11.1\n\n- history\n`);
+  assert.equal(next, `${HEAD}## 26.11.2\n\n- old one\n- old two\n- a\n- c\n\n### Group\n\n- b\n\n## 26.11.1\n\n- history\n`);
   assert.doesNotMatch(next, /Unreleased/);
+});
+
+test("a bullet fragment after a group lands in the ungrouped bullets, above the groups", () => {
+  const text = `${HEAD}## Unreleased\n\n- loose\n\n### Docs only\n\n- doc\n\n## 26.11.1\n\n- history\n`;
+  const next = joinInto(text, [{ text: "- later bullet\n" }], "26.11.2");
+  assert.equal(next, `${HEAD}## 26.11.2\n\n- loose\n- later bullet\n\n### Docs only\n\n- doc\n\n## 26.11.1\n\n- history\n`);
+});
+
+test("a grouped fragment after a group is its own group, after it; groups keep their order", () => {
+  const text = `${HEAD}## Unreleased\n\n### First\n\n- one\n\n## 26.11.1\n\n- history\n`;
+  const next = joinInto(text, [{ text: "### Second\n\n- two\n" }, { text: "- bullet\n" }, { text: "### Third\n\n- three\n\n### Fourth\n\n- four\n" }], "26.11.2");
+  assert.equal(next, `${HEAD}## 26.11.2\n\n- bullet\n\n### First\n\n- one\n\n### Second\n\n- two\n\n### Third\n\n- three\n\n### Fourth\n\n- four\n\n## 26.11.1\n\n- history\n`);
 });
 
 test("with no Unreleased heading the new section goes above the first release", () => {
@@ -55,6 +67,7 @@ function repo() {
   const root = mkdtempSync(join(tmpdir(), "changelog-"));
   for (const pkg of ["one", "two"]) {
     mkdirSync(join(root, "packages", pkg), { recursive: true });
+    writeFileSync(join(root, "packages", pkg, "package.json"), `{ "name": "${pkg}", "version": "26.11.2" }\n`);
     writeFileSync(join(root, "packages", pkg, "CHANGELOG.md"), `${HEAD}## Unreleased\n\n- old ${pkg}\n\n## 26.11.1\n\n- history\n`);
   }
   mkdirSync(join(root, "packages", "one", "changes"));
@@ -91,6 +104,18 @@ test("a bad fragment or a refusing package stops the whole join before anything 
     assert.throws(() => apply(root, "26.11.2"), /packages\/two\/CHANGELOG.md: ## 26.11.2 already exists/);
     assert.equal(existsSync(join(root, "packages", "one", "changes", "2026-11-19-first.md")), true);
     assert.match(readFileSync(join(root, "packages", "one", "CHANGELOG.md"), "utf8"), /## Unreleased/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("a join refuses a version that is not every package.json's, and writes nothing", () => {
+  const root = repo();
+  try {
+    assert.throws(() => apply(root, "26.11.9"), /cannot join 26\.11\.9: packages\/one\/package\.json is 26\.11\.2, packages\/two\/package\.json is 26\.11\.2/);
+    writeFileSync(join(root, "packages", "two", "package.json"), '{ "version": "26.11.3" }\n');
+    assert.throws(() => apply(root, "26.11.2"), /packages\/two\/package\.json is 26\.11\.3/);
+    assert.equal(existsSync(join(root, "packages", "one", "changes", "2026-11-19-first.md")), true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
