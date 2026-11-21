@@ -69,7 +69,7 @@ export interface ControlLadderSpec {
   readonly keep?: number;
 }
 
-/** A group's forms along a bar (`row`) and, when declared, down a column; assignable to `SceneItem.forms`. */
+/** A group's forms along a bar (`row`) and, when declared, down a column; assignable to `@n-uf/docking`'s `DockItem.forms`. */
 export interface ControlLadder {
   readonly row: readonly StackForm[];
   readonly column?: readonly StackForm[];

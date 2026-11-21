@@ -246,10 +246,10 @@ console.log(row.map((f) => [f.kind, f.main.min, f.rank ?? 0, f.hides ?? []]));
   it is not the cheapest step of the bar, because a cheaper step of another group sits earlier in the history.
 - **A pinned primary.** `keep: 1` adds 1000 to the ranks of the partial folds, `fold` and `menu` (and of the column's
   menu), so every group of a lower level gives way entirely before it folds a control; its tier steps are unchanged.
-  `SceneItem.priority` still adds to every form's rank. It keeps a step inside its step type only while the items of a
+  `@n-uf/docking`'s `DockItem.priority` still adds to every form's rank. It keeps a step inside its step type only while the items of a
   bar differ in priority by less than 99 (so `|priority| < 99` around 0): the `i / n` and `k / n` parts reach up to
   `(n - 1) / n`, so with a gap of 99 or more a step of one type can pass a step of the next.
-- **In a scene.** `controlLadder(spec)` is a `SceneItem.forms`: `{ id, kind: "group", used, forms: controlLadder(spec) }`.
+- **In a dock state.** `controlLadder(spec)` is a `DockItem.forms` (`@n-uf/docking`): `{ id, kind: "group", used, forms: controlLadder(spec) }`.
   The chosen form's `hides` are the item's `hidden`, so a host draws the shown controls and the group's » with exactly
   those.
 

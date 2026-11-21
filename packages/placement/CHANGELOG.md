@@ -67,7 +67,7 @@ Added:
   `T` tiers; a form no shorter than the one before is still emitted), so form indexes in `previous` stay valid when a
   length changes; when the control set changes, solve the group without `previous`. `keep` lifts a pinned primary's
   last forms; `column: { icons }` adds the group's column forms. The result is `{ row, column? }`, assignable to
-  `SceneItem.forms`. Hosts that hand-write forms are unchanged.
+  `@n-uf/docking`'s `DockItem.forms`. Hosts that hand-write forms are unchanged.
 
 ## 26.11.53
 
