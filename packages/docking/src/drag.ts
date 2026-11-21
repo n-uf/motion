@@ -93,10 +93,10 @@ const ORIGIN = { x: 0, y: 0 };
 /**
  * The drag of `dragged` in `state`: `lanes()`'s regions as seen, and `after(held)`, THE layout of each state. The
  * options are `lanes()`'s (`previous` is the committed layout at the lift, the one every solve and the commit read;
- * `grab` the press's), less `spot`. The work at the lift is remembered per state and options, as `lanes()`'s is; each
- * state's layout is remembered by the drag.
+ * `grab` the press's). The work at the lift is remembered per state and options, as `lanes()`'s is; each state's layout
+ * is remembered by the drag.
  */
-export function dockDrag(state: DockState, dragged: string, options: Omit<DockLaneOptions, "spot"> = {}): DockDrag {
+export function dockDrag(state: DockState, dragged: string, options: DockLaneOptions = {}): DockDrag {
   const base = baseOf(state, dragged, options);
   const regions: DockRegions = { ...base.regions, lanes: base.lanes };
   const grab = options.grab;
@@ -182,48 +182,32 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
       // doesn't draw is drawn in the layout that creates it.
       const onScreen = (screen.layout.edges[g.lane]?.cross ?? 0) > EPS;
       const axis = axisOf.get(g.lane) ?? "x";
-      const marks = onScreen ? less(screen.marks.filter((m) => m.lane === g.lane), mine.landing, axis) : mine.marks.filter((m) => m.lane === g.lane);
+      // (A box part the landing leaves `MIN_PIECE` px or shorter is no room; a line goes only where the landing covers it.)
+      const own = screen.marks.filter((m) => m.lane === g.lane);
+      const marks = onScreen ? (mine.landing ? marksLess(own, axis, [mine.landing], { suffix: "~l", minBox: MIN_PIECE, lines: "covered" }) : own) : mine.marks.filter((m) => m.lane === g.lane);
       near = { lane: g.lane, marks };
       shown.push(near);
     }
-    // A lane drawn in the layout that creates it gives up where it meets a lane drawn on screen; between two such, the
-    // bar keeps the corner (the bars first, each cut by the ones before).
-    const onScreen = shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect));
+    // A lane drawn in the layout that creates it gives way wherever the screen draws something: another lane's mark, a
+    // drawn bar or toolbar rail (its items stay put when the lane opens; a column moves aside, so the guide may lie over
+    // it), or the held landing. Between two such lanes the bar keeps the corner (the bars first, each cut by the ones
+    // before).
+    const drawnStays = state.edges
+      .filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen.layout.edges[e.id]?.cross ?? 0) > EPS)
+      .map((e) => screen.layout.edges[e.id]!.rect);
+    const onScreen = [...shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect)), ...drawnStays, ...(screen.landing ? [screen.landing] : [])];
     const axis = (id: string): "x" | "y" => axisOf.get(id) ?? "x";
     const made = shown.filter((s) => s.created).sort((a, b) => (axis(a.lane) === axis(b.lane) ? 0 : axis(a.lane) === "x" ? -1 : 1));
     const kept: Rect[] = [];
     for (const s of made) {
-      s.marks = marksLess(s.marks, axis(s.lane), [...onScreen, ...kept]) as DockLaneMark[];
+      s.marks = marksLess(s.marks, axis(s.lane), [...onScreen, ...kept]);
       kept.push(...s.marks.map((m) => m.rect));
     }
     if (!near) return shown.flatMap((s) => s.marks);
     // The Near lane's marks win where they meet another lane's: the others are cut there.
     const cut = near.marks.map((m) => m.rect);
-    return shown.flatMap((s) => (s === near ? s.marks : (marksLess(s.marks, axis(s.lane), cut) as DockLaneMark[])));
+    return shown.flatMap((s) => (s === near ? s.marks : marksLess(s.marks, axis(s.lane), cut)));
   };
 
   return { regions, after, landingOf, spotsOf, guides };
-}
-
-/**
- * `marks` less the rect `r` along `axis`: a box or hatch into the pieces either side (a box piece the cut leaves
- * `MIN_PIECE` px or shorter is dropped, a piece it didn't touch is kept at any length), a line kept unless `r` covers it.
- */
-function less(marks: readonly DockLaneMark[], r: Rect | null, axis: "x" | "y"): DockLaneMark[] {
-  if (!r) return [...marks];
-  const lo = (x: Rect): number => (axis === "x" ? x.x : x.y);
-  const hi = (x: Rect): number => (axis === "x" ? x.x + x.width : x.y + x.height);
-  const meets = (a: Rect): boolean => a.x < r.x + r.width - EPS && r.x < a.x + a.width - EPS && a.y < r.y + r.height - EPS && r.y < a.y + a.height - EPS;
-  return marks.flatMap((m): DockLaneMark[] => {
-    if (!meets(m.rect)) return [m];
-    if (m.kind === "line") return lo(r) <= lo(m.rect) + EPS && hi(r) >= hi(m.rect) - EPS ? [] : [m];
-    const out: DockLaneMark[] = [];
-    const put = (p: number, q: number, k: number): void => {
-      if (q - p <= (m.kind === "box" ? MIN_PIECE : EPS)) return;
-      out.push({ ...m, id: k ? `${m.id}~l${k}` : m.id, rect: axis === "x" ? { ...m.rect, x: p, width: q - p } : { ...m.rect, y: p, height: q - p } });
-    };
-    put(lo(m.rect), Math.min(hi(m.rect), lo(r)), 0);
-    put(Math.max(lo(m.rect), hi(r)), hi(m.rect), out.length);
-    return out;
-  });
 }

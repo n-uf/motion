@@ -243,10 +243,14 @@ describe("guides(): a lane the screen doesn't draw is drawn in the layout that c
   const atRest = (...ids: string[]) => d.drag.guides({ state: null, guides: ids.map((id) => ({ lane: id, state: null })) });
   const spanOf = (rs: readonly Rect[], axis: "x" | "y"): [number, number] => [Math.min(...rs.map((r) => r[axis])), Math.max(...rs.map((r) => r[axis] + (axis === "x" ? r.width : r.height)))];
 
-  it("at rest the empty top bar's guide is its room whole once entered (its marks there and the landing): over the left column, not cut at it", () => {
-    expect(spanOf(atRest("top").map((m) => m.rect), "x")).toEqual(spanOf(entryOf("top"), "x"));
+  it("at rest the empty top bar's guide is its room whole once entered (its marks there and the landing), over the left column, giving way only to the drawn rail", () => {
+    const [a, b] = spanOf(atRest("top").map((m) => m.rect), "x");
+    const [ea, eb] = spanOf(entryOf("top"), "x");
+    // The drawn left rail (it holds tools) stays put when the bar opens: the guide gives way to it, and to nothing else.
+    const rail = d.drag.after(null).layout.edges["rail-left"]!;
+    expect([a, b]).toEqual([rail.cross > 0 ? Math.max(ea, rail.rect.x + rail.rect.width) : ea, eb]);
     expect(atRest("top").every((m) => m.kind === "box")).toBe(true);
-    expect(Math.min(...atRest("top").map((m) => m.rect.x))).toBeLessThan(lane("top").rect.x + 1);
+    expect(a).toBeLessThan(lane("top").rect.x + 1);
   });
 
   it("between the two empty lanes the bar keeps the corner; the rail, Near, takes it", () => {

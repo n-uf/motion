@@ -662,8 +662,10 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   const places = new Set(unique.map((x) => `${x.before}|${x.next}`));
   // Marks lie in the layout as drawn, so on the edge as drawn there: a held spot's room can move the whole edge (a bar
   // it leaves empty lets a rail start higher), and its items with it.
+  // An edge `drawn` doesn't draw lays its marks along its band in `drawn` too (one layout); the band as seen is the hit
+  // rect's only.
   const drawnEdge = first.edge ? drawn.edges[first.edge] : undefined;
-  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (markBand ?? laneRect);
+  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (laneRectOver(list, drawn, marking).band ?? markBand ?? laneRect);
   // The items as drawn, a growing one (a title filling the bar) at its natural length: what it draws past that is free
   // stretch, as pitched spots take it (the head of a title bar).
   // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
@@ -933,16 +935,23 @@ function piecesLess(r: Rect, axis: Axis, cs: readonly Rect[]): [number, number][
 }
 
 /**
- * Marks less the rects `cs` they overlap, along `axis`, as `settle` cuts them: a box or a hatch into its pieces (the
- * first keeps its id, the others `~c<n>`), a line kept whole or not at all. Marks `cs` doesn't overlap stay as they are.
+ * The one rect subtraction for marks (internal to the package; the guides' and the sweep's too): marks less the rects
+ * `cs` they overlap, along `axis`, a box or a hatch into its pieces (the first keeps its id, the others `<id><suffix><n>`).
+ * Marks `cs` doesn't overlap stay as they are. Options:
+ * - `suffix` (default `~c`, `settle`'s): the later pieces' id suffix;
+ * - `minBox` (default 0): a box piece the cut leaves this long or shorter is dropped (before the pieces are numbered);
+ * - `lines` (default `"whole"`): a line is kept whole or not at all (`"whole"`: dropped where any rect cuts it;
+ *   `"covered"`: dropped only where the rects cover it).
  */
-export function marksLess(marks: readonly DockMark[], axis: Axis, cs: readonly Rect[]): DockMark[] {
-  return marks.flatMap((m): DockMark[] => {
+export function marksLess<M extends DockMark>(marks: readonly M[], axis: Axis, cs: readonly Rect[], options: { readonly suffix?: string; readonly minBox?: number; readonly lines?: "whole" | "covered" } = {}): M[] {
+  const suffix = options.suffix ?? "~c";
+  const minBox = options.minBox ?? 0;
+  return marks.flatMap((m): M[] => {
     const over = cs.filter((c) => overlaps(m.rect, c));
     if (over.length === 0) return [m];
     const kept = piecesLess(m.rect, axis, over);
-    if (m.kind === "line") return kept.length === 1 && Math.abs(kept[0]![1] - kept[0]![0] - len(m.rect, axis)) < EPS ? [m] : [];
-    return kept.map(([p, q], i) => ({ ...m, id: i ? `${m.id}~c${i}` : m.id, rect: along(m.rect, axis, p, q) }));
+    if (m.kind === "line") return (options.lines === "covered" ? kept.length > 0 : kept.length === 1 && Math.abs(kept[0]![1] - kept[0]![0] - len(m.rect, axis)) < EPS) ? [m] : [];
+    return kept.filter(([p, q]) => m.kind !== "box" || q - p > minBox).map(([p, q], i) => ({ ...m, id: i ? `${m.id}${suffix}${i}` : m.id, rect: along(m.rect, axis, p, q) }));
   });
 }
 
