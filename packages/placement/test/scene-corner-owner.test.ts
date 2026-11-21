@@ -1,9 +1,11 @@
 /**
  * A shared corner is drawn by exactly one lane, whatever a host's lanes reach. The windows with an empty bar and empty
- * side rails (the real window, the kit window, the corner fixtures) have their rails' lanes cut short by a host: from
- * `from` down, so a lane may stop short of the bar's band (or reach into it, or only part of the way). With the pointer
- * near either rail or the bar, or near neither, under guides "all" every point of the corner is covered by exactly one
- * drawn mark (a guide inside its own lane's rect), under "near" by at most one: never none, never two.
+ * side rails (the real window, the kit window, the corner fixtures, the lab's windows with the top or bottom bar empty)
+ * have their rails' lanes cut short by a host at both ends, by 0, 15, 32 and 71 px, so a lane may stop short of a bar's
+ * band, reach half into it or all the way. With the pointer near either rail (8 and 4 px off it, or held in it, at its
+ * head, middle and foot), near a bar or near neither, under guides "all" every point of every corner is covered by
+ * exactly one drawn mark (a guide inside its own lane's rect, a line at its drawn thickness), under "near" by at most
+ * one: never none, never two.
  */
 import { createLandingModel, type LandingFrame } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
@@ -19,6 +21,14 @@ const inside = (a: Rect, b: Rect): Rect | null => {
   return x1 - x0 > 1e-6 && y1 - y0 > 1e-6 ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
 };
 const covers = (r: Rect, p: Point): boolean => p.x >= r.x - 1e-6 && p.x <= r.x + r.width + 1e-6 && p.y >= r.y - 1e-6 && p.y <= r.y + r.height + 1e-6;
+/** A line thinner than 2 px is drawn 2 px thick, centred on its place. */
+function thick(r: Rect, kind: string): Rect {
+  const vertical = r.width <= r.height;
+  const own = vertical ? r.width : r.height;
+  if (kind !== "line" || own >= 2) return r;
+  const d = (2 - own) / 2;
+  return vertical ? { x: r.x - d, y: r.y, width: 2, height: r.height } : { x: r.x, y: r.y - d, width: r.width, height: 2 };
+}
 
 /** The last frame of a glide from the press to `to`, then a rest. */
 function settled(d: Drag, regions: Drag["regions"], mode: "near" | "all", to: Point): LandingFrame {
@@ -32,43 +42,59 @@ function settled(d: Drag, regions: Drag["regions"], mode: "near" | "all", to: Po
   return f;
 }
 
-/** The windows with an empty bar and an empty rail at its end, for the bar and each rail whose predictions share a corner. */
-const WINDOWS = windows().filter((w) => ["kit: window 1, columns both sides", "real window, empty side rails", "empty-corners-scene.json, tools", "columns-corner-scene.json, g3"].includes(w.name));
+/** The windows with empty bars and empty rails whose predictions share corners (a window with a drawn bar has fewer). */
+const NAMES = [
+  "kit: window 1, columns both sides",
+  "real window, empty side rails",
+  "empty-corners-scene.json, tools",
+  "columns-corner-scene.json, g3",
+  "lab: views and review in the top bar, tools",
+  "lab: the title bar full, tools",
+  "lab: the title bar full, zoom",
+];
+const WINDOWS = windows().filter((w) => NAMES.includes(w.name));
+/** How far a host's rail lanes are cut short at each end, px. */
+const CUTS = [0, 15, 32, 71];
 
 describe("a shared corner of two empty lanes is covered by exactly one drawn mark, whatever the rails' lanes reach", () => {
-  it("the windows are there", () => expect(WINDOWS.length).toBe(4));
+  it("the windows are there", () => expect(WINDOWS.length).toBe(NAMES.length));
   for (const w of WINDOWS) {
     const d = dragOf(w)!;
     const seen = solve(w.scene, { previous: d.options.previous! });
-    const empty = d.regions.lanes.filter((l) => w.scene.edges.some((e) => e.id === l.id) && (seen.edges[l.id]?.cross ?? 0) <= 1e-6);
-    const bar = empty.find((l) => l.axis === "x" && l.id.endsWith("top"))!;
-    const rails = empty.filter((l) => l.axis === "y" && l.corners?.includes(bar.id));
-    for (const from of [0, bar.rect.height / 2, bar.rect.height, 71]) {
-      it(`${w.name}: rails' lanes from y ${from}`, () => {
-        // The rails' lanes cut short at their head, the bar's band at y 0–31 above them.
-        const regions = { ...d.regions, lanes: d.regions.lanes.map((l) => (rails.some((r) => r.id === l.id) ? { ...l, rect: { ...l.rect, y: from, height: l.rect.y + l.rect.height - from } } : l)) };
-        expect(rails.length).toBeGreaterThan(0);
-        const pointers: Point[] = [
-          { x: rails[0]!.rect.x + rails[0]!.rect.width + 8, y: 300 },
-          { x: rails[rails.length - 1]!.rect.x - 8, y: 300 },
-          { x: 400, y: bar.rect.y + bar.rect.height + 8 },
-          { x: 400, y: 330 },
-        ];
+    const emptyIds = new Set(d.regions.lanes.filter((l) => w.scene.edges.some((e) => e.id === l.id) && (seen.edges[l.id]?.cross ?? 0) <= 1e-6).map((l) => l.id));
+    // Each rail with a prediction, and the empty bars it shares a corner with that lie across its column.
+    const pairs = d.regions.lanes
+      .filter((r) => r.axis === "y" && r.entry && r.corners)
+      .flatMap((r) => r.corners!.map((id) => d.regions.lanes.find((l) => l.id === id)!).filter((b) => b.axis === "x" && emptyIds.has(b.id) && b.rect.x <= r.rect.x + 1 && b.rect.x + b.rect.width >= r.rect.x + r.rect.width - 1).map((b) => ({ r, b })));
+    for (const cut of CUTS) {
+      it(`${w.name}: rails' lanes cut ${cut} px short at both ends`, () => {
+        expect(pairs.length).toBeGreaterThan(0);
+        const rails = new Set(pairs.map((p) => p.r.id));
+        const regions = { ...d.regions, lanes: d.regions.lanes.map((l) => (rails.has(l.id) ? { ...l, rect: { ...l.rect, y: l.rect.y + cut, height: l.rect.height - 2 * cut } } : l)) };
+        const stage = d.regions.stage;
+        // The pointer: beside each rail 8 and 4 px off it, and held in it, at its head, middle and foot; beside each bar; far.
+        const pointers: Point[] = [{ x: stage.x + stage.width / 2, y: stage.y + stage.height / 2 }];
+        for (const { r } of pairs) {
+          const left = r.rect.x + r.rect.width / 2 < stage.x + stage.width / 2;
+          const edge = left ? r.rect.x + r.rect.width : r.rect.x;
+          for (const y of [r.rect.y + 70, r.rect.y + r.rect.height / 2, r.rect.y + r.rect.height - 70]) pointers.push({ x: edge + (left ? 8 : -8), y }, { x: edge + (left ? 4 : -4), y }, { x: r.rect.x + r.rect.width / 2, y });
+        }
+        for (const { b } of pairs) pointers.push({ x: 400, y: b.rect.y < stage.y + stage.height / 2 ? b.rect.y + b.rect.height + 8 : b.rect.y - 8 });
         for (const to of pointers)
           for (const mode of ["all", "near"] as const) {
             const f = settled(d, regions, mode, to);
             const marks = f.guides.flatMap((g) => {
-              const r = inside(g.rect, regions.lanes.find((l) => l.id === g.lane)!.rect);
-              return r ? [{ lane: g.lane, rect: r, kind: g.kind }] : [];
+              const r = inside(thick(g.rect, g.kind), regions.lanes.find((l) => l.id === g.lane)!.rect);
+              return r ? [{ lane: g.lane, rect: r }] : [];
             });
-            for (const r of rails)
+            for (const { r, b } of pairs)
               for (const dx of [4, 15, r.rect.width - 4])
-                for (const dy of [4, 15, bar.rect.height - 4]) {
-                  const p = { x: r.rect.x + dx, y: bar.rect.y + dy };
-                  // (Under the item's landing a corner shows nothing: the item is there.)
-                  if (f.landing && covers(f.landing, p)) continue;
-                  const n = marks.filter((m) => m.kind !== "line" && covers(m.rect, p)).map((m) => m.lane);
-                  const at = `${mode}, pointer ${to.x},${to.y}, corner ${r.id}/${bar.id} at ${p.x},${p.y}: ${n.join("+") || "none"}`;
+                for (const dy of [4, 15, b.rect.height - 4]) {
+                  const p = { x: r.rect.x + dx, y: b.rect.y + dy };
+                  // (Where neither lane's rect reaches the point, a host draws nothing there.)
+                  if (![r, b].some((l) => covers(regions.lanes.find((x) => x.id === l.id)!.rect, p))) continue;
+                  const n = marks.filter((m) => covers(m.rect, p)).map((m) => m.lane);
+                  const at = `${mode}, pointer ${to.x},${to.y} (${f.lane ?? "-"}/${f.region}), corner ${r.id}/${b.id} at ${p.x},${p.y}: ${n.join("+") || "none"}`;
                   if (mode === "all") expect(n.length, at).toBe(1);
                   else expect(n.length, at).toBeLessThanOrEqual(1);
                 }
