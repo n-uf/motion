@@ -934,5 +934,55 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
         if (!it || Math.abs(it.item.x - (it.x - (g.x - home.x))) > 1 || Math.abs(it.item.y - (it.y - (g.y - home.y))) > 1) bad.push(`the grip left the pointer in mid-window (${say(it?.item)})`);
       },
     ),
+    presetFrom(
+      wideNotes,
+      "one-preview-wide-float-at-the-hand",
+      "A float wider than the document lies at the hand",
+      "Notes floating wider than the document (no clear place for it anywhere) dragged across the document: on every frame over the document the pointer is on the drawn item, which lies over the columns where it is wider than the gap, never off at a seam; \"Can't go here\" is drawn above the held item. Let go mid-document it lands exactly where it was shown, over a column, and stays there.",
+      (c, bad, said) => {
+        const ct = c.layout.content;
+        const g = c.gripOf(PANEL);
+        if (!g) {
+          bad.push("no grip on Notes");
+          return;
+        }
+        const y = ct.y + ct.height / 2;
+        const path = [g, { x: ct.x + ct.width * 0.2, y }, { x: ct.x + ct.width * 0.8, y }, { x: ct.x + ct.width * 0.5, y: ct.y + ct.height * 0.4 }];
+        let tagAbove = true;
+        const r = drive(c, PANEL, (): Key[] => hold(through(path, AIM), 300), [], () => {
+          const held = c.win.querySelector<HTMLElement>(".dw-held");
+          const tag = c.win.querySelector<HTMLElement>(".dw-cant-go");
+          if (held && tag && Number(getComputedStyle(tag).zIndex) <= Number(getComputedStyle(held).zIndex)) tagAbove = false;
+        });
+        if (!r) {
+          bad.push("no drag");
+          return;
+        }
+        let open = 0;
+        let off = 0;
+        for (const f of r.trace.frames) {
+          if (f.x < ct.x || f.x > ct.x + ct.width || f.y < ct.y || f.y > ct.y + ct.height) continue;
+          open++;
+          if (f.x < f.item.x - 0.5 || f.x > f.item.x + f.item.width + 0.5 || f.y < f.item.y - 0.5 || f.y > f.item.y + f.item.height + 0.5) off++;
+        }
+        if (off) bad.push(`the pointer was off the drawn item on ${off} of ${open} frames over the document`);
+        if (!tagAbove) bad.push(`"Can't go here" is drawn under the held item`);
+        const shown = shownAtRelease(r.trace);
+        const landed = c.layout.items[PANEL]?.rect;
+        if (!r.drop?.committed || !sameRect(shown, landed)) bad.push(`shown ${say(shown)}, landed ${say(landed)}`);
+        const columns = Object.values(c.layout.items).filter((p) => !p.floating && (p.edge === "left" || p.edge === "right"));
+        if (!landed || !columns.some((p) => p.rect.x < landed.x + landed.width && landed.x < p.rect.x + p.rect.width)) bad.push(`it landed clear of the columns (${say(landed)})`);
+        c.setState(c.state);
+        if (!sameRect(c.layout.items[PANEL]?.rect, landed)) bad.push(`at rest it moved to ${say(c.layout.items[PANEL]?.rect)}`);
+        said.push(`${open} frames over the document, the pointer on the item on each; landed at ${say(landed)}, over a column`);
+      },
+    ),
   ];
+}
+
+/** The default window with Notes floating 80 px wider than the document, so no clear place exists for it. */
+function wideNotes(c: Docwin): void {
+  fresh(c);
+  const ct = c.layout.content;
+  c.setState(floating(defaultState(), PANEL, { x: ct.x - 40, y: ct.y + 40, width: ct.width + 80, height: 200 }));
 }

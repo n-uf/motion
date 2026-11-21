@@ -1530,7 +1530,7 @@ function PUBLISHED_PRESETS(): Preset[] {
     id: "float-resize-corner",
     title: "A floating panel resized by its corner",
     expected:
-      "Findings floating: its bottom-right corner dragged by mouse 120 px right and 80 down grows it by exactly that, its top-left corner put; while the button is down the window is in the resize session (no hover elsewhere) and nothing else moves; Findings' list fills the new size. Dragged back far past it, it stops at the panel's least size (floatMin, else its open form's minimums).",
+      "Findings floating, Tools floating anchored at the document's top-right corner: Findings' bottom-right corner dragged by mouse 120 px right and 80 down grows it by exactly that, its top-left corner put; while the button is down the window is in the resize session (no hover elsewhere) and nothing else moves, the anchored Tools included; Findings' list fills the new size. Dragged back far past it, it stops at the panel's least size (floatMin, else its open form's minimums).",
     setup: (c) => c.setState(resizeState()),
     check(c) {
       const bad: string[] = [];
@@ -1560,6 +1560,32 @@ function PUBLISHED_PRESETS(): Preset[] {
       const min = panelMin(c, "findings");
       if (!sameRect(r2, { x: r0.x, y: r0.y, width: min.width, height: min.height })) bad.push(`shrunk to ${say(r2)}, its least is ${min.width}×${min.height}`);
       return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)} → ${say(r2)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Its list fills it."}` };
+    },
+  },
+  {
+    id: "float-resize-over-anchored",
+    title: "A float grown over an anchored float covers it; the anchored one stays",
+    expected:
+      "Findings floating, Tools floating anchored at the document's top-right corner: Findings' top-right corner dragged by mouse onto the middle of Tools grows it there. Tools keeps its place (what the hand does wins, nothing else moves) and Findings, above it in the stack, covers it; nothing else moves either.",
+    setup: (c) => c.setState(resizeState()),
+    check(c) {
+      const bad: string[] = [];
+      const r0 = rectOf(c, "findings")!;
+      const t0 = rectOf(c, "tools");
+      if (!t0 || !c.state.floats.find((f) => f.id === "tools")?.anchor) return { pass: false, now: "Tools isn't an anchored float here." };
+      const rest = (): string => othersOf(c, "findings").replace(/(^| )tools:[^ ]+/, "");
+      const others = rest();
+      const to = { x: t0.x + t0.width / 2, y: t0.y + t0.height / 2 };
+      mouseResize(c, "findings", "top-right", to.x - (r0.x + r0.width), to.y - r0.y);
+      const r1 = rectOf(c, "findings")!;
+      const t1 = rectOf(c, "tools");
+      if (!sameRect(r1, { x: r0.x, y: to.y, width: to.x - r0.x, height: r0.y + r0.height - to.y })) bad.push(`grown to ${say(r1)} from ${say(r0)}`);
+      if (!t1 || !sameRect(t1, t0)) bad.push(`Tools moved from ${say(t0)} to ${say(t1)}`);
+      if (!t1 || overlap(r1, t1) <= 0) bad.push("Findings doesn't cover Tools");
+      const order = c.layout.floats;
+      if (order.indexOf("findings") < order.indexOf("tools")) bad.push("Findings is under Tools");
+      if (rest() !== others) bad.push("something else moved");
+      return { pass: bad.length === 0, now: `${say(r0)} → ${say(r1)}; Tools ${say(t0)} → ${say(t1)}.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Tools stayed, covered."}` };
     },
   },
   {
