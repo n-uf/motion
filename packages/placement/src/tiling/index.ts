@@ -19,3 +19,4 @@ export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type Sp
 export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, type PaneCenter, type PaneRegion, type PaneRegionOptions, type PaneSide } from "./regions";
 export { orderTargets, paneTargets, type OrderTarget, type PaneTarget, type PaneTargetsOptions } from "./targets";
 export { giveWay } from "./give-way";
+export { neighbor, type Direction } from "./neighbor";
