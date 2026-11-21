@@ -145,38 +145,50 @@ describe("a float's size by orient", () => {
 });
 
 describe("a state stored with the old single floatSize", () => {
-  const stored = (orientOf: "row" | "column", at: { width: number; height: number }) => ({
+  /** A store with the old size at `at` for a float in `orientOf`; with `other`, a declared size for the other orient. */
+  const stored = (orientOf: "row" | "column", at: { width: number; height: number }, other?: { width: number; height: number }) => ({
     v: 1,
     edges: [],
     floats: [{ id: "tb", x: 300, y: 300, ...at, orient: orientOf }],
-    items: { tb: { used: 12, floatSize: { ...at } } },
+    items: { tb: { used: 12, floatSize: { ...at }, ...(other ? { floatSizes: { [orientOf === "row" ? "column" : "row"]: other } } : {}) } },
   });
 
-  it("reads the same frames: the old size is `floatSizes` for the orient its float is in, the float at its stored rect", () => {
-    for (const [o, at] of [
-      ["column", upright],
-      ["row", flat],
+  it("reads the same frames: on an item that declares floatSizes, the old size is the one for the orient its float is in", () => {
+    for (const [o, at, other] of [
+      ["column", upright, flat],
+      ["row", flat, upright],
     ] as const) {
-      const read = readDockState(stored(o, at), base());
+      const read = readDockState(stored(o, at, other), base());
+      const turned = o === "row" ? "column" : "row";
       expect(read.dropped).toEqual([]);
-      expect(read.state.items.tb!.floatSizes).toEqual({ [o]: at });
+      expect(read.state.items.tb!.floatSizes).toEqual({ [o]: at, [turned]: other });
       expect(solve(read.state).items.tb!.rect).toEqual({ x: 300, y: 300, ...at });
       // It writes back as `floatSizes`, never the old field.
-      expect(storeDockState(read.state).items.tb).toEqual({ used: 12, floatSizes: { [o]: at } });
+      expect(storeDockState(read.state).items.tb).toEqual({ used: 12, floatSizes: { [o]: at, [turned]: other } });
     }
   });
 
+  it("reads the same frames: on an item that declares none, the float keeps its stored rect and the old size is dropped", () => {
+    // The old size is the other orient's shape: it never set the frame of an item that declares no floatSizes.
+    const store = { ...stored("column", upright), items: { tb: { used: 12, floatSize: { width: 107, height: 36 } } } };
+    const read = readDockState(store, base());
+    expect(read.dropped).toEqual(["item:tb:floatSize"]);
+    expect(read.state.items.tb!.floatSizes).toBeUndefined();
+    expect(solve(read.state).items.tb!.rect).toEqual({ x: 300, y: 300, ...upright });
+    expect(storeDockState(read.state).items.tb).toEqual({ used: 12 });
+  });
+
   it("read, it turns as a declared float: the other orient's size, and back its own", () => {
-    const read = readDockState(stored("row", flat), base());
+    const read = readDockState(stored("row", flat, upright), base());
     const up = orientFloat(read.state, "tb", "column");
     expect(sizeOf(up, "tb")).toEqual(upright);
     expect(solve(orientFloat(up, "tb", "row")).items.tb!.rect).toEqual(solve(read.state).items.tb!.rect);
   });
 
-  it("an item not floating takes it for its own orient; a stored size for that orient wins over it", () => {
+  it("an item not floating that declares floatSizes takes it for its own orient; a stored size for that orient wins", () => {
     const read = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 } } } }, base());
-    expect(read.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 } });
-    expect(read.dropped).toEqual([]);
+    expect(read.state.items.card!.floatSizes).toBeUndefined();
+    expect(read.dropped).toEqual(["item:card:floatSize"]);
     const declared = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { row: { width: 500, height: 150 } } } } }, base());
     expect(declared.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 }, row: { width: 500, height: 150 } });
     const own = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { column: { width: 320, height: 390 } } } } }, base());

@@ -248,11 +248,12 @@ describe("the stored form", () => {
 
   it("reads the v1 fixture over the window", () => {
     const read = readDockState(STORED_WINDOW, s);
-    expect(read.dropped).toEqual([]);
+    // The one old `floatSize` the store has is on an item that declares no `floatSizes`: it never set a frame, and goes.
+    expect(read.dropped).toEqual(["item:notes:floatSize"]);
     expect(edge(read.state, "toolbar").items).toEqual(["tools", "views", "zoom"]);
     expect(edge(read.state, "left").size).toBe(320);
-    // The one old `floatSize` the store has is `floatSizes` for the orient its float is in.
-    expect(read.state.items.notes).toMatchObject({ from: 1, used: 10, floatSizes: { column: { width: 300, height: 340 } } });
+    expect(read.state.items.notes).toMatchObject({ from: 1, used: 10 });
+    expect(read.state.items.notes!.floatSizes).toBeUndefined();
     expect(read.state.items.marks!.kept).toBe(true);
     expect(solve(read.state).edges.left!.cross).toBe(320);
   });
