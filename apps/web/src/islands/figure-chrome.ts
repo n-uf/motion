@@ -1,9 +1,11 @@
 /**
- * Start a figure's chrome (components/Chrome.astro): its groups become draggable, collapsible and movable between the
- * bars, the arrangement persists per figure, and the playback controls every figure shares (speed, tempo, the drop
- * preview) are bound. Dragging a group counts as user activity for the showcases.
+ * Start a figure's chrome (components/Chrome.astro, islands/dock-chrome.ts): its groups become draggable, collapsible and
+ * movable between the bars on @n-uf/docking's dock state, the arrangement persists per figure, and the playback controls
+ * every figure shares (speed, tempo, the drop preview) are bound. Dragging a group counts as user activity for the
+ * showcases.
  */
-import { createChrome, type Chrome, type DemoState } from "./chrome";
+import { DRAG_DEFAULTS } from "@n-uf/motion/drag";
+import { createChrome, type Chrome, type DemoState } from "./dock-chrome";
 import { bindXray } from "./xray";
 import { bindDropMode } from "./drop-mode";
 import { getSpeed, getTempo, onMotionChange, setSpeed, setTempo, type Tempo } from "./motion";
@@ -40,7 +42,7 @@ export function bindPlayback(root: ParentNode): void {
     root.querySelectorAll<HTMLElement>("[data-slowmo]").forEach((h) => {
       h.hidden = getSpeed() === 1;
       h.textContent = `Slow motion ${getSpeed() === 0.25 ? "¼" : "½"}×`;
-      h.title = "Only the visuals slow down: the drag's timing rules (aim 90 ms, hold 150 ms, room 160 ms) and the showcase pause stay real-time";
+      h.title = `Only the visuals slow down: the drag's timing rules (aim ${DRAG_DEFAULTS.dwell} ms, switch ${DRAG_DEFAULTS.switchHold} ms, room ${DRAG_DEFAULTS.roomAfter} ms) and the showcase pause stay real-time`;
     });
   };
   speeds.forEach((b) => b.addEventListener("click", () => setSpeed(Number(b.dataset.speed))));

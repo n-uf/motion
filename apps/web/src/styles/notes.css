@@ -56,16 +56,16 @@
   .dragfig #stage:has(#ind.on) .note[data-on="drop"] { opacity: 1; }
 }
 
-/* ---- toolbar groups: the sample window's own parts (one handle, the dashed zones, the » of a folded group) --------- */
+/* ---- toolbar groups: the sample window's own parts (one handle, an empty bar's hatched strip, the » of a folded group) --------- */
 @supports (anchor-name: --a) {
   .tbfig #win .g { anchor-name: --handle; }
-  .tbfig #win.dragging .zone { anchor-name: --zone; }
+  .tbfig #win > .chrome-strip { anchor-name: --zone; }
   .tbfig #win .group.collapsed > .ovf { anchor-name: --ovf; }
   .tbfig .note[data-on="handle"] { position-anchor: --handle; position-area: top; }
   .tbfig .note[data-on="zone"] { position-anchor: --zone; position-area: top; }
   .tbfig .note[data-on="ovf"] { position-anchor: --ovf; position-area: top; }
   .tbfig .stage-host:has(#win .g):not(:has(#win.dragging)) .note[data-on="handle"],
-  .tbfig .stage-host:has(#win.dragging) .note[data-on="zone"],
+  .tbfig .stage-host:has(#win > .chrome-strip) .note[data-on="zone"],
   .tbfig .stage-host:has(#win .group.collapsed > .ovf) .note[data-on="ovf"] { opacity: 1; }
 }
 

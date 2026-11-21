@@ -1,5 +1,5 @@
 /*
- * Window chrome, shared by every figure and the toolbar page's sample window (islands/chrome.ts). The look follows the
+ * Window chrome, shared by every figure and the toolbar page's sample window (islands/dock-chrome.ts). The look follows the
  * toolbar-groups sketch: a 10 px frame with a hairline, bars a step lighter than the well (42 px, 5 px 8 px), the
  * coloured lights, groups led by compact dot handles that are also their separators, 28 px buttons with a hover tint
  * and an accent ring when on, uppercase text buttons. A window cannot move, so it has no grip: grips appear only on
@@ -26,17 +26,16 @@
 .bar.h { min-height: 42px; padding: 5px 8px; border-bottom: 1px solid var(--win-edge); align-items: center; }
 .bar.bottom { border-bottom: 0; border-top: 1px solid var(--win-edge); }
 /* A side edge is bounded by the body's height (contain: size): what it holds never makes the figure taller; when its
-   groups need more room than it has, trailing groups collapse behind ». */
+   groups need more room than it has, docking's solve folds them to grip + », then into the rail's » menu. */
 .bar.v { flex-direction: column; flex: none; width: 46px; padding: 8px 4px; border-right: 1px solid var(--win-edge); align-items: center; contain: size; }
 .bar.v.right { border-right: 0; border-left: 1px solid var(--win-edge); }
 .bar.empty { display: none; }
-/* While a group is dragged, empty bars show as hatched strips over the edge where the bar would appear: an overlay, so
-   nothing moves, and a drop there lands exactly where its outline was. */
-.win.dragging .bar.empty { display: flex; position: absolute; z-index: 4; background: repeating-linear-gradient(45deg, var(--win-bar) 0 6px, var(--win-well) 6px 12px); }
-.win.dragging .bar.top.empty { top: var(--title-h, 42px); left: 0; right: 0; }
-.win.dragging .bar.bottom.empty { bottom: 0; left: 0; right: 0; }
-.win.dragging .bar.left.empty { top: 0; bottom: 0; left: 0; }
-.win.dragging .bar.right.empty { top: 0; bottom: 0; right: 0; }
+/* While a group is dragged, empty bars and rails show as hatched strips where they would open (docking's `strip:`
+   targets, drawn by the island): an overlay, so nothing moves. */
+.chrome-strip { position: absolute; z-index: 4; pointer-events: none; border-radius: 4px; background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--win-bar) 85%, transparent) 0 6px, color-mix(in srgb, var(--win-well) 85%, transparent) 6px 12px); outline: 1px dashed color-mix(in srgb, var(--win-muted) 45%, transparent); outline-offset: -1px; }
+/* The server draws the groups in their zones (the first frame); the island then places each one at the rect docking's
+   `solve` gives it, inside its bar (or, floating, over the body): the zones stay, empty, so the title bar's fixed
+   controls keep to its end. */
 .zone { display: flex; align-items: center; gap: 12px; min-width: 20px; }
 .bar.h .zone.start { flex: 1 0 0; min-width: max-content; justify-content: flex-start; }
 .bar.h .zone.center { flex: 0 0 auto; margin: 0 12px; }
@@ -45,22 +44,33 @@
 .bar.v .zone.start { flex: 1 0 0; min-height: max-content; justify-content: flex-start; }
 .bar.v .zone.center { flex: 0 0 auto; margin: 12px 0; }
 .bar.v .zone.end { flex: 1 0 0; min-height: max-content; justify-content: flex-end; }
-/* An empty centre zone is a drop target only while dragging; at rest it takes no room. */
-.win:not(.dragging) .zone.center:empty { min-width: 0; min-height: 0; margin: 0; }
-.win.dragging .zone { outline: 1px dashed color-mix(in srgb, var(--win-muted) 40%, transparent); outline-offset: -1px; border-radius: 6px; }
+/* An empty center zone takes no room. */
+.zone.center:empty { min-width: 0; min-height: 0; margin: 0; }
+.win.docked .zone { min-width: 0; min-height: 0; }
 .bar > .fixed { flex: none; margin-left: 12px; }
+/* A placed group: at its solved rect in its bar (its box the bar's thickness, or the rail's width; its content centered
+   across), drawn by @n-uf/motion's layout motion. */
+.group.placed { position: absolute; z-index: 3; }
+.bar.v .group.placed { justify-content: flex-start; align-items: center; }
+.group.inmenu { visibility: hidden; pointer-events: none; }
+/* A bar's or a rail's » entry: the groups that went into its menu as it ran short. */
+.bar > .bar-ovf { position: absolute; z-index: 3; min-width: 0; padding: 0; }
+.bar > .bar-ovf[hidden] { display: none; }
+/* Where the island measures each group's forms: inside the window, never seen. */
+.chrome-measure { position: absolute; left: 0; top: 0; width: max-content; visibility: hidden; pointer-events: none; contain: layout style; }
+.chrome-measure > .group { position: static; width: max-content; }
 .bar > .fixed + .fixed { margin-left: 4px; }
 
 /* Groups: no frame, no band, no divider. The handle leads its group and is the separator. */
 .group { display: flex; align-items: center; gap: 3px; transition: opacity 0.12s; }
-.group > .ctl { display: flex; align-items: center; gap: 2px; }
+.group > .ctl { display: flex; flex: none; align-items: center; gap: 2px; }
 .group.collapsed > .ctl, .group:not(.collapsed) > .ovf { display: none; }
 .zone:has(> .group > .g:hover) > .group:not(:has(> .g:hover)),
 .bar:has(.g:hover) .group:not(:has(> .g:hover)),
 .bar:has(.g:focus-visible) .group:not(:has(> .g:focus-visible)) { opacity: 0.35; }
 
 /* The handle: one line of three 3 px dots, 2 px gaps (across the bar on a side edge). */
-.g { display: inline-grid; grid-template-columns: 3px; gap: 2px; padding: 3px 1px; flex: none; cursor: grab; border-radius: 3px; outline: none; }
+.g { display: inline-grid; grid-template-columns: 3px; gap: 2px; padding: 3px 1px; flex: none; cursor: grab; border-radius: 3px; outline: none; touch-action: none; }
 .g i { display: block; width: 3px; height: 3px; border-radius: 50%; background: var(--grip); transition: background-color var(--fast) var(--ease); }
 .g:hover i, .g:focus-visible i, .g.is-hot i { background: var(--grip-hot); }
 .g:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
@@ -107,6 +117,10 @@
  * collapses to handle + » (.noside, set by the island). The full names stay the tooltips and accessible names.
  */
 .tb .i, .side-form { display: none; }
+/* The icons form in a bar (.ir, a step down from the row as the bar runs short): text buttons show their icon, captions
+   drop; the row stays a row. */
+.group.ir .tb .t, .group.ir .lab, .group.ir .h-only { display: none; }
+.group.ir .tb .i { display: grid; }
 .bar.v .group, .group.vf, .bar.v .group > .ctl, .group.vf > .ctl { flex-direction: column; }
 .bar.v .group > .g, .group.vf > .g { grid-template-columns: repeat(3, 3px); padding: 1px 3px; }
 :is(.bar.v, .group.vf) .tb .t, :is(.bar.v, .group.vf) .lab, :is(.bar.v, .group.vf) .h-only { display: none; }
@@ -136,30 +150,32 @@
 .lights i:nth-child(2) { background: var(--win-light-2); }
 .lights i:nth-child(3) { background: var(--win-light-3); }
 
-/* Floating groups: the same group, plus frame and shadow. */
-.floating { position: absolute; z-index: 5; display: flex; padding: 4px 6px; background: var(--win-bar); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 8px 22px rgba(20, 24, 32, 0.18); }
-.group.lifted { position: fixed; z-index: 50; pointer-events: none; padding: 4px 6px; background: var(--win-bar); color: var(--win-text); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28); font-size: 15px; line-height: 1.55; }
-.group.lifted.resizing { overflow: hidden; }
+/* Floating groups: the same group, plus frame and shadow (the server's first frame wraps it in .floating). */
+.floating, .group.floating { position: absolute; z-index: 5; display: flex; padding: 4px 6px; background: var(--win-bar); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 8px 22px rgba(20, 24, 32, 0.18); }
+/* A held group: the real group, framed, in the page's held layer above every window (islands/dock-chrome.ts). */
+.chrome-held { position: fixed; inset: 0; z-index: 50; pointer-events: none; }
+.chrome-held > .group.lifted { position: absolute; display: flex; padding: 4px 6px; background: var(--win-bar); color: var(--win-text); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28); font-size: 15px; line-height: 1.55; }
 
-/* Drop previews: one slot picture everywhere, the dragged group's own outline at its size in the target's axis
-   (dashed signal colour, soft tint, label), never a hairline. Open gap: it sits in the opened gap; Snap to slot: the
-   gap, which the group itself fills (no outline over it); Drop indicator: the same outline as an overlay centred on the
-   insertion point, nothing moves; floating: the floating frame's outline. */
-.slot { flex: none; border: 2px dashed var(--signal); background: var(--signal-soft); border-radius: 8px; animation: slotin calc(90ms * var(--time-scale, 1)) ease-out; }
-.slot.float { position: fixed; z-index: 39; pointer-events: none; }
-.slot.snap { border-color: transparent; background: transparent; animation: none; }
-@keyframes slotin { from { opacity: 0; } to { opacity: 1; } }
+/* Drop previews: the dragged group's own outline at its size where it lands (dashed signal color, soft tint, label),
+   never a hairline. Outline: drawn where it lands, nothing moves; Placeholder: the others move aside (docking's layout
+   after the drop) and the outline sits in the room; Glide: the group itself glides into the room. */
 .chrome-marker { position: fixed; z-index: 40; pointer-events: none; box-sizing: border-box; border: 2px dashed var(--signal); border-radius: 8px; background: var(--signal-soft); opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)); }
 .chrome-marker.on { opacity: 0.92; }
 .chrome-label { position: fixed; z-index: 41; pointer-events: none; padding: 2px 8px; border-radius: 999px; background: var(--signal); color: var(--signal-ink); font-size: 12px; font-weight: 600; white-space: nowrap; opacity: 0; transition: opacity calc(90ms * var(--time-scale, 1)); }
 .chrome-label.on { opacity: 1; }
 
-/* X-ray (islands/xray.ts): each package's layer over the window, placement in one colour, motion in the accent. */
+/* X-ray (islands/xray.ts): each package's layer over the window, placement violet, docking rose, motion in the accent. */
 .xray-layer { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 30; pointer-events: none; overflow: visible; }
 .xp-zone { fill: none; stroke: var(--series-b); stroke-width: 1; stroke-dasharray: 3 3; }
 .xp-slot { fill: color-mix(in srgb, var(--series-b) 7%, transparent); stroke: var(--series-b); stroke-width: 1; }
 .xp-slot.on { fill: color-mix(in srgb, var(--series-b) 16%, transparent); stroke-width: 2; }
 .xp-label { font: 600 9.5px/1 var(--font-mono); fill: var(--series-b); paint-order: stroke; stroke: var(--win-frame); stroke-width: 3px; stroke-linejoin: round; }
+.xp-label.xd { fill: var(--dock); }
+.xd-rect { fill: color-mix(in srgb, var(--dock) 6%, transparent); stroke: var(--dock); stroke-width: 1; }
+.xd-hit { fill: none; stroke: var(--dock); stroke-width: 1; stroke-dasharray: 3 3; }
+.xd-refused { fill: color-mix(in srgb, var(--dock) 10%, transparent); stroke: none; }
+.xd-slot { fill: color-mix(in srgb, var(--dock) 8%, transparent); stroke: var(--dock); stroke-width: 1; }
+.xd-slot.on { fill: color-mix(in srgb, var(--dock) 16%, transparent); stroke-width: 2; }
 .xm-trail { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 1 3.5; stroke-linecap: round; }
 .xm-drawn { fill: none; stroke: var(--accent); stroke-width: 1; opacity: 0.55; }
 .xm-target { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 6 3; }
@@ -169,11 +185,14 @@
 .xm-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; }
 .xray-key { display: none; position: absolute; z-index: 31; gap: 6px; align-items: center; padding: 3px 9px; border-radius: 999px; background: var(--win-bar); border: 1px solid var(--win-edge); box-shadow: var(--shadow-1); font: 500 11.5px/1.4 var(--font-sans); color: var(--win-muted); pointer-events: none; white-space: nowrap; }
 .win.xray > .xray-key { display: flex; }
-.xray-key .xk-p, .xray-key .xk-m { font-weight: 650; }
+.xray-key[hidden] { display: none !important; }
+.xray-key .xk-p, .xray-key .xk-d, .xray-key .xk-m { font-weight: 650; }
 .xray-key .xk-p { color: var(--series-b); }
+.xray-key .xk-d { margin-left: 6px; color: var(--dock); }
 .xray-key .xk-m { margin-left: 6px; color: var(--accent); }
+.xray-key > :first-child { margin-left: 0; }
 /* While one package's step is lit (the home's loop), the key names that package only. */
-.win[data-xray-focus="placement"] .xk-m, .win[data-xray-focus="motion"] .xk-p { opacity: 0.35; }
+.win[data-xray-focus="placement"] :is(.xk-m, .xk-d), .win[data-xray-focus="motion"] :is(.xk-p, .xk-d), .win[data-xray-focus="docking"] :is(.xk-p, .xk-m) { opacity: 0.35; }
 
 /* The » popover: the group's full horizontal form, its controls working, anchored to ». */
 .cpop { position: fixed; z-index: 60; display: flex; align-items: center; max-width: calc(100vw - 16px); padding: 5px 8px; background: var(--win-bar); color: var(--win-text); border: 1px solid var(--win-edge); border-radius: 8px; box-shadow: var(--shadow-pop); font-size: 15px; line-height: 1.55; }

@@ -1,7 +1,7 @@
 /*
  * The figure: a window (styles/chrome.css) whose bars hold the controls as toolbar groups, and between them a case
  * rail exactly as tall as the stage (it scrolls) and the stage on the flat well. The bars' arrangement is the
- * visitor's to change (islands/chrome.ts).
+ * visitor's to change (islands/dock-chrome.ts).
  */
 .figure { --stage-h: 600px; --rail-w: 268px; margin: 0; }
 .figure > .mid > .figure-body { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: var(--rail-w) minmax(0, 1fr); }
