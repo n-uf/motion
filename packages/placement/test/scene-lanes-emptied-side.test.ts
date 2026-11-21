@@ -4,7 +4,8 @@
  * side has one lane and under "all" no two lanes draw the same rect. A side with no declared column still offers one.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, solve, targets, type Edge, type Rect, type Scene } from "../src/scene";
+import type { Rect } from "../src/geometry";
+import { lanes, solve, targets, type Edge, type Scene } from "../src/scene";
 import { FLUSH, INSET, kitScene, type KitShape } from "./kit-scene";
 
 /** The kit-shaped window with both side columns declared (no `column: true`), so a lifted lone panel leaves its column. */
