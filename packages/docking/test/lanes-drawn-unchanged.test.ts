@@ -14,7 +14,7 @@ const fmt = (x: Rect): string => `${r(x.x)},${r(x.y)} ${r(x.width)}x${r(x.height
 /** The guides a frame in `state` draws under "all", of the lanes `keep` names. */
 const guidesOf = (drag: DockDrag, state: DockHeld | null, keep: (id: string) => boolean): string[] =>
   drag
-    .guides({ state, guides: drag.regions.lanes.map((l) => ({ lane: l.id, state })) })
+    .guides({ state, room: state !== null, guides: drag.regions.lanes.map((l) => ({ lane: l.id, state })) })
     .filter((g) => keep(g.lane))
     .map((g) => `  ${g.lane} ${g.id} ${g.kind} ${fmt(g.rect)}`);
 

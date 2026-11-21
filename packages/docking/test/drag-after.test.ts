@@ -104,7 +104,7 @@ describe("guides(frame): each lane from the state it names", () => {
     for (const { d } of all)
       for (const { lane, held } of states(d).slice(0, 4)) {
         const a = d.after(held);
-        expect(d.guides({ state: held, guides: [{ lane, state: held }] })).toEqual(a.marks.filter((m) => m.lane === lane));
+        expect(d.guides({ state: held, room: true, guides: [{ lane, state: held }] })).toEqual(a.marks.filter((m) => m.lane === lane));
       }
   });
 
@@ -115,7 +115,7 @@ describe("guides(frame): each lane from the state it names", () => {
       const rest = d.after(null);
       for (const { lane, held } of states(d)) {
         const mine = d.after(held);
-        const g = d.guides({ state: null, guides: [{ lane, state: held }] });
+        const g = d.guides({ state: null, room: false, guides: [{ lane, state: held }] });
         // (Drawn: open, or a column folded into its side's rail.)
         const e = rest.layout.edges[lane];
         if (e && (e.cross > 1e-6 || !!e.folded)) {
@@ -137,7 +137,7 @@ describe("guides(frame): each lane from the state it names", () => {
     for (const { d } of all)
       for (const { lane, held } of states(d)) {
         const others = d.regions.lanes.filter((l) => l.id !== lane).map((l) => ({ lane: l.id, state: null }));
-        const g = d.guides({ state: null, guides: [{ lane, state: held }, ...others] });
+        const g = d.guides({ state: null, room: false, guides: [{ lane, state: held }, ...others] });
         const near = g.filter((m) => m.lane === lane);
         for (const m of g) if (m.lane !== lane) for (const n of near) expect([m.id, n.id, overlap(m.rect, n.rect)]).toEqual([m.id, n.id, false]);
       }

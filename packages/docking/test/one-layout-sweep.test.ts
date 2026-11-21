@@ -12,6 +12,8 @@
  * - **corner** (decision 0002): a corner where two drawn lanes meet in `commit` is drawn by the edge that owns it and by
  *   no other lane's guide;
  * - **overlap:** no two lanes' guides overlap, on any frame;
+ * - **shown:** the guides of a lane the frame draws are its marks in `shown(frame)` (the window at rest while a float's
+ *   room is closed), float frames read with the room closed and open;
  * - **near:** the Near guide of a lane that holds items, before entry (approached or pending), is that lane's guide as
  *   on screen less the landing the pointer would take there (rule B for a populated lane).
  * Named exceptions: under "all" the lanes other than the Near one are held to **overlap** only; the Near guide of an
@@ -25,7 +27,7 @@
 import { LANDING_APPROACH, type LandingRelease } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { dockDrag, readDockState, refusals, refusalTargets, solve, storeDockState, targets, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
+import { dockDrag, readDockState, refusals, refusalTargets, solve, storeDockState, targets, type DockAfter, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
 import { marksLess } from "../src/lanes";
 import { referencePick } from "../src/testing/host";
 import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
@@ -137,6 +139,15 @@ function paths(d: Drag): { name: string; legs: [Point, number][] }[] {
     }
   }
   return out;
+}
+
+/**
+ * What a frame draws: the layout the drag names (`shown`), with the marks read in it and the landing (a float's lies
+ * there while the window stays at rest).
+ */
+function screenOf(d: Drag, frame: LandingFrame): { readonly layout: DockLayout; readonly marks: DockAfter["marks"]; readonly landing: Rect | null } {
+  const drawn = frame.room ? d.drag.after(frame.state) : d.drag.after(null);
+  return { layout: d.drag.shown(frame), marks: drawn.marks, landing: d.drag.after(frame.state).landing };
 }
 
 /** What a release lands: the drop, its result, and the committed layout after the store round trip. */
@@ -264,11 +275,26 @@ function sweep(): Result {
             for (let j = i + 1; j < gs.length; j++)
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
+          // shown: the guides of a lane the frame draws, named with the frame's own state, are its marks in `shown(frame)`:
+          // the window at rest while the room is closed, the state's layout once it is open. A float's frames are read with
+          // the room closed (the model's) and open (a host that draws the float's layout).
+          for (const room of f.frame.state?.kind === "float" ? [false, true] : [f.frame.room]) {
+            const fr = { ...f.frame, room };
+            const layout = d.drag.shown(fr);
+            const marks = (room ? d.drag.after(fr.state) : d.drag.after(null)).marks;
+            for (const g of f.frame.named) {
+              if (g.state !== fr.state || !edgeOf(s, g.lane) || !drawnIn(layout, g.lane)) continue;
+              count(`shown ${fr.state?.kind ?? "rest"}, room ${room ? "open" : "closed"}`);
+              const got = d.drag.guides({ ...fr, guides: [g] }).filter((m) => m.lane === g.lane);
+              const want = marks.filter((m) => m.lane === g.lane);
+              if (JSON.stringify(got) !== JSON.stringify(want)) fail(`shown | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}, room ${room}: guides ${got.map((m) => fmt(m.rect)).join("; ")} vs marks in the shown layout ${want.map((m) => fmt(m.rect)).join("; ")}`);
+            }
+          }
           // rail-free: no guide but a line covers a rail segment the frame draws: a side rail's tabs (its folded columns'
           // members) and the items of a toolbar rail. (A lane shown for another state than the screen's that the screen
           // doesn't draw, and the corner's owner by reach, draw their own layout and win: the bar keeps the corner over a
           // rail it moves.)
-          const onScreen = d.drag.after(f.frame.state).layout;
+          const onScreen = d.drag.shown(f.frame);
           const reachOwner = f.frame.lane ? undefined : f.frame.named.find((g) => g.state !== f.frame.state)?.lane;
           const exempt = new Set(f.frame.named.filter((g) => g.lane === reachOwner || (g.state !== f.frame.state && !drawnIn(onScreen, g.lane))).map((g) => g.lane));
           // folded: a column the screen draws folded into its side's rail shows its marks along that rail, as wide as it.
@@ -293,12 +319,12 @@ function sweep(): Result {
           // entry: a lane shown for another state than the screen's (the Near lane, or the corner's owner by reach), or
           // the entered lane, shows its entry: its marks in that state's layout, which leave out only the landing there.
           // (A lane the screen draws is the named exception, rule B: the screen's less the landing, the `near` clause.)
-          const screen0 = d.drag.after(f.frame.state);
+          const screen0 = screenOf(d, f.frame);
           for (const g of f.frame.named) {
             const l = d.regions.lanes.find((x) => x.id === g.lane);
             if (!l) continue;
             const entered = g.lane === f.frame.lane && f.frame.region === "lane";
-            if (!entered && (g.state === f.frame.state || (screen0.layout.edges[g.lane]?.cross ?? 0) > 1e-6)) continue;
+            if (!entered && (g.state === f.frame.state || drawnIn(screen0.layout, g.lane))) continue;
             const mine = d.drag.after(g.state);
             count("entry");
             const want = spans(mine.marks.filter((m) => m.lane === g.lane), l.axis);
@@ -360,8 +386,8 @@ function sweep(): Result {
           if (mode === "near" && !f.frame.lane)
             for (const id of nearLanes) {
               const l = d.regions.lanes.find((x) => x.id === id);
-              // The screen: the frame's state's layout (the window as seen at rest, the float's while it floats).
-              const screen = d.drag.after(f.frame.state);
+              // The screen: the layout the frame draws (`shown`: the state's while its room is open, else the window at rest).
+              const screen = screenOf(d, f.frame);
               if (!l || !edgeOf(s, id) || !drawn(screen.layout, id) || itemsOn(screen.layout, id, w.dragged).length === 0) continue;
               count("near populated");
               const would = wouldLand(d, l, f.point);
@@ -476,6 +502,8 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts["created folded"] ?? 0, JSON.stringify(r.counts)).toBe(0);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
+    // The shown clause ran on float frames with the room closed and open, and on spot frames.
+    expect([r.counts["shown float, room closed"] ?? 0, r.counts["shown float, room open"] ?? 0, r.counts["shown spot, room open"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true, true]);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
     expect([r.counts.created ?? 0, r.counts.entry ?? 0, r.counts.reach ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true, true]);
   });

@@ -14,7 +14,7 @@ import { dockDrag, lanes, refusals, targets, type DockEdge, type DockState, type
  */
 function railGuide(s: DockState, o: Parameters<typeof lanes>[2], created = false): readonly { rect: Rect }[] | undefined {
   const d = dockDrag(s, "tools", o);
-  const g = d.guides({ state: null, guides: [{ lane: RAIL, state: null }] });
+  const g = d.guides({ state: null, room: false, guides: [{ lane: RAIL, state: null }] });
   const drawnAsSeen = (d.after(null).layout.edges[RAIL]?.cross ?? 0) > 1e-6;
   return created && drawnAsSeen ? undefined : g;
 }

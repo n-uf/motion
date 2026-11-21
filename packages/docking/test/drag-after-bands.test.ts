@@ -86,7 +86,7 @@ describe("after(state): an undrawn lane's marks lie along its band in that layou
           const state = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + own.rect.width / 2, y: sp.landing.y + own.rect.height / 2 } };
           const landing = drag.landingOf(state);
           if (!landing) continue;
-          const gs = drag.guides({ state, guides: drag.regions.lanes.map((x) => ({ lane: x.id, state })) });
+          const gs = drag.guides({ state, room: true, guides: drag.regions.lanes.map((x) => ({ lane: x.id, state })) });
           n++;
           for (const g of gs) if (g.kind !== "line" && overlaps(g.rect, landing)) bad.push(`${w.name}, ${sp.id}: ${g.id} over the landing`);
         }
