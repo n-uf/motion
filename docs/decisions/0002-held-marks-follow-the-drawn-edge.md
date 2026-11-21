@@ -1,5 +1,7 @@
 # 0002: A held frame's marks follow the edge as drawn
 
+*Decision [0003](0003-one-layout-per-state.md) replaced `lanes(…, { spot })`, which the Context below describes as it was: a held frame's marks now come from `dockDrag(...).after(state)`, and this rule holds for them.*
+
 A lane's marks follow its edge as drawn in the layout they are drawn in. Only its hit rect stays as seen.
 
 ## Context
@@ -37,8 +39,8 @@ The rule stated so a test can pin it:
 - Visibly: with both side rails holding a toolbar, the box of a toolbar held in the empty top bar runs the window's full width, the corners included, as it does once dropped. The corners are drawn once, by the bar.
 - An empty lane's guide before entry (the Near lane's, drawn in the layout that creates it) is worked out the same way, so it takes the corners its after-entry layout gives it.
 - The hit rect is unchanged: as seen, a pointer on a drawn rail's end is still in the rail's lane, not the empty bar's.
-- Guarded by `packages/docking/test/lanes-held-commit.test.ts` (the hull property and the corner owner over the lab windows, the windows of two host kits and the corner fixtures, rails holding items and empty, under the landing model's "near" and "all"; the 1080 px window with both rails holding a toolbar), the hull and corner clauses of `packages/docking/test/one-layout-sweep.test.ts`, and `packages/docking/test/lanes-marks-inside.test.ts`.
+- Guarded by `packages/docking/test/lanes-held-commit.test.ts` (the hull property and the corner owner over the lab windows, the windows of two hosts and the corner fixtures, rails holding items and empty, under the landing model's "near" and "all"; the 1080 px window with both rails holding a toolbar), the hull and corner clauses of `packages/docking/test/one-layout-sweep.test.ts`, and `packages/docking/test/lanes-marks-inside.test.ts`.
 
 ## Date
 
-2026-11-20, unreleased: it ships with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws exactly the layout its release commits, `dockDrag(...).after(state)`, which replaces `lanes(…, { spot })`).
+2026-11-20, not yet released: it ships with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws, while its room is open, the layout its release commits, `dockDrag(...).after(state)`, which replaces `lanes(…, { spot })`), in the release after 26.11.54. The release is named here when it ships.

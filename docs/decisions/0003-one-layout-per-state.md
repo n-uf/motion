@@ -1,7 +1,9 @@
 # 0003: One layout per state of a drag
 
-A held frame draws exactly the layout its release commits: every item, the landing and every guide come from one
-function, `dockDrag(...).after(state)`, and the landing model picks states instead of doing geometry.
+While its room is open, a held frame draws exactly the layout its release commits: every item, the landing and every
+guide come from one function, `dockDrag(...).after(state)`, and the landing model picks states instead of doing
+geometry. (A float frame, whose room is not open, and the Outline mode draw the window at rest; see the float exception
+below.)
 
 ## Context
 
@@ -48,15 +50,17 @@ frame and the commit alike. Taken: the second.
 
 - The held frame and the commit agree by construction: the frame's items, landing and guides equal the commit's, exactly
   in node and within 1 px in the DOM. The DOM claim holds in the modes that open the room (Placeholder and Snap, the
-  item preview); Outline keeps the window as committed by design.
-- A host draws every item but the held one from `after(frame.state).layout`, the guides from `guides(frame)` through
+  item preview); Outline draws the window at rest by design.
+- A host draws every item but the held one in the layout the draw rule names (`after(frame.state).layout` while the
+  room is open; see the float exception), the guides from `guides(frame)` through
   `guideRects` for cosmetics only, and stores `after(release).state`. It never passes an item's rect (a docked item, a
   float, the held item's landing) as a layout clear: the marks already leave them out. It may keep a cosmetic
   clearance around its own held chrome, the held copy's outline as drawn (the lab keeps guides 2 px clear of it in the
   held lane), through `guideRects`' `clear`; that only trims a guide by a few pixels and never decides where one lies.
-- **The float exception, part of the contract.** A held frame draws `after(state)`, except that a float state draws
-  the rest layout (`after(null)`) until release; `after(float)` is what the drop commits, so docked items close the gap
-  at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
+- **The float exception, part of the contract.** The draw rule is stated once, in docs/docking.md, "What a held frame
+  draws": a held frame draws `after(held).layout` while its room is open; a float frame whose room is not open, and the
+  Outline mode, draw the window at rest (`after(null)`) until release. `after(float)` is what the drop commits, so
+  docked items close the gap at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
   the commit. It is the DOM sweep's one exception (`one-layout-items-landing` checks only the landing on float
   frames). Decided (2026-11-21): the gap closes when the item is let go, not during the drag.
 - **No two boxes overlap; a line may cross another lane's box.** A panel joint drawn across a new column's room is a
@@ -71,5 +75,5 @@ frame and the commit alike. Taken: the second.
 
 ## Date
 
-2026-11-20, unreleased: it ships in the release after the docking migration, `@n-uf/docking` and `@n-uf/motion`
-together.
+2026-11-20, not yet released: it ships in the release after the docking migration (26.11.54), `@n-uf/docking` and
+`@n-uf/motion` together. The release is named here when it ships.

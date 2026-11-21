@@ -12,7 +12,7 @@ A proposal ([`../proposals/`](../proposals/)) that ships leaves its accepted rul
 
 ## Index
 
-Records are added as the shipped rules are written up: the one-preview drag model, the landing model and its distance bound, place guides and empty lanes, and panel columns by halves with toolbars at the nearest spot.
+The landing model's distance bound is 0001. Three shipped rules have no record yet, and are added as they are written up: the one-preview drag model, place guides and empty lanes, and panel columns by halves with toolbars at the nearest spot.
 
 | # | Decision | Date |
 |---|---|---|
