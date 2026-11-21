@@ -3,7 +3,19 @@
     "package": "docking",
     "kind": "lanes",
     "case": "two right columns, ring * holding p1, panel p1*",
-    "reason": "case C (the drag is wrong): the new-column lane `column:right:col-right`, with p1 held in its own folded column, lay over that rail; a drawn rail owns its rect, so its hit rect now stops at the rail's inner side (width 236 -> 204). Its spots and marks are unchanged."
+    "reason": "case C (the drag is wrong): the new-column lane `column:right:col-right`, with p1 held in its own folded column, lay over that rail; a drawn rail owns its rect, so its hit rect now stops at the rail's inner side (width 236 -> 204). Its spots and marks are unchanged. Also in these windows `regions.blocked` gains the rail's home stops (the strip beside the rail, the new-column lines about its folded column joined to home) where a tile of the rail is held, so no float lands there, as targets() has it."
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "two left columns, ring * holding p2, panel p1*",
+    "reason": "the same, on the left: `regions.blocked` gains the rail's home stops (the strip beside the rail) where the held tile is a tile of the rail."
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "columns per side free, 640 px wide, panel p?",
+    "reason": "the same, in the windows where the held panel is a tile of its side's rail: `regions.blocked` gains the rail's home stops (the strip beside the rail)."
   },
   {
     "package": "docking",
