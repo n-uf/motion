@@ -7,7 +7,8 @@
  *   the gutter (gap plus handle) at the ratio; options read a host's floors and fixed lengths, and a split with an id
  *   reports its box, ratio and divider. A split may lay its panes out as master and stack. A drop splits a pane on a
  *   side or swaps with it (`paneTargets`, `paneRegion`, `dropOnPane`), and `canDropOnPane` says whether it leaves
- *   room; `splitFromOrder` builds dwindle (split along the longer side).
+ *   room (a host with its own projected layout asks the two rules apart: `canSplitPane` and `dropFits`);
+ *   `splitFromOrder` builds dwindle (split along the longer side).
  *
  * `neighbor` finds the nearest pane in a direction from a map of rects. Both models give root `Target`s, for
  * `@n-uf/motion/drag`. `giveWay` floats the newest pane while one breaks its minimum. Pure: no DOM, no time.
@@ -16,7 +17,7 @@
  */
 export { columns, grid, masterStack, type MasterOptions, type OrderLayout, type OrderOptions, type TileOptions } from "./order";
 export { dropOnPane, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";
-export { canDropOnPane, type DropOptions, type DropVerdict } from "./drop";
+export { canDropOnPane, canSplitPane, dropFits, type DropFitsOptions, type DropOptions, type DropVerdict, type SplitRoomOptions } from "./drop";
 export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type SplitGeometry, type SplitLayout, type SplitOptions } from "./layout";
 export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, type PaneCenter, type PaneRegion, type PaneRegionOptions, type PaneSide } from "./regions";
 export { orderTargets, paneTargets, type OrderTarget, type PaneTarget, type PaneTargetsOptions } from "./targets";
