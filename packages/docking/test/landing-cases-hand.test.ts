@@ -75,7 +75,7 @@ describe("the hand rule: the bound over a long docked neighbor", () => {
       expect(worst).toBeLessThanOrEqual(handBound(204, true) + 0.5);
     });
 
-  it("a kit trace: landings ending at 642.9 and starting at 1138 give g = 495.1 and a bound of 253.55; the worst measured, 252.4, is within it, while the neighbor-length form, 249.55, is 2.85 px short", () => {
+  it("a host trace: landings ending at 642.9 and starting at 1138 give g = 495.1 and a bound of 253.55; the worst measured, 252.4, is within it, while the neighbor-length form, 249.55, is 2.85 px short", () => {
     const g = 1138 - 642.9;
     expect(handBound(g)).toBeCloseTo(253.55, 2);
     expect(handBound(g, true)).toBeCloseTo(253.55, 2);
