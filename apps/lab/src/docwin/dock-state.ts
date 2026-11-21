@@ -829,7 +829,7 @@ export function createDocwin(o: DocwinOptions) {
    * which already leave out every item drawn there and the landing), with only the host's cosmetics added: inside the
    * window, a box inset 2 px, a line 2 px across the lane, the thin kinds kept clear of the panels' content.
    */
-  function guidesNow(drawn: readonly DockGuide[]): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
+  function guidesNow(drawn: readonly DockGuide[], held: Held | null = null, heldLane: string | null = null): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
     if (drawn.length === 0) return [];
     // 2 px clear of the window's edges and corners, measured from the window's inside (its 1 px border takes the
     // stage's last px each side), and a thin strip clear of the panels' content (`guideRects`, below).
@@ -851,10 +851,18 @@ export function createDocwin(o: DocwinOptions) {
     // Inside the window: boxes clipped, thin guides moved in whole and kept clear of the panels' content (a boundary a
     // thin edge may run flush against: `clearance: 0`, for the thin kinds only). A box keeps no clear of it: an empty
     // lane's real-size box lies over the content it moves aside.
-    return guideRects(
-      drawn.map((g) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })),
-      { inside, inset: 2, clear: content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] as const })) },
-    ).map(({ rect, ...g }) => ({ ...g, r: rect }));
+    // The held copy's accent outline (1 px outside its rect, `.dw-held[data-placed]`) is this host's chrome: a guide keeps
+    // 2 px clear of it in the held lane, and gives way only where the copy lies over it elsewhere. A cosmetic clear: the
+    // drag's marks already leave out every item and the landing.
+    const textClear = content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] as const }));
+    const copy = held ? [{ rect: held.drawn.value, clearance: heldLane ? 3 : 0 }, ...(held.preview ? [{ rect: held.preview, clearance: 2 }] : [])] : [];
+    const place = (gs: readonly DockGuide[], clear: readonly { rect: Rect; clearance: number }[]) =>
+      guideRects(
+        gs.map((g) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })),
+        { inside, inset: 2, clear: [...textClear, ...clear] },
+      ).map(({ rect, ...g }) => ({ ...g, r: rect }));
+    const bare = copy.map((c) => ({ ...c, clearance: 0 }));
+    return [...place(drawn.filter((g) => g.lane === heldLane), copy), ...place(drawn.filter((g) => g.lane !== heldLane), bare)];
   }
 
   /** At rest, with `always`: the strips a docked panel's drag would offer, one per side. */
@@ -1372,7 +1380,7 @@ export function createDocwin(o: DocwinOptions) {
       // The room: the frame's state's one layout, the layout a release commits.
       roomAfter: room ? L.drag.after(mf.state) : null,
       // Each lane's marks in the layout of the state it names (the drag draws them), with the host's cosmetics.
-      guides: () => guidesNow(L.drag.guides(mf)),
+      guides: () => guidesNow(L.drag.guides(mf), d, mf.lane),
     };
   }
 
