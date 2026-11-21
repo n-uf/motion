@@ -3,7 +3,7 @@
  * guards that keep a recorder from crashing on a commit that lacks an API.
  *
  * A recorder runs at HEAD and is copied into the base checkout, so it meets old code. Every call into the library goes
- * through `attempt`: an export or a test builder that isn't there records `{ absent }`, a call that throws records
+ * through `attempt`: an export or a test helper that isn't there records `{ absent }`, a call that throws records
  * `{ threw }`, and neither stops the run.
  *
  * Canonical JSON: keys sorted, numbers rounded to 1e-6 (and -0 written 0), a Map written as an object by its keys

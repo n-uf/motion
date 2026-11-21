@@ -1,0 +1,65 @@
+# Old vs new
+
+A library change must leave every existing output as it was, except the behaviour it means to change. `pnpm old-vs-new
+<base>` makes that a fixed step with output a reviewer reads, instead of a recorder written by hand for each change.
+
+```sh
+pnpm old-vs-new <base>                                   # <base> against this checkout
+pnpm old-vs-new <base> --head <rev>                      # against a commit instead
+pnpm old-vs-new <base> --only docking,placement          # some packages (docking, placement, motion)
+pnpm old-vs-new <base> --expect .changes-expect/<slug>.json
+```
+
+A run takes about a minute: it makes a temporary detached worktree at `<base>` (under the OS temp dir, with `pnpm
+install --offline --frozen-lockfile`), runs the recorders there and at the head, diffs them and removes the worktree
+(`git worktree remove`, never forced). The head is this checkout as it is, uncommitted changes included; `--head <rev>`
+records that commit in a worktree of its own.
+
+## What it prints
+
+Per package and per output kind, `same N / changed M` (a case present on one side only counts as changed), then the
+first five changed cases of each kind with the path, the old value and the new one. The full diff and both recordings
+are in `.old-vs-new/<base>..<head>/` (git-ignored): `<package>.diff.json`, `summary.txt`, `base/` and `head/`.
+
+Exit 0: nothing changed. Exit 1: something did. Exit 2: the run itself failed (a recorder crashed, an install failed).
+
+## The expect file
+
+A change that means to move outputs lists them in `.changes-expect/<slug>.json`, a list of
+`{ "package", "kind", "case", "reason" }`. Each of the first three is a glob (`*` any run, `?` one character; default
+`*`); package and kind may list alternatives as `a|b`. With `--expect` the run exits 0 only if every changed case is
+covered by an entry and every entry matched at least one change; it prints each entry's reason and how many cases it
+covered. A change nothing covers, or an entry that matched nothing, is the review's question. See
+`.changes-expect/split-pair-lengths.json` (run as `pnpm old-vs-new ce7b796c --head 30b8ad4c --expect ...`).
+
+## The recorders
+
+`packages/<pkg>/record/<pkg>.record.ts`, run by vitest through the package's own `record/vitest.config.ts`; the normal
+test run never reads them. Each writes canonical JSON (keys sorted, numbers rounded to 1e-6) of the package's public
+outputs over a fixed corpus, built from the checkout's own test helpers (the sweep windows, the stack fixtures, the
+conformance and landing rows) and seeded random sets. A case id is stable: the diff matches cases, and arrays inside a
+case, by id. `record/canon.ts` has the shared pieces.
+
+| Package | Output kinds |
+|---|---|
+| docking | `solve`, `targets`, `drops` (each target's drop), `refusals`, `stops`, `lanes`, `dividers`, `resize` (what `resizeBetween` and `resetBetween` write), `case-layout` and `case-solve` (the conformance rows), `after-rest`, `landing-frames`, `guides` and `after` / `release-after` (a drag's frames) |
+| placement | `fit`, `fit-previous` (refitted from its previous fit), `dividers`, `resize`, `gaps`, `cut`, `float-fit`, `layout-split`, `split-edits`, `pane-region`, `pane-targets`, `order-layout`, `order-targets` |
+| motion | `landing-frames` (the landing model over every landing row), `layout-frames` (`createLayoutMotion` on the fake clock), `animator` |
+
+### Old commits
+
+The recorders live at the head and are copied into the base checkout, so they meet code that may lack an export, a test
+helper or a field. Every library call goes through `attempt` and every module through `load` (`record/canon.ts`): an
+export or helper that isn't there records `{ "absent": "..." }`, a call that throws records `{ "threw": "..." }`, and
+the run goes on. A name that changed between commits is found by a probe, not assumed: an item's asked lengths are
+written under `lengths` or `length`, whichever the commit's code reads (`askedName`). A new recorder or a new corpus case
+shows as `absent` against a base without it; that is what the base had.
+
+### What the corpus doesn't cover
+
+- The drags are sampled: 48 windows spread over the sweep, 4 paths each, 6 frames a path, at the sweep's two hand
+  speeds (the full sweep is `test/one-layout-sweep.test.ts`).
+- The conformance rows are played as gestures on the reference host and read at their end, not frame by frame.
+- Not recorded: the stored form (its keys are a contract of their own, covered by the store tests), the popup positioner,
+  the gesture recognizer, the frame loop's timing, the DOM helpers and the lab.
+- States are the repository's own fixtures and a seeded set; a bug that needs a state none of them has isn't seen.

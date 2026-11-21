@@ -9,7 +9,7 @@
  * `resetBetween` write, `stackGaps`, `cutEdges`, `fitFloat`, and for tiling `layoutSplit`, the split edits, the pane
  * regions, `paneTargets`, `orderTargets` and the order layouts.
  *
- * Old commits: every call goes through `attempt` and every module through `load`, so a builder or export the old code
+ * Old commits: every call goes through `attempt` and every module through `load`, so a helper or export the old code
  * lacks records `{ absent }` and a call that throws records `{ threw }`; nothing stops the run.
  */
 import { join } from "node:path";
@@ -45,7 +45,7 @@ describe("record placement", () => {
     try {
       ASK = askedName((name) => stack("fitStack")(fixture("stack")([{ ...fixture("panel")("a", 1, 300), ...(name === "none" ? {} : { [name]: { column: 500 } }) }, fixture("panel")("b", 2, 300)], 900)));
     } catch {
-      // No builders or no stack: nothing below can run either, and says so.
+      // No fixture helpers or no stack: nothing below can run either, and says so.
     }
 
     // --- stacks ---------------------------------------------------------------------------------------------------

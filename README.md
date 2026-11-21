@@ -122,3 +122,12 @@ sorts after, to put an entry after another).
   deleted. It refuses when `## <version>` already exists, and writes nothing if any package refuses.
 
 The `files` of each package list no `changes/` folder, so fragments are never published.
+
+## A library change proves what it left alone
+
+A change to a library runs `pnpm old-vs-new <base>` (the commit it started from) and commits its expect file under
+`.changes-expect/<slug>.json` (or names it in the PR body): the list of outputs it means to change. The command records
+the public outputs of the three packages at `<base>` and at the head over a fixed corpus and prints, per package and per
+output kind, how many cases are the same and how many changed, with the first differences. The review reads that
+printed summary; the change passes when it exits 0 with its expect file (`--expect .changes-expect/<slug>.json`).
+How it works, the expect file and what the corpus doesn't cover: [docs/old-vs-new.md](./docs/old-vs-new.md).

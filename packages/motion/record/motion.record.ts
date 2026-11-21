@@ -10,7 +10,7 @@
  *   show and a hide, several items, a held item), every frame's draw and every lay-out;
  * - the animators' samples: settle, spring and tween over a few starts and targets.
  *
- * Old commits: every call goes through `attempt` and every module through `load`, so a builder or export the old code
+ * Old commits: every call goes through `attempt` and every module through `load`, so a helper or export the old code
  * lacks records `{ absent }` and a call that throws records `{ threw }`; nothing stops the run.
  */
 import { join } from "node:path";

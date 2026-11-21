@@ -3,7 +3,7 @@
  * canonical JSON to `OVN_OUT`. Run through `pnpm old-vs-new <base>`, or alone:
  * `OVN_OUT=/tmp/docking.json pnpm --filter @n-uf/docking exec vitest run --config record/vitest.config.ts`.
  *
- * The corpus, all from the checkout's own builders (so an old commit is recorded with its own inputs):
+ * The corpus, all from the checkout's own fixture helpers (so an old commit is recorded with its own inputs):
  * - the windows of the one-layout sweep (`test/one-layout-windows.ts`), the rail-entry windows, the window fixture at
  *   three sizes and a seeded set of random windows;
  * - the conformance rows (`@n-uf/docking/testing`'s `CASES`), played on the reference host.
@@ -14,7 +14,7 @@
  * and `guides(frame)`. The drags are capped (`DRAG_WINDOWS` windows spread over the corpus, `WINDOW_SAMPLES` paths each,
  * `PER_PATH` frames a path) so a run stays near two minutes.
  *
- * Old commits: every call goes through `attempt` and every module through `load`, so a builder or export the old code
+ * Old commits: every call goes through `attempt` and every module through `load`, so a helper or export the old code
  * lacks records `{ absent }` and a call that throws records `{ threw }`; nothing stops the run.
  */
 import { join } from "node:path";
@@ -74,7 +74,7 @@ describe("record docking", () => {
         return api("solve")({ stage: { x: 0, y: 0, width: 1200, height: 900 }, edges: [column("left", "left", 0, ["a", "b"])], items: byId([a, panel("b", 2)]), floats: [], floatKinds: [] });
       });
     } catch {
-      // No builders or no solve: nothing below can run either, and says so.
+      // No fixture helpers or no solve: nothing below can run either, and says so.
     }
 
     // --- the corpus -----------------------------------------------------------------------------------------------
