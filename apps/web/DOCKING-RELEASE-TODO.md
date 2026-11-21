@@ -2,7 +2,7 @@
 
 Held work on `fl/docking-pages` (n-uf/motion#85), rebased on the release (26.11.54, 2026-11-21). The samples, demos,
 copy, data and config are on the released SDK; what is left needs the deployed site, a font or a decision.
-Delete this file in the release PR once every box is ticked.
+Delete this file once the after-deploy boxes below are ticked.
 
 ## Done at the rebase (2026-11-21)
 
@@ -33,9 +33,8 @@ Delete this file in the release PR once every box is ticked.
       address>` (the home capture is `#demo`), then `python3 scripts/render-og.py --font <InterVariable.ttf>` (the font
       needs both axes, opsz and wght; Pillow needs raqm).
 - [x] The `mermaid` block of `docs/docking.md` never reaches `/docs/docking/`: `docs-markdown.mjs` drops a mermaid
-      fence (and a heading with nothing left under it), and a test pins it. The repo keeps its diagram. The prose under
-      "How the parts fit" stays and still says "Every edge in the diagram"; reword it in `docs/docking.md` if that reads
-      oddly without the picture.
+      fence (and a heading with nothing left under it), and a test pins it. The repo keeps its diagram, and the prose
+      under "How the parts fit" now reads without it ("Every step between these parts…", 64b4ae6).
 - [ ] After deploy: `curl -sI https://motion.n-uf.com/desk-layouts/` shows `301` and `location: /docking-layouts/`, with
       and without the trailing slash; `/og/desk-layouts.png` redirects to `/og/docking-layouts.png`.
 - [ ] After deploy: the sitemap lists `/docking-layouts/` and `/docs/docking/`, not `/desk-layouts/`; every JSON-LD
