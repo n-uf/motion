@@ -95,25 +95,28 @@ const piecesOf = (t: { hit: Rect; hits?: readonly Rect[] }): readonly Rect[] => 
 const inside = (r: Rect, x: number, y: number): boolean => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
 const railTargets = (s: Scene, r: number) => targets(s, "tools", ask(r)).filter((t) => t.id.startsWith(`strip:${RAIL}:`) || t.id.startsWith(`gap:${RAIL}:`));
 
-/** The x of a line down the middle of the rail's band. */
-const railLine = (c: Case): number => (c.side === "left" ? 14 : c.w - 14);
+/** Lines down the rail's band, its outer, middle and inner part (the outer one inside an inset's strip). */
+const railLines = (c: Case): number[] => [2, 14, 26].map((d) => (c.side === "left" ? d : c.w - d));
 
-/** Per sample point down the rail's line: the rail targets holding it, any other target holding it, any refusal holding it. */
+/** Per sample point down the rail's band: the rail targets holding it, the other targets holding it, the refusals holding it. */
 function sample(s: Scene, c: Case, r: number) {
-  const x = railLine(c);
   const all = targets(s, "tools", ask(r)).filter((t) => !t.free);
   const mine = all.filter((t) => t.id.startsWith(`strip:${RAIL}:`) || t.id.startsWith(`gap:${RAIL}:`));
   const others = all.filter((t) => !mine.includes(t));
   const refused = refusals(s, "tools", ask(r));
-  const out: { y: number; mine: string[]; other: boolean; refused: string[] }[] = [];
-  for (let y = 0.5; y < c.h; y += 3) {
-    out.push({
-      y,
-      mine: mine.filter((t) => piecesOf(t).some((p) => inside(p, x, y))).map((t) => t.id),
-      other: others.some((t) => piecesOf(t).some((p) => inside(p, x, y))),
-      refused: refused.filter((q) => piecesOf(q).some((p) => inside(p, x, y))).map((q) => q.id),
-    });
-  }
+  const out: { x: number; y: number; mine: string[]; others: string[]; other: boolean; refused: string[] }[] = [];
+  for (const x of railLines(c))
+    for (let y = 0.5; y < c.h; y += 3) {
+      const o = others.filter((t) => piecesOf(t).some((p) => inside(p, x, y))).map((t) => t.id);
+      out.push({
+        x,
+        y,
+        mine: mine.filter((t) => piecesOf(t).some((p) => inside(p, x, y))).map((t) => t.id),
+        others: o,
+        other: o.length > 0,
+        refused: refused.filter((q) => piecesOf(q).some((p) => inside(p, x, y))).map((q) => q.id),
+      });
+    }
   return out;
 }
 
@@ -168,19 +171,21 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
       const s = sceneOf(c);
       const base = sample(s, c, 0);
       const entry0 = lanes(s, "tools", ask(0)).lanes.find((l) => l.id === RAIL)?.entry;
-      for (const r of [0, 12, 24]) {
+      // A reach past the bar's thickness too, where a bar holds items: the strip must stop at it, not pass it.
+      for (const r of c.bar === "holding" ? [0, 12, 24, 60] : [0, 12, 24]) {
         const tag = `${JSON.stringify(c)} endReach ${r}`;
         const now = r === 0 ? base : sample(s, c, r);
         now.forEach((p, i) => {
           const was = base[i]!;
-          // At most one of the rail's targets anywhere along it.
-          expect(p.mine.length, `${tag} y ${p.y}`).toBeLessThanOrEqual(1);
+          // One owner at most for every point of the rail's band: no two targets overlap there.
+          expect(p.mine.length + p.others.length, `${tag} x ${p.x} y ${p.y}: ${JSON.stringify(p)}`).toBeLessThanOrEqual(1);
           // A point of the rail's own span (on no other edge's target) is the rail's: one zone target, never refused.
           // (Past a bar holding items inside the inset, the inset's strip is nobody's, with or without reach.)
-          if (!p.other && !(c.bar === "holding" && c.barInside)) expect(p.mine.length, `${tag} y ${p.y}: ${JSON.stringify(p)}`).toBe(1);
-          expect(p.refused, `${tag} y ${p.y}`).toEqual([]);
+          if (!p.other && !(c.bar === "holding" && c.barInside)) expect(p.mine.length, `${tag} x ${p.x} y ${p.y}: ${JSON.stringify(p)}`).toBe(1);
+          // (The inner line of an inset rail lies over the column's refusal, which is not the rail's.)
+          if (p.mine.length > 0 || was.mine.length > 0) expect(p.refused, `${tag} x ${p.x} y ${p.y}`).toEqual([]);
           // Reach never shrinks a target: what a zone's target holds at endReach 0 it holds at any reach.
-          if (was.mine.length === 1) expect(p.mine, `${tag} y ${p.y}`).toEqual(was.mine);
+          if (was.mine.length === 1) expect(p.mine, `${tag} x ${p.x} y ${p.y}`).toEqual(was.mine);
         });
         // The predicted entry runs as far as it does without reach.
         if (entry0) {
@@ -197,9 +202,12 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
     for (const at of ["end", "start"] as const) {
       const c: Case = { w: 800, h: 600, side: "left", at, bar: "holding", inset: 0 };
       const s = sceneOf(c);
-      const ts = railTargets(s, 24);
-      const outside = ts.some((t) => piecesOf(t).some((p) => (at === "end" ? p.y + p.height > 600 + 1e-6 : p.y < -1e-6)));
-      expect(outside, `${at}: ${JSON.stringify(ts.map((t) => [t.id, piecesOf(t)]))}`).toBe(false);
+      // 24 is within the bar's 41 px; 60 goes past it.
+      for (const r of [24, 60]) {
+        const ts = railTargets(s, r);
+        const outside = ts.some((t) => piecesOf(t).some((p) => (at === "end" ? p.y + p.height > 600 + 1e-6 : p.y < -1e-6)));
+        expect(outside, `${at} endReach ${r}: ${JSON.stringify(ts.map((t) => [t.id, piecesOf(t)]))}`).toBe(false);
+      }
     }
   });
 });
