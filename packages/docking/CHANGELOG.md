@@ -34,7 +34,10 @@ Unreleased entries live in `changes/` until a release joins them.
   agree: a column folded into a declared rail is a lane drawn where its run of tiles lies (the hull of its rail
   segments), so its hit rect, its spots' stretches and its marks stop at the run, where they took the whole rail (a spot
   over another column's tiles that reordered the held tile, a stretch past the rail's last tile); a column created folded
-  draws no mark beyond its own tile. `lanes()` and `targets()` decide the same at every point of a rail.
+  draws no mark beyond its own tile. `lanes()` and `targets()` decide the same at every point of a rail, except the pending new-column-line cases
+  (a new-column line over a rail where the lanes stay, in a narrow window and in one with a tray of toolbars, and with a
+  second column holding the held tile the lanes' new-column lane over the rail's first pixels where `targets()` floats),
+  which the sweep lists by name.
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 

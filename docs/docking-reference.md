@@ -458,8 +458,11 @@ A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an i
 column folded into it moves among that column's tiles through the column's own lane, drawn where the column's run of tiles
 lies (the hull of its rail segments): the lane's `rect`, its spots' `along` stretches and its marks lie in the run, and
 its spots are the column's gaps, as `targets()` offers them. The rest of the rail (other columns' tiles, and past the
-last tile) is the rail's, home for the tile, as it is in `targets()`; at no point of a rail do the lanes and `targets()`
-decide differently.
+last tile) is the rail's, home for the tile, as it is in `targets()`. The lanes and `targets()` decide the same at every
+point of a rail, except the pending new-column-line cases (a new-column line's zone against the rail stop: `targets()`
+offers it over a rail where the lanes stay, in a narrow window and in one whose right column holds a tray of toolbars;
+and with a second column holding the held tile, the lanes' new-column lane lies over the rail's first pixels where
+`targets()` floats), which the sweep lists by name.
 
 **Column footers.** `DockEdge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
