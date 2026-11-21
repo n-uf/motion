@@ -24,7 +24,7 @@ npm i @n-uf/motion
 ```
 
 - [Design page](./docs/motion.md): the concept, the parts, the rules.
-- [Reference](./docs/motion-reference.md): every entry point's API.
+- [Reference](./docs/motion-reference.md): every entry point's behavior; the exported types are the contract.
 - [npm](https://www.npmjs.com/package/@n-uf/motion) and the [package README](./packages/motion/README.md).
 
 ## @n-uf/placement: where things fit

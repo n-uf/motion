@@ -1,7 +1,8 @@
 # @n-uf/placement: reference
 
-The detailed behavior of every entry of `@n-uf/placement`, with examples. The design, the rules a consumer relies on and
-the export tables are on [placement.md](./placement.md); the API contract is the exported TypeScript types. A whole
+The detailed behavior of every entry of `@n-uf/placement`, with examples. The reference covers behavior; the exported
+types are the contract. The design, the rules a consumer relies on and the export tables are on
+[placement.md](./placement.md). A whole
 window's docking model, built on this layer, is `@n-uf/docking` ([docking-reference.md](./docking-reference.md)).
 
 - [Edge bands (`cutEdges`)](#edge-bands-cutedges)
@@ -524,4 +525,8 @@ the same shape as `@n-uf/motion`'s) and the geometry every entry shares: `rect`,
 
 The `Target` type (a drop target's shape, as `@n-uf/motion/drag` takes it) is exported here too, with its optional
 `hits` (every piece of a zone that isn't one rect; `hit` is the largest), and `pickRank` with `REFUSAL_RANK`: a refusal
-ranks after every priority 1 and 2 target and before priority 3; lower wins.
+ranks after every priority 1 and 2 target and before priority 3; lower wins. Beside `id`, `priority`, `hit`, `hits`,
+`slot`, `label` and `free`, a `Target` carries the fields the docking model sets as plain data: `refuse` (a refusal;
+`pickRank` reads it), `bounds` (the drawn space a zone belongs to), `arm: "dwell"` with `armedHit` (a spring-loaded
+target and its zone once armed), and `opensRoom` with `roomHold` (ms) and `roomHit` (a target whose room opens as it
+shows). This package reads none of them but `refuse`; `stackGaps` and the tiling targets set none.

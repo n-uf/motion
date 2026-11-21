@@ -1,6 +1,6 @@
 # @n-uf/docking: reference
 
-The full API of `@n-uf/docking`, entry by entry: rules, ids, options and longer examples. The [package README](../packages/docking/README.md) is the short tour; the [design page](./docking.md) has the concept, the parts and the rules a consumer relies on. The general layer it stands on (the edge fit, the form vocabulary, the edge cut and the float fit) is `@n-uf/placement` ([placement-reference.md](./placement-reference.md)).
+The behavior of `@n-uf/docking`, entry by entry: rules, ids, options and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/docking/README.md) is the short tour; the [design page](./docking.md) has the concept, the parts and the rules a consumer relies on. The general layer it stands on (the edge fit, the form vocabulary, the edge cut and the float fit) is `@n-uf/placement` ([placement-reference.md](./placement-reference.md)).
 
 State in, rects and drop targets out. Pure functions over plain data: no DOM, no framework, no motion; one dependency, `@n-uf/placement`. Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -443,7 +443,11 @@ it), `layout` (that state solved with `options.previous`, as the commit solves i
 there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
 spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
 remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
-a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. `landingOf(held)` is
+a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. **Which layout a held frame draws** is
+the draw rule of docs/docking.md ("What a held frame draws"): `after(held).layout` while the frame's room is open; a float
+frame whose room is not open, and the Outline mode, draw the window at rest (`after(null).layout`), and the gap closes on
+release. Today the host picks between the two (`DockGuideFrame` carries no room, and `guides(frame)` reads
+`after(frame.state)` as the screen). `landingOf(held)` is
 `after(held).landing`; `spotsOf(spot)` is a spot's lane's stretches in its own layout. `guides(frame)` takes a landing
 frame (`DockGuideFrame`: its `state` and its `guides`, `{ lane, state }` each) and gives its guides (`DockGuide`): each
 lane's marks in the layout of the state it names; a lane drawn on screen less the landing the pointer would take in
@@ -979,6 +983,24 @@ place (trailing ones last). An item the store places nowhere goes where `base` h
 its bar), never cut, so a reload lands where it was drawn. Dynamic columns are the store's: one
 `base` lacks is made from `base.columns[side]` at its stored ring, and empty ones are deleted. Anything but version 1
 gives `base` back with an `error`.
+
+**Option, place and stored types.** The exported types are the contract; these are the ones a host names most.
+
+| Type | What it is |
+|---|---|
+| `SolveOptions` | `solve`'s second argument: `previous` (the layout the state had before, so a press reshapes nothing; see `previous` above) and `fresh` (edge or item ids solved without it). |
+| `Place` | Where `moveTo` puts an item: one of the four places below, told apart by `kind` (a `DockPlace` has none, or `"gap"`). |
+| `DockPlace` | `{ kind?: "gap", edge, zone?, at, space? }`: before the `at`-th item of `zone` (default the item's own zone) in `edge`, counted without the moved item, keeping `space` px free on the zone's open side. Docked into the room a placed neighbor keeps, it consumes that room. |
+| `ColumnPlace` | `{ kind: "column", side, ring }`: a new dynamic column on a left or right `side` at `ring` (`Infinity` is the side's inner end). |
+| `RailPlace` | `{ kind: "rail", side, ring }`: a new column holding the item folded by hand, so it shows in the side's rail. |
+| `FloatPlace` | `{ kind: "float", rect?, anchor? }`: floating at `rect`, or, with none, at its last size anchored to the content; `anchor` is a name or `{ at, dx?, dy? }`. |
+| `DockLaneOptions` | The options of `lanes` and `dockDrag`: `DockDropOptions` (`previous`, `endReach` default 0, `floatSize`, `floatFromHeld`, `floatOrient`, `fresh`) and `pitch` (default `SPOT_PITCH`, 40 px), `stretchPositions` (`"free"`, the default, or `"pitched"`), `snapDistance` (8 px), `grab` (where the pointer holds the item, from its top left corner) and `emptyLanes`. |
+| `EmptyLanes` | `"real"` (the default) or `"edge"`: how an empty lane's marks draw it, a box at the size it will take or a thin striped strip (`HATCH_EDGE`) on its window side. Where it lands is the same either way. |
+| `StoredDockState` | The stored form: `{ v: 1, edges, floats, items, railModes? }`, plain JSON-safe data. `railModes` says per side how its rails show their items. |
+| `StoredDockStateEdge` | `{ id, side, ring, items, size?, column? }`: an edge's order of items and its `size`; `column: true` marks a dynamic column, read back from the side's template even when `base` lacks it. |
+| `StoredDockStateFloat` | `{ id, x, y, width, height, orient?, anchor?, since? }`: a float's rect, orient, anchor and when it was floated. |
+| `StoredDockStateItem` | `{ used, kept?, from?, closed?, align?, space?, length?, floatSizes?, floatSize? }`: an item's state. `floatSize` is the old single size, which `readDockState` reads as `floatSizes` and `storeDockState` never writes. |
+| `DockStateRead` | What `readDockState` returns: `{ state, dropped, error? }`: the state read over `base`, what was left out, and the reason when nothing could be read (`state` is `base`). |
 
 ## Testing (`@n-uf/docking/testing`)
 

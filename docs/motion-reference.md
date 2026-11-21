@@ -1,6 +1,6 @@
 # @n-uf/motion: reference
 
-The full API of `@n-uf/motion`, entry by entry: tables, rules and longer examples. The [package README](../packages/motion/README.md) is the short tour; the [design page](./motion.md) has the concept, the parts and the rules a consumer relies on.
+The behavior of `@n-uf/motion`, entry by entry: tables, rules and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/motion/README.md) is the short tour; the [design page](./motion.md) has the concept, the parts and the rules a consumer relies on.
 
 One package, nine entries: `@n-uf/motion` (everything host-free in one import), its six host-free folders on their own (`@n-uf/motion/clock`, `/signals`, `/values`, `/gestures`, `/drag` for the drag intent and the landing model, `/layout` for the window motion rules applied to a whole layout), `@n-uf/motion/testing` (frame-sampled checks of the motion rules, for tests and browser specs), and `@n-uf/motion/browser`, everything that touches a host: the clock on `requestAnimationFrame`, the reduced-motion media query and the DOM writers. The core entries touch no DOM; importing several of them still gives one signal graph. Times are in ms, distances in px and pointer speeds in px/ms everywhere, and no name carries its unit; an animator's velocity is in units per second.
 
@@ -406,6 +406,19 @@ the pointer itself. While a drag is in progress, suppress the context menu (a Ct
 browser shortcuts of the arm key (⌘/Ctrl): `preventDefault` on `contextmenu`, and on the `keydown` of Meta or Control.
 The intent doesn't see DOM events, and the gesture recognizer has no hook for this, so it is the host's job; leave keys
 alone when no drag is active.
+
+**Frame, release and tuning types.** The exported types are the contract; these are the ones a host reads and writes most.
+
+| | |
+|---|---|
+| `DragFrame<T>` | What `createDragIntent`'s `update` returns, with the target type `T`: `shown`, `arming`, `refused` and `landing` are `T` or null, `room`, `aiming` and `atHome` booleans, `roomPlace` a string or null, `forced` `"float"`, `"armed"` or null. The fields' meanings are the table under "Drag intent" in the design page. |
+| `DragTuning` | The tuning's shape, which `DRAG_DEFAULTS` fills: `lift`, `touchHold`, `touchLift`, `speedWindow`, `aimSpeed`, `still`, `dwell`, `band`, `breakthrough`, `bandShare`, `gapGrace`, `switchHold`, `roomAfter`, `homeInset`, `armAfter`, `liftZone` and `modifiers` (`DragModifiers`: `{ on, floatKey, armKey }`). An intent's `tuning` option is a `Partial<DragTuning>`, and the intent's own `tuning` is the whole. Distances are px, speeds px/ms, times ms. |
+| `LandingFrame` | What the landing model's `update` returns and `frame` holds: `region` (`LandingRegion`: `"lane"`, `"open"`, `"refused"` or `"nowhere"`), `lane` and `spot` (the ones held, or null), `state` (a `LandingState`: the state a release now lands, the screen's, or null at rest), `landing` (`landingOf(state)`, or null), `room` (a spot is held in a lane, and no Shift), `guides` (the lanes whose guides show, each a `LandingGuideRef`, `{ lane, state }`), `shift`, and `pending` (the lane the pointer is inside but has not entered, when there is one). |
+| `LandingRelease` | What `release` returns: `{ kind: "spot", lane, spot, point, home }`, `{ kind: "float", point }` or null (the item goes home). `home` is true where the drop lands at the item's own place. It is the last frame's state; the host commits that state's layout. |
+| `LandingGates`, `LANDING_GATES` | The gates a lane's entry reads, and their defaults: `path` 40 px (slow pointer path that enters a lane), `depth` 8 px (where a still step enters it), `stillSpeed` 0.1875 px/ms, `stepSpeed` 0.375 px/ms (the fastest step that changes a spot where the change reflows the window, and the fastest the path gate counts), `trail` 40 px, `rest` 22 ms, `pause` 60 ms and `slideSpeed` 2 px/ms. `createLandingModel`'s `gates` option is a `Partial<LandingGates>`. |
+| `LandingMargins`, `LANDING_MARGINS`, `LANDING_TOUCH_MARGINS` | `exit`, `spot`, `edge` and `lift` in px: `{ 12, 6, 48, 16 }`, and wider for a finger, `{ 16, 8, 48, 16 }`. |
+| `LandingApproach`, `LANDING_APPROACH` | The Near guide's approach in open space: `reach` 12 px, `keep` 12 px, `nearer` 16 px. |
+| `LandingOptions`, `LandingModel` | `createLandingModel`'s options (`LandingGeometry`'s `regions`, `landingOf` and `spotsOf`, and `home`, `lift`, `margins`, `gates`, `approach`, `placeGuides`) and the model it returns (`update`, `release`, `setGeometry`, `hide`, `frame`). |
 
 ## Browser (`@n-uf/motion/browser`)
 
