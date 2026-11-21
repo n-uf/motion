@@ -622,12 +622,25 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     const handed = new Set(named.filter(takes).map((x) => x.id));
     const kept = named.filter((x) => !handed.has(x.id)).flatMap((x) => view(x).map(drawn));
     const at = owner && (owner.marks || owner.entry) ? wouldLand(owner) : null;
-    /** `gs` less the rect `r`, in two dimensions: a box keeps the pieces around it, a line it touches is not drawn. */
+    /**
+     * `gs` less the rect `r`, in two dimensions: a box keeps the pieces around it; a line it touches is shortened along
+     * its length to the parts outside it, as `guideRects` shortens one (not drawn only where `r` covers all its length).
+     */
     const without = (gs: readonly LandingGuide[], r: Rect | null): LandingGuide[] =>
       gs.flatMap((g) => {
         if (!r || !area(drawn(g), r)) return [g];
-        if (g.kind === "line") return [];
         const a = g.rect;
+        if (g.kind === "line") {
+          const vertical = a.width <= a.height;
+          const from = vertical ? a.y : a.x;
+          const to = from + (vertical ? a.height : a.width);
+          const c0 = vertical ? r.y : r.x;
+          const c1 = c0 + (vertical ? r.height : r.width);
+          const spans: [number, number][] = [];
+          if (c0 > from + 1e-6) spans.push([from, Math.min(to, c0)]);
+          if (c1 < to - 1e-6) spans.push([Math.max(from, c1), to]);
+          return spans.map(([s, e], k) => ({ ...g, id: k ? `${g.id}~l${k}` : g.id, rect: vertical ? { x: a.x, y: s, width: a.width, height: e - s } : { x: s, y: a.y, width: e - s, height: a.height } }));
+        }
         const x0 = Math.max(a.x, r.x);
         const x1 = Math.min(a.x + a.width, r.x + r.width);
         const pieces: Rect[] = [];

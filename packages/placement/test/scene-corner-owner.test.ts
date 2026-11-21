@@ -79,6 +79,15 @@ describe("a shared corner of two empty lanes is covered by exactly one drawn mar
           const edge = left ? r.rect.x + r.rect.width : r.rect.x;
           for (const y of [r.rect.y + 200, r.rect.y + r.rect.height / 2, r.rect.y + r.rect.height - 200]) pointers.push({ x: edge + (left ? 8 : -8), y }, { x: edge + (left ? 4 : -4), y }, { x: r.rect.x + r.rect.width / 2, y });
         }
+        // One held pointer per rail near each end (70 px from it): the item lies over a corner there, so a point under
+        // that frame's own landing is skipped, and every other point must still be covered once.
+        const nearEnd = new Set<Point>();
+        for (const { r } of pairs)
+          for (const y of [r.rect.y + cut + 70, r.rect.y + r.rect.height - cut - 70]) {
+            const q = { x: r.rect.x + r.rect.width / 2, y };
+            pointers.push(q);
+            nearEnd.add(q);
+          }
         for (const { b } of pairs) pointers.push({ x: 400, y: b.rect.y < stage.y + stage.height / 2 ? b.rect.y + b.rect.height + 8 : b.rect.y - 8 });
         const drawn = (f: LandingFrame) =>
           f.guides.flatMap((g) => {
@@ -95,6 +104,7 @@ describe("a shared corner of two empty lanes is covered by exactly one drawn mar
                   const p = { x: r.rect.x + dx, y: b.rect.y + dy };
                   // (Where neither lane's rect reaches the point, a host draws nothing there.)
                   if (![r, b].some((l) => covers(regions.lanes.find((x) => x.id === l.id)!.rect, p))) continue;
+                  if (nearEnd.has(to) && f.landing && covers(f.landing, p)) continue;
                   const n = marks.filter((m) => covers(m.rect, p)).map((m) => m.lane);
                   const at = `${mode}, pointer ${to.x},${to.y} (${f.lane ?? "-"}/${f.region}), corner ${r.id}/${b.id} at ${p.x},${p.y}: ${n.join("+") || "none"}`;
                   if (mode === "all") expect(n.length, at).toBe(1);

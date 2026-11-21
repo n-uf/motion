@@ -245,3 +245,17 @@ describe("the named lane's kept marks are its drawn ones, and the held landing i
     }
   });
 });
+
+describe("a named lane's joint line is shortened by the landing, not dropped", () => {
+  it("a top-bar line at x 30, y 0–31, with the rail's landing at y 5–105: the 5 px above the landing stay, held and approached", () => {
+    const base = window(0, H);
+    const top = base.lanes.find((l) => l.id === "top")!;
+    const rail = base.lanes.find((l) => l.id === "rail-left")!;
+    const regions = swap(swap(base, "top", { marks: [...top.marks!, { id: "top/line/a|b", kind: "line", rect: rect(30, 0, 0, BAR) }] }), "rail-left", { spots: [{ ...rail.spots[0]!, landing: rect(0, 5, RAIL, 100) }] });
+    for (const to of [{ x: 15, y: 60 }, { x: 40, y: 60 }]) {
+      const f = settled(regions, "all", to);
+      const parts = f.guides.filter((g) => g.id.startsWith("top/line/a|b")).map((g) => [g.rect.y, g.rect.y + g.rect.height]);
+      expect(parts, `${to.x}`).toEqual([[0, 5]]);
+    }
+  });
+});
