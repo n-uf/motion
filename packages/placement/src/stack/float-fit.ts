@@ -10,6 +10,9 @@
  * about 17 ms; a safety net stops the clear search after 3 million rect tests and says so in `searchCapped`; a stage
  * with no clear place looks at the 2,048 nearest places for the least covered.
  *
+ * With `{ stay: true }` it is only moved inside the stage: it lies where it is asked, and `covers` says which `avoid`
+ * rects it covers there (a float a person left over content on purpose).
+ *
  * A window model fits its floats with it.
  */
 import { clampInto, overlap, overlaps, rect, type Rect } from "../geometry";
@@ -29,6 +32,14 @@ export interface FloatFit {
   readonly covers: readonly number[];
   /** The safety net on the clear search was hit (thousands of rects): the place found may not be the nearest, or a clear place may exist that was not found. Normally false. */
   readonly searchCapped: boolean;
+}
+
+export interface FloatFitOptions {
+  /**
+   * Only moved inside the stage, never beside what it covers: `rect` is the asked rect clamped into the stage, `snapped`
+   * is false and `covers` lists every `avoid` rect it covers there. Default false.
+   */
+  readonly stay?: boolean;
 }
 
 /** How far floats compare loosely: a float's px are rounded, so a thousandth is touching. */
@@ -100,7 +111,7 @@ function* byDistance(xs: readonly number[], ys: readonly number[], fx: number, f
   }
 }
 
-export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = []): FloatFit {
+export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = [], options: FloatFitOptions = {}): FloatFit {
   const area = clean(stage, rect(0, 0, 0, 0));
   const r = clean(want, area);
   const inside = clampInto(r, area);
@@ -115,7 +126,8 @@ export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = []): 
   });
   const under = (cand: Rect): number[] => near.filter((n) => overlaps(cand, n.at, EPS)).map((n) => n.index);
   const blocked = (cand: Rect): boolean => near.some((n) => overlaps(cand, n.at, EPS));
-  if (!blocked(inside)) return { rect: inside, clamped, snapped: false, covers: [], searchCapped: false };
+  if (options.stay) return { rect: inside, clamped, snapped: false, covers: under(inside), searchCapped: false };
+  if (!blocked(inside))return { rect: inside, clamped, snapped: false, covers: [], searchCapped: false };
 
   // The places to look at: every x that puts the float against an edge of the stage or of a rect (or where it is),
   // crossed with every y that does; a clear place exists if one does at all, as a float slid against edges.
