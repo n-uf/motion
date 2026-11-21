@@ -185,7 +185,7 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
       `  grab: ${point(call.grab)}, // where the pointer held the item, from its top-left corner`,
       "});",
       "// The landing model reads the drag as it is: createLandingModel({ ...drag, home, placeGuides }). Each frame the",
-      "// window draws drag.shown(frame), the landing drag.landingOf(frame.state) and the guides drag.guides(frame).",
+      "// window draws drag.shown(frame), the landing drag.landingOf(frame.held) and the guides drag.guides(frame).",
     );
   } else {
     const s = call.settings;
@@ -193,8 +193,8 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
   }
 
   const commit = (from: string): string[] => [`const { state: next, layout: nextLayout } = ${from}.after(${point(call.pointer)}, ${point(call.grab)});`];
-  /** The release as the landing model gave it, and its commit: the state's one layout (`after`). */
-  const commitState = (state: string): string[] => [`const release = ${state}; // model.release(...)`, "const { state: next, layout: nextLayout, landing } = drag.after(release);"];
+  /** The release as the landing model gave it, and its commit: the held place's one layout (`after`). */
+  const commitState = (released: string): string[] => [`const release = ${released}; // model.release(...)`, "const { state: next, layout: nextLayout, landing } = drag.after(release);"];
   // A sliding spot says where it went by its committed landing's start along the lane; its `place` is only the dock at
   // the spot's listed landing. Any other target says its place.
   const place = call.slides && call.at !== null ? `, its start at ${call.at} along the lane (landing)` : call.placeOf && call.placeOf.kind !== "float" ? ` at the place ${literal(call.placeOf, { quote: false })}` : "";
