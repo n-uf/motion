@@ -58,7 +58,7 @@ frame and the commit alike. Taken: the second.
   the rest layout (`after(null)`) until release; `after(float)` is what the drop commits, so docked items close the gap
   at release (the one-preview rule: the dragged item is the only thing that moves). The float's landing still equals
   the commit. It is the DOM sweep's one exception (`one-layout-items-landing` checks only the landing on float
-  frames). An open product call may lift it, and then a float frame draws `after(float)` like any other state.
+  frames). Decided (2026-11-21): the gap closes when the item is let go, not during the drag.
 - **No two boxes overlap; a line may cross another lane's box.** A panel joint drawn across a new column's room is a
   marker over a place, not two places claiming one room, and the box keeps the item's length (cutting it there would
   lose a real place).
