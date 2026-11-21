@@ -55,7 +55,7 @@ An application window is a set of places: bars along the top and bottom, columns
 - **The host draws and measures.** The library never touches a DOM. The host measures its items, declares their forms as numbers, draws the rects it gets back, and feeds pointer samples to a drag intent.
 - **Composition with motion without a dependency.** A drop target has the shape `@n-uf/motion/drag` takes (`id`, `priority`, `hit`, `slot`, and a few optional fields). A rect has the same shape in all three packages. The pick rule (which target the pointer is over) and the landing model are motion's; where the conformance code needs them, the host passes them in (`createReferenceHost({ pick })`, `createLandingHost({ landing })`).
 
-Nothing under `packages/docking/src` outside `src/testing` imports `@n-uf/motion`, and `src/testing` imports only its types (for `AssertLanding`, erased from the JavaScript). The package's one dependency is `@n-uf/placement`; `@n-uf/motion` is a development dependency only, and the package's tests import it to drive the pick rule and the landing model.
+Nothing under `packages/docking/src` outside `src/testing` imports `@n-uf/motion`, and `src/testing` imports only its types (for `AssertLanding`, erased from the JavaScript). The package's one dependency is `@n-uf/placement`; `@n-uf/motion` is an optional peer dependency (`peerDependenciesMeta` marks it optional) and a development dependency: the package's tests import it to drive the pick rule and the landing model, and a host that does not use motion needs nothing installed.
 
 ## How the parts fit
 
