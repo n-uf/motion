@@ -14,6 +14,7 @@
  */
 export { columns, grid, masterStack, type MasterOptions, type OrderLayout, type TileOptions } from "./order";
 export { dropOnPane, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";
+export { canDropOnPane, type DropOptions, type DropVerdict } from "./drop";
 export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type SplitGeometry, type SplitLayout, type SplitOptions } from "./layout";
 export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, type PaneCenter, type PaneRegion, type PaneRegionOptions, type PaneSide } from "./regions";
 export { orderTargets, paneTargets, type OrderTarget, type PaneTarget, type PaneTargetsOptions } from "./targets";
