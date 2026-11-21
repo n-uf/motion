@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
-## Unreleased
+## 26.11.53
 
 - `./drag`, **`guideRects` shortens a thin guide that a clear rect meets only at its end** (fix). A line or a striped
   strip met by a rect at one end of its length only (a toolbar over the last 10 px of a column's line) was thinned
