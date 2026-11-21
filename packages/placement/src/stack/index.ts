@@ -12,6 +12,10 @@
  *   or a refusal with its reason.
  * - `fitFloat(rect, stage, avoid)`: a float moved inside the stage and clear of the docked content.
  *
+ * `StackItem.length` is the length a person asked an item to have (per axis), read by `fitStack` in place of a growing
+ * form's natural; `dividers`, `resizeBetween`, `resetBetween` and `resetLengths` trade it between the nearest open growing
+ * items. A stack that declares none is laid out exactly as before.
+ *
  * `controlLadder(spec)` generates a control group's forms from its controls (lengths per tier, a gap, a grip, its own »
  * cell): tier steps one control at a time, partial folds, then `fold` and `menu`, with `rank` and `hides` set, so a bar
  * runs short control by control with no new solver rule. Hosts that hand-write forms are unchanged.

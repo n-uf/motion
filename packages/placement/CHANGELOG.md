@@ -21,6 +21,11 @@ Added:
 - `./stack`, **form flags** `StackForm.body`, `.folded` and `.compact`, with `formBody`, `formFolded` and
   `formCompact`: what an open panel, a folded form and an icons form stand for, each defaulting from the kind (`open`;
   `header` and `fold`; `icons`). `formSetsCross` defaults to `formBody`. Nothing changes for a form that sets none.
+- `./stack`, **asked lengths and dividers**: `StackItem.length` (`{ column?, row? }`, px along the stack, per axis) is read
+  in place of the `main.natural` of a growing form, the least staying its `main.min`, and `dividers(input, fit)`,
+  `resizeBetween`, `resetBetween` and `resetLengths` trade length between the nearest open growing items (a collapsed
+  item between two open ones gives one divider, on its far edge; `StackDivider`, `StackLengths`). Additive: a stack that
+  declares no length is laid out exactly as before.
 - `./stack`, **`stackGaps(input, item, { previous?, allows? })`**: one edge's drop places, fit only: each gap with the
   stack after the drop, its fit and the item's slot, or a refusal with its reason (`StackGap`, `StackGapOptions`,
   `StackGapRefusal`).

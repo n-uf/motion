@@ -81,8 +81,9 @@ places them; nothing in it is a word.
 - `gap` is the space between neighboring drawn items (the » entry is a neighbor) and `pad` (`{ start, end }`) the
   space before the first item and after the last (or the » entry). Both count toward the length and every rect
   includes them, so an app draws at the solver's rects and the preview is exact. A non-number or a negative one is 0.
-- Spare length goes to the forms that `grows`, shared by their natural sizes. With none, the items keep their
-  natural sizes from the start of the stack.
+- Spare length goes to the forms that `grows`, shared by their natural sizes (or by their asked lengths, see
+  [Dividers](#dividers-asked-lengths-and-resizing-between-items)). With none, the items keep their natural sizes from
+  the start of the stack.
 - The stack's cross size is the widest `cross.natural` among the forms that set it (a form with `body`, by default
   a panel's `open`; `setsCross` overrides), clamped to `cross.min` and `max`. With none it is the rail, `cross.rail`
   (default 30 px).
@@ -169,6 +170,58 @@ menu has the entry's rect; `menu.items` are exactly the items whose kind is `men
 (`id`, `from`, `to`: the item took a smaller form than the one it started in, by length or by cross size, as indexes
 into its forms), `to-menu` (`id`), `too-wide` (`id`), `no-forms` (`id`) and `overflow` (`over` px: no item can give
 more way and the stack is still too long; forms that don't end in a `menu` form can't give more).
+
+## Dividers: asked lengths and resizing between items
+
+Stacked panels can share a draggable divider: one neighbor gets longer, the other shorter by the same amount, the
+stack's total stays and nothing else in it moves. The state is one optional number per item and per axis.
+
+```ts
+interface StackLengths { readonly column?: number; readonly row?: number }
+StackItem.length?: StackLengths;            // px along the stack, the length asked for
+
+dividers(input: StackInput, fit: StackFit): StackDivider[];
+interface StackDivider {
+  before: string; after: string;            // ids of the nearest open growing items on each side
+  rect: Rect;                               // the strip the divider sits on, stack-local
+  range: { min: number; max: number };      // min <= 0 <= max: the delta allowed each way
+}
+resizeBetween(input: StackInput, before: string, after: string, delta: number, options?: FitOptions): StackInput;
+resetBetween(input: StackInput, before: string, after: string, options?: FitOptions): StackInput;
+resetLengths(input: StackInput): StackInput;
+```
+
+- **`StackItem.length`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
+  that form grows (`main.grows`, not a `wrap` form, not the menu). The least stays the form's `main.min`: a length under
+  it is the least, and one that isn't a finite number from 0 up is no length. There is no new formula. With spare length
+  the sized items share it in proportion to their lengths, as a splitter does; short of length they interpolate between
+  their least and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
+  rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
+  declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `length` is
+  plain data: store it, read it back, and an older state without it lays out as it always did.
+- **A re-measured natural moves nothing** of a sized item, and closing an item shares its room among the others in
+  proportion; reopened with its length at the same stack length, it comes back as it was. A longer or shorter stack scales the
+  lengths together (they are relative), so shrinking and growing back gives the same layout. An item that moves to
+  another stack keeps its length; it is per axis, so a bar never reads a column length.
+- **`resizeBetween(input, before, after, delta)`** moves `delta` px from `after` to `before` (a negative `delta` the other
+  way) and returns the new state. `before` and `after` must be neighbors among the open growing items, in that order;
+  a header, a rail icon, a group or a folded item between them doesn't matter. The first resize writes the length every open
+  growing item is drawn at, so nothing else shifts; the pair then moves. Neither goes under its least: `delta` is clamped to
+  the divider's `range`, so nothing collapses and nothing is pushed. It returns the same object when nothing changes
+  (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0). A drag computes each frame from the state
+  at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`. Short of
+  length the lengths written are the drawn sizes scaled back by the share the stack was drawn at, so that they lay out
+  exactly as drawn, whatever the items that don't grow do; with room for all, they are the drawn sizes.
+- **`dividers(input, fit)`** gives one divider per pair of nearest open growing items. A collapsed item (a header, a rail
+  icon, a group, an item in the » menu) has no divider of its own; where collapsed items sit between two open ones there is
+  one divider between the open ones, its `rect` on the far edge of the last collapsed one (the lower edge in a column). The
+  `rect` starts there and is as thick as the gap to the next item (0 with no `gap`), as wide as `before` across. `range` is how
+  far it may move each way, down to each end's least; a host clamps with it and draws from it. A `fixed` item takes part in
+  none of this: it has no divider and is never an end. It still shares spare length like any growing item.
+- **`resetBetween(input, before, after)`** splits the two items' combined drawn length in proportion to their naturals
+  (`main.natural`), nothing else moving: the double-click action. The same object when the two are at that split already.
+- **`resetLengths(input)`** deletes every length of the stack's axis, back to the split a stack with none has. An item's
+  length for the other axis stays; the same object when none had one.
 
 ## A toolbar's rows
 
