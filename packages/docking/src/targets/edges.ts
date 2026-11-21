@@ -9,7 +9,7 @@ import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpe
 import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type Zone } from "../model";
 import { solve } from "../solve";
 import { targetId } from "./ids";
-import { EDGE_KINDS, edgeKindOf, opensEmpty } from "./kinds";
+import { EDGE_KINDS, edgeKindOf, opensEmpty, type EdgeKind } from "./kinds";
 import type { Ctx, EdgeSpec, DropResult, DockDropOptions, Slot, Span } from "./model";
 
 /**
@@ -29,12 +29,9 @@ export function reservedRect(state: DockState, l: DockLayout, id: string): Rect 
   return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
 }
 
-/**
- * A slot for `place` on `line`: its drop, settled; home when it puts the item back, or when `home` says the item is there
- * already (the slot then lands where the item is: another slot's move is not its own); `lands`, its edge's rule.
- */
+/** A slot for `place` on `line`: its drop, settled; home when it puts the item back (or `home`); `lands`, its edge's rule. */
 export function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot["place"], lands: (r: DropResult) => boolean, home = false): Slot {
-  const result = home ? { state: c.state, layout: c.now } : c.settle(markUsed(moveAmong(c.state, c.dragged, place, c.others), c.dragged));
+  const result = c.settle(markUsed(moveAmong(c.state, c.dragged, place, c.others), c.dragged));
   const isHome = home || c.isHome(result);
   return { zone, line, id, place, result, home: isHome, ok: isHome || (!!result.layout.items[c.dragged] && lands(result) && c.sound(result.layout)) };
 }
@@ -271,12 +268,12 @@ export const roomReason = (spec: EdgeSpec, zone: Zone): "too-thick" | "no-room" 
  * on its own). An edge the lift deletes (the item's own column, or a dynamic column left empty) has no place a drop
  * counts in: the item's own collapses into home.
  */
-export function edgeSpec(c: Ctx, edge: DockEdge): EdgeSpec | null {
+export function edgeSpec(c: Ctx, edge: DockEdge, as?: EdgeKind): EdgeSpec | null {
   const { state, rest, now, dragged, kind } = c;
   const el = now.edges[edge.id];
   // A folded or riding column takes drops through its side's rail and column lines, not here.
   if (!el || el.folded || el.rides || !rest.edges.some((e) => e.id === edge.id)) return null;
-  const edgeKind = edgeKindOf(state, edge);
+  const edgeKind = as ?? edgeKindOf(state, edge);
   const data = EDGE_KINDS[edgeKind];
   const column = axisOf(edge.side) === "column";
   const at = (r: Rect): number => (column ? r.y : r.x);
@@ -356,4 +353,19 @@ export function edgeSpec(c: Ctx, edge: DockEdge): EdgeSpec | null {
     drawn,
     marker,
   };
+}
+
+/**
+ * The run of a column folded into its side's declared rail, as the edge of its own that it is for one of its tiles held:
+ * `edgeSpec` of the column drawn where its tiles lie, `run` (the rail's tiles of that column, end to end). Its zones,
+ * its slots and its cards are those of the column drawn as a rail, within the run; it reaches no further (no
+ * `endReach`), so what lies beside the run in the rail stays with the rail's own stops. Null where the column offers
+ * nothing (the item alone in it, which the lift deletes).
+ */
+export function railColumnSpec(c: Ctx, edge: DockEdge, run: Rect): EdgeSpec | null {
+  const el = c.now.edges[edge.id];
+  if (!el) return null;
+  const { folded: _folded, ...shown } = el;
+  const seen = { ...c, reach: 0, now: { ...c.now, edges: { ...c.now.edges, [edge.id]: { ...shown, rect: run, cross: run.width } } } };
+  return edgeSpec(seen, edge, "railColumn");
 }

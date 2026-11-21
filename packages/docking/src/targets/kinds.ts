@@ -28,6 +28,8 @@ const MIN_HIT = { across: 12, along: 24 } as const;
  *   only space no edge owns. `overreach` orders the parts of tiles past their owned rect (the depth after a drop, an
  *   empty strip past its band, a compact rail's inward reach), which yield to the virtual edges and to every other
  *   edge's owned rect.
+ * - `railColumn`: the run of a column folded into a declared rail, for one of its own tiles held (`railColumnSpec`): a
+ *   column's edge, tiled before the rail's stops, so what lies beside the run stays the rail's.
  * - `phase`: the laying phase it ranks in (`LayKey.phase`), for the kinds `solve` doesn't lay itself: the rail and a
  *   column line rank among the sides (phase 2), where the rail or a new column would be laid; null for the edges
  *   `solve` lays (their phase is `layKeys`'s).
@@ -46,6 +48,7 @@ export const EDGE_KINDS = {
   barBetween: { zoneExtent: "thirds", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 13, overreach: 33, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
   rail: { zoneExtent: "thirds", opens: "any", inward: RAIL_REACH, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 14, overreach: 34, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
   railStop: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: 2, layer: 9, overreach: 39, priority: 1, reach: Infinity, virtual: false, minHit: MIN_HIT },
+  railColumn: { zoneExtent: "solved", opens: "start", inward: 0, place: DEFAULT_HIT_BAND / 2, phase: null, layer: 8, overreach: 38, priority: 2, reach: Infinity, virtual: false, minHit: MIN_HIT },
   columnLine: { zoneExtent: "whole", opens: "any", inward: 0, place: DEFAULT_HIT_BAND / 2, edgePlace: DEFAULT_HIT_BAND, phase: 2, layer: 21, overreach: 41, priority: 2, reach: COLUMN_REACH, virtual: true, minHit: MIN_HIT },
 } as const satisfies Record<
   string,
