@@ -256,7 +256,9 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       else m.push([u, w]);
       return m;
     }, []);
-    const [lo, hi] = along(b);
+    // A line under a cut goes to the cut's side within the edge's drawn ends, as the tiler puts it (a reach strip past
+    // an end takes no line), so a body's half band about it lies where the slot's tile does.
+    const [lo, hi] = endsOf(s) ?? along(b);
     const placed = (p: number): number => {
       const cut = merged.find(([u, w]) => p >= u - EPS && p <= w + EPS);
       if (!cut) return p;
