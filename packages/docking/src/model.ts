@@ -118,7 +118,7 @@ export interface DockItem {
    * the pair only; `resetLengths` clears it; `storeDockState` keeps it. A state that declares none lays
    * out exactly as before.
    */
-  readonly length?: { readonly column?: number; readonly row?: number };
+  readonly lengths?: { readonly column?: number; readonly row?: number };
   /**
    * Its size as a float, per orient: `floatAt` with no rect uses the one for the orient it floats in, and a float drop or
    * a hand resize sets it for the orient the float is in, so a float turned to the other orient (`orientFloat`) takes that

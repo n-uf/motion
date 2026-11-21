@@ -1,5 +1,5 @@
 /**
- * `DockItem.length`: the length a person asked an item to have, per axis. `solve` hands it to the edge's stack, the stored
+ * `DockItem.lengths`: the length a person asked an item to have, per axis. `solve` hands it to the edge's stack, the stored
  * form round-trips it, and the verbs `dividers`, `resizeBetween`, `resetBetween` and `resetLengths` trade it between the
  * items of an edge on top of `@n-uf/placement/stack`'s.
  */
@@ -16,9 +16,9 @@ const stateOf = (items: readonly DockItem[], height = 800): DockState => ({
 });
 const tall = (l: DockLayout, id: string): number => l.items[id]!.rect.height;
 const three = (): DockState => stateOf([panel("a", 1), panel("b", 2), panel("c", 3)]);
-const withLength = (s: DockState, id: string, length: NonNullable<DockItem["length"]>): DockState => ({ ...s, items: { ...s.items, [id]: { ...s.items[id]!, length } } });
+const withLength = (s: DockState, id: string, lengths: NonNullable<DockItem["lengths"]>): DockState => ({ ...s, items: { ...s.items, [id]: { ...s.items[id]!, lengths } } });
 
-describe("DockItem.length in solve", () => {
+describe("DockItem.lengths in solve", () => {
   it("is read by the edge's stack: spare length goes in proportion to the asked lengths", () => {
     let s = three();
     s = withLength(withLength(withLength(s, "a", { column: 400 }), "b", { column: 150 }), "c", { column: 150 });
@@ -30,36 +30,36 @@ describe("DockItem.length in solve", () => {
 
   it("a length for the other axis, or none, is today's layout", () => {
     const s = three();
-    const row = { ...s, items: Object.fromEntries(Object.entries(s.items).map(([id, it]) => [id, { ...it, length: { row: 999 } }])) };
+    const row = { ...s, items: Object.fromEntries(Object.entries(s.items).map(([id, it]) => [id, { ...it, lengths: { row: 999 } }])) };
     expect(solve(row)).toEqual(solve(s));
   });
 });
 
-describe("DockItem.length in the stored state", () => {
+describe("DockItem.lengths in the stored state", () => {
   it("round-trips, JSON included, and the layout is the same", () => {
     const s = withLength(withLength(three(), "a", { column: 311.5 }), "b", { column: 0, row: 40 });
     const stored = storeDockState(s);
-    expect(stored.items.a!.length).toEqual({ column: 311.5 });
+    expect(stored.items.a!.lengths).toEqual({ column: 311.5 });
     // A length of 0 is no length: it is not stored.
-    expect(stored.items.b!.length).toEqual({ row: 40 });
-    expect(stored.items.c!.length).toBeUndefined();
+    expect(stored.items.b!.lengths).toEqual({ row: 40 });
+    expect(stored.items.c!.lengths).toBeUndefined();
     const read = readDockState(JSON.parse(JSON.stringify(stored)), three());
     expect(read.dropped).toEqual([]);
-    expect(read.state.items.a!.length).toEqual({ column: 311.5 });
-    expect(read.state.items.b!.length).toEqual({ row: 40 });
-    expect(read.state.items.c!.length).toBeUndefined();
+    expect(read.state.items.a!.lengths).toEqual({ column: 311.5 });
+    expect(read.state.items.b!.lengths).toEqual({ row: 40 });
+    expect(read.state.items.c!.lengths).toBeUndefined();
     expect(solve(read.state)).toEqual(solve(s));
   });
 
   it("a zero round-trips as no length: not stored, and the length object is dropped when nothing is left", () => {
     const s = withLength(withLength(three(), "a", { column: 0 }), "b", { column: 1e-9, row: 0 });
     const stored = storeDockState(s);
-    expect(stored.items.a).not.toHaveProperty("length");
-    expect(stored.items.b).not.toHaveProperty("length");
+    expect(stored.items.a).not.toHaveProperty("lengths");
+    expect(stored.items.b).not.toHaveProperty("lengths");
     const read = readDockState(JSON.parse(JSON.stringify(stored)), three());
     expect(read.dropped).toEqual([]);
-    expect(read.state.items.a!.length).toBeUndefined();
-    expect(read.state.items.b!.length).toBeUndefined();
+    expect(read.state.items.a!.lengths).toBeUndefined();
+    expect(read.state.items.b!.lengths).toBeUndefined();
     // The same layout as an item that never had a length.
     expect(solve(read.state)).toEqual(solve(three()));
   });
@@ -67,10 +67,10 @@ describe("DockItem.length in the stored state", () => {
   it("an older store has none: the items read with none, whatever base had", () => {
     const base = withLength(three(), "a", { column: 500 });
     const stored = storeDockState(three());
-    expect(Object.values(stored.items).every((it) => !("length" in it))).toBe(true);
+    expect(Object.values(stored.items).every((it) => !("lengths" in it))).toBe(true);
     const read = readDockState(stored, base);
     expect(read.dropped).toEqual([]);
-    expect(read.state.items.a!.length).toBeUndefined();
+    expect(read.state.items.a!.lengths).toBeUndefined();
   });
 
   it("what can't be used is dropped and listed", () => {
@@ -79,24 +79,24 @@ describe("DockItem.length in the stored state", () => {
       ...stored,
       items: {
         ...stored.items,
-        a: { ...stored.items.a!, length: { column: -3, row: 20 } },
-        b: { ...stored.items.b!, length: { column: Infinity, depth: 4 } },
-        c: { ...stored.items.c!, length: 7 },
-        d: { ...stored.items.a!, length: { column: 0, row: 1e-9 } },
+        a: { ...stored.items.a!, lengths: { column: -3, row: 20 } },
+        b: { ...stored.items.b!, lengths: { column: Infinity, depth: 4 } },
+        c: { ...stored.items.c!, lengths: 7 },
+        d: { ...stored.items.a!, lengths: { column: 0, row: 1e-9 } },
       },
     } as unknown;
     const read = readDockState(bad, { ...three(), items: { ...three().items, d: panel("d", 4) } });
-    expect(read.state.items.a!.length).toEqual({ row: 20 });
-    expect(read.state.items.b!.length).toBeUndefined();
-    expect(read.state.items.c!.length).toBeUndefined();
+    expect(read.state.items.a!.lengths).toEqual({ row: 20 });
+    expect(read.state.items.b!.lengths).toBeUndefined();
+    expect(read.state.items.c!.lengths).toBeUndefined();
     // A stored zero is no length, like any bad entry.
-    expect(read.state.items.d?.length).toBeUndefined();
-    expect([...read.dropped].sort()).toEqual(["item:a:length:column", "item:b:length:column", "item:b:length:depth", "item:c:length", "item:d:length:column", "item:d:length:row"].sort());
+    expect(read.state.items.d?.lengths).toBeUndefined();
+    expect([...read.dropped].sort()).toEqual(["item:a:lengths:column", "item:b:lengths:column", "item:b:lengths:depth", "item:c:lengths", "item:d:lengths:column", "item:d:lengths:row"].sort());
   });
 
   it("closing and reopening an item keeps its length", () => {
     const s = withLength(three(), "b", { column: 222 });
-    expect(openItem(closeItem(s, "b"), "b").items.b!.length).toEqual({ column: 222 });
+    expect(openItem(closeItem(s, "b"), "b").items.b!.lengths).toEqual({ column: 222 });
     expect(solve(openItem(closeItem(s, "b"), "b"))).toEqual(solve(s));
   });
 });
@@ -184,7 +184,7 @@ describe("the dock verbs over an edge", () => {
     expect(tall(reset, "c")).toBeCloseTo(tall(l, "c"), 6);
     expect(resetBetween(s, "a", "b")).toBe(s);
     const cleared = resetLengths(dragged, "left");
-    expect(Object.values(cleared.items).every((it) => it.length === undefined)).toBe(true);
+    expect(Object.values(cleared.items).every((it) => it.lengths === undefined)).toBe(true);
     expect(solve(cleared)).toEqual(l);
     expect(resetLengths(s, "left")).toBe(s);
     expect(resetLengths(dragged, "nope")).toBe(dragged);
@@ -192,7 +192,7 @@ describe("the dock verbs over an edge", () => {
 
   it("resetLengths keeps an item's length for the other axis", () => {
     const both = withLength(s, "a", { column: 300, row: 50 });
-    expect(resetLengths(both, "left").items.a!.length).toEqual({ row: 50 });
+    expect(resetLengths(both, "left").items.a!.lengths).toEqual({ row: 50 });
     const rowOnly = withLength(s, "a", { row: 50 });
     expect(resetLengths(rowOnly, "left")).toBe(rowOnly);
   });
@@ -231,11 +231,11 @@ describe("a divider drag writes the dragged pair's lengths only", () => {
     for (const height of [1200, 900, 600]) {
       const s = split(height);
       const next = resizeBetween(s, "a", "b", 40);
-      expect(next.items.a!.length?.column).toBeDefined();
-      expect(next.items.b!.length?.column).toBeDefined();
+      expect(next.items.a!.lengths?.column).toBeDefined();
+      expect(next.items.b!.lengths?.column).toBeDefined();
       expect(next.items.c).toBe(s.items.c);
       expect(next.items.d).toBe(s.items.d);
-      expect(next.items.c!.length).toBeUndefined();
+      expect(next.items.c!.lengths).toBeUndefined();
     }
   });
 

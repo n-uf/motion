@@ -1,7 +1,7 @@
 /**
  * The dock's verbs over an edge's dividers: `dividers`, `resizeBetween`, `resetBetween` and `resetLengths`. Each is the
  * `@n-uf/placement/stack` verb of the same name run on the edge's stack, with the result written back to the items'
- * `DockItem.length`. A divider trades length between the two neighboring open growing items of one edge (a panel, a
+ * `DockItem.lengths`. A divider trades length between the two neighboring open growing items of one edge (a panel, a
  * collapsed item between two open ones giving one divider across it); nothing else in the state moves.
  *
  * The layout is the one `solve` returned for this very `state` object; a verb given none, one that was made for another
@@ -58,9 +58,9 @@ function over(state: DockState, layout: DockLayout | undefined, before: string, 
   if (!e || !input) return state;
   const next = run(input, e.stack);
   if (next === input) return state;
-  const was = new Map(input.items.map((it) => [it.id, it.length]));
+  const was = new Map(input.items.map((it) => [it.id, it.lengths]));
   const items: Record<string, DockItem> = { ...state.items };
-  for (const it of next.items) if (it.length !== was.get(it.id) && items[it.id]) items[it.id] = { ...items[it.id]!, length: it.length };
+  for (const it of next.items) if (it.lengths !== was.get(it.id) && items[it.id]) items[it.id] = { ...items[it.id]!, lengths: it.lengths };
   return { ...state, items };
 }
 
@@ -94,11 +94,11 @@ export function resetLengths(state: DockState, edgeId: string): DockState {
   let items: Record<string, DockItem> | undefined;
   for (const id of edge.items) {
     const it = state.items[id];
-    if (it?.length?.[axis] === undefined) continue;
-    const { [axis]: _dropped, ...rest } = it.length;
-    const { length: _length, ...bare } = it;
+    if (it?.lengths?.[axis] === undefined) continue;
+    const { [axis]: _dropped, ...rest } = it.lengths;
+    const { lengths: _lengths, ...bare } = it;
     items ??= { ...state.items };
-    items[id] = Object.keys(rest).length > 0 ? { ...bare, length: rest } : bare;
+    items[id] = Object.keys(rest).length > 0 ? { ...bare, lengths: rest } : bare;
   }
   return items ? { ...state, items } : state;
 }

@@ -16,7 +16,7 @@ const stackItemOf =(item: DockItem, forms: readonly StackForm[], edge: DockEdge,
   // Where its ladder starts: as asked, else its hand fold resolved on this axis (`startOf`: its folded form).
   ...(from !== undefined ? { from } : startOf(item, forms, edge) > 0 ? { from: startOf(item, forms, edge) } : {}),
   ...(item.fixed ? { fixed: true } : {}),
-  ...(item.length ? { length: item.length } : {}),
+  ...(item.lengths ? { lengths: item.lengths } : {}),
 });
 
 /** The input each edge stack `solveEdge` made was solved from: what a divider verb re-solves to move a length. */
