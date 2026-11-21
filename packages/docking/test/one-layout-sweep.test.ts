@@ -25,10 +25,12 @@
 import { LANDING_APPROACH, type LandingRelease } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { dockDrag, readDockState, solve, storeDockState, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
+import { dockDrag, readDockState, refusals, refusalTargets, solve, storeDockState, targets, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
 import { marksLess } from "../src/lanes";
+import { referencePick } from "../src/testing/host";
 import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
+import { railWindow } from "./rail-windows";
 
 type Axis = "x" | "y";
 type Mode = "near" | "all";
@@ -314,6 +316,12 @@ function sweep(): Result {
               const sp = l.spots[0]!;
               const made = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } });
               const want = made.marks.filter((m) => m.lane === g.lane);
+              // A column created folded into a declared rail is drawn where its run of tiles lies: the held item alone in it,
+              // its run is the landing, so the lane draws no room beyond it (no mark over the rest of the rail).
+              if (want.length === 0 && made.layout.edges[g.lane]?.folded && drawnIn(made.layout, g.lane)) {
+                const run = Object.values(made.layout.rails).flatMap((r) => r?.segments.filter((x) => x.edge === g.lane).map((x) => x.rect) ?? []);
+                if (run.length === 1 && made.landing && off(run[0]!, made.landing) <= EXACT) count("created folded, its run the landing");
+              }
               if (want.length === 0 || !drawnIn(made.layout, g.lane)) continue;
               count("created");
               if (made.layout.edges[g.lane]!.folded) count("created folded");
@@ -459,8 +467,10 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts["near populated"] ?? 0).toBeGreaterThan(20);
     // Frames that draw a rail segment (a side rail's tab or a toolbar rail's item) were checked against the guides.
     expect(r.counts["rail segments"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(100);
-    // Columns drawn folded into a rail, on screen and in the layout that creates a deleted one, were checked.
-    expect([r.counts["folded on screen"] ?? 0, r.counts["created folded"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true]);
+    // Columns drawn folded into a rail, on screen and in the layout that creates a deleted one, were checked: the latter is
+    // drawn where its run lies, which for the held item alone in it is the landing itself (a room beyond it would be a mark
+    // over the rest of the rail).
+    expect([r.counts["folded on screen"] ?? 0, r.counts["created folded, its run the landing"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true]);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
@@ -472,5 +482,92 @@ describe("one layout: every held frame draws what its release commits", () => {
   });
   it("every pending case still fails (one that passes has flipped: take it off the list)", () => {
     expect(PENDING.filter((k) => !r.failures.has(k))).toEqual([]);
+  });
+});
+
+/**
+ * One answer at a pointer over a rail: the drag's lanes (`dockDrag(...).regions`, what a landing model reads) and
+ * `targets()` (what a drag intent reads) decide the same thing at every sampled point of a side's rail for a tile of it
+ * held: move to a place, stay (home, a refusal, a blocked place: a release there commits nothing), or float. A column
+ * folded into a declared rail is drawn where its run of tiles lies, and the rest of the rail is the rail's: a place there
+ * is home, not a spot of the held tile's column (decision 0002's rule, one answer).
+ *
+ * The windows are the declared-rail windows of `./rail-windows` (one and two folded columns, narrow too) and the sweep's
+ * windows where the held item is a tile of a rail. Known disagreements are pending by name (`AGREE_PENDING`, window and
+ * item); the check fails on one not listed and on a listed one that agrees (it flipped: take it off the list).
+ */
+const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+
+/** The decisions at `p`: what `targets()` picks and what the lanes say, as a place id, "stay" or "float". */
+function decisions(s: DockState, held: string, previous: DockLayout | undefined, options: object, p: Point): { targets: string; lanes: string } {
+  const opts = { ...options, ...(previous ? { previous } : {}) };
+  const pick = referencePick([...targets(s, held, opts), ...refusalTargets(refusals(s, held, opts))] as never[], p) as { id: string; place?: { kind: string }; refuse?: true } | null;
+  const t = !pick || pick.refuse || pick.place?.kind === "home" || pick.place?.kind === "none" ? "stay" : pick.place?.kind === "float" ? "float" : pick.id;
+  const own = solve(s, previous ? { previous } : {}).items[held]!;
+  const regions = dockDrag(s, held, { ...opts, grab: { x: own.rect.width / 2, y: own.rect.height / 2 } }).regions;
+  const over = regions.lanes.filter((l) => inside(l.rect, p));
+  const lane = (l: Lane): string => {
+    const a = l.axis === "x" ? p.x : p.y;
+    if (l.refused.some((r) => a >= r.along[0] && a <= r.along[1])) return "stay";
+    const sp = l.spots.find((x) => a >= x.along[0] && a <= x.along[1]);
+    return !sp ? "no spot" : sp.home ? "stay" : sp.target.id;
+  };
+  const open = inside(regions.content, p) && !regions.blocked.some((b) => inside(b, p)) && !regions.refused.some((b) => inside(b, p));
+  return { targets: t, lanes: over.length === 0 ? (open ? "float" : "stay") : over.map(lane).join("+") };
+}
+
+/**
+ * Known disagreements (`<window> | <item>`), none of them about a column's run: in a narrow window `targets()` offers a new
+ * column over the whole left rail where the lanes stay (a new-column line's zone starts where the rail stop ends); in the
+ * four windows with a second right column holding p1 (and p1 held, its column folded), the lanes' new-column lane lies over
+ * the rail's first pixels where `targets()` floats. Both are the same on `ce7b796c`.
+ */
+const AGREE_PENDING: readonly string[] = [
+  "two folded columns, narrow | notes",
+  "two right columns, ring 0 holding p1, panel p1 | p1",
+  "two right columns, ring 0 holding p1, panel p1, empty lanes as edges | p1",
+  "two right columns, ring 2 holding p1, panel p1 | p1",
+  "two right columns, ring 2 holding p1, panel p1, empty lanes as edges | p1",
+];
+
+describe("one answer over a rail: the lanes and targets() decide the same", () => {
+  const wins: { name: string; s: DockState; held: string; previous?: DockLayout; options: object }[] = [];
+  for (const [name, o] of [
+    ["one folded column", { rails: true }],
+    ["three tiles", { rails: true, right: ["findings", "annotations", "marks"] }],
+    ["two folded columns", { rails: true, outer: ["p1", "p2"] }],
+    ["two folded columns of three and two", { rails: true, right: ["findings", "annotations", "marks"], outer: ["p1", "p2"] }],
+    ["two folded columns, narrow", { rails: true, outer: ["p1", "p2"], width: 800, hand: [] }],
+  ] as const) {
+    const s = railWindow(o as never);
+    for (const id of Object.keys(s.items)) if (solve(s).items[id]?.rail) wins.push({ name, s, held: id, options: {} });
+  }
+  for (const w of sweepWindows()) if (solve(w.state, { previous: w.previous }).items[w.dragged]?.rail) wins.push({ name: w.name, s: w.state, held: w.dragged, previous: w.previous, options: w.options });
+
+  const disagree = new Map<string, string>();
+  let points = 0;
+  for (const w of wins) {
+    const l = solve(w.s, w.previous ? { previous: w.previous } : {});
+    for (const rail of Object.values(l.rails)) {
+      if (!rail || !rail.segments.some((g) => g.id === w.held)) continue;
+      const x = rail.rect.x + rail.rect.width / 2;
+      // Down the rail and a little past either end, off the tiles' ends (1.37 px) so a point is in one tile only.
+      for (let y = Math.max(0, rail.rect.y - 20) + 1.37; y < Math.min(w.s.stage.height, rail.rect.y + rail.rect.height + 20); y += 3) {
+        points++;
+        const d = decisions(w.s, w.held, w.previous, w.options, { x, y });
+        const key = `${w.name} | ${w.held}`;
+        if (d.targets !== d.lanes && !disagree.has(key)) disagree.set(key, `at ${x},${y.toFixed(1)}: targets ${d.targets}, lanes ${d.lanes}`);
+      }
+    }
+  }
+  it("the property is not vacuous", () => {
+    expect(wins.length).toBeGreaterThan(15);
+    expect(points).toBeGreaterThan(3000);
+  });
+  it("no disagreement but the pending ones, by name", () => {
+    expect([...disagree].filter(([k]) => !AGREE_PENDING.includes(k)).map(([k, v]) => `${k}: ${v}`)).toEqual([]);
+  });
+  it("every pending disagreement still disagrees (one that agrees has flipped: take it off the list)", () => {
+    expect(AGREE_PENDING.filter((k) => !disagree.has(k))).toEqual([]);
   });
 });
