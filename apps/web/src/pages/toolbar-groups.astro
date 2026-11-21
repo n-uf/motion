@@ -25,14 +25,14 @@ const jsonLd = [
 const RULES: [string, string][] = [
   ["What carries a grip?", "Every group of two or more controls has exactly one: three dots at the start of its group, to the left of a row and above a column. A grip only goes where something can move: the window itself cannot, so its title bar starts with the window controls; a toolbar area and a lone control have none."],
   ["How do you tell which group a grip leads?", "It sits at the start of its group, 3 px from its controls and 12 px from the previous group; pointing at it or focusing it dims every other group. No frames, tints or divider lines."],
-  ["What can the grip do?", "Drag: move the group. Double-click: collapse to grip + » (or expand). Right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›, Reset position). No ⋯, ⋮ or ▾ buttons anywhere."],
-  ["Where can a group go?", "Five toolbar areas × three zones; at the start, at the end or between groups. Over the document it floats: the same group, plus a frame and shadow. On a side it takes its icon form: icons and mono numbers, never rotated text."],
+  ["What can the grip do?", "Drag: move the group. Double-click (two presses within 500 ms): collapse to grip + » (or expand). Right-click, long-press or Shift+F10: its menu (Collapse, Move to ›, Float/Dock, Move this bar's groups to ›, Reset position). No ⋯, ⋮ or ▾ buttons anywhere."],
+  ["Where can a group go?", "Three bars (the title bar, a top and a bottom bar) with start, center and end zones, and a rail down each side; at the start, at the end or between groups, wherever the bar has room for it. Over the document it floats: the same group, plus a frame and shadow. On a side rail it takes its icon form: icons and mono numbers, never rotated text; a group with no icons shows its grip and »."],
   ["Whole toolbars to a side?", "Move a bar's groups together from any of their menus (\"Move this bar's groups to › Left edge\"); there is no toolbar grip."],
-  ["Running out of room", "Toolbars never wrap: groups collapse to grip + » by keep priority, trailing groups first among equal keep priorities; clicking » opens the group's controls in a menu."],
-  ["Empty toolbar areas", "Take no space; while you drag they appear as drop targets over the edge, so nothing moves."],
+  ["Running out of room", "Toolbars never wrap: as a bar runs short its groups step down, from their row to icons (where they have them), to grip + », then into the bar's own » menu. The lowest priority goes first (the window's title has the highest), then the group used longest ago; room coming back brings them up in reverse. » opens a group's controls in a popover."],
+  ["Empty toolbar areas", "Take no space; while you drag they show as hatched strips where they would open, so nothing moves."],
   ["Frozen layout", "The freeze switch freezes or unfreezes the layout. Frozen, the grips disappear (nothing can move, so nothing invites a drag). Holding Alt brings them back, working, for as long as it is held."],
-  ["Dropping", "A drop indicator only once you aim: the nearest insertion point in the toolbar area under the pointer, with the group's own outline as the slot; it stays put on boundaries. The drop lands where it shows. Escape puts the group back."],
-  ["Keyboard", "Tab focuses grips; Shift+F10 opens the menu; Enter or Space collapses; arrow keys move the group to the next toolbar area; Esc cancels."],
+  ["Dropping", "Nothing shows while you fly across the window. Once you aim (slow, or still for 90 ms), the place under the pointer shows after it has held for 150 ms; a place you pass for less never flashes. The preview follows the switch: an outline where the group lands, the others making room, or the group gliding into the room. The drop lands where it showed; over a place that can't take it, or with Escape, the group goes back."],
+  ["Keyboard", "Tab focuses grips; Shift+F10 or the menu key opens the menu; Enter or Space collapses or expands; the arrow keys move the group to the next or previous place it fits, in reading order (left rail, the bars from top to bottom, right rail); Esc cancels a drag or closes a menu."],
 ];
 ---
 <Site title={page.title} description={page.description} path={path} headline="One grip per group, and it is the separator." jsonLd={jsonLd} ogImage="/og/toolbar-groups.png">
@@ -53,13 +53,13 @@ const RULES: [string, string][] = [
         <ul class="notes anchored" aria-hidden="true">
           <li class="note up ctr" data-on="handle"><span>one grip leads each group</span><i></i></li>
           <li class="note up ctr" data-on="zone"><span>toolbar area · zone · drop target</span><i></i></li>
-          <li class="note up ctr" data-on="ovf"><span>trailing groups collapse behind »</span><i></i></li>
+          <li class="note up ctr" data-on="ovf"><span>a folded group's controls behind »</span><i></i></li>
         </ul>
       </div>
     </div>
   </Chrome>
   <p class="figure-note">Every window on this site is built from the same groups: drag a grip in any figure's bars to rearrange them, and right-click it for <b>Reset position</b>.</p>
-  <ul class="notes-key anchored" aria-hidden="true"><li>one grip leads each group</li><li>toolbar area · zone · drop target (dashed, while a group is dragged)</li><li>trailing groups collapse behind »</li></ul>
+  <ul class="notes-key anchored" aria-hidden="true"><li>one grip leads each group</li><li>toolbar area · zone · drop target (hatched, while a group is dragged)</li><li>a folded group's controls behind »</li></ul>
   <p class="aside lab-link"><a href="/lab/#/docwin">Drag toolbar groups between toolbar areas and zones in the lab</a>, and watch them collapse as room runs out.</p>
 
   <section class="section">
@@ -70,7 +70,7 @@ const RULES: [string, string][] = [
     <div class="rules two">
       {RULES.map(([q, r]) => <div class="rule"><h3>{q}</h3><p>{r}</p></div>)}
     </div>
-    <p class="aside">This page draws its own model of what <code>@n-uf/docking</code> provides (groups in toolbar areas and zones, overflow, drop targets); <code>@n-uf/motion</code> gives the drag intent and the glides. The grips, menus, the freeze switch with <kbd>Alt</kbd>, Escape and the keys are this demo's own behavior too. How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
+    <p class="aside">Every window on this page, and every figure's bars on this site, is a <code>DockState</code> of <code>@n-uf/docking</code>: <code>solve</code> places each group and picks its form as room runs out, <code>targets</code> and <code>refusals</code> say where a dragged group can go, <code>stops</code> orders those places for the arrow keys and the menu, and <code>storeDockState</code> keeps your arrangement. <code>@n-uf/motion</code> runs the drag: <code>createGripPress</code> tells a drag from a double-click, <code>createDragIntent</code> decides what shows and where it lands, <code>holdItem</code> moves the real group, and the layout motion glides every group into place. The grips, menus, the freeze switch with <kbd>Alt</kbd> and the hatched strips are this page's own drawing. How the drop finds its target is the <a href="/drag-intent/">drag-intent model</a>; how a group glides into place is the <a href="/window-motion/">settle curve</a>.</p>
   </section>
 
   <Faq path={path} />
