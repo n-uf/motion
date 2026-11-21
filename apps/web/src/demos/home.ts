@@ -2,7 +2,7 @@
  * The home page's thumbnails: the settle-versus-spring curve and the desk preview. Strings and plain data, so the server
  * renders them. (The live demo is the lab's Document window, mounted by islands/home.ts; it has no data here.)
  */
-import { createSettle, type Rect } from "@n-uf/motion";
+import { createSettle, createSpring, type Rect } from "@n-uf/motion";
 
 /** The live demo's status line at rest: written by the server, and again by the island after a Reset, so nothing moves when it starts. */
 export const HINT = "Drag a panel by its header or a toolbar by its dots, and drop it beside another, on a side or in a bar.";
@@ -16,9 +16,11 @@ function curves(): { settle: [number, number][]; spring: [number, number][] } {
   s.setTarget(1);
   const settle: [number, number][] = [[0, 0]];
   for (let ms = 5; ms <= CURVE.Tms; ms += 5) { s.step(5); settle.push([ms, s.value]); }
-  const over = (ms: number): number => { const t = ms / 1000, z = 0.45, w = 22; const wd = w * Math.sqrt(1 - z * z); return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + ((z * w) / wd) * Math.sin(wd * t)); };
-  const spring: [number, number][] = [];
-  for (let ms = 0; ms <= CURVE.Tms; ms += 5) spring.push([ms, over(ms)]);
+  // The spring it is set against: lightly damped (ratio 0.45), so it overshoots and rings.
+  const o = createSpring(0, { stiffness: 484, dampingRatio: 0.45, restDelta: 1e-5, restSpeed: 1e-5 });
+  o.setTarget(1);
+  const spring: [number, number][] = [[0, 0]];
+  for (let ms = 5; ms <= CURVE.Tms; ms += 5) { o.step(5); spring.push([ms, o.value]); }
   return { settle, spring };
 }
 const CURVES =curves();

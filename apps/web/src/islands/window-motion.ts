@@ -2,7 +2,7 @@
  * Window motion (island): plays each case. The server rendered the first chart, the lanes and the case rail; this
  * redraws them per frame with the same string builders, and builds the stretch-versus-reveal frames.
  */
-import { reveal } from "@n-uf/motion";
+import { createSettle, reveal } from "@n-uf/motion";
 import { $, caseRail } from "./rail";
 import { omega, onMotionChange, reduced, virtualNow } from "./motion";
 import { figureChrome } from "./figure-chrome";
@@ -78,9 +78,15 @@ function chartStage(opt: ChartOpt, label: string): Built {
 /** The shrinking window: two live shots, then the four frames of each mode. */
 function framesStage(): Built {
   const U = 240, W0 = 220, W1 = 140, H1 = 74, times = [0, 30, 60, 120];
-  // The drawn width settles from 220 to 140 at the current tempo; reveal() turns it into the frame to draw.
+  // The drawn width settles from 220 to 140 at the current tempo (the library's settle, stepped `ms` from the launch);
+  // reveal() turns it into the frame to draw.
   const w = omega();
-  const drawnW = (ms: number): number => W1 + (W0 - W1) * Math.exp((-w * ms) / 1000);
+  const drawnW = (ms: number): number => {
+    const s = createSettle(W0, { omega: w });
+    s.setTarget(W1);
+    s.step(ms);
+    return s.value;
+  };
   const target = { x: 0, y: 0, width: W1, height: H1 };
   function shot(parent: HTMLElement, mode: "stretch" | "reveal") {
     const cell = h("div", "cell", parent);

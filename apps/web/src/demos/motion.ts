@@ -3,35 +3,23 @@
  * own settle steps), the case texts, and a chart as an SVG string. Pure, so the server renders the first chart and the
  * island every later frame.
  */
-import { createSettle } from "@n-uf/motion";
+import { createSettle, createSpring, cubicBezier, easeOutCubic } from "@n-uf/motion";
 
 // ---- Curve models (progress 0 -> 1) ---------------------------------------------------------------------------------
 export type Series = [number, number][];
-function springSeries(k: number, c: number, x0: number, v0: number, target: number, T: number, dt: number): Series {
-  // A fine fixed step, one sample every dt ms.
-  const out: Series = [];
-  let x = x0, v = v0, t = 0;
-  const hh = 0.0002;
-  for (let ms = 0; ms <= T; ms += dt) {
-    while (t < ms / 1000 - 1e-12) { const a = -k * (x - target) - c * v; v += a * hh; x += v * hh; t += hh; }
-    out.push([ms, x]);
+/** A spring (stiffness, damping) from 0 to 1, stepped by the library itself, one sample every dt ms. Rest is set tight: the chart is 0 to 1. */
+function springSeries(stiffness: number, damping: number, T: number, dt: number): Series {
+  const s = createSpring(0, { stiffness, damping, restDelta: 1e-5, restSpeed: 1e-5 });
+  s.setTarget(1);
+  const out: Series = [[0, 0]];
+  for (let ms = dt; ms <= T; ms += dt) {
+    s.step(dt);
+    out.push([ms, s.value]);
   }
   return out;
 }
-function bez(x1: number, y1: number, x2: number, y2: number): (p: number) => number {
-  return (p) => {
-    if (p <= 0) return 0;
-    if (p >= 1) return 1;
-    let lo = 0, hi = 1, t = 0.5;
-    for (let i = 0; i < 50; i++) {
-      t = (lo + hi) / 2;
-      const x = 3 * (1 - t) ** 2 * t * x1 + 3 * (1 - t) * t * t * x2 + t ** 3;
-      if (x < p) lo = t;
-      else hi = t;
-    }
-    return 3 * (1 - t) ** 2 * t * y1 + 3 * (1 - t) * t * t * y2 + t ** 3;
-  };
-}
+/** Hyprland's older ease-out, a CSS cubic-bezier. */
+const easeOutQuint = cubicBezier(0.23, 1, 0.32, 1);
 const series = (fn: (ms: number) => number, T: number, dt: number): Series => {
   const o: Series = [];
   for (let ms = 0; ms <= T; ms += dt) o.push([ms, fn(ms)]);
@@ -92,8 +80,8 @@ const settleOpt:ChartOpt = {
   T: T1, xstep: 50, ymin: 0, ymax: 1.06, yticks: [0, 0.25, 0.5, 0.75, 0.9, 1], yfmt: (v) => Math.round(v * 100) + "%",
   marks: [{ v: 1, color: "--line-3", label: "target" }],
   lines: [
-    { name: "Hyprland shipped: spring easy (ratio 0.785)", legend: "Hyprland spring 'easy'", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, 0, 0, 1, T1, dt) },
-    { name: "Hyprland older: easeOutQuint 479 ms", legend: "Hyprland older ease-out", color: "--series-a2", dash: "6 4", data: series((ms) => bez(0.23, 1, 0.32, 1)(ms / 479), T1, dt) },
+    { name: "Hyprland shipped: spring easy (ratio 0.785)", legend: "Hyprland spring 'easy'", color: "--series-a", dash: "6 4", data: springSeries(238.1191, 24.21279, T1, dt) },
+    { name: "Hyprland older: easeOutQuint 479 ms", legend: "Hyprland older ease-out", color: "--series-a2", dash: "6 4", data: series((ms) => easeOutQuint(ms / 479), T1, dt) },
     { name: "Settle ω=37 (recording)", legend: "n-uf motion settle, quick ω 37", color: "--series-c2", dash: "1 3", data: settleSeries(37, T1, dt) },
     { name: "Settle ω=25 (default)", legend: "n-uf motion settle, default ω 25", lib: true, color: "--series-c", w: 3.2, data: settleSeries(25, T1, dt) },
     { name: "Settle ω=20 (calm)", legend: "n-uf motion settle, calm ω 20", color: "--series-c2", dash: "6 4", data: settleSeries(20, T1, dt) },
@@ -138,7 +126,7 @@ function unclamped(): Series {
   }
   return o;
 }
-const eoc = (p: number): number => 1 - (1 - Math.min(1, Math.max(0, p))) ** 3;
+const eoc = (p: number): number => easeOutCubic(Math.min(1, Math.max(0, p)));
 const atRT = eoc(RT / 250);
 const tweenR = series((ms) => (ms < RT ? eoc(ms / 250) : atRT + (NEW - atRT) * eoc((ms - RT) / 250)), T3, dt);
 const retargetOpt:ChartOpt = {
