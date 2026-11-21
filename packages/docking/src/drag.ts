@@ -101,13 +101,13 @@ export function dockDrag(state: DockState, dragged: string, options: Omit<DockLa
   /** One float frame remembered: a still pointer solves nothing. */
   let lastFloat: { x: number; y: number; after: DockAfter } | null = null;
 
-  const of = (result: DropResult, spot: { lane: string } | null): DockAfter => {
+  const of = (result: DropResult, spot: { lane: string; slide?: boolean } | null): DockAfter => {
     const known = byResult.get(result);
     if (known) return known;
     const it = result.layout.items[dragged];
     const landing = it && !it.inMenu && (spot ? !it.floating : it.floating) ? it.rect : null;
     const spots = spot ? spotsIn(base, spot.lane, result.layout, dragged) : null;
-    const out: DockAfter = { ...result, landing, marks: flat(marksIn(base, state, dragged, result.layout, !!spot, options.emptyLanes)), ...(spots ? { spots } : {}) };
+    const out: DockAfter = { ...result, landing, marks: flat(marksIn(base, state, dragged, result.layout, spot ? (spot.slide ? "slide" : "spot") : false, options.emptyLanes)), ...(spots ? { spots } : {}) };
     byResult.set(result, out);
     return out;
   };

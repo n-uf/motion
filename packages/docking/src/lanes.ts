@@ -292,8 +292,8 @@ function liftedLayout(state: DockState, dragged: string, options: DockLaneOption
   return solve(liftItem(state, dragged), options.previous ? { previous: options.previous } : {});
 }
 
-/** A spot of a lane before its stretch is known (internal to the package). */
-export interface Raw {
+/** A spot of a lane before its stretch is known. */
+interface Raw {
   readonly lane: string;
   readonly edge: string | null;
   readonly axis: Axis;
@@ -340,8 +340,8 @@ export interface Base {
   readonly predicted: ReadonlySet<string>;
 }
 
-/** What a lane's marks read beyond its spots (internal to the package). */
-export interface Marking {
+/** What a lane's marks read beyond its spots. */
+interface Marking {
   /** The pitch of a bar's or a toolbar rail's free-stretch spots (0: none). */
   readonly pitch: number;
   /** A growing item's natural length along `axis` (its drawn length past it is free stretch), else undefined. */
@@ -459,14 +459,15 @@ export interface LaneMarks {
  * Every lane's marks in the one layout `layout` (internal to the package): each lane laid out over `layout` as drawn
  * there, the held item drawn where `layout` draws it on an edge (`held`: a spot's layout) or nowhere (the layout as seen,
  * at rest; a float's), each neighbor's giving way judged in `layout` itself, every mark clipped to its lane's rect over
- * `layout` (decision 0002), and the corners settled between the lanes as `layout` draws them.
+ * `layout` (decision 0002), and the corners settled between the lanes as `layout` draws them. Held on a sliding spot
+ * (`"slide"`), the room beside the item is a box from `MIN_BOX`: the item lands anywhere in it, so any room is a place.
  */
-export function marksIn(base: Base, state: DockState, dragged: string, layout: DockLayout, held: boolean, emptyLanes: EmptyLanes | undefined): LaneMarks[] {
+export function marksIn(base: Base, state: DockState, dragged: string, layout: DockLayout, held: false | "spot" | "slide", emptyLanes: EmptyLanes | undefined): LaneMarks[] {
   const heldEdge = held ? layout.items[dragged] : undefined;
   const on = heldEdge && !heldEdge.floating && !heldEdge.inMenu ? heldEdge.edge : undefined;
   const built = base.lanes.flatMap((l) => {
     const raws = base.raws.get(l.id);
-    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on) : null;
+    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on, false, l.id === on && held === "slide" ? MIN_BOX : undefined) : null;
     return again ? [{ lane: again, over: laneRectOver(raws!, layout, layout, base.marking).rect }] : [];
   });
   const over = built.map(({ lane, over: r }) => ({ ...lane, rect: r }));
@@ -639,7 +640,7 @@ function laneRectOver(list: readonly Raw[], over: DockLayout, seen: DockLayout, 
  * One lane from its spots: its rect, the spots in order with their stretches in `drawn`, its refused stretches.
  * `spotHeld`: `drawn` is a held spot's layout (`options.spot`).
  */
-function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false, spotHeld = false): DockLane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, heldHere = false, spotHeld = false, besideFloor?: number): DockLane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -754,7 +755,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   };
   const marks = first.edge
     ? edgeMarks(id, markRect, axis, marked, refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged), dragged, {
-        besideMin: halves || marking.pitch <= 0 ? itemLen : marking.pitch,
+        besideMin: besideFloor ?? (halves || marking.pitch <= 0 ? itemLen : marking.pitch),
         gap: marking.gap(first.edge),
         landingOf: (pair) => landings.get(pair),
         // Judged against the layout the marks are drawn in; with a spot held, against the layout as seen with the held
