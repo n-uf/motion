@@ -255,6 +255,21 @@ function sweep(): Result {
             for (let j = i + 1; j < gs.length; j++)
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
+          // rail-free: no guide but a line covers a rail segment the frame draws: a side rail's tabs (its folded columns'
+          // members) and the items of a toolbar rail. (A lane shown for another state than the screen's, the Near lane or
+          // the corner's owner by reach, draws its own layout and wins: the bar keeps the corner over a rail it moves.)
+          const otherState = new Set(f.frame.named.filter((g) => g.state !== f.frame.state).map((g) => g.lane));
+          if (gs.length > 0) {
+            const shown = d.drag.after(f.frame.state).layout;
+            const segments = [
+              ...Object.values(shown.rails).flatMap((r) => r?.segments.filter((g) => g.id !== w.dragged).map((g) => ({ id: g.id, rect: g.rect })) ?? []),
+              ...s.edges.filter((e) => e.compact && e.side !== "top" && e.side !== "bottom").flatMap((e) => (shown.edges[e.id]?.items ?? []).filter((id) => id !== w.dragged && shown.items[id]).map((id) => ({ id, rect: shown.items[id]!.rect }))),
+            ];
+            if (segments.length > 0) count("rail segments");
+            for (const g of gs)
+              for (const t of segments)
+                if (g.kind !== "line" && !otherState.has(g.lane) && inter(g.rect, t.rect, 0.5)) fail(`rail-free | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${g.id} ${fmt(g.rect)} over ${t.id} ${fmt(t.rect)}`);
+          }
           // entry: a lane shown for another state than the screen's (the Near lane, or the corner's owner by reach), or
           // the entered lane, shows its entry: its marks in that state's layout, which leave out only the landing there.
           // (A lane the screen draws is the named exception, rule B: the screen's less the landing, the `near` clause.)
@@ -421,6 +436,8 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts.drops).toBeGreaterThan(500);
     expect(r.counts["hull near"] ?? 0).toBeGreaterThan(50);
     expect(r.counts["near populated"] ?? 0).toBeGreaterThan(20);
+    // Frames that draw a rail segment (a side rail's tab or a toolbar rail's item) were checked against the guides.
+    expect(r.counts["rail segments"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(100);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
