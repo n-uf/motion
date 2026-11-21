@@ -1,6 +1,6 @@
 /**
  * The landing rows: the landing model's properties as conformance rows, played on any host that drags with a landing
- * model (`@n-uf/motion/drag`'s `createLandingModel` over `lanes()`). Placement never imports motion: the model comes in
+ * model (`@n-uf/motion/drag`'s `createLandingModel` over `lanes()`). Docking never imports motion: the model comes in
  * as an input, the way the pick rule does (`createLandingHost({ landing: createLandingModel })`).
  *
  * A row is plain data: a state, the item dragged, a pointer path at a speed (its first point the press, on the item),
@@ -32,7 +32,7 @@ export const HAND_MARGIN = 6;
  * The hand rule's bound, px: `max(floor, g / 2 + 6)`, the floor 48 (`HAND_TRAIL`), 56 on the frame before a hop
  * (`HAND_TRAIL_BEFORE_HOP`). `g` is the gap along the lane between the facing edges of the two adjacent landings the
  * pointer lies between (a sliding spot's landing taken at the end of its range that faces the next spot); 0 where the
- * pointer lies over a landing. Placement cuts between two adjacent spots halfway between their landings, and a spot
+ * pointer lies over a landing. `lanes()` cuts between two adjacent spots halfway between their landings, and a spot
  * changes 6 px (`HAND_MARGIN`) past the cut, so the landing is never further from the pointer than half the gap plus the
  * margin. Over a docked item much longer than the held one no landing lies inside it: `g` is about the item's length
  * less the held one's, plus a gutter.
