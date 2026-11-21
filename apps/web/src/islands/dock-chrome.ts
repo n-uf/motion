@@ -8,9 +8,9 @@
  *   menu, the lowest priority first and then the one used longest ago, and come back in reverse.
  * - **A drag** is a grip press (`createGripPress` through the lab's drag session: a lift past 5 px, a double-click within
  *   `DOUBLE_CLICK`), the drag intent (`createDragIntent`) over docking's `targets` and `refusals`, and the real group
- *   held by `holdItem` (no copy). The drop preview mode is the page's switch (islands/drop-mode.ts), read into motion's
- *   `previewPlan`: an outline, room made by the others (drawn from the shown target's `after().layout`), or the group
- *   gliding into its slot. Over a side rail the held group takes the form the drop gives it. A release commits the
+ *   held by `holdItem` (no copy). The drop preview is the page's switch (islands/drop-mode.ts, `dropPreview()`), planned
+ *   by motion's `previewPlan` from the intent's frame: Outline (where it lands, nothing moves), Placeholder (the others
+ *   make room, drawn from the shown target's `after().layout`) or Glide (the group glides into the room). Over a side rail the held group takes the form the drop gives it. A release commits the
  *   shown target's `after().state`; a release on a refusal, at home or nowhere puts it back.
  * - **Moves glide** on `createLayoutMotion` (the site's loop, tempo and reduced motion): each group is a layout item
  *   drawn by `domDrawable`, and a commit that moves groups between bars is a `flip` from where each is drawn.
@@ -27,7 +27,7 @@
  * flow layout, which the dock state reproduces, and each group is then placed at its solved rect in its bar.
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { createDragIntent, previewPlan as planOf, type DragFrame, type DragIntent, type DragKeys, type PreviewMode } from "@n-uf/motion/drag";
+import { createDragIntent, previewPlan as planOf, type DragFrame, type DragIntent, type DragKeys } from "@n-uf/motion/drag";
 import { createLayoutMotion, holdItem, type HeldDrag, type LayoutItem } from "@n-uf/motion/layout";
 import { domDrawable, flip } from "@n-uf/motion/browser";
 import {
@@ -52,7 +52,7 @@ import {
 } from "@n-uf/docking";
 import { createDragSession } from "../../../lab/src/shared/session";
 import { loop, omega, onMotionChange, reduced } from "./motion";
-import { dropMode, previewPlan } from "./drop-mode";
+import { dropPreview } from "./drop-mode";
 import { setDragging, userAction } from "./showcase";
 import { xrayOf, type XR, type XrayFrame } from "./xray";
 import { HOSTNAME, HOSTS, ZONENAME, clone, type Host, type Model } from "../demos/toolbar";
@@ -127,11 +127,6 @@ const FOCUSABLE = "button:not([disabled]), input:not([disabled]), select:not([di
 const same = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
 const shift = (r: Rect, dx: number, dy: number): Rect => ({ x: r.x + dx, y: r.y + dy, width: r.width, height: r.height });
 const xr = (r: Rect): XR => ({ x: r.x, y: r.y, w: r.width, h: r.height });
-/** The page's preview switch (islands/drop-mode.ts) as motion's preview mode: read through its plan, never its ids. */
-function previewMode(): PreviewMode {
-  const p = previewPlan(dropMode());
-  return p.glide ? "glide" : p.room ? "placeholder" : "outline";
-}
 
 let openMenuEl: HTMLElement | null = null;
 const closeMenu = (): void => {
@@ -857,7 +852,7 @@ export function createChrome(o: ChromeOptions): Chrome {
     if (!d) return;
     const f = d.intent.update(toStage(d.pointer), now, d.list, d.keys);
     d.frame = f;
-    const plan = planOf(f, previewMode());
+    const plan = planOf(f, dropPreview());
     const shown = f.shown && !f.shown.refuse ? (f.shown as DockDrop) : null;
     d.shown = shown;
     const after = shown ? afterOf(d, shown) : null;
