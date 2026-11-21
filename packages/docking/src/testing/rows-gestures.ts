@@ -127,12 +127,12 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P5-neighbour-half-facing-it",
     title: "Over a neighbor's body there is no gap",
-    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (over a panel's body a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go. The older rule \"the neighbor half that faces it is its home\" no longer holds. This assumes the default `hitBand` (an open panel's body is no drop place): a host whose columns use `hitBand: \"middle\"` gets card halves there, and skips or marks this row.",
+    expect: "Annotations let go over Pages' body, away from its edges, finds no gap (over a panel's body a gap is a band around a boundary), so it falls through to the float target: it floats, where the pointer let go, over Pages (the clear place beside Pages would put the pointer off it, so it lies at the hand). The older rule \"the neighbor half that faces it is its home\" no longer holds. This assumes the default `hitBand` (an open panel's body is no drop place): a host whose columns use `hitBand: \"middle\"` gets card halves there, and skips or marks this row.",
     group: "gestures",
     requires: { hitBand: "default" },
     state: win(),
     gestures: [g.press("annotations", { x: 20, y: 10 }), g.at(160, 200), g.hold(), g.release()],
-    expectLayout: { items: { pages: { rect: r(12, 0, 300, 800) }, annotations: { floating: true, rect: r(312, 190, 280, 360) } }, floats: ["annotations"], columns: { left: [["pages"]], right: [["findings"]] } },
+    expectLayout: { items: { pages: { rect: r(12, 0, 300, 800) }, annotations: { floating: true, rect: r(140, 190, 280, 360) } }, floats: ["annotations"], columns: { left: [["pages"]], right: [["findings"]] } },
   },
   {
     id: "P6-new-outer-column-from-outside",

@@ -41,16 +41,21 @@ const EPS = 0.5;
 const TOUCH = 1e-3;
 const fin = (v: number | undefined, d: number): number => (Number.isFinite(v) ? v! : d);
 
-/** What `solve` keeps floats clear of, as laid out now: docked items (» entries included), bars and their » menus, the chrome. */
-function floatObstacles(state: DockState, l: DockLayout, id: string): Rect[] {
-  const out: Rect[] = [];
-  for (const [k, p] of Object.entries(l.items)) if (k !== id && !p.floating) out.push(p.rect);
+/**
+ * What `solve` keeps floats clear of, as laid out now: docked items (» entries included) first, `docked` of them, then
+ * bars and their » menus and the chrome.
+ */
+function floatObstacles(state: DockState, l: DockLayout, id: string): { rects: Rect[]; docked: number } {
+  const some = (r: Rect): boolean => r.width > 0 && r.height > 0;
+  const rects: Rect[] = [];
+  for (const [k, p] of Object.entries(l.items)) if (k !== id && !p.floating && some(p.rect)) rects.push(p.rect);
+  const docked = rects.length;
   for (const e of Object.values(l.edges)) {
-    if (axisOf(e.side) === "row" && e.cross > 0) out.push(e.rect);
-    if (e.menu) out.push(e.menu.rect);
+    if (axisOf(e.side) === "row" && e.cross > 0) rects.push(e.rect);
+    if (e.menu) rects.push(e.menu.rect);
   }
-  for (const c of keepClearFor(state, "floats")) out.push(c);
-  return out.filter((r) => r.width > 0 && r.height > 0);
+  for (const c of keepClearFor(state, "floats")) rects.push(c);
+  return { rects: rects.filter(some), docked };
 }
 
 /**
@@ -165,14 +170,16 @@ export function fitResize(state: DockState, id: string, rect: Rect, moving: Resi
   const region = floatRegion(state);
   const dragX = moving.left ? "start" : moving.right ? "end" : null;
   const dragY = moving.top ? "start" : moving.bottom ? "end" : null;
-  const obstacles = floatObstacles(state, l, id);
+  const { rects: obstacles, docked } = floatObstacles(state, l, id);
   const hit = new Set<ResizeLimit>();
-  // Every growing edge stops at what floats are kept clear of: a dragged one, and the end of an axis not dragged.
-  const [x, width] = fitAxis(rect.x, rect.width, { min: min.width, max: max.width, lo: region.x, hi: region.x + region.width, stop: obstacleStop(drawn, obstacles, "x", dragX ?? "end", [drawn.y, drawn.y + drawn.height]) }, dragX, hit);
-  const [y, height] = fitAxis(rect.y, rect.height, { min: min.height, max: max.height, lo: region.y, hi: region.y + region.height, stop: obstacleStop(drawn, obstacles, "y", dragY ?? "end", [x, x + width]) }, dragY, hit);
+  // Every growing edge stops at what floats are kept clear of: a dragged one, and the end of an axis not dragged. A float
+  // the hand left over content (`stays`) lies over docked items: only the bars and the chrome stop it.
+  const stops = f.stays ? obstacles.slice(docked) : obstacles;
+  const [x, width] = fitAxis(rect.x, rect.width, { min: min.width, max: max.width, lo: region.x, hi: region.x + region.width, stop: obstacleStop(drawn, stops, "x", dragX ?? "end", [drawn.y, drawn.y + drawn.height]) }, dragX, hit);
+  const [y, height] = fitAxis(rect.y, rect.height, { min: min.height, max: max.height, lo: region.y, hi: region.y + region.height, stop: obstacleStop(drawn, stops, "y", dragY ?? "end", [x, x + width]) }, dragY, hit);
   // The one clamp `solve` lays floats with: what it gives is what the commit draws.
   const { anchor: _a, ...plain } = f;
-  const placed = placeFloat(item, { ...plain, rect: { x, y, width, height } }, region, obstacles, l.content, state.stage).fit.rect;
+  const placed = placeFloat(item, { ...plain, rect: { x, y, width, height } }, region, obstacles, l.content, state.stage, [], docked).fit.rect;
   if (Math.abs(placed.x - x) > EPS || Math.abs(placed.y - y) > EPS) hit.add("docked");
   if (Math.abs(placed.width - width) > EPS || Math.abs(placed.height - height) > EPS) hit.add("min");
   return { rect: placed, limits: LIMITS.filter((k) => hit.has(k)) };

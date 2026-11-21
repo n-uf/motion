@@ -58,7 +58,9 @@
  *   (`./targets/rail-strip`); on a side with no declared rail, its rail is its outermost column that takes the kind,
  *   drawn as a rail once the item docks in it folded.
  * - `float:<id>`: when `floatKinds` lists the kind, the whole plane: the landing is the float with the pointer holding
- *   it at `grab` (default its middle), in the stage and clear of the docked items, the bars and the chrome. Its orient:
+ *   it at `grab` (default its middle), in the stage and clear of the docked items, the bars and the chrome while the
+ *   pointer is still on it there; where no clear place keeps it under the pointer, it lies at the hand over what it
+ *   covers, marked `stays` (kept inside the stage only, on every later solve). Its orient:
  *   `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size: `options.floatSize`, else its
  *   float's size where it lands in the orient that float is in, else `floatSizeOf` for the orient it lands in.
  *
@@ -71,7 +73,7 @@
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
-import { EPS, PLANE, area, overlaps, rect, type Rect } from "@n-uf/placement";
+import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
 import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
@@ -321,8 +323,22 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
         // Where the pointer puts it, or with `floatFromHeld` where the held item is drawn, before the float is fitted.
         const raw = options.floatFromHeld ? heldRect(state, dragged, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
         const first = solve(markUsed(floatAt(state, dragged, raw, options.floatOrient), dragged), prev);
-        const at = first.items[dragged]?.rect ?? raw;
-        return c.settle(markUsed(floatAt(state, dragged, rect(at.x, at.y, size.width, size.height), options.floatOrient), dragged));
+        const fitted = first.items[dragged]?.rect;
+        const at = fitted ?? raw;
+        const placed = (x: number, y: number, stays: boolean): DropResult => {
+          const s = floatAt(state, dragged, rect(x, y, size.width, size.height), options.floatOrient);
+          return c.settle(markUsed(stays ? { ...s, floats: s.floats.map((f) => (f.id === dragged ? { ...f, stays: true as const } : f)) } : s, dragged));
+        };
+        // "Doesn't fit" is decided by the hand: a clear place counts only while the pointer is on the item placed there
+        // (on the hand rect as kept inside the stage, so the stage's clamp never counts against it).
+        const hand = heldRect(state, dragged, fitted ?? size, point, g);
+        const on = { x: clamp(point.x, hand.x, hand.x + hand.width), y: clamp(point.y, hand.y, hand.y + hand.height) };
+        const clear = !first.notes.some((n) => n.code === "float-covers" && n.id === dragged);
+        if (!fitted || (clear && contains(fitted, on))) return placed(at.x, at.y, false);
+        // Otherwise it lies at the hand, over what it covers, marked so that no later solve moves it clear.
+        const left = placed(hand.x, hand.y, true);
+        const covers = left.layout.notes.some((n) => n.code === "float-covers" && n.id === dragged);
+        return covers ? left : placed(hand.x, hand.y, false);
       },
     });
   }

@@ -378,6 +378,14 @@ export interface DockFloat {
    * the smaller id) wins the place both want.
    */
   readonly since?: number;
+  /**
+   * The hand left it over content: no clear place kept it under the pointer at its drop, so it lies where the hand put
+   * it. `solve` only keeps it inside the stage, never moves it beside what it covers (a `float-covers` note says what
+   * it covers). The float target's drop decides it again each time
+   * (`DockDrop.after`); `floatAt` with a rect clears it, `resizeFloat`, `orientFloat`, `raiseFloat` and `markUsed` keep
+   * it. Ignored with `anchor`.
+   */
+  readonly stays?: true;
 }
 
 /**
