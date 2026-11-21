@@ -35,13 +35,14 @@
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
  * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
  * A float's size is stored per orient (`floatSizes`); one entry that isn't a size, or an orient that isn't `row` or
- * `column`, is dropped (`item:<id>:floatSizes:<orient>`). A store from before that, with one `floatSize` on an item,
- * reads as `floatSizes` for the orient its float is in (the item's own orient where it floats nowhere), so the size
- * never follows the float to the other orient.
+ * `column`, is dropped (`item:<id>:floatSizes:<orient>`). A store from before that, with one `floatSize` on an item that
+ * declares `floatSizes`, reads as `floatSizes` for the orient its float is in (the item's own orient where it floats
+ * nowhere), so the size never follows the float to the other orient. On an item that declares none it is dropped
+ * (`item:<id>:floatSize`): such an item is framed at its stored rect, so that size never set its frame.
  */
 import { rect, type Size } from "@n-uf/placement";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
-import { axisOf, columnFromTemplate, floatOrientOf, isSince } from "./helpers";
+import { axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type DockEdge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type DockState, type DockFloat, type DockItem, type Side } from "./model";
 
@@ -387,10 +388,15 @@ function read(data: unknown, base: DockState): DockStateRead {
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
-  // A stored old single `floatSize` is the size for the orient its float is in (the item's own where it floats nowhere),
-  // unless the store gives that orient a size of its own.
+  // A stored old single `floatSize`, on an item whose store declares `floatSizes`, is the size for the orient its float is
+  // in (the item's own where it floats nowhere), unless the store gives that orient a size of its own. An item that
+  // declares none is framed at its stored rect, so the old size never set its frame: it is dropped, the frame kept.
   for (const [id, size] of legacy) {
     const it = items[id]!;
+    if (!declaresFloatSizes(it)) {
+      drop(`item:${id}:floatSize`);
+      continue;
+    }
     const orient = floats.find((f) => f.id === id)?.orient ?? floatOrientOf(it);
     if (!it.floatSizes?.[orient]) items[id] = withFloatSizes(it, { orient, size });
   }

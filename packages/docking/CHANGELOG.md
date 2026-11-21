@@ -24,7 +24,7 @@ Lane fixes that were unreleased in `@n-uf/placement/scene` and ship here:
 Host notes: install `@n-uf/docking`, change the imports, and apply the renames below (each a rename only, with the
 same shape and meaning). A stored state from `storeScene` reads back with `readDockState` unchanged (the stored form
 and its version are the same), but for one field: a stored `floatSize` reads back as `floatSizes` for its float's
-orient (see below). `@n-uf/docking/testing`'s types name `@n-uf/motion/drag`'s: `@n-uf/motion` is an optional peer
+orient on an item whose store declares `floatSizes`, and is dropped on one that declares none (see below). `@n-uf/docking/testing`'s types name `@n-uf/motion/drag`'s: `@n-uf/motion` is an optional peer
 dependency, needed only by a suite that runs the landing rows.
 
 Entries:
@@ -41,9 +41,12 @@ The model's types:
   knowing the ladder's order. Absent for a hand-written form, a `fold`, a `menu` and a » menu entry.
 - Removed: **`SceneItem.floatSize`**, deprecated in 26.11.52. `floatSize` → `floatSizes[orient]`: declare the size for
   the orient the item floats in (both orients where it floats either way). A state stored with it still reads:
-  `readDockState` takes a stored `floatSize` as `floatSizes` for the orient its float is in (the item's own where it
-  floats nowhere), unless the store sizes that orient itself, and `storeDockState` writes `floatSizes` only. An item
-  that declares no `floatSizes` is framed at its stored rect, as before. `floatSizeOf(item, orient?)` and
+  on an item whose store declares `floatSizes`, `readDockState` takes a stored `floatSize` as the size for the orient
+  its float is in (the item's own where it floats nowhere), unless the store sizes that orient itself, and
+  `storeDockState` writes `floatSizes` only. An item that declares no `floatSizes` is framed at its stored rect, as
+  before: its old `floatSize` never set its frame and is dropped (`item:<id>:floatSize`), so the frames read the same.
+  The one thing it still set, the size `floatAt` gives such an item with no rect, is now its natural size: pass a rect,
+  or declare `floatSizes`. `floatSizeOf(item, orient?)` and
   `floatSizesOf(item)` lose the orient the old size was set in.
 - `SceneLayout` → `DockLayout`; `SceneItemLayout` → `DockItemLayout`; `SceneEdgeLayout` → `DockEdgeLayout`;
   `SceneRailLayout` → `DockRailLayout`; `SceneNote` → `DockNote`; `SceneNoteCode` → `DockNoteCode`.
