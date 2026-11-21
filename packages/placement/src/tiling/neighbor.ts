@@ -12,15 +12,16 @@ export type Direction = "left" | "right" | "up" | "down";
  * distance across it, plus 100 when it does not overlap `from` across the direction (the overlap strictly above 0);
  * the lowest score wins, ties to the first in the map's order. A pane that is not in `rects` has no neighbor.
  *
- * The host chooses which rects to pass. Rects laid out in a unit square (a tree laid out in `{ x: 0, y: 0, width: 1,
- * height: 1 }`) make the answer independent of the area's size, the gaps and the fixed lengths (a length in px does
- * not fit a unit square, so its split goes by its ratio); it still follows the tree's ratios.
+ * The host chooses which rects to pass. A host that wants focus to follow a tree's shape, not its sizes, lays the tree
+ * out in a unit square (`{ x: 0, y: 0, width: 1, height: 1 }`) with its px floors: a floor of tens of px cannot fit in
+ * a unit square, so the floors of every split cannot both fit and it lays out at 0.5, whatever its ratio. Fixed
+ * lengths in px do not fit either, and the area's size and the gap drop out.
  */
 export function neighbor<K>(rects: ReadonlyMap<K, Rect>, from: K, direction: Direction): K | null {
   const origin = rects.get(from);
   if (!origin) return null;
   const horizontal = direction === "left" || direction === "right";
-  // Centers and ends as the sum of two edges, the arithmetic a tiling engine's edge rects use.
+  // Centers and ends as sums of edges (right = x + width), so a host that keeps edge rects gets the same bits.
   const center = (r: Rect, x: boolean): number => (x ? (r.x + (r.x + r.width)) / 2 : (r.y + (r.y + r.height)) / 2);
   const reach = (r: Rect, x: boolean): [number, number] => (x ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
   const fromAlong = center(origin, horizontal);

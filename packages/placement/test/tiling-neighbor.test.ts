@@ -64,24 +64,19 @@ describe("neighbor", () => {
     expect(neighbor(new Map([["only", { x: 0, y: 0, width: 1, height: 1 }]]), "only", "up")).toBeNull();
   });
 
-  it("rects laid out in the unit square depend on the tree's ratios only, not on gaps, sizes or fixed lengths", () => {
+  it("rects laid out in a unit square with px floors make the choice independent of the ratios", () => {
     const unit: Rect = { x: 0, y: 0, width: 1, height: 1 };
-    const tree: Split<string> = { a: { pane: "l" }, b: { a: { pane: "t" }, b: { pane: "b" }, axis: "y", ratio: 0.9 }, axis: "x" };
-    // The left pane is level with the right column's middle: the upper pane, 900 tall, has the nearer center.
-    expect(neighbor(layoutSplit(tree, unit), "l", "right")).toBe("t");
-    // A fixed length of 800 px does not fit in a unit square (so the split goes by its ratio); in px it makes "l" 800 wide
-    // and shrinks the right column, but the neighbor is the same: the unit rects are the ones a host passes.
-    const fixed = (child: Split<string>) => ("pane" in child && child.pane === "l" ? { length: 800 } : undefined);
-    expect(neighbor(layoutSplit(tree, unit, { gap: 0.1, fixed }), "l", "right")).toBe("t");
-    const wide = layoutSplit(tree, { x: 0, y: 0, width: 1000, height: 1000 }, { gap: 30, fixed });
-    expect(wide.get("l")!.width).toBe(800);
-    // Changing the ratio of the column does change it: the lower pane takes over when it is the taller.
-    const lower: Split<string> = { ...tree, b: { a: { pane: "t" }, b: { pane: "b" }, axis: "y", ratio: 0.1 } };
-    expect(neighbor(layoutSplit(lower, unit), "l", "right")).toBe("b");
+    const column = (ratio: number): Split<string> => ({ a: { pane: "l" }, b: { a: { pane: "t" }, b: { pane: "b" }, axis: "y", ratio }, axis: "x" });
+    const answer = (ratio: number, floor: boolean): string | null => neighbor(layoutSplit(column(ratio), unit, floor ? { floor: () => ({ min: 40, net: false }) } : {}), "l", "right");
+    // With no floor the column's ratio decides: the pane nearer the left pane's middle is the neighbor.
+    expect([answer(0.1, false), answer(0.9, false)]).toEqual(["b", "t"]);
+    // A floor of 40 px cannot fit in a unit square: the two floors cannot both fit, every split goes to 0.5 and the
+    // panes tie on score, so the first in the map's order wins whatever the ratio was.
+    expect([0.1, 0.5, 0.9].map((r) => answer(r, true))).toEqual(["t", "t", "t"]);
   });
 });
 
-/** The rule written out again, with `Math.abs` and the engine's edge arithmetic (right = left + width). */
+/** The rule written out again, with `Math.abs` and edges as sums (right = x + width). */
 function reference(rects: ReadonlyMap<string, Rect>, from: string, direction: Direction): string | null {
   const f = rects.get(from);
   if (!f) return null;
