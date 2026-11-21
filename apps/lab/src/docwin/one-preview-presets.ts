@@ -7,7 +7,7 @@ import { targetAt, type DragKeys } from "@n-uf/motion/drag";
 import { clampInto, type Point, type Rect } from "@n-uf/placement";
 import { refusalTargets, type DockState, type DockDrop } from "@n-uf/docking";
 import { docking, drive, emptySpace, FRAME, hold, mid, sameRect, through, type Key } from "./intent-presets";
-import { defaultState, floating, put, type ItemId } from "./model";
+import { defaultState, floating, put, railedState, type ItemId } from "./model";
 import type { Docwin, DragTrace } from "./dock-state";
 
 interface Verdict {
@@ -130,15 +130,15 @@ function go(c: Docwin, w: Where, speed: number, ms: number, each?: (t: number) =
   return r ? { ...r, p } : null;
 }
 
-/** The default window with `ids` collapsed by hand. */
-const collapsed = (ids: readonly ItemId[]): DockState => {
-  const s = defaultState();
+/** The default window (or `window`) with `ids` collapsed by hand. */
+const collapsed = (ids: readonly ItemId[], window: () => DockState = defaultState): DockState => {
+  const s = window();
   return { ...s, items: { ...s.items, ...Object.fromEntries(ids.map((id) => [id, { ...s.items[id]!, from: 1 }])) } };
 };
 
 /** `ids` collapsed together as the right column's title tiles. */
-const collapsedIn = (ids: readonly ItemId[]): DockState => {
-  const s = collapsed(ids);
+const collapsedIn = (ids: readonly ItemId[], window: () => DockState = defaultState): DockState => {
+  const s = collapsed(ids, window);
   return put(s, "right", [...ids]);
 };
 
@@ -253,19 +253,26 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
     preset(
       "one-preview-tile-moves-in-its-rail",
       "A title tile still moves among its own rail's tiles",
-      "With Findings and Notes collapsed as the right column's title tiles, Notes dragged onto the place before Findings moves there, still a tile; the rail stays a rail.",
+      "With Findings and Notes collapsed as the right column's title tiles, Notes dragged onto the place before Findings moves there, still a tile; the rail stays a rail. In both windows: the column drawn as a rail (the default window, no `rails`) and the rail the window declares (`DockState.rails`), where the column's tiles are the rail's.",
       (c, bad, said) => {
-        c.setState(collapsedIn(["findings", "notes"]));
-        const t = c.targets(PANEL).find((x) => x.place.kind === "gap" && x.place.edge === "right" && x.place.at === 0);
-        if (!t) {
-          bad.push("no place before the first tile");
-          return;
+        for (const [name, window, declared] of [["the column drawn as a rail", defaultState, false], ["the declared rail", railedState, true]] as const) {
+          c.setState(collapsedIn(["findings", "notes"], window));
+          if (!!c.layout.items[PANEL]?.rail !== declared) {
+            bad.push(`${name}: the tile is ${c.layout.items[PANEL]?.rail ? "in a declared rail" : "not in a declared rail"}`);
+            continue;
+          }
+          const t = c.targets(PANEL).find((x) => x.place.kind === "gap" && x.place.edge === "right" && x.place.at === 0);
+          if (!t) {
+            bad.push(`${name}: no place before the first tile (places: ${c.targets(PANEL).map((x) => x.id).join(", ")})`);
+            continue;
+          }
+          drive(c, PANEL, (g): Key[] => hold(through([g, mid(t.hit)], AIM), SETTLE));
+          const order = c.state.edges.find((e) => e.id === "right")!.items;
+          if (order[0] !== PANEL) bad.push(`${name}: the order is ${order.join(", ")}`);
+          if (c.layout.items[PANEL]?.formKind !== "rail") bad.push(`${name}: it became ${c.layout.items[PANEL]?.formKind}`);
+          if (!!c.layout.items[PANEL]?.rail !== declared) bad.push(`${name}: it left its rail`);
+          said.push(`${name}: the rail reads ${order.join(", ")}`);
         }
-        drive(c, PANEL, (g): Key[] => hold(through([g, mid(t.hit)], AIM), SETTLE));
-        const order = c.state.edges.find((e) => e.id === "right")!.items;
-        if (order[0] !== PANEL) bad.push(`the order is ${order.join(", ")}`);
-        if (c.layout.items[PANEL]?.formKind !== "rail") bad.push(`it became ${c.layout.items[PANEL]?.formKind}`);
-        said.push(`the rail reads ${order.join(", ")}`);
       },
     ),
     preset(
