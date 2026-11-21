@@ -2,8 +2,8 @@
  * The window on the landing model (`"landing"`): `@n-uf/motion/drag`'s `createLandingModel` over
  * `@n-uf/docking`'s `lanes()`, in each of the viewer's three modes: what the modes add. A drag along its lane
  * never leaves it in any mode, every mode releases the same, and the place guides are neutral lines and boxes keyed by
- * id, never over an item and never drawn like the landing. The model's own properties are placement's landing rows
- * (`LANDING_CASES`), which the window plays too (`row:landing-*`).
+ * id, never over an item and never drawn like the landing. The model's own properties are the landing rows of
+ * `@n-uf/docking/testing` (`LANDING_CASES`), which the window plays too (`row:landing-*`).
  */
 import type { Point, Rect } from "@n-uf/placement";
 import type { DockState } from "@n-uf/docking";

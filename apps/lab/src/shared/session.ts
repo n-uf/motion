@@ -29,7 +29,7 @@ export function swallowClick(): void {
 }
 
 /**
- * A press's window listeners, from the press to its end: pointer moves, the pointer let go or cancelled, keys down and
+ * A press's window listeners, from the press to its end: pointer moves, the pointer let go or canceled, keys down and
  * up, and (with `noMenu`) no context menu. Returns the function that removes them all.
  */
 export function followPointer(on: { move(e: PointerEvent): void; up(e: PointerEvent): void; key?(e: KeyboardEvent): void; noMenu?: boolean }): () => void {
