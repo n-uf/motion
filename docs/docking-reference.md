@@ -937,7 +937,8 @@ range }`, stage px) per pair of neighboring open growing items of each edge; `re
 before, after, { layout? })` gives them their natural split back (the double-click), and `resetLengths(state, edgeId)`
 clears every length of the edge's axis. Each is a change in the sense above: the state given back when nothing applies
 (not neighbors in one edge, an unknown item or edge, a float, a `delta` clamped to 0). `layout` is what `solve` returned
-for `state`; left out, or stored and read back, the state is solved first. The length travels with the item (moved,
+for this very `state` object; left out, made for another state (another stage size, an item moved) or stored and read
+back, the state is solved first. The length travels with the item (moved,
 closed and reopened, folded) and is per axis, so an item moved to a bar never reads a column length;
 `storeDockState` keeps it (`items.<id>.length`) and `readDockState` reads it back, dropping a bad entry as
 `item:<id>:length:<axis>`; a store without it reads with none. `moveTo` and

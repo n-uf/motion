@@ -4,14 +4,14 @@
  * `DockItem.length`. A divider trades length between the two neighboring open growing items of one edge (a panel, a
  * collapsed item between two open ones giving one divider across it); nothing else in the state moves.
  *
- * The layout is the one `solve` returned for `state`; a verb given none, or one that was stored and read back, solves the
- * state itself. Pure: a state in, a state out (the same object when nothing changed).
+ * The layout is the one `solve` returned for this very `state` object; a verb given none, one that was made for another
+ * state (another stage size, an item moved) or one that was stored and read back, solves the state itself. Pure: a state in, a state out (the same object when nothing changed).
  */
 import { rect, type Rect } from "@n-uf/placement";
 import { dividers as stackDividers, resetBetween as stackReset, resizeBetween as stackResize, type StackFit, type StackInput } from "@n-uf/placement/stack";
 import { axisOf } from "./helpers";
 import type { DockItem, DockLayout, DockState } from "./model";
-import { solve } from "./solve";
+import { solve, stateOf } from "./solve";
 import { inputOf } from "./solve/edge";
 
 /** One divider of an edge, in stage px: between the open growing items `before` and `after` (ids). */
@@ -30,8 +30,12 @@ export interface DockDivider {
   readonly range: { readonly min: number; readonly max: number };
 }
 
-/** `layout` when `solve` made it, else the state solved. */
-const laid = (state: DockState, layout: DockLayout | undefined): DockLayout => (layout && Object.values(layout.edges).every((e) => inputOf(e.stack) !== undefined) ? layout : solve(state));
+/**
+ * `layout` when `solve` made it from this very `state` object, else the state solved: a layout made for another state
+ * (the stage was another size, an item moved), or one stored and read back, is never used.
+ */
+const laid = (state: DockState, layout: DockLayout | undefined): DockLayout =>
+  layout && stateOf(layout) === state && Object.values(layout.edges).every((e) => inputOf(e.stack) !== undefined) ? layout : solve(state);
 
 /** One divider per pair of neighboring open growing items in each edge, edge by edge. A collapsed item has none of its own. */
 export function dividers(state: DockState, layout?: DockLayout): DockDivider[] {

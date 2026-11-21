@@ -128,6 +128,20 @@ describe("the dock verbs over an edge", () => {
     expect(dividers(s, copy)).toEqual(dividers(s, l));
   });
 
+  it("a layout made for another state is never used: it is solved again", () => {
+    const small = stateOf([panel("a", 1), panel("b", 2), panel("c", 3)], 500);
+    const stale = solve(s);
+    const fresh = solve(small);
+    expect(tall(fresh, "a")).not.toBeCloseTo(tall(stale, "a"), 1);
+    const moved = resizeBetween(small, "a", "b", 20, { layout: stale });
+    expect(moved).toEqual(resizeBetween(small, "a", "b", 20));
+    expect(tall(solve(moved), "a")).toBeCloseTo(tall(fresh, "a") + 20, 6);
+    expect(dividers(small, stale)).toEqual(dividers(small));
+    expect(resetBetween(moved, "a", "b", { layout: solve(small) })).toEqual(resetBetween(moved, "a", "b"));
+    // The layout of the state itself is used as it is.
+    expect(resizeBetween(small, "a", "b", 20, { layout: fresh })).toEqual(moved);
+  });
+
   it("clamps to the least and gives back the same state when nothing changes", () => {
     const far = solve(resizeBetween(s, "a", "b", 10_000));
     expect(tall(far, "b")).toBeCloseTo(120, 6);
