@@ -93,21 +93,50 @@ interface Sweep {
   readonly compared: number;
   readonly noNear: number;
   readonly notEntered: number;
-  /** Other-lane entries not compared: the frame before entry draws another window than the entry's around the lane. */
-  readonly skipped: number;
+  /** Other-lane entries compared under "all" (the lane's guides before and at entry, less the entered lane's). */
+  readonly otherCompared: number;
+  /** Other-lane entries not compared, each with its reason: an edge or rail at the lane's band changed between the two frames' windows. */
+  readonly skipped: string[];
 }
 
-/** Whether two drawn layouts agree on every edge's rect but the entered lane's, and on the rails: what a lane's guide gives way to. */
-function sameAround(a: DockLayout, b: DockLayout, entered: string): boolean {
-  const same = (p: Rect | undefined, q: Rect | undefined): boolean => (!p && !q) || (!!p && !!q && Math.abs(p.x - q.x) + Math.abs(p.y - q.y) + Math.abs(p.width - q.width) + Math.abs(p.height - q.height) < 1e-6);
-  for (const id of new Set([...Object.keys(a.edges), ...Object.keys(b.edges)])) if (id !== entered && !same(a.edges[id]?.rect, b.edges[id]?.rect)) return false;
-  for (const side of new Set([...Object.keys(a.rails), ...Object.keys(b.rails)])) if (!same(a.rails[side as keyof typeof a.rails]?.rect, b.rails[side as keyof typeof b.rails]?.rect)) return false;
-  return true;
+/**
+ * The first edge or rail across the lane (a side's for a bar, a bar's for a side lane) that touches the lane's band in
+ * either layout and whose extent along the lane differs between the two: what the lane's guide gave way to (or ran
+ * under) in one window and not in the other, such as a side rail closing at the bar's end. Edges along the lane, the
+ * entered lane's edge and the lane's own are not across it; a shift across the lane changes nothing along it. Null where
+ * nothing at the band changed.
+ */
+function changedAt(a: DockLayout, b: DockLayout, entered: string, lane: { id: string; axis: "x" | "y"; rect: Rect }, sideOf: (id: string) => string | undefined): string | null {
+  // (Across the lane, and not on the entered lane's own side: entering a side changes that side's edges and rail by design.)
+  const enteredSide = sideOf(entered);
+  const across = (side: string | undefined): boolean => side !== enteredSide && (lane.axis === "x" ? side === "left" || side === "right" : side === "top" || side === "bottom");
+  const band = lane.rect;
+  const along = (r: Rect): [number, number] => (lane.axis === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
+  const same = (p: Rect | undefined, q: Rect | undefined): boolean => {
+    if (!p || !q) return !p && !q;
+    const [p0, p1] = along(p);
+    const [q0, q1] = along(q);
+    return Math.abs(p0 - q0) + Math.abs(p1 - q1) < 1e-6;
+  };
+  const touches = (r: Rect | undefined): boolean => !!r && r.x <= band.x + band.width + 1 && band.x <= r.x + r.width + 1 && r.y <= band.y + band.height + 1 && band.y <= r.y + r.height + 1;
+  const show = (r: Rect | undefined): string => (r ? fmt(r) : "none");
+  for (const id of new Set([...Object.keys(a.edges), ...Object.keys(b.edges)])) {
+    const p = a.edges[id]?.rect;
+    const q = b.edges[id]?.rect;
+    if (id !== entered && id !== lane.id && across(sideOf(id)) && !same(p, q) && (touches(p) || touches(q))) return `edge ${id} ${show(p)} -> ${show(q)}`;
+  }
+  for (const side of new Set([...Object.keys(a.rails), ...Object.keys(b.rails)])) {
+    if (!across(side)) continue;
+    const p = a.rails[side as keyof typeof a.rails]?.rect;
+    const q = b.rails[side as keyof typeof b.rails]?.rect;
+    if (!same(p, q) && (touches(p) || touches(q))) return `rail ${side} ${show(p)} -> ${show(q)}`;
+  }
+  return null;
 }
 
 function sweep(): Record<"near" | "all", Sweep> {
-  const mk = (): { bad: string[]; overlaps: string[]; compared: number; noNear: number; notEntered: number; skipped: number } => ({ bad: [], overlaps: [], compared: 0, noNear: 0, notEntered: 0, skipped: 0 });
-  const out = { near: mk(), all: mk() } as Record<"near" | "all", { bad: string[]; overlaps: string[]; compared: number; noNear: number; notEntered: number; skipped: number }>;
+  const mk = (): { bad: string[]; overlaps: string[]; compared: number; noNear: number; notEntered: number; otherCompared: number; skipped: string[] } => ({ bad: [], overlaps: [], compared: 0, noNear: 0, notEntered: 0, otherCompared: 0, skipped: [] });
+  const out = { near: mk(), all: mk() } as Record<"near" | "all", ReturnType<typeof mk>>;
   for (const w of windows()) {
     const d = dragOf(w);
     if (!d) continue;
@@ -165,16 +194,22 @@ function sweep(): Record<"near" | "all", Sweep> {
                 s.bad.push(`${where} (${mode})${k === n ? " before entry" : " at entry"}: ${g.id} ${fmt(g.rect)} under the landing ${fmt(landing)}`);
           // Under "all", every other lane empty as seen keeps its marks at entry, but where the corner goes to the lane
           // entered: its guides before and at entry, both less the entered lane's guides, are the same.
-          // (Skipped where the frame before entry draws another window than the entry's around the lane: a float frame draws
-          // the window at rest, and the room opening at entry may move an edge or close a rail the rest draws, which the
-          // lane's guide gave way to (`shown` of the two frames differ); counted.)
+          // (Skipped, with its reason, where an edge or rail at the lane's band differs between the windows `shown` gives the
+          // two frames: a float frame draws the window at rest, and the room opening at entry may close a rail the rest
+          // draws, which the lane's guide gave way to.)
           if (mode === "all") {
             const enteredRects = after.map((g) => ({ rect: g.rect, clearance: 0 }));
             const less = (gs: readonly Guide[]): Guide[] => guideRects(gs, { inside: w.state.stage, inset: 0, clear: enteredRects, minLength: 0, minThickness: 0 });
-            const steady = sameAround(d.drag.shown(frames[e - 1]!.frame), d.drag.shown(frames[e]!.frame), l.id);
+            const before = d.drag.shown(frames[e - 1]!.frame);
+            const atEntry = d.drag.shown(frames[e]!.frame);
             for (const o of emptyLanes(d))
-              if (o.id !== l.id && !steady) s.skipped++;
-              else if (o.id !== l.id) {
+              if (o.id !== l.id) {
+                const why = changedAt(before, atEntry, l.id, o, (id) => w.state.edges.find((x) => x.id === id)?.side);
+                if (why) {
+                  s.skipped.push(`${where}, the other empty lane ${o.id}: ${why}`);
+                  continue;
+                }
+                s.otherCompared++;
                 const other = sameGuides(less(frames[e - 1]!.frame.guides.filter((g) => g.lane === o.id)), less(frames[e]!.frame.guides.filter((g) => g.lane === o.id)));
                 if (other) s.bad.push(`${where} (${mode}), the other empty lane ${o.id} at entry: ${other}`);
               }
@@ -202,7 +237,12 @@ describe("guide continuity: an empty lane's guide before entry is its mark after
       const r = result[mode];
       // The sweep is not vacuous: empty lanes are entered with a Near guide before.
       expect(r.compared).toBeGreaterThan(60);
-      if (mode === "all") process.stderr.write(`guide continuity, "all": other empty lanes skipped at entry (the window around them differs between the two frames): ${r.skipped}\n`);
+      if (mode === "all") {
+        process.stderr.write(`guide continuity, "all": other empty lanes at entry, ${r.otherCompared} compared, ${r.skipped.length} skipped:\n${r.skipped.map((x) => `  ${x}\n`).join("")}`);
+        // A floor, so coverage can't drop silently (86 compared and 4 skipped today: the bottom bar entering top, and the top
+        // bar entering bottom, where the side rail at that end closes).
+        expect(r.otherCompared).toBeGreaterThan(80);
+      }
       expect(r.bad).toEqual([]);
     });
   it('no two lanes\' guides overlap on any frame, under "all" and "near"', () => {
