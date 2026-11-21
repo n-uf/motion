@@ -1,12 +1,12 @@
 ---
-// The drop preview switch every drag demo has, as bar buttons: "Indicator only · Make room · Snap to slot" (Snap to
-// slot is the default). On a side edge each label gives way to its icon; the name stays the tooltip and the accessible
-// name. The island binds it (islands/drop-mode.ts) and restores the visitor's last choice.
+// The drop preview switch every drag demo has, as bar buttons: "Outline · Placeholder · Glide", the library's
+// PreviewModes (Glide is the default). On a side edge each label gives way to its icon; the name stays the tooltip and
+// the accessible name. The island binds it (islands/drop-mode.ts) and restores the visitor's last choice.
 import { icon } from "../demos/icons";
 const modes = [
-  ["indicator", "Indicator only", "nothing moves; an outline or marker shows where it lands"],
-  ["gap", "Make room", "the neighbors make room; the item stays under the pointer"],
-  ["snap", "Snap to slot", "room opens and the item glides into the slot"],
+  ["outline", "Outline", "nothing moves; an outline or marker shows where it lands"],
+  ["placeholder", "Placeholder", "the neighbors make room; the item stays under the pointer"],
+  ["glide", "Glide", "room opens and the item glides into the slot"],
 ] as const;
 ---
-<span class="lab">Drop preview</span>{modes.map(([id, name, note]) => <button type="button" class="tb text" data-drop-mode={id} aria-pressed={String(id === "snap")} aria-label={name} title={`${name}: ${note}`}><span class="t">{name}</span><span class="i" set:html={icon(`drop-${id}`)} /></button>)}
+<span class="lab">Drop preview</span>{modes.map(([id, name, note]) => <button type="button" class="tb text" data-drop-mode={id} aria-pressed={String(id === "glide")} aria-label={name} title={`${name}: ${note}`}><span class="t">{name}</span><span class="i" set:html={icon(`drop-${id}`)} /></button>)}

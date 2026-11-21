@@ -62,7 +62,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   "/window-motion/": [{ part: "motion", kind: "uses", what: "createSettle, SETTLE_TEMPO, reveal, createFrameLoop" }],
   "/drag-intent/": [
     { part: "motion", kind: "uses", what: "createSettle, createFrameLoop" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three drop preview modes" },
+    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
   ],
   "/docking-layouts/": [
     { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
@@ -72,6 +72,6 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   "/toolbar-groups/": [
     { part: "motion", kind: "uses", what: "createSettle" },
     { part: "docking", kind: "shows", what: "toolbar areas, zones, overflow and drop targets" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and the three drop preview modes" },
+    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
   ],
 };
