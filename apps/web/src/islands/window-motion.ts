@@ -75,16 +75,16 @@ function chartStage(opt: ChartOpt, label: string): Built {
   };
 }
 
-/** The shrinking window: two live scenes, then the four frames of each mode. */
+/** The shrinking window: two live shots, then the four frames of each mode. */
 function framesStage(): Built {
   const U = 240, W0 = 220, W1 = 140, H1 = 74, times = [0, 30, 60, 120];
   // The drawn width settles from 220 to 140 at the current tempo; reveal() turns it into the frame to draw.
   const w = omega();
   const drawnW = (ms: number): number => W1 + (W0 - W1) * Math.exp((-w * ms) / 1000);
   const target = { x: 0, y: 0, width: W1, height: H1 };
-  function scene(parent: HTMLElement, mode: "stretch" | "reveal") {
+  function shot(parent: HTMLElement, mode: "stretch" | "reveal") {
     const cell = h("div", "cell", parent);
-    const sc = h("div", "scene", cell);
+    const sc = h("div", "win-shot", cell);
     const w = h("div", "w" + (mode === "reveal" ? " reveal" : ""), sc);
     const c = h("div", "c", w);
     c.style.width = (W1 / U) * 100 + "cqw";
@@ -104,7 +104,7 @@ function framesStage(): Built {
   const liveScenes = ([["stretch", "Stretch (today), live"], ["reveal", "Reveal (@n-uf/motion), live"]] as const).map(([m, t]) => {
     const f = h("div", "", live);
     h("div", "fh", f, t);
-    return scene(f, m);
+    return shot(f, m);
   });
   const snaps = h("div", "snaps", node);
   const marked: HTMLElement[][] = [];
@@ -112,7 +112,7 @@ function framesStage(): Built {
     h("div", "fh", snaps, t);
     times.forEach((ms, i) => {
       const wrap = h("div", "", snaps);
-      const s = scene(wrap, m);
+      const s = shot(wrap, m);
       s.set(ms);
       h("div", "cap", wrap, ms + " ms · " + Math.round(drawnW(ms)) + " px");
       (marked[i] = marked[i] || []).push(s.sc);

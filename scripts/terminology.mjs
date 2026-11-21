@@ -23,11 +23,11 @@ export const BANNED = [
   { re: /(?<!\bits )(?<!['’]s )(?<!s['’] )\bown place\b/i, use: '"its own place" ("the item\'s own place"), or "home"' },
   { re: /\b(?:un)?lock(?:ed)? layout\b/i, use: 'the layout lock is "freeze" / "frozen"' },
   // The docking model's word is "dock state" (`DockState`). An old API name in backticks, as a migration note quotes
-  // it, is not copy. The site's pages follow when the site moves to the new entries.
+  // it, is not copy. The site's source and motion's pages too, so a page never names the old model again.
   {
     re: /(?<![\w`/.-])scenes?(?![\w`])/i,
     use: '"dock state" (`DockState`)',
-    file: /^(packages\/(docking|placement)\/|apps\/lab\/|docs\/(docking|placement)|README\.md$)/,
+    file: /^(packages\/(docking|placement)\/|apps\/lab\/|apps\/web\/src\/|docs\/(docking|placement|motion)|README\.md$)/,
   },
 ];
 

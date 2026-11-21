@@ -171,7 +171,7 @@ const TOOLBAR: DockItem = { id: "toolbar", kind: "toolbar", used: 0, fixed: true
  * the sides, a rail at each side (in the inset at the window's edges), and Outline lifted out of it, floating over the
  * documents.
  */
-function planScene(size: { width: number; height: number }): DockState {
+function planState(size: { width: number; height: number }): DockState {
   const column = { accepts: ["panel"], cross: { min: 160, max: 480, rail: 34 } };
   return {
     stage: { x: 0, y: 0, ...size },
@@ -202,9 +202,9 @@ function labelOf(t: DockDrop): string {
 
 /** Work out the plan with the real `solve` and `targets`: every drop's rect is the layout a release there makes. */
 export function planOf(size = STAGE): Plan {
-  const scene = planScene(size);
-  const layout = solve(scene);
-  const all = targets(scene, HELD);
+  const state = planState(size);
+  const layout = solve(state);
+  const all = targets(state, HELD);
   // The side rails are drawn where their drop targets are, so a drag over a drawn rail lands in it.
   const railOf = (side: "left" | "right"): Rect => all.find((t) => t.place.kind === "rail" && t.place.side === side)!.hit;
   const regions: PlanRegion[] = [
