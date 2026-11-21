@@ -24,9 +24,10 @@ case. The full diff and both recordings are in `.old-vs-new/<base>..<head>/` (gi
 
 Beside it, so a quiet result can't hide a recorder that stopped recording:
 - a kind with cases a side recorded as `absent` or `threw` shows `[base absent 3, threw 0]` after its counts;
-- **recorder or corpus changed**: `git diff --stat` of the recorders (files they had at the base) and the fixture files
-  they load (the window and stack fixtures, the conformance rows), base to head. A change there bends what is compared;
-  check it is meant.
+- **recorder or corpus changed**: `git diff --stat` of the recorders (files they had at the base) and the corpus files,
+  base to head. The corpus files are not a list kept here: each recording lists every module the recorder loaded and the
+  test helpers and rows those import (not the library's own `src`), with the `fixtures` folder beside each. A change
+  there bends what is compared; check it is meant.
 
 Exit 0: nothing changed. Exit 1: something did. Exit 2: the run itself failed (a recorder crashed, an install failed), or
 the head recording has any `absent` or `threw` case or lacks an output kind of the table below: it proves nothing.
@@ -35,13 +36,16 @@ the head recording has any `absent` or `threw` case or lacks an output kind of t
 
 A change that means to move outputs lists them in `.changes-expect/<slug>.json`, a list of
 `{ "package", "kind", "case", "reason" }`. Each of the first three is a glob (`*` any run, `?` one character); package
-and kind default to `*` and may list alternatives as `a|b`. The guard against an entry that excuses too much:
-- `reason` is required on every entry;
-- `case` is required, and a bare `*` (every case of the kind) is refused unless the entry says `"all": true`; name the
-  cases the change reaches instead (`*asked*`, `random*`), or say why it is all of them.
+and kind may list alternatives as `a|b`. The guard against an entry that excuses too much:
+- `reason`, `package`, `kind` and `case` are required on every entry;
+- a `case` glob made only of `*` and `?` (`*`, `?*`, `??`) is refused unless the entry says `"all": true`; name the
+  cases the change reaches instead (`*asked*`, `random*`), or say why it is all of them;
+- an `"all": true` entry must name one package and one kind, with no `*`, `?` or `|` in them: it can excuse the whole of
+  one kind of one package and nothing more.
 
 With `--expect` the run exits 0 only if every changed case is covered by an entry and every entry matched at least one
-change; it prints, per entry, `covered n of N changed in <package> / <kind>` and the reason. A change nothing covers, or
+change; it prints, per entry, `covered n of N changed; a+b cases in kind` (the kind's total cases, per package) and the
+reason, so a blanket entry shows against what it could have excused. A change nothing covers, or
 an entry that matched nothing, is the review's question. See `.changes-expect/split-pair-lengths.json` (run as
 `pnpm old-vs-new ce7b796c --head 30b8ad4c --expect ...`) and `.changes-expect/lengths-rename.json` (a rename: the one
 `contract` case).

@@ -9,10 +9,33 @@
  * Canonical JSON: keys sorted, numbers rounded to 1e-6 (and -0 written 0), a Map written as an object by its keys
  * (sorted), a Set as a sorted array, a function or undefined left out, NaN and the infinities written as words.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const ROUND = 1e6;
+const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * The corpus files: every module `load` was asked for and the relative modules those import (followed through the test
+ * helpers and `src/testing`'s rows, not into the library's own `src`, `index.ts` or `browser.ts`, which are what is
+ * under test), each with the `fixtures` folder beside it. Paths relative to the repository. The recording keeps them, so
+ * the run can show what changed in them between base and head.
+ */
+const corpusFiles = new Set<string>();
+const LIBRARY = /^packages\/[^/]+\/(src\/(?!testing\/)|index\.ts$|browser\.ts$)/;
+function follow(file: string): void {
+  const rel = relative(repoRoot, file);
+  if (corpusFiles.has(rel) || LIBRARY.test(rel) || !existsSync(file)) return;
+  corpusFiles.add(rel);
+  const fixtures = join(dirname(file), "fixtures");
+  if (existsSync(fixtures) && statSync(fixtures).isDirectory()) corpusFiles.add(relative(repoRoot, fixtures));
+  for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import\()\s*["'](\.{1,2}\/[^"']*)["']/g)) {
+    const base = resolve(dirname(file), m[1]!);
+    const found = [base, `${base}.ts`, join(base, "index.ts")].find((c) => existsSync(c) && statSync(c).isFile());
+    if (found) follow(found);
+  }
+}
 
 /** Thrown by `need` when a feature isn't in the code being recorded. */
 export class Absent extends Error {}
@@ -25,6 +48,7 @@ export function need<T>(value: T | undefined | null, what: string): T {
 
 /** The module at `path` (a file under the checkout being recorded), or `undefined` when it isn't there. */
 export async function load<T = Record<string, unknown>>(path: string): Promise<T | undefined> {
+  follow(path);
   try {
     return (await import(/* @vite-ignore */ path)) as T;
   } catch (error) {
@@ -77,9 +101,10 @@ export interface Recorded {
   readonly value: unknown;
 }
 
-/** What a recorder writes: the outputs of one package, by kind, each a list of cases. */
+/** What a recorder writes: the outputs of one package, by kind, each a list of cases, and the corpus files it read. */
 export interface Recording {
   readonly package: string;
+  readonly corpus: string[];
   readonly kinds: Record<string, Recorded[]>;
 }
 
@@ -115,7 +140,7 @@ export function recorder(pkg: string): Recorder {
       mkdirSync(dirname(file), { recursive: true });
       const names = Object.keys(kinds).sort();
       const lines = names.map((k) => `${JSON.stringify(k)}:[\n${kinds[k]!.map((r) => JSON.stringify(r)).join(",\n")}\n]`);
-      writeFileSync(file, `{"package":${JSON.stringify(pkg)},"kinds":{\n${lines.join(",\n")}\n}}\n`);
+      writeFileSync(file, `{"package":${JSON.stringify(pkg)},"corpus":${JSON.stringify([...corpusFiles].sort())},"kinds":{\n${lines.join(",\n")}\n}}\n`);
       return names.reduce((n, k) => n + kinds[k]!.length, 0);
     },
   };

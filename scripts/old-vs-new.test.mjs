@@ -37,22 +37,42 @@ test("globs, with alternatives for package and kind", () => {
   const m = matchExpectations(
     [
       { package: "docking", kind: "solve|fit", case: "*+asks*", reason: "r1" },
-      { kind: "resize", case: "*", all: true, reason: "r2" },
-      { kind: "never", case: "x*", reason: "r3" },
+      { package: "docking", kind: "resize", case: "*", all: true, reason: "r2" },
+      { package: "docking", kind: "never", case: "x*", reason: "r3" },
     ],
     changes,
+    [{ package: "docking", kind: "resize", cases: 165 }, { package: "placement", kind: "resize", cases: 168 }, { package: "docking", kind: "solve", cases: 9 }],
   );
   assert.deepEqual(m.uncovered.map((c) => c.id), ["one move"]);
   assert.deepEqual(m.unmatched.map((e) => e.reason), ["r3"]);
-  assert.deepEqual(m.covered.map((e) => [e.reason, e.count, e.of]), [["r1", 1, 1], ["r2", 1, 1]]);
+  assert.deepEqual(m.covered.map((e) => [e.reason, e.count, e.of, e.inKind]), [["r1", 1, 1, [9]], ["r2", 1, 1, [165]]]);
 });
 
-test("an expect entry needs a reason and a case; a bare * case needs all: true", () => {
-  assert.deepEqual(expectationProblems([{ kind: "k", case: "a*", reason: "why" }, { kind: "k", case: "*", all: true, reason: "why" }]), []);
-  assert.equal(expectationProblems([{ kind: "k", case: "a*" }]).length, 1);
-  assert.equal(expectationProblems([{ kind: "k", case: "*", reason: "why" }]).length, 1);
-  assert.equal(expectationProblems([{ kind: "k", reason: "why" }]).length, 1);
-  assert.throws(() => matchExpectations([{ kind: "k", case: "*", reason: "why" }], []), /not usable/);
+const entry = (more) => ({ package: "p", kind: "k", case: "a*", reason: "why", ...more });
+const problems = (...entries) => expectationProblems(entries).length;
+
+test("an expect entry needs a reason, a package, a kind and a case", () => {
+  assert.equal(problems(entry({})), 0);
+  assert.equal(problems(entry({ reason: undefined })), 1);
+  assert.equal(problems(entry({ reason: "  " })), 1);
+  assert.equal(problems(entry({ package: undefined })), 1);
+  assert.equal(problems(entry({ kind: undefined })), 1);
+  assert.equal(problems(entry({ case: undefined })), 1);
+});
+
+test("a case glob of only * and ? covers everything: refused unless all: true", () => {
+  for (const glob of ["*", "**", "?*", "*?", "??", "?"]) assert.equal(problems(entry({ case: glob })), 1, glob);
+  assert.equal(problems(entry({ case: "*", all: true })), 0);
+  assert.equal(problems(entry({ case: "?*", all: true })), 0);
+  assert.equal(problems(entry({ case: "a*" })), 0);
+  assert.throws(() => matchExpectations([entry({ case: "?*" })], []), /not usable/);
+});
+
+test("all: true needs one named package and kind, so it can't excuse more than one kind", () => {
+  for (const more of [{ package: "*" }, { kind: "*" }, { package: "a|b" }, { kind: "fit|gaps" }, { package: "d?cking" }, { kind: "res*" }]) assert.equal(problems(entry({ case: "*", all: true, ...more })), 1, JSON.stringify(more));
+  assert.equal(problems(entry({ case: "*", all: true, package: "docking", kind: "resize" })), 0);
+  // (Without all, wildcards in package and kind are fine; the case glob is what is guarded.)
+  assert.equal(problems(entry({ package: "*", kind: "fit|gaps" })), 0);
 });
 
 test("absent and throwing cases are counted per kind", () => {

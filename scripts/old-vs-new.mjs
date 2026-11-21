@@ -35,19 +35,8 @@ const KINDS = {
   placement: ["contract", "fit", "fit-previous", "dividers", "resize", "gaps", "cut", "float-fit", "layout-split", "split-edits", "pane-region", "pane-targets", "order-layout", "order-targets"],
   motion: ["landing-frames", "layout-frames", "animator"],
 };
-/** What the recorders write and read: a change to these between base and head is shown, since it bends what is compared. */
+/** The recorders themselves; the files they read (the corpus) are listed in each recording. A change to either between base and head is shown, since it bends what is compared. */
 const RECORDERS = ["record", "packages/docking/record", "packages/placement/record", "packages/motion/record"];
-const CORPUS = [
-  "packages/docking/test/fixtures",
-  "packages/docking/test/fixture.ts",
-  "packages/docking/test/held-lanes.ts",
-  "packages/docking/test/landing-model.ts",
-  "packages/docking/test/lift-windows.ts",
-  "packages/docking/test/one-layout-windows.ts",
-  "packages/docking/test/rail-entry-windows.ts",
-  "packages/docking/src/testing",
-  "packages/placement/test/stack-fixture.ts",
-];
 
 function usage(message) {
   if (message) console.error(`old-vs-new: ${message}`);
@@ -226,12 +215,17 @@ async function main() {
   const changes = [];
   const broken = [];
   both(`old-vs-new ${label}  (base ${baseSha.slice(0, 8)}, head ${headSha.slice(0, 8)}${opts.head ? "" : ", this checkout"})`);
-  const bent = bentFiles(baseSha, opts.head ? headSha : undefined);
-  if (bent) both(`\nRECORDER OR CORPUS CHANGED between base and head (the recorders and the fixture files they load; check it is meant):\n${bent}`);
+  const read = (side, pkg) => JSON.parse(readFileSync(join(outDir, side, `${pkg}.json`), "utf8"));
+  // The corpus files are the ones the recorders read, at either side (the recordings list them).
+  const corpus = [...new Set(opts.only.flatMap((pkg) => [...(read("base", pkg).corpus ?? []), ...(read("head", pkg).corpus ?? [])]))].sort();
+  const bent = bentFiles(baseSha, opts.head ? headSha : undefined, corpus);
+  if (bent) both(`\nRECORDER OR CORPUS CHANGED between base and head (the recorders and the files they read; check it is meant):\n${bent}`);
+  const totals = [];
   for (const pkg of opts.only) {
-    const base = JSON.parse(readFileSync(join(outDir, "base", `${pkg}.json`), "utf8"));
-    const head = JSON.parse(readFileSync(join(outDir, "head", `${pkg}.json`), "utf8"));
+    const base = read("base", pkg);
+    const head = read("head", pkg);
     const { kinds } = diffRecordings(base, head);
+    for (const [kind, k] of Object.entries(kinds)) totals.push({ package: pkg, kind, cases: k.same + k.changed.length });
     const failed = { base: failedCases(base), head: failedCases(head) };
     const secs = recordings.filter((r) => r.pkg === pkg).map((r) => `${r.side} ${r.seconds}s`).join(", ");
     both(`\n${pkg}  (recorded: ${secs})`);
@@ -253,10 +247,10 @@ async function main() {
 
   let ok = changes.length === 0;
   if (expectations) {
-    const m = matchExpectations(expectations, changes);
+    const m = matchExpectations(expectations, changes, totals);
     both("\nexpected changes");
-    for (const c of m.covered) both(`  covered ${c.count} of ${c.of} changed in ${c.package ?? "*"} / ${c.kind ?? "*"}  [${c.case}${c.all ? ", all" : ""}]: ${c.reason}`);
-    for (const e of m.unmatched) both(`  UNMATCHED expectation (it matched no change): ${e.package ?? "*"} / ${e.kind ?? "*"} / ${e.case}: ${e.reason}`);
+    for (const c of m.covered) both(`  covered ${c.count} of ${c.of} changed; ${c.inKind.join("+")} cases in kind: ${c.package} / ${c.kind}  [${c.case}${c.all ? ", all" : ""}]: ${c.reason}`);
+    for (const e of m.unmatched) both(`  UNMATCHED expectation (it matched no change): ${e.package} / ${e.kind} / ${e.case}: ${e.reason}`);
     for (const c of m.uncovered.slice(0, 20)) both(`  UNEXPECTED change: ${c.package} / ${c.kind} / ${c.id}`);
     if (m.uncovered.length > 20) both(`  … ${m.uncovered.length - 20} more unexpected changes`);
     ok = m.uncovered.length === 0 && m.unmatched.length === 0;
@@ -269,11 +263,11 @@ async function main() {
   process.exit(broken.length > 0 ? 2 : ok ? 0 : 1);
 }
 
-/** `git diff --stat` of the recorders (not files only added) and the fixture files they load, base to head (head: the working tree when not given). */
-function bentFiles(baseSha, headSha) {
+/** `git diff --stat` of the recorders (not files only added) and the corpus files they read, base to head (head: the working tree when not given). */
+function bentFiles(baseSha, headSha, corpus) {
   const range = headSha ? [baseSha, headSha] : [baseSha];
-  const stat = (filter, paths) => git(["diff", "--stat", ...filter, ...range, "--", ...paths]).stdout.trim();
-  return [stat(["--diff-filter=MDRT"], RECORDERS), stat([], CORPUS)].filter(Boolean).join("\n");
+  const stat = (filter, paths) => (paths.length === 0 ? "" : git(["diff", "--stat", ...filter, ...range, "--", ...paths]).stdout.trim());
+  return [stat(["--diff-filter=MDRT"], RECORDERS), stat([], corpus)].filter(Boolean).join("\n");
 }
 
 main().catch((e) => {

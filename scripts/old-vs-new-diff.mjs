@@ -99,33 +99,39 @@ const alternatives = (glob) => {
 };
 
 /**
- * What is wrong with an expect file, as a list of lines (empty when it is fine). Every entry needs a `reason`, and a
- * `case` glob (the cases it covers) that isn't a bare `*`: an entry that really covers every case of its kind says so
- * with `"all": true`.
+ * What is wrong with an expect file, as a list of lines (empty when it is fine). Every entry needs a `reason`, a
+ * `package`, a `kind` and a `case` glob. A case glob made only of `*` and `?` covers every case (or every case of some
+ * length), so it is refused unless the entry says `"all": true`; and an `all` entry must name one package and one kind,
+ * with no `*`, `?` or `|` in either, so it can only excuse the whole of one kind of one package.
  */
 export function expectationProblems(expectations) {
   const problems = [];
+  const named = (v) => typeof v === "string" && v.trim() !== "";
   expectations.forEach((e, i) => {
     const at = `entry ${i + 1}`;
     if (e === null || typeof e !== "object" || Array.isArray(e)) return problems.push(`${at}: not an object`);
-    if (typeof e.reason !== "string" || e.reason.trim() === "") problems.push(`${at}: no "reason"`);
-    if (typeof e.case !== "string" || e.case === "") problems.push(`${at}: no "case" glob`);
-    else if (/^\*+$/.test(e.case) && e.all !== true) problems.push(`${at}: the case glob "*" covers every case; name the cases, or say "all": true`);
+    if (!named(e.reason)) problems.push(`${at}: no "reason"`);
+    if (!named(e.package)) problems.push(`${at}: no "package"`);
+    if (!named(e.kind)) problems.push(`${at}: no "kind"`);
+    if (!named(e.case)) problems.push(`${at}: no "case" glob`);
+    else if (/^[*?]+$/.test(e.case) && e.all !== true) problems.push(`${at}: the case glob "${e.case}" covers every case; name the cases, or say "all": true`);
+    if (e.all === true) for (const key of ["package", "kind"]) if (named(e[key]) && /[*?|]/.test(e[key])) problems.push(`${at}: "all": true needs one named ${key}, not "${e[key]}"`);
   });
   return problems;
 }
 
 /**
  * The expectations (`{ package, kind, case, reason, all? }`, each of package, kind and case a glob, package and kind
- * default `*` and may list alternatives as `a|b`; see `expectationProblems`) against the changes (`{ package, kind, id }`):
- * which expectation covers each change (the first that matches), which changes are covered by none, and which
- * expectations matched nothing. Each covered entry carries `count` (cases it covered) and `of` (the changed cases of its
- * packages and kinds, covered by it or not).
+ * may list alternatives as `a|b`; see `expectationProblems`) against the changes (`{ package, kind, id }`): which
+ * expectation covers each change (the first that matches), which changes are covered by none, and which expectations
+ * matched nothing. Each covered entry carries `count` (cases it covered), `of` (the changed cases of its packages and
+ * kinds, covered by it or not) and `inKind` (every case of those kinds, from `totals`: `{ package, kind, cases }`, one
+ * number per package and kind it names), so a blanket entry shows against what it could have excused.
  */
-export function matchExpectations(expectations, changes) {
+export function matchExpectations(expectations, changes, totals = []) {
   const problems = expectationProblems(expectations);
   if (problems.length > 0) throw new Error(`the expect file is not usable:\n  ${problems.join("\n  ")}`);
-  const rules = expectations.map((e) => ({ e, package: alternatives(e.package ?? "*"), kind: alternatives(e.kind ?? "*"), case: globToRegExp(e.case), count: 0, of: 0 }));
+  const rules = expectations.map((e) => ({ e, package: alternatives(e.package), kind: alternatives(e.kind), case: globToRegExp(e.case), count: 0, of: 0 }));
   const uncovered = [];
   for (const c of changes) {
     for (const r of rules) if (r.package.test(c.package) && r.kind.test(c.kind)) r.of++;
@@ -133,5 +139,5 @@ export function matchExpectations(expectations, changes) {
     if (rule) rule.count++;
     else uncovered.push(c);
   }
-  return { uncovered, unmatched: rules.filter((r) => r.count === 0).map((r) => r.e), covered: rules.filter((r) => r.count > 0).map((r) => ({ ...r.e, count: r.count, of: r.of })) };
+  return { uncovered, unmatched: rules.filter((r) => r.count === 0).map((r) => r.e), covered: rules.filter((r) => r.count > 0).map((r) => ({ ...r.e, count: r.count, of: r.of, inKind: totals.filter((t) => r.package.test(t.package) && r.kind.test(t.kind)).map((t) => t.cases) })) };
 }
