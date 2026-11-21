@@ -1,24 +1,24 @@
 ---
-// One short example per package, side by side (motion left, placement right), inside the home page's "Use one, or
-// both" section. Each is a file in src/snippets/ shown from that same file (`?raw`) and typechecked against the
-// package with the site, so the page never shows code that doesn't compile.
+// One short example per package (motion and placement side by side, docking under them), inside the home page's "Use
+// one, or together" section. Each is a file in src/snippets/ shown from that same file (`?raw`) and typechecked against
+// the package with the site, so the page never shows code that doesn't compile.
 import { Code } from "astro:components";
 import ExtLink from "./ExtLink.astro";
 import { PARTS, type PartId } from "../data/parts";
 import { codeTheme } from "./code-theme";
 import motionCode from "../snippets/pair-motion.ts?raw";
 import placementCode from "../snippets/pair-placement.ts?raw";
+import dockingCode from "../snippets/pair-docking.ts?raw";
 import "../styles/code-tabs.css";
 
-// a library without a sample here (docking, until the release adds pair-docking.ts) is skipped
-const code: Partial<Record<PartId, string>> = { motion: motionCode, placement: placementCode };
-const entries: Partial<Record<PartId, string>> = { motion: "/drag + /layout", placement: "/scene" };
+const code: Record<PartId, string> = { motion: motionCode, placement: placementCode, docking: dockingCode };
+const entries: Record<PartId, string> = { motion: "/drag + /layout", placement: "/popup + /tiling", docking: "solve + targets" };
 ---
 <div class="pair-grid">
-  {PARTS.filter((pt) => pt.id in code).map((pt) => (
+  {PARTS.map((pt) => (
     <div class={`ct pair-col ${pt.id}`}>
       <div class="ct-bar pair-bar"><span class="pair-title">{pt.title}</span><code class="pair-pkg">{pt.pkg}<span class="pair-entries"> {entries[pt.id]}</span></code></div>
-      <Code code={code[pt.id]!.trimEnd()} lang="ts" theme={codeTheme} class="ct-code" />
+      <Code code={code[pt.id].trimEnd()} lang="ts" theme={codeTheme} class="ct-code" />
       <p class="ct-foot"><span class="ct-note"><code>npm i {pt.pkg}</code></span> <span class="ct-links"><ExtLink href={pt.readme}>README on GitHub</ExtLink></span></p>
     </div>
   ))}

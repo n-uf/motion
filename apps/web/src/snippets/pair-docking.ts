@@ -21,7 +21,7 @@ const state: DockState = {
   floatKinds: [],
 };
 
-// Where things go: every item's rect and form; when the bar runs out
+// Where each item goes: its rect and form; when the bar runs out
 // of room, the group used longest ago steps down first.
 const layout = solve(state);
 console.log(layout.items.share?.formKind); // icons
