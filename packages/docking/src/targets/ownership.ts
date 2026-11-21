@@ -95,7 +95,9 @@ function drawnOf(c: Ctx, live: readonly EdgeSpec[]): { spec: EdgeSpec | null; re
     if (run.length === 0) return [{ spec, rect: rail.rect, lay }];
     const top = Math.min(...run.map((r) => r.y));
     const own = rect(rail.rect.x, top, rail.rect.width, Math.max(...run.map((r) => r.y + r.height)) - top);
-    return subtract(rail.rect, own).map((r) => ({ spec, rect: r, lay }));
+    // The run is the own column's, as a drawn column is its edge's; the rest of the rail is the rail's.
+    const column = live.find((s) => s.kind === "railColumn" && s.edge?.id === me!.edge);
+    return [...subtract(rail.rect, own).map((r) => ({ spec, rect: r, lay })), ...(column ? [{ spec: column, rect: own, lay: column.lay }] : [])];
   });
   return [...edges, ...rails];
 }
