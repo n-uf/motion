@@ -52,3 +52,27 @@ export function railWindow(o: RailWindowOptions): DockState {
     gutter: 0,
   } as DockState;
 }
+
+/**
+ * `railWindow` with a tray of toolbars (the groups `tray`, in the right column's end zone) and the panels' use ages
+ * arranged so the right column is the least used: in a narrow window it folds into the rail by width, its toolbars tiles of
+ * it too, and the left column stays open.
+ */
+export function railTrayWindow(o: RailWindowOptions, tray: readonly string[] = ["tools"]): DockState {
+  const base = railWindow(o);
+  const group = (id: string, used: number): DockItem => ({ id, kind: "group", used, forms: { column: [{ kind: "icons", main: { min: 84, natural: 84 }, cross: { natural: 28 } }] } }) as DockItem;
+  const right = o.right ?? ["findings", "annotations"];
+  const items = { ...base.items };
+  for (const id of ["pages", "notes"]) items[id] = { ...items[id]!, used: 47 + (id === "notes" ? 1 : 0) };
+  for (const id of right) items[id] = { ...items[id]!, used: 22 };
+  tray.forEach((id, i) => (items[id] = group(id, 43 + i)));
+  return {
+    ...base,
+    items,
+    edges: base.edges.map((e) => (e.id === "right-0" ? { ...e, accepts: ["panel", "group"], zoneAccepts: { start: ["panel"], end: ["group"] }, items: [...e.items, ...tray] } : e)),
+    floatKinds: ["panel", "group"],
+    // The right side's columns and rail take the toolbars too, so one held has its column's gaps like a panel.
+    columns: { ...base.columns, right: { ...base.columns!.right!, accepts: ["panel", "group"], zoneAccepts: { start: ["panel", "group"], end: ["group"] } } },
+    ...(base.rails ? { rails: { ...base.rails, right: { ...base.rails.right!, accepts: ["panel", "group"] } } } : {}),
+  };
+}

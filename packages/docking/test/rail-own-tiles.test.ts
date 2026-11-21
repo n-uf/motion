@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { lanes, solve, targets, type DockDrop, type DockItem, type DockState } from "../src";
-import { railWindow } from "./rail-windows";
+import { railTrayWindow, railWindow } from "./rail-windows";
 
 const window = railWindow;
 
@@ -238,21 +238,25 @@ describe("a tile among its own rail's tiles", () => {
   it("a column with a tray of toolbars (its end zone): the places of its run lie in the rail, never over the content beside it", () => {
     // Narrow: only the left column fits open; the right one (the least used) folds into the rail by width, with no hand
     // fold, its tray's toolbar a tile of it too.
-    const base = window({ rails: true, width: 700, hand: [], right: ["annotations"] });
-    const tools = { id: "tools", kind: "group", used: 43, forms: { column: [{ kind: "icons", main: { min: 84, natural: 84 }, cross: { natural: 28 } }] } } as DockItem;
-    const s: DockState = {
-      ...base,
-      items: { ...base.items, tools, annotations: { ...base.items.annotations!, used: 22 }, pages: { ...base.items.pages!, used: 47 }, notes: { ...base.items.notes!, used: 48 } },
-      edges: base.edges.map((e) => (e.id === "right-0" ? { ...e, accepts: ["panel", "group"], zoneAccepts: { start: ["panel"], end: ["group"] }, items: [...e.items, "tools"] } : e)),
-      floatKinds: ["panel", "group"],
-    };
-    expect(solve(s).rails.right?.segments.map((x) => x.id)).toEqual(["annotations", "tools"]);
-    const rail = solve(s).rails.right!.rect;
-    for (const held of ["annotations"]) {
+    const s = railTrayWindow({ rails: true, width: 700, hand: [], right: ["annotations", "marks"] }, ["tools", "tools2"]);
+    expect(solve(s).rails.right?.segments.map((x) => x.id)).toEqual(["annotations", "marks", "tools", "tools2"]);
+    const l = solve(s);
+    const rail = l.rails.right!.rect;
+    const run = l.rails.right!.segments.map((x) => x.rect);
+    const [y0, y1] = [Math.min(...run.map((r) => r.y)), Math.max(...run.map((r) => r.y + r.height))];
+    const inRail = (h: { x: number; y: number; width: number; height: number }): boolean => h.x >= rail.x - 1e-6 && h.x + h.width <= rail.x + rail.width + 1e-6 && h.y >= rail.y - 1e-6 && h.y + h.height <= rail.y + rail.height + 1e-6;
+    // A panel and each toolbar held: every rail place lies in the rail, and every gap of the column in the run. (In this
+    // window a drop among the tiles would reopen the column, which is not folded by hand, so no gap is offered: the loop
+    // holds whatever is offered, and the rail's own places are what it sees.)
+    let rails = 0;
+    for (const held of ["annotations", "marks", "tools", "tools2"]) {
       for (const t of targets(s, held).filter((x) => x.place.kind !== "float" && x.id.startsWith("rail:right:"))) {
-        for (const h of t.hits ?? [t.hit]) expect(h.x >= rail.x - 1e-6 && h.x + h.width <= rail.x + rail.width + 1e-6 && h.y >= rail.y - 1e-6 && h.y + h.height <= rail.y + rail.height + 1e-6, `${held} ${t.id} ${JSON.stringify(h)} in the rail ${JSON.stringify(rail)}`).toBe(true);
+        rails++;
+        for (const h of t.hits ?? [t.hit]) expect(inRail(h), `${held} ${t.id} ${JSON.stringify(h)} in the rail ${JSON.stringify(rail)}`).toBe(true);
       }
+      for (const t of gapsOn(s, held, "right-0")) for (const h of t.hits ?? [t.hit]) expect(inRail(h) && h.y >= y0 - 1e-6 && h.y + h.height <= y1 + 1e-6, `${held} ${t.id} ${JSON.stringify(h)} in the run ${y0}..${y1}`).toBe(true);
     }
+    expect(rails).toBeGreaterThan(0);
   });
 
   it("an item from another column gets no gap among the rail's tiles: its places are the rail's, as they were", () => {

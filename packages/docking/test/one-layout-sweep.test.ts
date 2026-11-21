@@ -30,7 +30,7 @@ import { marksLess } from "../src/lanes";
 import { referencePick } from "../src/testing/host";
 import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
-import { railWindow } from "./rail-windows";
+import { railTrayWindow, railWindow } from "./rail-windows";
 
 type Axis = "x" | "y";
 type Mode = "near" | "all";
@@ -471,6 +471,9 @@ describe("one layout: every held frame draws what its release commits", () => {
     // drawn where its run lies, which for the held item alone in it is the landing itself (a room beyond it would be a mark
     // over the rest of the rail).
     expect([r.counts["folded on screen"] ?? 0, r.counts["created folded, its run the landing"] ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true]);
+    // And no column created folded draws a mark: every one the sweep reaches has only its own tile (the count of those with
+    // marks, which a change would raise, is pinned at none).
+    expect(r.counts["created folded"] ?? 0, JSON.stringify(r.counts)).toBe(0);
     // Floats land and are checked too (a float landing that went null would leave none).
     expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
@@ -518,12 +521,17 @@ function decisions(s: DockState, held: string, previous: DockLayout | undefined,
 
 /**
  * Known disagreements (`<window> | <item>`), none of them about a column's run: in a narrow window `targets()` offers a new
- * column over the whole left rail where the lanes stay (a new-column line's zone starts where the rail stop ends); in the
- * four windows with a second right column holding p1 (and p1 held, its column folded), the lanes' new-column lane lies over
- * the rail's first pixels where `targets()` floats. Both are the same on `ce7b796c`.
+ * column over the whole left rail where the lanes stay (a new-column line's zone starts where the rail stop ends), and so
+ * in the narrow window whose right column holds a tray of toolbars (marks or a toolbar held: `column:right:1` over the
+ * rail at its inner edge, from the second tile down); in the four windows with a second right column holding p1 (and p1
+ * held, its column folded), the lanes' new-column lane lies over the rail's first pixels where `targets()` floats. All
+ * are the same on `ce7b796c`.
  */
 const AGREE_PENDING: readonly string[] = [
   "two folded columns, narrow | notes",
+  "tray column, narrow | marks",
+  "tray column, narrow | tools",
+  "tray column, narrow | tools2",
   "two right columns, ring 0 holding p1, panel p1 | p1",
   "two right columns, ring 0 holding p1, panel p1, empty lanes as edges | p1",
   "two right columns, ring 2 holding p1, panel p1 | p1",
@@ -541,6 +549,11 @@ describe("one answer over a rail: the lanes and targets() decide the same", () =
   ] as const) {
     const s = railWindow(o as never);
     for (const id of Object.keys(s.items)) if (solve(s).items[id]?.rail) wins.push({ name, s, held: id, options: {} });
+  }
+  // A narrow window whose right column (annotations, marks, and a tray of two toolbars) folds into the rail by width.
+  {
+    const s = railTrayWindow({ rails: true, width: 700, hand: [], right: ["annotations", "marks"] }, ["tools", "tools2"]);
+    for (const id of Object.keys(s.items)) if (solve(s).items[id]?.rail) wins.push({ name: "tray column, narrow", s, held: id, options: {} });
   }
   for (const w of sweepWindows()) if (solve(w.state, { previous: w.previous }).items[w.dragged]?.rail) wins.push({ name: w.name, s: w.state, held: w.dragged, previous: w.previous, options: w.options });
 
