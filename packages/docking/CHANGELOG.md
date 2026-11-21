@@ -14,10 +14,12 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
   only when it was solved from that very state object; otherwise the verb solves the state again.
 - Fixed: **`resizeBetween` and `resetBetween` write `DockItem.length` for the pair only, in ask units** (not drawn px; with
-  room to spare a drawn size is the ask times the shared scale), as placement's do; an ask under an item's least is a
-  weight there, and the item is drawn at its least. A bystander of a drag gets no length, so an
-  item moved to another edge after a drag next to it is laid out as an item nobody resized, not at a length inflated by the
-  column's scale.
+  room to spare a drawn size is the ask times the shared scale, or its least when that is more), as placement's do. A
+  bystander of a drag gets no length, so an item moved to another edge after a drag next to it is laid out as an item
+  nobody resized, not at a length inflated by the column's scale.
+- Behavior change (from `@n-uf/placement`): **a length under its least now reads as a weight with room**: the item is drawn
+  at its least and the others share the rest by their asks. Short of room an ask under the least still reads as the least.
+  A length of 0 is no length: the item asks its natural.
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 

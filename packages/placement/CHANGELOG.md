@@ -12,14 +12,20 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   declares no length is laid out exactly as before.
 - `./stack`, **a divider drag writes the pair's lengths only, in ask units**: `resizeBetween` writes a `length` for the
   two items of the dragged pair and for no other item, so a bystander moved to another stack is laid out as an item nobody
-  resized. `length` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, so
-  the pair's ask is its drawn size over that scale (short of room, `least + (drawn - least) / share`), which leaves the
-  scale and every other drawn size as they were. A collapsed item no longer gets a length from a drag of its neighbors:
-  reopened, it keeps its proportion all the same. `resetBetween` writes the pair only, too. An ask is a weight and the
-  least a floor on the drawn size: with room to spare, an item whose share of the length would be under its least is drawn
-  at its least and the others share the rest in proportion to their asks (before, an ask under the least was read as the
-  least), so an end dragged to its least asks `least / scale`; short of room an ask under the least still reads as the
-  least.
+  resized. `length` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or
+  its least when that is more, so the pair's ask is its drawn size over that scale (short of room,
+  `least + (drawn - least) / share`), which leaves the scale and every other drawn size as they were. A collapsed item no
+  longer gets a length from a drag of its neighbors: reopened, it keeps its proportion unless an end of the pair is held
+  at its least (its ask under the least and its share of the column too); then it gives up that end's excess in
+  proportion. An item nobody sized asks its natural, so when that changes it re-shares the column with the sized ones,
+  which keep their proportion to one another, not their px. `resetBetween` writes the pair only, too. An end dragged to its
+  least asks `least / scale`, under its least, and is still drawn at it.
+- `./stack`, **behavior change: a length under its least now reads as a weight with room**. The least is a floor on the
+  drawn size, not on the ask: with room to spare, an item whose share of the length (its ask times the scale) would be
+  under its least is drawn at its least and the others share the rest in proportion to their asks. Before, a length under
+  the least was read as the least. Short of room an ask under the least still reads as the least. A length of 0 (or under
+  `EPS`) is no length: the item asks its natural. A stack that declares no length, or none under its least, is laid out
+  exactly as before.
 
 ## 26.11.54
 

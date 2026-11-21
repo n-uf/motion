@@ -193,15 +193,17 @@ resetLengths(input: StackInput): StackInput;
 
 - **`StackItem.length`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
   that form grows (`main.grows`, not the menu; a `wrap` form that grows shares spare length, so it reads it too). The least stays the form's `main.min`, a floor on
-  the drawn size, not on the ask; a length that isn't a finite number from 0 up is no length. There is no new formula. With
+  the drawn size, not on the ask; a length that isn't a finite number over 0 is no length (a 0 asks nothing: the item reads its natural). There is no new formula. With
   spare length the sized items share it in proportion to their lengths, as a splitter does, and one whose share would be
   under its least is drawn at its least while the others share the rest; short of length they interpolate between
   their least (an ask under it reads as the least) and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
   rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
   declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `length` is
   plain data: store it, read it back, and an older state without it lays out as it always did. `length` is in ask
-  units, not drawn px; with room to spare a drawn size is the ask times the shared scale.
-- **A re-measured natural moves nothing** of a sized item, and closing an item shares its room among the others in
+  units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or its least when that is more.
+- **A re-measured natural moves nothing** of a sized item. An item nobody sized asks its natural, so when its natural
+  changes it re-shares the column with the sized ones: they keep their proportion to one another, not their px (content
+  that grows takes room). Closing an item shares its room among the others in
   proportion; reopened with its length at the same stack length, it comes back as it was. A longer or shorter stack scales the
   lengths together (they are relative), so shrinking and growing back gives the same layout. An item that moves to
   another stack keeps its length; it is per axis, so a bar never reads a column length.
@@ -215,7 +217,9 @@ resetLengths(input: StackInput): StackInput;
   pair's drawn sizes add up to what they did and every other item draws as it did, so the scale is unchanged and nothing
   else shifts; the pair lays out exactly as drawn, whatever the items that don't grow do. An end dragged to its least with
   room to spare asks `least / scale`, under its least, and is drawn at its least. A collapsed item gets no length from a
-  drag: reopened, it asks its natural beside the pair's asks, which add up to what they did. Neither goes under its least: `delta` is clamped to
+  drag: reopened, it asks its natural beside the pair's asks, which add up to what they did, so it keeps its proportion
+  unless an end of the pair is held at its least (its ask under the least and its share of the column too); then it gives
+  up that end's excess in proportion. Neither goes under its least: `delta` is clamped to
   the divider's `range`, so nothing collapses and nothing is pushed. It returns the same object when nothing changes
   (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0). A drag computes each frame from the state
   at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`.
