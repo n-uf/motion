@@ -28,7 +28,7 @@ export const pages: PageInfo[] = [
     description: "Nine ways to lay out a JavaScript docking workspace: four docked windows solved live by @n-uf/docking and five page sketches, and what gives way first." },
   { path: "/toolbar-groups/", updated: updated["/toolbar-groups/"], nav: "Toolbar groups",
     title: "Toolbar groups: one grip per group",
-    description: "Toolbar groups from @n-uf/docking: they dock into five toolbar areas or float, each led by one grip that is also its separator, collapsing by priority." },
+    description: "Toolbar groups as @n-uf/docking models them: they dock into five toolbar areas or float, each led by one grip that is also its separator." },
 ];
 export const pageOf = (path: string): PageInfo => {
   const p = pages.find((x) => x.path === path);
