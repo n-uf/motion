@@ -252,7 +252,7 @@ chip.addEventListener("pointercancel", (e) => finish(e, true));
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && live) {
     live.end({ x: -1, y: -1 }, performance.now(), true);
-    setStatus(yours("cancelled: the panel went back home."));
+    setStatus(yours("canceled: the panel went back home."));
     live = null;
     press = null;
   }

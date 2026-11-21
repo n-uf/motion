@@ -117,7 +117,7 @@ const relX = ptr(240);
 const afterRelease = settleSeries(25, Tdrag - REL, 2, relX, slot);
 const held = series((ms) => (ms <= REL ? ptr(Math.min(ms, 240)) : at(afterRelease, ms - REL)), Tdrag, 2);
 const dragOpt:ChartOpt = {
-  read: "Up is how far the window has travelled from where it started; the dashed line is the slot it lands in, and the vertical dashed line is the release.",
+  read: "Up is how far the window has traveled from where it started; the dashed line is the slot it lands in, and the vertical dashed line is the release.",
   T: Tdrag, xstep: 50, ymin: 0, ymax: slot * 1.08, yticks: [0, slot], yfmt: (v) => (v === 0 ? "start" : "slot"),
   marks: [{ v: slot, color: "--line-3", label: "slot" }], vmarks: [{ ms: REL, label: "release" }],
   lines: [

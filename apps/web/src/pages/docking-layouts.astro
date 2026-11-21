@@ -30,7 +30,7 @@ const presets: [string, string][] = [["1440,820", "Large"], ["960,560", "Laptop"
 const plain = (html: string) => html.replace(/<[^>]+>/g, "");
 ---
 <Site title={page.title} description={page.description} path={path} headline="Nine ways to lay out a workspace, and what gives way first." jsonLd={jsonLd} ogImage="/og/docking-layouts.png">
-  <p class="lead" slot="lead">This page lays out one workspace nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Four layouts (labelled A, A2, C and F3) are docked windows, laid out live by <code>solve</code> from <code>@n-uf/docking</code>. The other five are page sketches this page draws by its own rules, for comparison. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
+  <p class="lead" slot="lead">This page lays out one workspace nine ways: a toolbar, five tool panels (Files, Outline, Notes, Inspector, History) and a few open documents. Four layouts (labeled A, A2, C and F3) are docked windows, laid out live by <code>solve</code> from <code>@n-uf/docking</code>. The other five are page sketches this page draws by its own rules, for comparison. Drag the sliders to see what gives way when width or height runs out; every box settles to its new place from wherever it is drawn.</p>
 
   <Chrome id="figure" class="deskfig" label="Docking layouts: four docked windows and five page sketches, laid out live at a size you choose"
     groups={[{ id: "title", name: "Title" }, { id: "presets", name: "Size presets" }, { id: "size", name: "Size" }, { id: "options", name: "Options" }, { id: "speed", name: "Speed" }]}
