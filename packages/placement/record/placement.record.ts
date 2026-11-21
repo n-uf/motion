@@ -15,7 +15,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { load, need, outFile, recorder, seeded } from "../../../record/canon";
+import { askedName, load, need, outFile, recorder, seeded } from "../../../record/canon";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
 const src = (f: string): string => join(pkg, "src", f);
@@ -23,9 +23,10 @@ const tst = (f: string): string => join(pkg, "test", f);
 
 type Any = any; // eslint-disable-line @typescript-eslint/no-explicit-any -- the code under record has whatever API its commit has
 
-/** The asked length of an item as the commit under record names it: `lengths` now, `length` before. */
-const asked = (n: number | undefined, axis: "column" | "row" = "column"): Any => (n === undefined ? {} : { lengths: { [axis]: n }, length: { [axis]: n } });
-const lengthsOf = (it: Any): Any => it?.lengths ?? it?.length;
+/** What the commit under record calls an item's asked lengths (`lengths`, or `length` before the rename), found by a probe. */
+let ASK: "lengths" | "length" = "lengths";
+const asked = (n: number | undefined, axis: "column" | "row" = "column"): Any => (n === undefined ? {} : { [ASK]: { [axis]: n } });
+const lengthsOf = (it: Any): Any => it?.[ASK];
 const mainOf = (fit: Any, id: string): number | undefined => {
   const p = fit.items.find((i: Any) => i.id === id);
   return p ? (fit.axis === "column" ? p.rect.height : p.rect.width) : undefined;
@@ -41,6 +42,11 @@ describe("record placement", () => {
     const tile = (name: string): Any => need(tiling?.[name], `@n-uf/placement/tiling ${name}`);
     const fixture = (name: string): Any => need(fx?.[name], `test/stack-fixture ${name}`);
     const rnd = seeded(2026);
+    try {
+      ASK = askedName((name) => stack("fitStack")(fixture("stack")([{ ...fixture("panel")("a", 1, 300), ...(name === "none" ? {} : { [name]: { column: 500 } }) }, fixture("panel")("b", 2, 300)], 900)));
+    } catch {
+      // No builders or no stack: nothing below can run either, and says so.
+    }
 
     // --- stacks ---------------------------------------------------------------------------------------------------
     interface Case {

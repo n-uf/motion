@@ -123,6 +123,18 @@ export function recorder(pkg: string): Recorder {
 /** Where a recorder writes: `OVN_OUT` (set by `scripts/old-vs-new.mjs`), else under `.old-vs-new/`. */
 export const outFile = (pkg: string): string => process.env.OVN_OUT ?? `${process.cwd()}/../../.old-vs-new/${pkg}.json`;
 
+/**
+ * What an item's asked lengths are called in the code under record: `lengths` (now) or `length` (before the rename).
+ * `probe(name)` builds a small case with the asks under key `name` and returns what the library gives for it; the name
+ * the library reads is the one whose case differs from one with no asks. A recorder writes its inputs and reads the
+ * library's answers under that name only, so an old and a new commit are recorded with the same inputs.
+ */
+export function askedName(probe: (name: string) => unknown): "lengths" | "length" {
+  const none = JSON.stringify(canon(probe("none")));
+  for (const name of ["lengths", "length"] as const) if (JSON.stringify(canon(probe(name))) !== none) return name;
+  return "lengths";
+}
+
 /** A progress line on stderr with the seconds since the recorder started (set `OVN_QUIET=1` to silence it). */
 const started = Date.now();
 export const tick = (message: string): void => {

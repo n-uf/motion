@@ -20,7 +20,7 @@
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "vitest";
-import { load, need, outFile, recorder, seeded, tick } from "../../../record/canon";
+import { askedName, load, need, outFile, recorder, seeded, tick } from "../../../record/canon";
 
 const pkg = fileURLToPath(new URL("..", import.meta.url));
 const src = (f: string): string => join(pkg, "src", f);
@@ -43,9 +43,10 @@ interface Win {
   readonly play: boolean;
 }
 
-/** The asked length of an item as the commit under record names it: `lengths` now, `length` before. */
-const asked = (n: number): Any => ({ lengths: { column: n }, length: { column: n } });
-const lengthsOf = (it: Any): Any => it?.lengths ?? it?.length;
+/** What the commit under record calls an item's asked lengths (`lengths`, or `length` before the rename), found by a probe. */
+let ASK: "lengths" | "length" = "lengths";
+const asked = (n: number): Any => ({ [ASK]: { column: n } });
+const lengthsOf = (it: Any): Any => it?.[ASK];
 
 /** `layout` without each edge's `stack` (the fit's inner state): items, edges, rails, content, notes. */
 const slim = (layout: Any): Any => (layout ? { ...layout, edges: Object.fromEntries(Object.entries(layout.edges ?? {}).map(([k, { stack: _s, ...e }]: Any) => [k, e])) } : layout);
@@ -66,6 +67,15 @@ describe("record docking", () => {
     const fixture: Any = await load(tst("fixture.ts"));
     const landing: Any = await load(tst("landing-model.ts"));
     const api = (name: string): Any => need(lib?.[name], `@n-uf/docking ${name}`);
+    try {
+      const { column, panel, byId } = fixture;
+      ASK = askedName((name) => {
+        const a = { ...panel("a", 1), ...(name === "none" ? {} : { [name]: { column: 500 } }) };
+        return api("solve")({ stage: { x: 0, y: 0, width: 1200, height: 900 }, edges: [column("left", "left", 0, ["a", "b"])], items: byId([a, panel("b", 2)]), floats: [], floatKinds: [] });
+      });
+    } catch {
+      // No builders or no solve: nothing below can run either, and says so.
+    }
 
     // --- the corpus -----------------------------------------------------------------------------------------------
     const wins: Win[] = [];
