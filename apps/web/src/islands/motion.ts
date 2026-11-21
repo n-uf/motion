@@ -9,7 +9,7 @@
  * - **Tempo** (calm 20 · default 25 · quick 37, SETTLE_TEMPO) is the settles' omega. A change re-tempos every live
  *   settle in flight, from where it is drawn, with no jump.
  */
-import { createFrameLoop, createLayoutMotion, createSettle, motionValue, SETTLE_TEMPO, type Animatable, type Animator, type Drawable, type FrameLoop, type LayoutMotion, type MotionValue, type Point, type Rect, type Settle, type Widen } from "@n-uf/motion";
+import { createFrameLoop, createLayoutMotion, createSettle, motionValue, SETTLE_TEMPO, type Animatable, type Animator, type Drawable, type FrameLoop, type LayoutMotion, type MotionValue, type Rect, type Settle, type Widen } from "@n-uf/motion";
 import { createBrowserClock, prefersReducedMotion } from "@n-uf/motion/browser";
 
 // ---- Speed: a scaled clock ----------------------------------------------------------------------------------------------
@@ -70,13 +70,12 @@ export function setTempo(t: Tempo): void {
   live.forEach((s) => s.configure({ omega: omega() }));
   listeners.forEach((f) => f());
 }
-/** A settle at the current tempo that follows tempo changes until `forget`. */
+/** A settle at the current tempo that follows tempo changes (the page's few long-lived settles: the hero, the chip). */
 export function newSettle<T extends Animatable>(initial: T): Settle<Widen<T>> {
   const s = createSettle(initial, { omega: omega() });
   live.add(s as unknown as Settle<Animatable>);
   return s;
 }
-export const forget = (s: Settle<unknown>): void => void live.delete(s as unknown as Settle<Animatable>);
 
 /** True while the user asks for reduced motion (read on each call). */
 export const reduced: () => boolean = prefersReducedMotion();
@@ -105,44 +104,6 @@ export function drive<T>(animator: Animator<T>, draw: (value: T) => void, done?:
     cancel();
     value.dispose();
   };
-}
-
-const glides = new WeakMap<Element, () => void>();
-
-/**
- * A FLIP glide: the element was just laid out at its new place, and was drawn
- * `dx`, `dy` away from it. It settles from there to its place (from where it is
- * drawn, so a glide in flight carries on instead of restarting).
- */
-export function glideFrom(el: HTMLElement | SVGElement, dx: number, dy: number): void {
-  glides.get(el)?.();
-  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
-    el.style.transform = "";
-    return;
-  }
-  const s: Settle<Point> = newSettle<Point>({ x: dx, y: dy });
-  s.setTarget({ x: 0, y: 0 });
-  const end = (): void => {
-    forget(s);
-    glides.delete(el);
-  };
-  const stop = drive(s, (p) => (el.style.transform = p.x === 0 && p.y === 0 ? "" : `translate(${p.x}px, ${p.y}px)`), end);
-  glides.set(el, () => {
-    stop();
-    end();
-  });
-}
-
-/** Measure `els`, run `change`, then glide each one still connected from where it was drawn. */
-export function flip(els: Iterable<HTMLElement>, change: () => void): void {
-  const before = new Map<HTMLElement, DOMRect>();
-  for (const el of els) before.set(el, el.getBoundingClientRect());
-  change();
-  before.forEach((a, el) => {
-    if (!el.isConnected) return;
-    const b = el.getBoundingClientRect();
-    glideFrom(el, a.left - b.left, a.top - b.top);
-  });
 }
 
 /** A layout item that draws nothing itself: the field's `draw` gets every rect. */
