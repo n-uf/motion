@@ -68,7 +68,6 @@ import {
   type DockRefusal,
   type DockRefusalTarget,
   type DockDrop,
-  type DockAfter,
   type DockDrag,
   type DockGuide,
 } from "@n-uf/docking";
@@ -212,8 +211,10 @@ interface Held {
   keyFloats: boolean;
   /** Under the landing model (`"landing"`): the model and the drag it reads (`dockDrag()`); else null. */
   landing: { model: LandingModel; drag: DockDrag } | null;
-  /** Under the landing model: the layout the room is drawn from now (`after` the frame's state), or null. */
-  roomAfter: DockAfter | null;
+  /** Under the landing model: the layout the room is drawn from now (`shown` of the drawn frame), or null. */
+  roomLayout: DockLayout | null;
+  /** Under the landing model: the frame as the window draws it (the model's, with the room the window makes), or null. */
+  drawnFrame: (LandingFrame & { readonly room: boolean }) | null;
   /** The last frame's facts (`ProbeFrame`), or null before the first frame. */
   probed: ProbeFrame | null;
 }
@@ -637,7 +638,7 @@ export function createDocwin(o: DocwinOptions) {
         const next = dragOf(drag.id, drag.grab);
         drag.landing.drag = next;
         drag.landing.model.setGeometry(next);
-        drag.roomAfter = null;
+        drag.roomLayout = null;
         drag.targets = targetsFrom(next.regions);
       } else drag.targets = targetsOf(drag.id);
     }
@@ -1075,7 +1076,8 @@ export function createDocwin(o: DocwinOptions) {
       armedSaid: null,
       keyFloats: false,
       landing: landing0,
-      roomAfter: null,
+      roomLayout: null,
+      drawnFrame: null,
       probed: null,
     };
     liftKeys = {};
@@ -1166,8 +1168,8 @@ export function createDocwin(o: DocwinOptions) {
     readonly refused: DockRefusal | null;
     readonly cantGo: string | null;
     readonly outline: { readonly target: DockDrop; readonly rect: Rect | null } | null;
-    /** Under the landing model: the room's one layout (`after` the frame's state), else absent. */
-    readonly roomAfter?: DockAfter | null;
+    /** Under the landing model: the layout the room is drawn from (`shown` of the drawn frame), else absent. */
+    readonly roomLayout?: DockLayout | null;
     /** The place guides, worked out last (from the item, its room and its landing as drawn this frame). */
     readonly guides: () => readonly { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane?: string }[];
   }
@@ -1191,7 +1193,7 @@ export function createDocwin(o: DocwinOptions) {
     followForm(d, k.over, onlyItem);
     drawHeld(d, now, k.sits, d.intent.state.speed, onlyItem ? k.free : null);
     d.el.toggleAttribute("data-placed", k.placed);
-    drawRoom(d, k.room, k.homing, k.roomAfter ?? null);
+    drawRoom(d, k.room, k.homing, k.roomLayout ?? null);
     d.shown = k.shown;
     d.refused = k.refused;
     sayCantGo(k.refused?.id ?? k.cantGo, d.pointer);
@@ -1300,15 +1302,18 @@ export function createDocwin(o: DocwinOptions) {
    * with the held item's place left empty and nothing else moving (a release there commits nothing). Drawn again only
    * when the room or the homing changes.
    */
-  function drawRoom(d: Held, room: DockDrop | null, homing: boolean, roomAfter: DockAfter | null = null): void {
-    // Under the landing model the room is the frame's state's one layout (`after`), drawn again whenever it changes.
-    if (room?.id === d.room?.id && homing === d.homing && roomAfter === d.roomAfter) return;
+  function drawRoom(d: Held, room: DockDrop | null, homing: boolean, roomLayout: DockLayout | null = null): void {
+    // Under the landing model the room is the layout the drag says the frame draws (`shown`), drawn again whenever it changes.
+    if (room?.id === d.room?.id && homing === d.homing && roomLayout === d.roomLayout) return;
     d.room = room;
     d.homing = homing;
-    d.roomAfter = roomAfter;
+    d.roomLayout = roomLayout;
     if (room) {
-      const after = roomAfter ?? room.after(d.pointer, d.grab);
-      draw(after.state, after.layout, d.id);
+      if (roomLayout) draw(state, roomLayout, d.id);
+      else {
+        const after = room.after(d.pointer, d.grab);
+        draw(after.state, after.layout, d.id);
+      }
     } else draw(state, layout, d.id);
   }
 
@@ -1356,6 +1361,7 @@ export function createDocwin(o: DocwinOptions) {
     const room = plan.makeRoom && docking ? shown : null;
     // The frame as the window draws it: the room open where the window makes one (not for a float, nor in Outline).
     const drawn = { ...mf, room: room !== null };
+    d.drawnFrame = drawn;
     const floatAt = floats ? mf.landing : null;
     const sits = snapTo && spot ? spotLanding : onlyItem && homing ? (layout.items[d.id]?.rect ?? null) : null;
     // A refused place: the refusal under the pointer, if any, else nothing lands there; past the window, nothing lands.
@@ -1382,9 +1388,8 @@ export function createDocwin(o: DocwinOptions) {
       // Never inside a lane not yet entered (`pending`: an empty rail's strip before its slow step): that is no refused place.
       cantGo: nothing && !passing && !mf.pending ? NOTHING_LANDS : null,
       outline,
-      // The room, when the window makes one: the frame's state's one layout, the layout a release commits (the layout
-      // `shown(drawn)` names; else the window stays as committed).
-      roomAfter: room ? L.drag.after(mf.state) : null,
+      // The room, when the window makes one: the layout the drag says the frame draws (else the window stays as committed).
+      roomLayout: room ? L.drag.shown(drawn) : null,
       // Each lane's marks in the layout the frame draws (`shown(drawn)`), with the host's cosmetics.
       guides: () => guidesNow(L.drag.guides(drawn), d, mf.lane),
     };
@@ -2083,12 +2088,13 @@ export function createDocwin(o: DocwinOptions) {
     get landingModel(): { readonly id: ItemId; readonly pointer: Point; readonly frame: LandingFrame; readonly drag: DockDrag; readonly previous: DockLayout } | null {
       const d = drag;
       const L = d?.landing;
-      return d && L ? { id: d.id, pointer: d.pointer, frame: L.model.frame, drag: L.drag, previous: layout } : null;
+      return d && L ? { id: d.id, pointer: d.pointer, frame: d.drawnFrame ?? L.model.frame, drag: L.drag, previous: layout } : null;
     },
     /** The landing model's frame now (under `"landing"`, during a drag), its guides drawn by the drag, or null. */
     get landingFrame(): DrawnLandingFrame | null {
       const L = drag?.landing;
-      return L ? { ...L.model.frame, guides: L.drag.guides(L.model.frame) } : null;
+      const f = drag?.drawnFrame ?? L?.model.frame;
+      return L && f ? { ...f, guides: L.drag.guides(f) } : null;
     },
     get shown(): DockDrop | null {
       return drag?.shown ?? null;
