@@ -27,6 +27,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   `EPS`) is no length: the item asks its natural, so an item a stored state holds at 0 (dragged fully shut when its least
   is 0) opens at its natural when that state is read again. A stack that declares no length, or none under its least, is laid out
   exactly as before.
+- Docs only: **the design page names the three places the solver reads a form's `kind`** (`menu`, the group kinds for
+  `ownCross`, and kind equality under `previous`), says the root's `Target` carries the docking model's drag fields as
+  plain data, and says `fitFloat` finds a clear place unless its search is capped (`FloatFit.searchCapped`). No
+  behavior, type or export change.
 
 ## 26.11.54
 

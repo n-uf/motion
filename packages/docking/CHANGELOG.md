@@ -43,6 +43,16 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   between two empty lanes in a held frame. `./testing`'s `LandingRule` takes `{ regions, landingOf, spotsOf, home?,
   placeGuides? }`, and its host draws guides with `guides(frame)` and commits `after(release).state`.
 
+### Docs only
+
+- **The design page and the reference catch up with the code.** No behavior, type or export change. The draw rule is
+  stated once: a held frame draws `after(held).layout` while its room is open, and a float frame whose room is not
+  open, and the Outline mode, draw the window at rest (the gap closes on release). `dockDrag` is in the page's
+  paragraph, diagram, contents and SDK table, the landing model is named as the docking drag with `targets()` as the
+  list of places for menus, keys and the conformance pick, and a panel drag's marks are written up here. The
+  reference covers behavior, with the exported types as the contract, and adds entries for `Place` and its four kinds,
+  `SolveOptions`, `DockLaneOptions`, `EmptyLanes` and the stored types.
+
 ## 26.11.54
 
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from

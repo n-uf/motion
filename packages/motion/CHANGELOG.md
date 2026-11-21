@@ -30,6 +30,15 @@ exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geom
   only the held lane's spot stretches come from `spotsOf` (before, all of it came from the held spot's regions,
   `regionsFor`). `LandingRegions.item` is optional: the model doesn't read it. New type: `LandingGuideRef`.
 
+### Docs only
+
+- **The design page and the reference catch up with the code.** No behavior, type or export change. Docking's marks (a
+  panel drag's lines, boxes and empty columns) are written up on docking's design page, not here; the draw rule for a
+  held frame (the state's layout while its room is open, else the window at rest) is stated once there. The unit rule
+  names its three exceptions (`DOUBLE_CLICK` and `multiClick`, `longPress.ms`, `WheelPanOptions.speed`). The
+  reference covers behavior, with the exported types as the contract, and adds entries for `DragFrame`, `DragTuning`,
+  `LandingFrame`, `LandingRelease`, `LandingGates` and the other landing option types.
+
 ## 26.11.54
 
 **The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes
