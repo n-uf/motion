@@ -6,6 +6,7 @@
 // miniature of the same window that the hero already draws (demos/hero-doc.ts), in a box of the demo's own height, so
 // nothing shifts when the live window takes its place and the page has the window in its HTML.
 import { docWindow } from "../demos/hero-doc";
+import { HINT } from "../demos/home";
 import "../../../lab/src/docwin/docwin.css";
 
 interface Props {
@@ -27,7 +28,7 @@ const still = docWindow(SIZE);
     <div class="dw" id="dw-root" hidden><div class="dw-win" id="dw-win"></div></div>
   </div>
   <div class="docdemo-foot">
-    <p class="dw-status docdemo-status" id="dw-status" role="status" aria-live="polite"></p>
+    <p class="dw-status docdemo-status" id="dw-status" role="status" aria-live="polite">{HINT}</p>
     <button type="button" class="docdemo-reset" id="dw-reset" title="Put the window back as it started">↺ Reset</button>
   </div>
 </figure>

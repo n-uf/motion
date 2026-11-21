@@ -1,5 +1,5 @@
 /*
- * Home (the heroes are in hero.css): the loop (the one desk window and its four steps), what each package does, use one
+ * Home (the heroes are in hero.css): the loop (the live demo, the lab's Document window, and the claims under it), what each package does, use one
  * or together, and the interactive pages. Motion is the accent, placement violet (--series-b), as in X-ray, docking rose (--dock), on every part of the page.
  * The drafting grid, the measures and the dimension labels belong to the hero alone. Under it the page is laid out on one
  * 12-column grid (the wrap's width, a 24 px gutter) that every section snaps to: a hairline across the full width, then
@@ -34,10 +34,10 @@
 .section.loop { padding-top: var(--s5); }
 .loop-body { margin-top: var(--s7); }
 .docdemo { margin: 0; }
-.docdemo-slot { position: relative; height: 460px; }
+.docdemo-slot { position: relative; height: 460px; overflow-x: clip; }
 /* The lab's window takes every touch (touch-action: none), which on a phone would trap the page's scroll in a 400 px box:
    here only what is dragged takes it (a grip, a panel's header, a resize handle), the rest of the window lets the page scroll. */
-.docdemo .dw-win { touch-action: pan-y; }
+.docdemo .dw-win { touch-action: pan-y pinch-zoom; }
 .docdemo :is([data-grip], .dw-head, .dw-fh, [data-resize]) { touch-action: none; }
 .docdemo-still { position: absolute; inset: 0; display: grid; place-items: center; background: var(--win-well); border: 1px solid var(--win-edge); border-radius: var(--win-r); overflow: hidden; }
 .docdemo-still .hdw { width: min(100%, 620px); }
