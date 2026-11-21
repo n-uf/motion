@@ -30,7 +30,8 @@ a removal, with the name or the call to use instead.
   `DragFrame.forced` `"rail"` → `"armed"`. `liftRect`, `floating`, `earlyRelease` and `DragFrame.refusedSinceShown`
   are removed. `DragFrame.landing` is required. New `bounds` and `setBounds`: the intent clamps the pointer onto the
   drawn space. `release(point, targets, keys?)` → `release(point, time, targets, keys?)`, taking a new point as one more
-  sample. `ModifierKey` is the gestures one (lower case), and `DragKeys` is `Partial<Modifiers>`.
+  sample. `ModifierKey` is the gestures one (lower case), and `DragKeys` is `Partial<Modifiers>`;
+  `isHeld` and `Modifiers` are exported here too.
 - **`./drag`, the preview.** One type, `DragPreview` = `{ mode, placeGuides? }` with `PreviewMode` `"outline" |
   "placeholder" | "glide" | "snap"`; a mode alone stands for `{ mode }`. The old strings map `"indicator"` →
   `"outline"`, `"gap"` → `"placeholder"`, `"snap"` → `"glide"`, `"item"` → `"snap"`. `DropPreviewMode` is removed.
