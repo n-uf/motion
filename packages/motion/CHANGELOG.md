@@ -26,7 +26,9 @@ exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geom
 - **Behavior.** Under `"all"` with no Near lane, the lane nearest the pointer within `reach` names its would-land state,
   for the corner only, switching exactly at `reach`. The trail gate reads `landingOf` the spot held (a sliding spot's
   landing where the hand holds it, not its listed one). `release().home` holds where the geometry lands the item
-  home.
+  home. Hit-testing reads the stage, the lanes' rects, refused, blocked and content as seen (`regions`) on every frame;
+  only the held lane's spot stretches come from `spotsOf` (before, all of it came from the held spot's regions,
+  `regionsFor`). `LandingRegions.item` is optional: the model doesn't read it. New type: `LandingGuideRef`.
 
 ### The SDK
 
