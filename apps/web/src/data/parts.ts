@@ -65,7 +65,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
     { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
   ],
   "/docking-layouts/": [
-    { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
+    { part: "motion", kind: "uses", what: "createLayoutMotion (every box glides)" },
     { part: "docking", kind: "uses", what: "solve (the four docked layouts; the page's other five layouts are sketches drawn by the page itself)" },
     { part: "placement", kind: "uses", what: "masterStack, layoutSplit and splitFromOrder from /tiling (the tiles inside the documents' area)" },
   ],

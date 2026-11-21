@@ -9,7 +9,7 @@
  * - **Tempo** (calm 20 · default 25 · quick 37, SETTLE_TEMPO) is the settles' omega. A change re-tempos every live
  *   settle in flight, from where it is drawn, with no jump.
  */
-import { createFrameLoop, createSettle, SETTLE_TEMPO, type Animatable, type Animator, type FrameLoop, type Point, type Rect, type Settle, type Widen } from "@n-uf/motion";
+import { createFrameLoop, createLayoutMotion, createSettle, motionValue, SETTLE_TEMPO, type Animatable, type Animator, type Drawable, type FrameLoop, type LayoutMotion, type MotionValue, type Point, type Rect, type Settle, type Widen } from "@n-uf/motion";
 import { createBrowserClock, prefersReducedMotion } from "@n-uf/motion/browser";
 
 // ---- Speed: a scaled clock ----------------------------------------------------------------------------------------------
@@ -82,26 +82,29 @@ export const forget = (s: Settle<unknown>): void => void live.delete(s as unknow
 export const reduced: () => boolean = prefersReducedMotion();
 
 /**
- * Step `animator` every frame and hand its value to `draw`, until it rests.
- * Under reduced motion it snaps to its target at once. Returns a stop function.
+ * Step `animator` on the site's loop (the write phase) as a `motionValue`, hand each value to `draw`, and call `done`
+ * once it rests. Under reduced motion it snaps to its target at once. The animator stays the caller's (its tempo is
+ * `configure`d on it). Returns a stop function.
  */
 export function drive<T>(animator: Animator<T>, draw: (value: T) => void, done?: () => void): () => void {
-  if (reduced()) {
-    animator.snap();
-    draw(animator.value);
+  const value = motionValue(loop, animator, { phase: "write", reducedMotion: reduced }) as MotionValue<T>;
+  value.subscribe(draw);
+  value.onSettle(() => {
+    value.dispose();
     done?.();
+  });
+  draw(animator.value);
+  if (reduced()) {
+    value.snap();
     return () => {};
   }
-  draw(animator.value);
-  return loop.repeat("write", (frame) => {
-    const moving = animator.step(frame.delta);
-    draw(animator.value);
-    if (!moving) {
-      done?.();
-      return false;
-    }
-    return true;
-  });
+  if (!animator.settled) return () => value.dispose();
+  // Already at rest: say so on the next frame, as a step that finds nothing to do.
+  const cancel = loop.schedule("write", () => value.snap());
+  return () => {
+    cancel();
+    value.dispose();
+  };
 }
 
 const glides = new WeakMap<Element, () => void>();
@@ -142,57 +145,39 @@ export function flip(els: Iterable<HTMLElement>, change: () => void): void {
   });
 }
 
+/** A layout item that draws nothing itself: the field's `draw` gets every rect. */
+const unseen: Drawable = { layOut: () => {}, draw: () => {} };
+
 /**
- * A set of keyed rects that settle toward new targets. `set` takes the new
- * layout; rects already known launch from where they are drawn, new ones
- * appear at their place. `draw` gets every rect each frame.
+ * A set of keyed rects that settle toward new targets, one `createLayoutMotion` item per key on the site's loop (the
+ * write phase, the live tempo, reduced motion). `set` takes the new layout; rects already known launch from where
+ * they are drawn, new ones appear at their place, ones that left are dropped. `draw` gets every rect, once a frame
+ * while any moves.
  */
-export class RectField<K> {
-  private readonly settles = new Map<K, Settle<Rect>>();
-  private stop: (() => void) | null = null;
-
-  constructor(private readonly draw: (rects: Map<K, Rect>) => void) {}
-
-  set(targets: Map<K, Rect>, animate = true): void {
-    for (const key of [...this.settles.keys()]) {
-      if (targets.has(key)) continue;
-      forget(this.settles.get(key)!);
-      this.settles.delete(key);
-    }
-    targets.forEach((r, key) => {
-      const s = this.settles.get(key);
-      if (!s || !animate) {
-        if (s) forget(s);
-        this.settles.set(key, newSettle<Rect>({ ...r }));
-        return;
-      }
-      s.setTarget({ ...r });
-    });
-    this.run();
-  }
-
-  current(): Map<K, Rect> {
-    const out = new Map<K, Rect>();
-    this.settles.forEach((s, k) => out.set(k, s.value));
-    return out;
-  }
-
-  private run(): void {
-    this.stop?.();
-    this.stop = null;
-    const all = [...this.settles.values()];
-    if (reduced() || all.every((s) => s.settled)) {
-      all.forEach((s) => s.snap());
-      this.draw(this.current());
-      return;
-    }
-    this.draw(this.current());
-    this.stop = loop.repeat("write", (frame) => {
-      let moving = false;
-      for (const s of this.settles.values()) if (s.step(frame.delta)) moving = true;
-      this.draw(this.current());
-      if (!moving) this.stop = null;
-      return moving;
-    });
-  }
+export function rectField(draw: (rects: Map<string, Rect>) => void): { set(targets: Map<string, Rect>, animate?: boolean): void } {
+  const motion: LayoutMotion = createLayoutMotion({
+    loop,
+    omega: omega(),
+    phase: "write",
+    reducedMotion: reduced,
+    onDraw: () => {
+      const rects = new Map<string, Rect>();
+      motion.items.forEach((item, key) => rects.set(key, item.drawn));
+      draw(rects);
+    },
+  });
+  // A change of tempo reaches every item, in flight too (the speed rides on the loop's clock).
+  onMotionChange(() => motion.configure({ omega: omega() }));
+  return {
+    set(targets, animate = true) {
+      motion.retain(targets.keys());
+      targets.forEach((r, key) => {
+        const item = motion.get(key);
+        if (!item) motion.add(key, unseen, r);
+        else if (animate) item.moveTo(r);
+        else item.jumpTo(r);
+      });
+      motion.flush();
+    },
+  };
 }
