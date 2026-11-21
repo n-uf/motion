@@ -6,8 +6,8 @@
 export interface R { x: number; y: number; w: number; h: number }
 export interface Target { id: string; label: string; prio: number; hit: R; ind?: R; slot?: { x: number; y: number; w: number }; float?: boolean }
 
-/** The shortest an indicator may show, ms: one shown for less counts as a flash (the library's `switchHold`). */
-export const FLASH = 150;
+/** The drawn desk (the stage), px: the drag intent's `bounds`. */
+export const STAGE = { x: 0, y: 0, width: 880, height: 400 };
 
 export const ZONES: (R & { cls: string; label: string })[] = [
   { x: 0, y: 0, w: 28, h: 400, cls: "rail", label: "" },

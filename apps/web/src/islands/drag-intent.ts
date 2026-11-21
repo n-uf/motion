@@ -5,13 +5,13 @@
  * compare it with a naive model that is the page's own. The server drew the desk, the panel and the case rail; this
  * feeds the model the pointer and draws what it says.
  */
-import { createDragIntent, DRAG_DEFAULTS, inRect, liftDecision, previewPlan, targetAt, type DragFrame, type DragTarget, type Point, type PreviewMode, type Rect } from "@n-uf/motion/drag";
+import { createDragIntent, DRAG_DEFAULTS, inRect, liftDecision, previewPlan, targetAt, type DragFrame, type DragKeys, type DragTarget, type Point, type PreviewMode, type Rect } from "@n-uf/motion/drag";
 import { $, caseRail } from "./rail";
 import { drive, newSettle, reduced } from "./motion";
 import { dropMode } from "./drop-mode";
 import { figureChrome } from "./figure-chrome";
 import { xrayOf, type XR } from "./xray";
-import { CASES, CHIP_HOME, FLASH, HOME, PATHS, T, type Key, type Path, type R } from "../demos/drag";
+import { CASES, CHIP_HOME, HOME, PATHS, STAGE, T, type Key, type Path, type R } from "../demos/drag";
 
 const rectOf = (r: R): Rect => ({ x: r.x, y: r.y, width: r.w, height: r.h });
 const HOME_RECT = rectOf(HOME);
@@ -39,22 +39,29 @@ type ModelFrame = Pick<DragFrame<Zone>, "shown" | "room" | "aiming">;
 function createModel(mode: Mode, lift: Point) {
   if (mode === "naive") {
     // The comparison: highlight whatever is under the pointer (the most precise target), with no aim, band or delay.
+    // The pointer is clamped onto the stage as the intent clamps it, so the two see the same points.
+    const under = (p: Point): Zone | null => {
+      const c = clampTo(STAGE, p);
+      return inRect(HOME_RECT, c) ? null : targetAt(ZONES, c);
+    };
     return {
       update(p: Point): ModelFrame {
-        const shown = inRect(HOME_RECT, p) ? null : targetAt(ZONES, p);
+        const shown = under(p);
         return { shown, room: !!shown && !shown.free, aiming: false };
       },
-      release(p: Point): Zone | null {
-        return inRect(HOME_RECT, p) ? null : targetAt(ZONES, p);
-      },
+      release: (p: Point): Zone | null => under(p),
     };
   }
-  const intent = createDragIntent<Zone>({ home: HOME_RECT, lift });
+  // The stage is the intent's `bounds`: every point is clamped exactly onto it, so a throw past an edge (the pointer is
+  // captured, so it leaves the stage) means the nearest point of the stage, and a target at the edge stays under it.
+  const intent = createDragIntent<Zone>({ home: HOME_RECT, lift, bounds: STAGE });
   return {
-    update: (p: Point, t: number): ModelFrame => intent.update(p, t, ZONES),
-    release: (p: Point, t: number): Zone | null => intent.release(p, t, ZONES),
+    update: (p: Point, t: number, keys?: DragKeys): ModelFrame => intent.update(p, t, ZONES, keys),
+    release: (p: Point, t: number, keys?: DragKeys): Zone | null => intent.release(p, t, ZONES, keys),
   };
 }
+
+const clampTo = (r: Rect, p: Point): Point => ({ x: Math.min(Math.max(p.x, r.x), r.x + r.width), y: Math.min(Math.max(p.y, r.y), r.y + r.height) });
 
 /** The site's drop preview modes (and the ids they had before) as the library's. */
 const PREVIEW: Record<string, PreviewMode> = { outline: "outline", placeholder: "placeholder", glide: "glide", indicator: "outline", gap: "placeholder", snap: "glide" };
@@ -113,7 +120,7 @@ let stats = { changes: 0, flashes: 0 }, lastShown: Zone | null = null, lastShown
 /** Count what the drop shows (both modes), and draw the indicator unless `draw` is off (the plan draws none). */
 function showIndicator(s: Zone | null, room: boolean, p: Point, t: number, draw = true): void {
   if (s !== lastShown) {
-    if (lastShown && t - lastShownAt < FLASH) stats.flashes++;
+    if (lastShown && t - lastShownAt < DRAG_DEFAULTS.switchHold) stats.flashes++;
     if (s) stats.changes++;
     lastShown = s;
     lastShownAt = t;
@@ -160,8 +167,8 @@ function beginDrag(grab: Point, lift: Point) {
   // it is held 1:1 again. Float here has no slot: it keeps its outline in every mode.
   let snapped: Zone | null = null, returning = false;
   return {
-    move(p: Point, t: number): void {
-      const frame = model.update(p, t);
+    move(p: Point, t: number, keys?: DragKeys): void {
+      const frame = model.update(p, t, keys);
       const { shown } = frame;
       const plan = previewPlan(frame, PREVIEW[dropMode()] ?? "glide");
       const room = plan.makeRoom;
@@ -194,8 +201,8 @@ function beginDrag(grab: Point, lift: Point) {
         xray.draw("intent:move", { target: vrect(chipSettle.target), drawn: vrect(chipSettle.value), trail, aim: { p: vr({ x: p.x, y: p.y, w: 0, h: 0 }), state } });
       }
     },
-    end(p: Point, t: number, cancelled: boolean): Zone | null {
-      const target = cancelled ? null : model.release(p, t);
+    end(p: Point, t: number, cancelled: boolean, keys?: DragKeys): Zone | null {
+      const target = cancelled ? null : model.release(p, t, keys);
       showIndicator(null, false, p, t);
       updateStats();
       chip.classList.remove("lifted");
@@ -220,17 +227,15 @@ const local = (e: { clientX: number; clientY: number }): Point => {
   return { x: e.clientX - r.left, y: e.clientY - r.top };
 };
 const yours = (verb: string): string => `Your drag (${modeName()}): the indicator appeared or moved ${stats.changes}×, flashed ${stats.flashes}×, ${verb}`;
-// The model reads time passing (a dwell, the switch delay, the room), so a held pointer that fires no events is fed
-// again once a frame.
-let lastP: Point | null = null, lastFed = 0, pump = 0;
-const feed = (p: Point): void => {
-  lastP = p;
-  lastFed = performance.now();
-  live?.move(p, lastFed);
-};
+// The model reads time passing (a dwell, the switch delay, the room), so it is fed exactly once a frame while a drag is
+// live, with the latest pointer point (pointermove only stores it), also when the pointer doesn't move.
+// Shift is the intent's float key: held, the drop floats wherever the pointer is. The intent also reads ⌘/Ctrl to arm a
+// spring-loaded target, but this desk has none, so only Shift is passed.
+let lastP: Point | null = null, shift = false, pump = 0;
+const keysNow = (): DragKeys => ({ shift });
 const tick = (): void => {
   if (!live) return;
-  if (lastP && performance.now() - lastFed > 12) feed(lastP);
+  if (lastP) live.move(lastP, performance.now(), keysNow());
   pump = requestAnimationFrame(tick);
 };
 const endPress = (): void => {
@@ -243,11 +248,13 @@ chip.addEventListener("pointerdown", (e) => {
   if (playing || runningAll) return;
   chip.setPointerCapture(e.pointerId);
   const p = local(e);
+  shift = e.shiftKey;
   press = { p, grab: { x: p.x - parseFloat(chip.style.left), y: p.y - parseFloat(chip.style.top) }, at: performance.now(), touch: e.pointerType === "touch" };
 });
 chip.addEventListener("pointermove", (e) => {
   if (!press) return;
   const p = local(e);
+  shift = e.shiftKey;
   if (!live) {
     // The library's lift rule: a mouse lifts at 5 px; a touch only after a 180 ms hold, then 8 px (moving 8 px before the
     // hold is over is a swipe, not a drag).
@@ -263,18 +270,21 @@ chip.addEventListener("pointermove", (e) => {
     setStatus("Dragging…");
     pump = requestAnimationFrame(tick);
   }
-  feed(p);
+  lastP = p;
 });
 const finish = (e: PointerEvent, cancelled: boolean): void => {
   if (live) {
-    const target = live.end(local(e), performance.now(), cancelled);
+    const target = live.end(local(e), performance.now(), cancelled, { shift: e.shiftKey });
     setStatus(yours(`the drop landed on “${target ? target.label : "back home"}”.`));
   }
   endPress();
 };
 chip.addEventListener("pointerup", (e) => finish(e, false));
 chip.addEventListener("pointercancel", (e) => finish(e, true));
+// Shift pressed or let go while the pointer rests: the next frame reads it.
+window.addEventListener("keyup", (e) => void (e.key === "Shift" && (shift = false)));
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Shift") shift = true;
   if (e.key === "Escape" && live) {
     live.end({ x: -1, y: -1 }, performance.now(), true);
     setStatus(yours("canceled: the panel went back home."));
