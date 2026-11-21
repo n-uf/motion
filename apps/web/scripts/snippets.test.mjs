@@ -19,7 +19,7 @@ const exportsOf = { motion: pkgExports("motion"), placement: pkgExports("placeme
 const snippets = readdirSync(join(web, "src/snippets")).filter((f) => f.endsWith(".ts"));
 const excluded = new Set(tsconfig.exclude ?? []);
 
-/** The package entries a snippet imports: "motion ." for the root, "placement ./toolbar" for @n-uf/placement/toolbar. */
+/** The package entries a snippet imports: "motion ." for the root, "docking ./testing" for @n-uf/docking/testing. */
 const entriesOf = (file) =>
   [...readFileSync(join(web, "src/snippets", file), "utf8").matchAll(/from "@n-uf\/(motion|placement|docking)(\/[\w-]+)?"/g)].map((m) => `${m[1]} ${m[2] ? `.${m[2]}` : "."}`);
 const has = (entry) => { const [pkg, e] = entry.split(" "); return e in exportsOf[pkg]; };

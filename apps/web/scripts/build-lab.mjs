@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Builds the lab (apps/lab, the one-app shell) into the site at /lab/: the lab's public build (`vite build --mode
 // public`), with base /lab/ and its own entry and assets, written to dist/lab. Runs after `astro build` (see "build" in
-// package.json), from the same commit as the site. Its routes live in the hash (/lab/#/placement/desk), so it needs no
+// package.json), from the same commit as the site. Its routes live in the hash (/lab/#/docwin), so it needs no
 // server rewrites.
 //
 // Search: every lab page must carry <meta name="robots" content="noindex"> (the lab's index.html has it; a lab that
