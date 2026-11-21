@@ -120,6 +120,12 @@ let roomFor: string | null = null;
 function roomAt(): Drop | null {
   return lifted && roomFor !== null && drop?.key === roomFor ? drop : null;
 }
+/**
+ * While a window is held and no room is made: where the others rested once they had settled (from the lift, which
+ * closes the gap the window leaves, or from the end of a room), by window; null until they have. They must not move
+ * from there until a room opens (Outline never makes one).
+ */
+let restAt: Map<Win, Rect> | null = null;
 /** The focused window: a new window splits it (dwindle). Set by a click, an open or a drop. */
 let focusId: number | null = null;
 /** The layout before the lift: a release with no target, or Escape, puts it back. */
@@ -140,6 +146,10 @@ let episode: {
   onTop: (string | null)[];
   /** Per frame while the others make room: null when no settled window overlaps the slot, else which does. */
   room: (string | null)[];
+  /** Per frame while a window is held and no room is made, once the others have settled: null when they stay put, else which moved. */
+  stay: (string | null)[];
+  /** The preview did not reach its state (the scripted drag's waits ran out): what it lacked. */
+  preview: string[] | null;
   /** The drop preview this move ran with. */
   drop: DropMode;
 } | null = null;
@@ -248,7 +258,7 @@ const FULL: Rect = { x: GAP, y: GAP, width: STAGE_W - 2 * GAP, height: STAGE_H -
 
 function startEpisode(): void {
   if (episode) return;
-  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], drop: dropMode };
+  episode = { t0: time, segments: [], runs: [], scale: [], held: [], onTop: [], room: [], stay: [], preview: null, drop: dropMode };
   for (const w of wins) {
     w.runs = [[]];
     episode.runs.push(...w.runs);
@@ -628,6 +638,23 @@ function afterFrame(): void {
     const blocking = others.every((o) => o.item.settled) ? others.filter((o) => overlap(o.item.drawn, slot) > 1) : null;
     if (blocking) episode.room.push(blocking.length ? `t=${Math.round(time)} window ${blocking.map((o) => o.id).join(", ")} still in the slot kept for window ${lifted.id}` : null);
   }
+  // Stay: while a window is held and no room is made, the others rest once they have settled and then do not move.
+  if (lifted) {
+    const others = wins.filter((o) => o !== lifted && !o.closing);
+    if (roomFor !== null) {
+      restAt = null;
+      // Outline never makes room (previewPlan: showIndicator only), so any room in it is the failure.
+      if (episode.drop === "outline") episode.stay.push(`t=${Math.round(time)} room was made for window ${lifted.id} in Outline`);
+    } else if (restAt === null) {
+      if (others.every((o) => o.item.settled)) restAt = new Map(others.map((o) => [o, { ...o.item.drawn }]));
+    } else {
+      const moved = others.filter((o) => {
+        const at = restAt!.get(o);
+        return at !== undefined && !same(o.item.drawn, at);
+      });
+      episode.stay.push(moved.length ? `t=${Math.round(time)} window ${moved.map((o) => o.id).join(", ")} moved while window ${lifted.id} was held and no room was made` : null);
+    }
+  } else restAt = null;
   // On top: while dragged, and after the drop until it has settled, nothing covers it. Checked after
   // every window of this frame is drawn.
   const r = raised;
@@ -693,8 +720,17 @@ async function scriptedDrag(): Promise<void> {
     const e = f < 0.5 ? 2 * f * f : 1 - (-2 * f + 2) ** 2 / 2;
     moveDrag(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
   }
-  if (dropMode === "outline") await until(() => !hint.hidden, 1500);
-  else await until(() => roomFor !== null && wins.every((o) => o === lifted || o.item.settled) && (dropMode !== "glide" || (held?.snapped != null && w.item.settled)), 2500);
+  // A preview that never reaches its state fails here: an unexercised row would pass without it.
+  const lacks: string[] = [];
+  if (dropMode === "outline") {
+    await until(() => !hint.hidden, 1500);
+    if (hint.hidden) lacks.push("Outline: the outline never showed within 1.5 s");
+  } else {
+    await until(() => roomFor !== null && wins.every((o) => o === lifted || o.item.settled) && (dropMode !== "glide" || (held?.snapped != null && w.item.settled)), 2500);
+    if (roomFor === null || !wins.every((o) => o === lifted || o.item.settled)) episode?.room.push(`no room within 2.5 s (${DROP_LABEL[dropMode]})`);
+    if (dropMode === "glide" && held?.snapped == null) lacks.push("Glide: the window never glided into its slot within 2.5 s");
+  }
+  if (episode) episode.preview = lacks;
   // A last frame of rest, so the slot is on screen when it lets go.
   await nextFrame();
   endDrag();
@@ -803,18 +839,11 @@ function setDropMode(m: DropMode): void {
 
 /** The viewer's drop preview, kept in this browser only. */
 const PREVIEW_KEY = "motion-lab:settle:preview";
-/** A preview stored under the names from before the library's: Indicator is Outline, Snap is Glide. */
-const OLD_PREVIEW: Readonly<Record<string, DropMode>> = { indicator: "outline", snap: "glide" };
-
-/** The stored drop preview, or null (none stored, or no storage). An old name is read once: it is mapped and stored under the new one. */
+/** The stored drop preview, or null (none stored, an unknown value, or no storage). */
 function storedDropMode(): DropMode | null {
   try {
     const v = localStorage.getItem(PREVIEW_KEY);
-    if (v === null) return null;
-    if (DROP_MODES.includes(v as DropMode)) return v as DropMode;
-    const mapped = OLD_PREVIEW[v];
-    if (mapped) localStorage.setItem(PREVIEW_KEY, mapped);
-    return mapped ?? null;
+    return DROP_MODES.includes(v as DropMode) ? (v as DropMode) : null;
   } catch {
     return null;
   }
@@ -841,6 +870,7 @@ function setLayout(k: LayoutKind): void {
   if (lifted) {
     drop = null;
     roomFor = null;
+    restAt = null;
     relayout();
     moveDrag(pointer.x, pointer.y);
   } else relayout();
