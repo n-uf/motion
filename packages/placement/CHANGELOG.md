@@ -51,7 +51,7 @@ Removed (one-line migration each):
   `fitFloat` stays.
 - The `@n-uf/motion` development dependency: placement's tests no longer use it.
 
-## 26.11.53
+Added:
 
 - `./stack`, **`controlLadder(spec)`: a group's forms generated from its controls** (additive). A host declares a group
   by its controls (`{ id, tiers, foldOrder? }`, the lengths per tier longest first, plus `gap`, `grip`, `more` (the
@@ -68,6 +68,9 @@ Removed (one-line migration each):
   length changes; when the control set changes, solve the group without `previous`. `keep` lifts a pinned primary's
   last forms; `column: { icons }` adds the group's column forms. The result is `{ row, column? }`, assignable to
   `SceneItem.forms`. Hosts that hand-write forms are unchanged.
+
+## 26.11.53
+
 - `./scene`, **under `sideColumns: "one"`, a side with a declared column edge, empty or not, is that side's column**
   (fix). Such a column, empty already or emptied by the lift of a lone panel, left its side with no column holding an
   item, so a new-column line `column:<side>:$` was offered for the same place as that column, and a host drew two
