@@ -35,9 +35,11 @@
   --accent-line: #a3d0df;
   --accent-ink: #ffffff;
 
-  /* The pair's two parts, as on the site: cyan is motion, violet is placement */
+  /* The three parts, as on the site: cyan is motion, violet is placement, rose is docking */
   --motion: var(--accent);
   --place: var(--series-b);
+  --dock: #a8286a; /* 6.1:1 on --bg, 5.5:1 on --bg-sunken */
+  --dock-ink: #ffffff; /* the ink on a --dock fill */
   --part: var(--motion);
 
   /* Signal: drop targets and indicators only */
@@ -166,6 +168,8 @@
     --series-a2: #f0c88e;
     --series-b: #9a93ea;
     --series-b2: #d39be0;
+    --dock: #f07fb4; /* 7.5:1 on --bg, 7.8:1 on --bg-sunken */
+    --dock-ink: #2a0a1b;
     --series-c2: #9edff0;
     --series-ink: #c2c4ca;
     --grip: #7d838e;
@@ -225,6 +229,8 @@
   --series-a2: #f0c88e;
   --series-b: #9a93ea;
   --series-b2: #d39be0;
+  --dock: #f07fb4;
+  --dock-ink: #2a0a1b;
   --series-c2: #9edff0;
   --series-ink: #c2c4ca;
   --grip: #7d838e;
