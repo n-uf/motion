@@ -56,9 +56,11 @@ Removed (one-line migration each):
 - `./stack`, **`controlLadder(spec)`: a group's forms generated from its controls** (additive). A host declares a group
   by its controls (`{ id, tiers, foldOrder? }`, the lengths per tier longest first, plus `gap`, `grip`, `more` (the
   group's own » cell) and `cross`), and gets the ordered `StackForm[]` with `rank` and `hides` set: the tier steps one
-  control at a time in fold order (rank `100 * t + i / n`), the partial folds at the last tier that hide the first `k`
-  controls in fold order (rank `400 + k / n`, so the group with the fewest hidden controls folds next), then `fold`
-  (`hides` every control, rank 500) and `menu` (600). A bar of such groups runs short control by control: every group's
+  control at a time in fold order (rank `100 * t + i / n` for tiers 1 and 2; every later tier shares the band from 300
+  in tier order, so tier steps stay under 400 for any tier count), the partial folds at the last tier that hide the
+  first `k` controls in fold order (rank `400 + k / n`, so the group with the fewest hidden controls folds next), then
+  `fold` (`hides` every control, rank 500) and `menu` (600). The bands are fixed, so groups of different tier counts
+  keep the order across a bar. A bar of such groups runs short control by control: every group's
   tier steps, then every partial fold, then folds, and a growing fixed title gives way only after every group's `row`
   steps. There is no new solver rule: `fitStack` takes the lowest-ranked next form, passes over a form that doesn't
   shorten the stack, and grows back in the exact reverse. The shape is fixed (`n * T + 2` forms for `n` controls and
