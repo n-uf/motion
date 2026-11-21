@@ -5,10 +5,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.53
 
-**The breaking release of the SDK: structure and names only, no behavior changes.** The drag intent goes back to its
-general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers move to
-`./browser`, and the package has one modifier key and one unit rule. Host notes: every item below is a rename, a move or
-a removal, with the name or the call to use instead.
+**The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes
+back to its general job, one preview type serves both drag models, the root exports everything host-free, the DOM writers
+move to `./browser`, and the package has one modifier key and one unit rule. Host notes: every item below is a rename, a
+move or a removal, with the name or the call to use instead; what a host sees change comes after, each with the call that
+keeps the old result.
 
 - **Root.** `@n-uf/motion` exports everything host-free: `./clock`, `./signals`, `./values`, `./gestures`, `./drag`
   and `./layout`, with the shapes. Only `./browser` and `./testing` stay apart. `./values`, `./gestures`, `./drag` and
@@ -22,7 +23,8 @@ a removal, with the name or the call to use instead.
   parameter `dtMs` → `dt` (ms) in `Animator.step`, `springStep` and `./layout`'s `AnchoredMorph.step`: a name only,
   calls are unchanged.
 - **`./gestures`.** One `ModifierKey` for the package: `"shift" | "alt" | "ctrl" | "meta" | "mod"` (`"mod"`: ⌘ or
-  Ctrl, either one); `isHeld` takes a partial set of keys and knows `"mod"`. `RecognizerOptions.toCanvas` is optional
+  Ctrl, either one); `isHeld` takes a partial set of keys and knows `"mod"`. Gaining `"mod"` breaks code that indexes
+  `Modifiers` by a `ModifierKey` (`mods[key]`) or enumerates its values: read a key with `isHeld(mods, key)`. `RecognizerOptions.toCanvas` is optional
   (identity). `modifierDrag` leaves `press` and `dragStart`, and `ModifierDrag` is removed: a host derives it from
   `origin.button` and `isHeld`. `RawPointerEvent.lostBy` `"surface"` → `"view"`. `DOUBLE_CLICK` is exported here (no
   longer from `./drag`). `RecognizerOptions.staleMs` → `stale`, `DwellConfig.dwellMs` → `dwell`,
@@ -48,6 +50,21 @@ a removal, with the name or the call to use instead.
 - **One unit rule.** Times in ms, distances in px, a pointer's speeds in px/ms, and no name carries its unit. An
   animator's velocity stays in units per second, and a settle's tempo per second.
 - Signals stay public; nothing requires them, and they leave the package's one-line description.
+
+What a host sees change, with the call that keeps the old result:
+
+- `./drag`: a preview given as a mode alone takes `PLACE_GUIDES_DEFAULT` (`"near"` for placeholder and snap), where an
+  old string preview planned `guides: "off"`. Keep no guides with `{ mode, placeGuides: "off" }`.
+- `./drag`: `DRAG_PREVIEW_DEFAULT` is `{ mode: "glide" }` (the old string `"snap"`: the same plan). Compare its `mode`.
+- `./drag`: `PLACE_GUIDES_DEFAULT` gains `glide: "off"`. A host that enumerates it sees one more key.
+- `./drag`: `PreviewPlan.emptyLanes` is removed. Read the empty-lane option from your own state (docking's
+  `EmptyLanes`).
+- `./drag`: `earlyRelease: "float"` has no replacement; a release with no target shown lands on the target under the
+  pointer, as the old default `"target"` did.
+- `./drag`: a host that passed `floating: true` gets the home that holds wherever it lies (a floating item's home is
+  its own place, as for a docked one). Nothing to pass.
+- `./drag`: `release(point, time, …)` at a point that differs from the last `update` runs one more sample there before
+  it decides. To decide on the last frame as before, pass the last update's point and time.
 
 Behavior, from the release line since 26.11.53 (not part of the renames above):
 
