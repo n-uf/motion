@@ -87,7 +87,7 @@ flowchart LR
   after -- "after.layout = solve(after.state, { previous })" --> layout
 ```
 
-Every edge in the diagram is a pure function call. The state goes round the loop: a drop commits `after.state`, the host solves it with the layout it had as `previous`, draws the result, and may store it.
+Every step between these parts is a pure function call. The state goes round the loop: a drop commits `after.state`, the host solves it with the layout it had as `previous`, draws the result, and may store it.
 
 The code is layered the same way:
 
