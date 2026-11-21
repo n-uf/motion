@@ -16,7 +16,8 @@ Host notes: a host that imports `@n-uf/placement/scene` or `/scene/cases` moves 
 Added:
 - `./stack`, **`cutEdges(stage, bands)`**: the stage cut into bands along its sides in list order (`EdgeBand`,
   `EdgeCut`, `BandSide`); the order decides the corners, a `reserve` band shortens the leftover and an `over` band lies
-  over it.
+  over it (cut after every reserved band, so inside the final leftover, wherever it is listed). Band ids are unique (a
+  repeat throws), and a stage of negative size is cut as one of size 0.
 - `./stack`, **form flags** `StackForm.body`, `.folded` and `.compact`, with `formBody`, `formFolded` and
   `formCompact`: what an open panel, a folded form and an icons form stand for, each defaulting from the kind (`open`;
   `header` and `fold`; `icons`). `formSetsCross` defaults to `formBody`. Nothing changes for a form that sets none.

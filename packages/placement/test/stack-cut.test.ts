@@ -1,7 +1,8 @@
 /**
  * `cutEdges`: the stage cut into bands in list order. Pinned by properties over generated cuts: the reserved bands and
  * the leftover tile the stage (their areas sum to its area, none overlaps another), every band lies inside the stage,
- * an `over` band lies inside the leftover's room and never shortens it, and the order decides each corner.
+ * an `over` band lies inside the final leftover, wherever it is listed, and never shortens it, and the order decides
+ * each corner.
  */
 import { describe, expect, it } from "vitest";
 import { area, overlaps, rect, type Rect } from "../index";
@@ -64,6 +65,39 @@ describe("cutEdges", () => {
     expect(c.bands.o2).toEqual(rect(0, 50, 400, 20));
   });
 
+  it("an over band listed before a reserved band still lies inside the final leftover, over no reserved band", () => {
+    const c = cutEdges(rect(0, 0, 400, 300), [
+      { id: "o", side: "top", size: 20, mode: "over" },
+      { id: "r", side: "top", size: 30 },
+    ]);
+    expect(c.bands.r).toEqual(rect(0, 0, 400, 30));
+    expect(c.rest).toEqual(rect(0, 30, 400, 270));
+    expect(c.bands.o).toEqual(rect(0, 30, 400, 20));
+    expect(overlaps(c.bands.o!, c.bands.r!)).toBe(false);
+  });
+
+  it("a band id given twice throws", () => {
+    expect(() =>
+      cutEdges(rect(0, 0, 400, 300), [
+        { id: "a", side: "top", size: 20 },
+        { id: "a", side: "left", size: 20, mode: "over" },
+      ]),
+    ).toThrow(/"a"/);
+  });
+
+  it("a stage of negative size is cut as one of size 0: every rect has a size of 0 or more", () => {
+    const c = cutEdges(rect(10, 20, -50, -30), [
+      { id: "t", side: "top", size: 10 },
+      { id: "l", side: "left", size: 10, gap: 4 },
+      { id: "o", side: "right", size: 10, mode: "over" },
+    ]);
+    for (const r of [...Object.values(c.bands), c.rest]) {
+      expect(r.width).toBeGreaterThanOrEqual(0);
+      expect(r.height).toBeGreaterThanOrEqual(0);
+    }
+    expect(c.rest).toEqual(rect(10, 20, 0, 0));
+  });
+
   it("the reserved bands and the leftover tile the stage, inside it, overlapping nothing (seeds 1–400)", () => {
     const bad: string[] = [];
     for (let seed = 1; seed <= 400; seed++) {
@@ -77,7 +111,7 @@ describe("cutEdges", () => {
       for (let i = 0; i < parts.length; i++) for (let j = i + 1; j < parts.length; j++) if (overlaps(parts[i]!, parts[j]!)) bad.push(`seed ${seed}: parts ${i} and ${j} overlap`);
       // Without gaps they cover the stage exactly.
       if (reserved.every((b) => !b.gap) && Math.abs(parts.reduce((s, r) => s + area(r), 0) - area(stage)) > 1e-6) bad.push(`seed ${seed}: the parts don't cover the stage`);
-      for (const b of bands) if (b.mode === "over" && !inside(c.bands[b.id]!, stage)) bad.push(`seed ${seed}: ${b.id} outside`);
+      for (const b of bands) if (b.mode === "over" && !inside(c.bands[b.id]!, c.rest)) bad.push(`seed ${seed}: ${b.id} outside the leftover`);
     }
     expect(bad.slice(0, 8)).toEqual([]);
   });

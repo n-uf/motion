@@ -5,12 +5,14 @@
  * edges, items or forms, only rects.
  *
  * - A `reserve` band (the default) shortens the leftover: what follows is cut from what it leaves.
- * - An `over` band lies over the leftover without shortening it. It is cut from the room the reserved bands left less
- *   the `over` bands before it, so two `over` bands on one side lie side by side, and the leftover stays whole.
+ * - An `over` band lies over the leftover without shortening it. The `over` bands are cut after every reserved band,
+ *   whatever the list order, from the final leftover less the `over` bands before them, so each lies inside the
+ *   leftover, two on one side lie side by side, and the leftover stays whole.
  * - A band is never thicker than the room left across it (a negative or missing size is 0). `gap` is space after it,
- *   taken only when the band takes some room, and never more than the room left.
+ *   taken only when the band takes some room, and never more than the room left. A stage of negative size is cut as
+ *   one of size 0.
  *
- * Returns each band's rect by id and the leftover rect (`rest`).
+ * Returns each band's rect by id and the leftover rect (`rest`). Band ids are unique: a repeat throws.
  *
  * See docs/placement.md, Entry: stack.
  */
@@ -58,28 +60,28 @@ function cutBand(area: Rect, band: EdgeBand): { readonly rect: Rect; readonly re
   }
 }
 
-/** The part two rects share (a zero size when apart). */
-function shared(a: Rect, b: Rect): Rect {
-  const x = Math.max(a.x, b.x);
-  const y = Math.max(a.y, b.y);
-  return rect(x, y, Math.max(0, Math.min(a.x + a.width, b.x + b.width) - x), Math.max(0, Math.min(a.y + a.height, b.y + b.height) - y));
-}
-
 export function cutEdges(stage: Rect, bands: readonly EdgeBand[]): EdgeCut {
-  const out: Record<string, Rect> = {};
-  let rest = stage;
-  let over = stage;
+  const seen = new Set<string>();
   for (const b of bands) {
-    if (b.mode === "over") {
-      const c = cutBand(over, b);
-      out[b.id] = c.rect;
-      over = c.rest;
-    } else {
-      const c = cutBand(rest, b);
-      out[b.id] = c.rect;
-      rest = c.rest;
-      over = shared(over, rest);
-    }
+    if (seen.has(b.id)) throw new Error(`cutEdges: band id "${b.id}" is given twice`);
+    seen.add(b.id);
+  }
+  const out: Record<string, Rect> = {};
+  // A stage of negative size is cut as one of size 0, so every rect has a size of 0 or more.
+  let rest = rect(stage.x, stage.y, px(stage.width), px(stage.height));
+  for (const b of bands) {
+    if (b.mode === "over") continue;
+    const c = cutBand(rest, b);
+    out[b.id] = c.rect;
+    rest = c.rest;
+  }
+  // The over bands come after every reserved one, whatever the list order: each lies inside the final leftover.
+  let over = rest;
+  for (const b of bands) {
+    if (b.mode !== "over") continue;
+    const c = cutBand(over, b);
+    out[b.id] = c.rect;
+    over = c.rest;
   }
   return { bands: out, rest };
 }
