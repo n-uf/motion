@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // The terminology rule, part of `pnpm check`: public copy uses the glossary's words (the Glossary page in the lab has
-// them). It fails on the banned synonyms below in the READMEs, the CHANGELOGs' `## Unreleased` section, and the source
+// them). It fails on the banned synonyms below in the READMEs, the CHANGELOGs' `## Unreleased` section, the changelog
+// fragments (`packages/<pkg>/changes/*.md`, whole files: they are Unreleased entries until a release joins them), and the source
 // of the site, the lab and the packages (page copy, labels, doc comments). Released changelog entries are history and
 // are never read; tests, stylesheets and generated files aren't copy. Each allowed hit is a rule in ALLOWED with why.
 import { execFileSync } from "node:child_process";
@@ -78,6 +79,7 @@ export function isCopy(file) {
   if (/(^|\/)(dist|node_modules|test|tests|__tests__|legacy)\//.test(file)) return false;
   if (/\.(test|spec)\.[mc]?[jt]s$/.test(file)) return false;
   if (/^docs\/.+\.md$/.test(file)) return true;
+  if (/^packages\/[^/]+\/changes\/[^/]+\.md$/.test(file)) return true;
   if (/(^|\/)(README|CHANGELOG)\.md$/.test(file)) return /^(packages\/[^/]+|apps\/web)\//.test(file) || file === "README.md";
   return /^(apps\/[^/]+\/src|packages\/[^/]+\/src)\/.+\.(astro|html|md|mdx|ts|tsx|mjs|js)$/.test(file) || /^packages\/[^/]+\/index\.ts$/.test(file);
 }
