@@ -5,6 +5,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 ## 26.11.52
 
+- `./drag`, **`guideRects` shortens a thin guide that a clear rect meets only at its end** (fix). A line or a striped
+  strip met by a rect at one end of its length only (a toolbar over the last 10 px of a column's line) was thinned
+  across its thickness by that rect and so dropped whole. It is now shortened along its length, as a box is trimmed at
+  one end: it loses the overlap and the clearance, and keeps `minLength` or is left out. A rect across its middle (or
+  over all its length) thins it as before.
 - `./drag`, **`guideRects` widens thin lines** (behavior change). A `line` guide thinner than the new option
   `lineThickness` (default 2 px) is widened to it, centered on its own position, before the inset, the clear rects and
   `minThickness` apply; a line at least that thick is unchanged. Hosts that passed zero-thick lines (placement gives

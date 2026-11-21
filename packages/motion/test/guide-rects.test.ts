@@ -568,13 +568,14 @@ describe("guideRects", () => {
     expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush] })[0]!.rect).toEqual(rect(2, 10, 98, 30));
     expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush.rect] })[0]!.rect).toEqual(rect(2, 10, 96, 30));
     // Both kinds in one call: the thin edge runs flush against the content (5 px), but keeps its 2 px from the held
-    // item's outline further along (here the outline sits over the strip's lower half, so the strip is thinned beside it).
+    // item's outline further along (here the outline sits over the second strip's start, so that strip is shortened to
+    // begin 2 px past it, and thinned beside the content).
     const content = { rect: rect(8, 40, 230, 500), clearance: 0 };
     const held = rect(0, 300, 20, 100);
     const [edge, line] = guideRects([{ kind: "hatch", rect: rect(0, 40, 8, 250) }, { kind: "hatch", rect: rect(0, 310, 8, 200) }], { inside, inset: 2, clear: [content, held] });
     expect(edge!.rect).toEqual(rect(3, 40, 5, 250));
-    // Over the held item's outline the strip has no room: it stays dropped, as a plain rect (2 px) says.
-    expect(line).toBeUndefined();
+    // The held item's outline (grown by a plain rect's 2 px) lies over the strip's start, so the strip begins past it.
+    expect(line!.rect).toEqual(rect(3, 402, 5, 108));
     // The options' clearance is the plain rect's; a rect's own clearance wins over it.
     expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush], clearance: 5 })[0]!.rect).toEqual(rect(2, 10, 98, 30));
     expect(guideRects([{ kind: "box", rect: rect(0, 10, 100, 30) }], { inside: area, clear: [flush.rect], clearance: 5 })[0]!.rect).toEqual(rect(2, 10, 93, 30));
