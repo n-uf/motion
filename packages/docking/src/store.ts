@@ -41,7 +41,7 @@
  */
 import { rect, type Size } from "@n-uf/placement";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
-import { axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, isSince } from "./helpers";
+import { axisOf, columnFromTemplate, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
 import { FLOAT_ANCHORS, RAIL_MODES, SIDES, type DockEdge, type FloatAnchor, type FloatAnchorAt, type Orient, type RailMode, type DockState, type DockFloat, type DockItem, type Side } from "./model";
 
@@ -79,10 +79,9 @@ export interface StoredDockStateItem {
   /** `DockItem.floatSizes`: its float size per orient. */
   readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
   /**
-   * The old single float size, read as `floatSizes` for the orient its float is in; `storeDockState` writes it only for an
-   * item still carrying one.
-   *
-   * @deprecated Use `floatSizes`.
+   * The old single float size, from a state stored before sizes were kept per orient: `readDockState` reads it as
+   * `floatSizes` for the orient its float is in (the item's own where it floats nowhere). `storeDockState` never writes
+   * it.
    */
   readonly floatSize?: Size;
 }
@@ -166,7 +165,6 @@ export function storeDockState(state: DockState): StoredDockState {
       ...(it.closed ? { closed: true as const } : {}),
       ...(it.align === "center" || it.align === "end" ? { align: it.align } : {}),
       ...(isNum(it.space) && it.space > 0 ? { space: it.space } : {}),
-      ...(it.floatSize && isSize(it.floatSize.width) && isSize(it.floatSize.height) ? { floatSize: { width: it.floatSize.width, height: it.floatSize.height } } : {}),
       ...(sizes ? { floatSizes: sizes } : {}),
     };
   }
@@ -227,8 +225,8 @@ function read(data: unknown, base: DockState): DockStateRead {
 
   // The items' states.
   const items: Record<string, DockItem> = { ...base.items };
-  // The items whose store has the old single `floatSize`.
-  const legacy = new Set<string>();
+  // The items whose store has the old single `floatSize`, with it.
+  const legacy = new Map<string, Size>();
   if (data.items !== undefined && !isObject(data.items)) drop("items");
   else if (isObject(data.items)) {
     for (const id of Object.keys(data.items)) {
@@ -238,7 +236,7 @@ function read(data: unknown, base: DockState): DockStateRead {
         continue;
       }
       const b = base.items[id]!;
-      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSize: _s, floatSizes: _ss, ...plain } = b;
+      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSizes: _ss, ...plain } = b;
       let it: DockItem = { ...plain, used: b.used };
       for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "floatSize", "floatSizes"].includes(k)) drop(`item:${id}:${k}`);
       if (isNum(s.used)) it = { ...it, used: s.used };
@@ -258,12 +256,10 @@ function read(data: unknown, base: DockState): DockStateRead {
       if (isNum(s.space) && s.space > 0 && !b.fixed) it = { ...it, space: s.space };
       else if (s.space !== undefined) drop(`item:${id}:space`);
       const fs = s.floatSize;
-      // The old single size is kept as it is for now and moved into `floatSizes` once the floats are read (below): it
-      // belongs to the orient its float is in.
-      if (isObject(fs) && isSize(fs.width) && isSize(fs.height)) {
-        it = { ...it, floatSize: { width: fs.width, height: fs.height } };
-        legacy.add(id);
-      } else if (fs !== undefined) drop(`item:${id}:floatSize`);
+      // The old single size moves into `floatSizes` once the floats are read (below): it belongs to the orient its float is
+      // in.
+      if (isObject(fs) && isSize(fs.width) && isSize(fs.height)) legacy.set(id, { width: fs.width, height: fs.height });
+      else if (fs !== undefined) drop(`item:${id}:floatSize`);
       const sizes = s.floatSizes;
       if (isObject(sizes)) {
         const own: { row?: Size; column?: Size } = {};
@@ -391,10 +387,13 @@ function read(data: unknown, base: DockState): DockStateRead {
   });
   // Base floats the store placed nowhere keep their base place.
   for (const f of base.floats) if (!placed.has(f.id)) floats.push(f);
-  // The old single `floatSize`, on an item that declares `floatSizes`, is the size for the orient its float is in (the
-  // item's own where it floats nowhere): a stored one, and a base item's the store says nothing of. An item that
-  // declares none keeps it as it is, framed as before the per-orient sizes.
-  for (const id of Object.keys(items)) if ((legacy.has(id) || items[id]!.floatSize !== undefined) && declaresFloatSizes(items[id]!)) items[id] = withFloatSizes(items[id]!, floats.find((f) => f.id === id)?.orient ?? floatOrientOf(items[id]!));
+  // A stored old single `floatSize` is the size for the orient its float is in (the item's own where it floats nowhere),
+  // unless the store gives that orient a size of its own.
+  for (const [id, size] of legacy) {
+    const it = items[id]!;
+    const orient = floats.find((f) => f.id === id)?.orient ?? floatOrientOf(it);
+    if (!it.floatSizes?.[orient]) items[id] = withFloatSizes(it, { orient, size });
+  }
   // Empty columns go; the sides' rings close up.
   let state = prune({ ...base, ...(railModes ? { railModes } : {}), items, edges: closeRings(edges, new Set(made.length > 0 || rings.size > 0 ? ["left", "right"] : [])), floats });
   for (const [id, side] of moves) state = setSide(state, id, side);

@@ -301,7 +301,7 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
     const fo: Orient = options.floatOrient ?? was?.orient ?? floatOrientOf(item);
     // Its size: the one given, else its float's where it lands in the orient it floats in, else the size for the orient it lands in.
     const wasOrient = was?.orient ?? floatOrientOf(item);
-    const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo, wasOrient));
+    const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
     targets.push({
       id: targetId({ kind: "float", item: dragged }),
       priority: 3,

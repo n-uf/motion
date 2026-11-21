@@ -48,7 +48,7 @@ function benchPanel(id: BenchId, used: number, more: Partial<DockItem> = {}): Do
       column: [form("open", 90, s.column, s.wide, { grows: true, crossMin: 100 }), form("header", 30, 30, s.wide, { crossMin: 56 }), form("rail", 26, 26, BENCH_RAIL), form("menu", 0, 0, 0)],
       row: [form("header", 110, 110, 28), form("rail", 26, 26, 26), form("menu", 0, 0, 0)],
     },
-    floatSize: { width: s.wide, height: s.column + 40 },
+    floatSizes: { column: { width: s.wide, height: s.column + 40 } },
     ...more,
   };
 }
@@ -71,7 +71,8 @@ function benchGroup(id: BenchId, used: number, more: Partial<DockItem> = {}): Do
       column: [form("row", 30, 30, 240), form("stacked", 84, 84, 84), form("icons", iconsMain("column"), iconsMain("column"), 28), form("menu", 0, 0, 0)],
       row: bar,
     },
-    floatSize: { width: row, height: 34 },
+    // The same float size along either orient: a group of the bench floats at it, as a row or upright.
+    floatSizes: { row: { width: row, height: 34 }, column: { width: row, height: 34 } },
     ...more,
   };
 }

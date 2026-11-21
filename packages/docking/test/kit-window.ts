@@ -25,7 +25,7 @@ export function kitState(k: KitShape, o: { W?: number; H?: number; left?: string
     { kind: "rail", main: { min: 36, natural: 36 }, cross: { natural: k.rail } },
   ];
   const items: Record<string, DockItem> = {};
-  ids.forEach((id, i) => (items[id] = { id, kind: "panel", used: i + 1, forms: { column: forms }, floatSize: { width: k.card.natural, height: 440 }, floatMin: { width: k.card.min, height: 160 } }));
+  ids.forEach((id, i) => (items[id] = { id, kind: "panel", used: i + 1, forms: { column: forms }, floatSizes: { column: { width: k.card.natural, height: 440 } }, floatMin: { width: k.card.min, height: 160 } }));
   const template = { accepts: ["panel"], cross: { min: k.card.min, max: k.card.max, rail: k.rail }, gap: k.gap };
   const edges: DockEdge[] = [];
   if (o.anchor) {

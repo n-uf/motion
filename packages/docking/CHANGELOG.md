@@ -33,7 +33,13 @@ The model's types:
 - `Scene` → `DockState`; `Edge` → `DockEdge`; `SceneItem` → `DockItem`; `SceneFloat` → `DockFloat`.
 - `SceneChrome` → `KeepClear`, and the dock state's field `chrome` → `keepClear` (same rects, same `for` scope).
 - The fields 26.11.52 added keep their names on the renamed types: `DockItem.pushable`, `DockItem.floatSizes`,
-  `DockItemLayout.axis`. `DockItem.floatSize` stays deprecated, read as before.
+  `DockItemLayout.axis`.
+- Removed: **`SceneItem.floatSize`**, deprecated in 26.11.52. `floatSize` → `floatSizes[orient]`: declare the size for
+  the orient the item floats in (both orients where it floats either way). A state stored with it still reads:
+  `readDockState` takes a stored `floatSize` as `floatSizes` for the orient its float is in (the item's own where it
+  floats nowhere), unless the store sizes that orient itself, and `storeDockState` writes `floatSizes` only. An item
+  that declares no `floatSizes` is framed at its stored rect, as before. `floatSizeOf(item, orient?)` and
+  `floatSizesOf(item)` lose the orient the old size was set in.
 - `SceneLayout` → `DockLayout`; `SceneItemLayout` → `DockItemLayout`; `SceneEdgeLayout` → `DockEdgeLayout`;
   `SceneRailLayout` → `DockRailLayout`; `SceneNote` → `DockNote`; `SceneNoteCode` → `DockNoteCode`.
 - `StoredScene` → `StoredDockState`; `StoredSceneEdge` → `StoredDockStateEdge`; `StoredSceneFloat` →

@@ -334,7 +334,7 @@ export function floatAt(state: DockState, id: string, at?: Rect, orient?: Orient
   const was = state.floats.find((f) => f.id === id);
   const o: Orient | undefined = orient ?? was?.orient;
   const fo = o ?? floatOrientOf(item);
-  const size = floatSizeOf(item, fo, was?.orient ?? floatOrientOf(item));
+  const size = floatSizeOf(item, fo);
   // A float moved keeps its `since`; one newly floated comes after every float there.
   const since = was ? was.since : nextSince(state);
   const seq = since !== undefined ? { since } : {};
@@ -344,22 +344,18 @@ export function floatAt(state: DockState, id: string, at?: Rect, orient?: Orient
   // A float keeps no bar space (`DockItem.space`). Lifted first, as it lies, so the room it held (its own space
   // included) goes back to its stretch.
   const { space: _space, ...unspaced } = item;
-  // A rect sets the size for the orient it floats in (`floatSizes`), a legacy `floatSize` moving in for the orient it
-  // was set in (the float's as it was). With no rect, an item that declares `floatSizes` takes its legacy size in the
-  // same way; one that declares none keeps it as it is, framed as before the per-orient sizes.
+  // A rect sets the size for the orient it floats in (`floatSizes`). With no rect, an item that declares none keeps
+  // declaring none, framed at its stored rect.
   const set = at && at.width > 0 && at.height > 0 ? { orient: fo, size: { width: at.width, height: at.height } } : undefined;
-  const next = set || declaresFloatSizes(item) ? withFloatSizes(unspaced, was?.orient ?? floatOrientOf(item), set) : unspaced;
+  const next = set || declaresFloatSizes(item) ? withFloatSizes(unspaced, set) : unspaced;
   const lifted = withItem(liftItem(state, id), next);
   return { ...lifted, floats: [...lifted.floats, float] };
 }
 
-/**
- * `item` with its legacy `floatSize` moved into `floatSizes` (for `floatOrient`, the orient it was set in), and `set`'s
- * size kept for its orient when given. Nothing writes `floatSize` any more.
- */
-export function withFloatSizes(item: DockItem, floatOrient: Orient, set?: { readonly orient: Orient; readonly size: Size }): DockItem {
-  const { floatSize: _legacy, floatSizes: _sizes, ...rest } = item;
-  const sizes = { ...floatSizesOf(item, floatOrient), ...(set ? { [set.orient]: set.size } : {}) };
+/** `item` with its usable `floatSizes`, and `set`'s size kept for its orient when given. */
+export function withFloatSizes(item: DockItem, set?: { readonly orient: Orient; readonly size: Size }): DockItem {
+  const { floatSizes: _sizes, ...rest } = item;
+  const sizes = { ...floatSizesOf(item), ...(set ? { [set.orient]: set.size } : {}) };
   return sizes.row || sizes.column ? { ...rest, floatSizes: sizes } : rest;
 }
 
@@ -444,9 +440,9 @@ export function orientFloat(state: DockState, id: string, to: Orient): DockState
   // The orient it leaves keeps the size it is drawn at where the user sizes it (a form that grows), so turning back
   // restores that rect; a toolbar group's size is its form's, known without being kept.
   const grows = formsOf(item, from)[0]?.main.grows === true;
-  const kept = withFloatSizes(item, from, grows && f.rect.width > 0 && f.rect.height > 0 ? { orient: from, size: { width: f.rect.width, height: f.rect.height } } : undefined);
+  const kept = withFloatSizes(item, grows && f.rect.width > 0 && f.rect.height > 0 ? { orient: from, size: { width: f.rect.width, height: f.rect.height } } : undefined);
   // The frame takes the size the new orient draws at, where its anchor (if any) already puts it: its place is kept.
-  const size = drawnFloatSize(kept, { rect: { ...f.rect, ...floatSizeOf(kept, to, from) }, orient: to });
+  const size = drawnFloatSize(kept, { rect: { ...f.rect, ...floatSizeOf(kept, to) }, orient: to });
   const turned: DockFloat = { ...f, rect: { x: f.rect.x, y: f.rect.y, width: size.width, height: size.height }, orient: to };
   return withItem({ ...state, floats: state.floats.map((g, k) => (k === i ? turned : g)) }, kept);
 }
@@ -465,7 +461,7 @@ export function resizeFloat(state: DockState, floatId: string, rect: Rect, movin
   const { anchor: _a, ...plain } = state.floats[i]!;
   const float: DockFloat = { ...plain, rect: fit.rect };
   const fo = float.orient ?? floatOrientOf(item);
-  return withItem({ ...state, floats: state.floats.map((g, k) => (k === i ? float : g)) }, withFloatSizes(item, fo, { orient: fo, size: { width: fit.rect.width, height: fit.rect.height } }));
+  return withItem({ ...state, floats: state.floats.map((g, k) => (k === i ? float : g)) }, withFloatSizes(item, { orient: fo, size: { width: fit.rect.width, height: fit.rect.height } }));
 }
 
 /** The user's size across an edge; a size that isn't finite clears it. */

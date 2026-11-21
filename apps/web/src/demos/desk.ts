@@ -94,7 +94,7 @@ function panel(id: string, used: number, last: boolean): DockItem {
         { kind: "header", main: { min: 160, natural: 160, grows: true }, cross: { natural: TITLE }, setsCross: true },
       ],
     },
-    floatSize: { width: 200, height: 150 },
+    floatSizes: { column: { width: 200, height: 150 }, row: { width: 200, height: 150 } },
     floatMin: { width: 160, height: 120 },
   };
 }
