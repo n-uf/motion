@@ -420,10 +420,22 @@ export function marksIn(base: Base, state: DockState, dragged: string, layout: D
     return again ? [{ lane: again, over: laneRectOver(raws!, layout, base.marking).rect }] : [];
   });
   const over = built.map(({ lane, over: r }) => ({ ...lane, rect: r }));
-  return built.map(({ lane, over: r }) => {
-    const settled = settle(lane, layout, state, dragged, over, emptyLanes, r);
-    return { lane: settled.id, axis: settled.axis, marks: settled.marks };
+  const settled = built.map(({ lane, over: r }) => {
+    const s = settle(lane, layout, state, dragged, over, emptyLanes, r);
+    return { lane: s.id, axis: s.axis, marks: s.marks };
   });
+  return newColumnsGiveWay(settled, (s) => s.lane, state);
+}
+
+/**
+ * A lane of no edge (a new column beside one) marks its landing in its own layout, the layout that creates it: it gives
+ * way to the marks of the lanes the layout lays out, so every lane's marks share that one layout's room.
+ */
+function newColumnsGiveWay<L extends { readonly axis: Axis; readonly marks: readonly DockMark[] }>(ls: readonly L[], idOf: (l: L) => string, state: DockState): L[] {
+  const hasEdge = (id: string): boolean => state.edges.some((e) => e.id === id);
+  // (Not the lines: a joint between two panels lies across the room the new column takes as its column moves aside.)
+  const laid = ls.filter((l) => hasEdge(idOf(l))).flatMap((l) => l.marks.filter((m) => m.kind !== "line").map((m) => m.rect));
+  return ls.map((l) => (hasEdge(idOf(l)) ? l : { ...l, marks: marksLess(l.marks, l.axis, laid) }));
 }
 
 /** The lane `id`'s spots with their stretches cut in `layout` (a panel column by halves of what `layout` draws), or null. Internal. */
@@ -513,7 +525,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is DockLane => !!l);
   // Each lane's marks as seen: the window as seen is one layout (`marksIn`'s rule over it), the held item drawn nowhere.
   // `dockDrag`'s rest reads these.
-  const laneList = built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes));
+  const laneList = newColumnsGiveWay(built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes)), (l) => l.id, state);
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -560,9 +572,23 @@ function laneRectOver(list: readonly Raw[], over: DockLayout, marking: Marking):
   const edgeLayout = first.edge ? over.edges[first.edge] : undefined;
   const band = list.map((r) => r.landing).reduce(hull);
   if (!edgeLayout) return { rect: list.every((r) => r.strip) ? list.map((r) => r.hit).reduce(hull) : list.map((r) => r.hit).reduce(hull, band) };
-  const drawnHere = edgeLayout.cross > EPS;
-  const whole = drawnHere ? edgeLayout.rect : axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
-  return drawnHere ? { rect: whole } : { rect: clipAtDrawn(whole, axis, marking.crossing(first.edge!, over)), band: whole };
+  const drawnAt = drawnRect(over, first.edge!);
+  if (drawnAt) return { rect: drawnAt };
+  const whole = axis === "x" ? rect(edgeLayout.rect.x, band.y, edgeLayout.rect.width, band.height) : rect(band.x, edgeLayout.rect.y, band.width, edgeLayout.rect.height);
+  return { rect: clipAtDrawn(whole, axis, marking.crossing(first.edge!, over)), band: whole };
+}
+
+/** Whether `layout` draws the edge `id`: open (wider than nothing across), or a column folded into its side's rail. Internal. */
+export function drawnIn(layout: DockLayout, id: string): boolean {
+  return drawnRect(layout, id) !== undefined;
+}
+
+/** Where `layout` draws the edge `id`: its rect when open, its side's rail when folded into it, else undefined. Internal. */
+export function drawnRect(layout: DockLayout, id: string): Rect | undefined {
+  const e = layout.edges[id];
+  if (!e) return undefined;
+  if (e.cross > EPS) return e.rect;
+  return e.folded ? Object.values(layout.rails).find((r) => r?.segments.some((g) => g.edge === id))?.rect : undefined;
 }
 
 /**
@@ -666,8 +692,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // rect's only. A column `drawn` folds into its side's rail (zero wide, its items the rail's segments) lays them along
   // that rail: the band it is drawn in there, not the open column's.
   const drawnEdge = first.edge ? drawn.edges[first.edge] : undefined;
-  const railBand = drawnEdge?.folded ? Object.values(drawn.rails).find((r) => r?.segments.some((g) => g.edge === first.edge))?.rect : undefined;
-  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (railBand ?? laneRectOver(list, drawn, marking).band ?? markBand ?? laneRect);
+  const markRect = (first.edge ? drawnRect(drawn, first.edge) : undefined) ?? laneRectOver(list, drawn, marking).band ?? markBand ?? laneRect;
   // The items as drawn, a growing one (a title filling the bar) at its natural length: what it draws past that is free
   // stretch, as pitched spots take it (the head of a title bar).
   // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
@@ -866,13 +891,13 @@ function inLane(l: DockLane, r: Rect): DockLane {
 function settle(lane: DockLane, drawn: DockLayout, state: DockState, dragged: string, all: readonly DockLane[], emptyLanes: "real" | "edge" = "real", within: Rect = lane.rect): DockLane {
   const l = inLane(lane, within);
   const edgeOf = (id: string) => state.edges.find((e) => e.id === id);
-  const isDrawn = (id: string): boolean => !!edgeOf(id) && (drawn.edges[id]?.cross ?? 0) > EPS;
+  const isDrawn = (id: string): boolean => !!edgeOf(id) && drawnIn(drawn, id);
   const across = (side: string | undefined): Axis => (side === "top" || side === "bottom" ? "x" : "y");
   const cuts: Rect[] = [];
   if (!isDrawn(l.id)) {
     for (const e of state.edges) {
-      const de = drawn.edges[e.id];
-      if (e.id !== l.id && de && de.cross > EPS && across(e.side) !== l.axis) cuts.push(de.rect);
+      const de = e.id !== l.id && across(e.side) !== l.axis ? drawnRect(drawn, e.id) : undefined;
+      if (de) cuts.push(de);
     }
     if (l.axis === "y") for (const o of all) if (o.id !== l.id && o.axis === "x" && !isDrawn(o.id)) cuts.push(o.rect);
   }

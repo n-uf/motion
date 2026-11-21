@@ -22,7 +22,7 @@
  */
 import { EPS, type Point, type Rect } from "@n-uf/placement";
 import type { DockState } from "./model";
-import { baseOf, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
+import { baseOf, drawnIn, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
 import type { DockDrop, DropResult } from "./targets/model";
 
 /** A state of a drag: where a release now lands. `null` is rest (it lands nowhere). */
@@ -153,8 +153,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     // (`emptyLanes: "edge"` draws an empty lane as its thin strip on screen: nothing to create.)
     const raw = l && options.emptyLanes !== "edge" && l.spots.length === 1 && state.edges.some((e) => e.id === lane) ? rawSpot(base, l.spots[0]!.id) : null;
     // (Drawn there open, or folded into its side's rail.)
-    const there = raw?.layout.edges[lane];
-    const out = raw && there && (there.cross > EPS || !!there.folded) ? flat(marksIn(base, state, dragged, raw.layout, false, options.emptyLanes)).filter((m) => m.lane === lane) : null;
+    const out = raw && drawnIn(raw.layout, lane) ? flat(marksIn(base, state, dragged, raw.layout, false, options.emptyLanes)).filter((m) => m.lane === lane) : null;
     createdMemo.set(lane, out && out.length > 0 ? out : null);
     return createdMemo.get(lane)!;
   };
@@ -172,10 +171,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     let near: { lane: string; marks: DockLaneMark[] } | null = null;
     const shown: { lane: string; marks: DockLaneMark[]; created?: true }[] = [];
     // Drawn on screen: open, or a column folded into its side's rail (its items the rail's segments).
-    const drawnThere = (id: string): boolean => {
-      const e = screen.layout.edges[id];
-      return !!e && (e.cross > EPS || !!e.folded);
-    };
+    const drawnThere = (id: string): boolean => drawnIn(screen.layout, id);
     for (const g of frame.guides) {
       const mine = after(g.state);
       if (mine === screen) {
