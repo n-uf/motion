@@ -33,8 +33,8 @@ export interface AnchoredMorph {
   to(size: BoxSize, anchor: Point): boolean;
   /** Be at `size` with `anchor` now, at rest. */
   jumpTo(size: BoxSize, anchor: Point): void;
-  /** Advance by `dtMs` milliseconds; true while still moving. */
-  step(dtMs: number): boolean;
+  /** Advance by `dt` ms; true while still moving. */
+  step(dt: number): boolean;
   /** The box now with its anchor on `point`. */
   rectAt(point: Point): Rect;
 }

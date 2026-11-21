@@ -92,8 +92,8 @@ Springs and tweens over numbers, points, rects and vectors, stepped by the clock
 | `motionValue(loop, animator, { phase?, reducedMotion? })` | Steps an animator on the loop while it moves. `subscribe(fn)` tells each change of the value (no signals needed); reading `.value` in a computed or effect also tracks it. |
 | `springValue(loop, initial, options)` / `tweenValue(...)` | The two together. |
 | `mv.set(target, { velocity? })`, `jump(value)`, `snap()`, `follow(() => target)`, `subscribe(fn)`, `onSettle(fn)`, `dispose()`, `moving`, `velocity`, `target` | `subscribe` is called after each change of the value (each moving frame, and a `set`, `snap` or `jump` that moves it), never at once and never for an equal write; it returns an unsubscribe. |
-| `Animator` | `value`, `velocity`, `target`, `settled`, `setTarget`, `setVelocity` (required; a tween ignores the velocity), `jumpTo`, `snap`, `step(dtMs)`. |
-| `springStep(state, target, params, dtMs)` | One pure scalar step, for hosts that step by hand. |
+| `Animator` | `value`, `velocity`, `target`, `settled`, `setTarget`, `setVelocity` (required; a tween ignores the velocity), `jumpTo`, `snap`, `step(dt)` (`dt` in ms). |
+| `springStep(state, target, params, dt)` (`dt` in ms) | One pure scalar step, for hosts that step by hand. |
 | `linear`, `ease`, `easeIn`, `easeOut`, `easeInOut`, `easeOutCubic`, `easeInOutCubic`, `cubicBezier(x1, y1, x2, y2)` | Easing functions (functions, not CSS strings). |
 
 Values are plain: a number, `{ x, y }`, `{ x, y, width, height }` or an array
@@ -159,7 +159,7 @@ A recognizer that turns pointer, wheel and trackpad events (plain objects) into 
 | `DOUBLE_CLICK` | `{ ms: 500, px: 5 }`: the package's one double click (the recognizer's `clickCount`, a grip's double-activate). |
 | `GesturePointer` | The pointer every gesture reports (`screen`, `canvas`, `kind`, `buttons`, `modifiers`, `pointerId`, `button`). |
 | `RECOGNIZER_DEFAULTS` | Click-or-drag thresholds 4 / 6 / 8 px (mouse / pen / touch), long press after 500 ms for touch and pen, double click within 500 ms and 5 px (`DOUBLE_CLICK`, the package's one double click), pinch at 5 % scale or 10 px pan (read once both fingers have moved as often as each other, or one is three moves ahead, or one lifts). |
-| `wheelDeltaPx`, `classifyWheel`, `dampWheelPan`, `WHEEL_DEFAULTS`, `WHEEL_PAN_DEFAULTS` | Wheel normalization: lines and pages to px, Cmd/Ctrl+wheel (and the ctrl+wheel trackpad pinch) zooms by 2^(−dy / 300), Shift turns a vertical wheel horizontal, and a damped pan per event. |
+| `wheelDelta`, `classifyWheel`, `dampWheelPan`, `WHEEL_DEFAULTS`, `WHEEL_PAN_DEFAULTS` | Wheel normalization: lines and pages to px, Cmd/Ctrl+wheel (and the ctrl+wheel trackpad pinch) zooms by 2^(−dy / 300), Shift turns a vertical wheel horizontal, and a damped pan per event. |
 | `ModifierKey`, `toModifiers`, `resolveDragModifier`, `defaultDragModifier`, `isHeld`, `modHeld`, `platformButton` | Modifier keys in one shape; `ModifierKey` is `"shift"`, `"alt"`, `"ctrl"`, `"meta"` or `"mod"` (⌘ or Ctrl, either one); `isHeld(keys, key)` reads any partial set of keys; the drag modifier per platform (Cmd on macOS, Alt elsewhere); on macOS a Ctrl+click is the secondary button. |
 | `dwellReducer`, `DWELL_IDLE`, `dwellDeadline`, `createDwellMachine` | `idle → dwelling → fired`, for spring-loaded targets: hold over the same key for `dwell` (500 ms) and it fires once. |
 | `createMachine({ reducer, initial, clock, deadline? })` | Runs a pure reducer on a clock: arms the timer the state's deadline asks for and sends its input when it fires. `state` is reactive. |
