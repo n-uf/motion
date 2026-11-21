@@ -663,9 +663,11 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // Marks lie in the layout as drawn, so on the edge as drawn there: a held spot's room can move the whole edge (a bar
   // it leaves empty lets a rail start higher), and its items with it.
   // An edge `drawn` doesn't draw lays its marks along its band in `drawn` too (one layout); the band as seen is the hit
-  // rect's only.
+  // rect's only. A column `drawn` folds into its side's rail (zero wide, its items the rail's segments) lays them along
+  // that rail: the band it is drawn in there, not the open column's.
   const drawnEdge = first.edge ? drawn.edges[first.edge] : undefined;
-  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (laneRectOver(list, drawn, marking).band ?? markBand ?? laneRect);
+  const railBand = drawnEdge?.folded ? Object.values(drawn.rails).find((r) => r?.segments.some((g) => g.edge === first.edge))?.rect : undefined;
+  const markRect = drawnEdge && drawnEdge.cross > EPS ? drawnEdge.rect : (railBand ?? laneRectOver(list, drawn, marking).band ?? markBand ?? laneRect);
   // The items as drawn, a growing one (a title filling the bar) at its natural length: what it draws past that is free
   // stretch, as pitched spots take it (the head of a title bar).
   // (Bars and toolbar rails only: a panel filling its column is drawn there.) Off the held lane the lifted item is
@@ -686,7 +688,8 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
     const n = halves ? undefined : marking.natural(iid, axis);
     return [lo(r, axis), lo(r, axis) + (n !== undefined && n < len(r, axis) ? n : len(r, axis))];
   };
-  const marks = first.edge
+  // (An edge `drawn` has no trace of, a dynamic column it deletes, marks nothing there: the layout that creates it does.)
+  const marks = first.edge && !drawnEdge ? [] : first.edge
     ? edgeMarks(id, markRect, axis, marked, refused, itemLen, (pair) => places.has(pair) || pair.split("|").includes(dragged), dragged, {
         besideMin: besideFloor ?? (halves || marking.pitch <= 0 ? itemLen : marking.pitch),
         gap: marking.gap(first.edge),

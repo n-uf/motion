@@ -58,10 +58,13 @@ describe("after(held): the state a release commits and its one layout", () => {
     for (const { w, d } of all)
       for (const { held } of [...states(d), { held: null }]) {
         const a = d.after(held);
+        // (A lane of no edge, a new column beside one, marks its landing in its own layout, the layout that creates it:
+        // `guides` has it give way, as the sweep's overlap clause checks.)
+        const edgeless = (lane: string): boolean => !w.state.edges.some((e) => e.id === lane);
         for (let i = 0; i < a.marks.length; i++)
           for (let j = i + 1; j < a.marks.length; j++) {
             const [m, k] = [a.marks[i]!, a.marks[j]!];
-            if (m.lane !== k.lane && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
+            if (m.lane !== k.lane && !edgeless(m.lane) && !edgeless(k.lane) && overlap(m.rect, k.rect)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over ${k.id}`);
           }
         if (a.landing) for (const m of a.marks) if (m.kind !== "line" && overlap(m.rect, a.landing)) expect.fail(`${w.name} ${held?.kind === "spot" ? held.spot : "rest"}: ${m.id} over the landing`);
       }
@@ -110,7 +113,9 @@ describe("guides(frame): each lane from the state it names", () => {
       for (const { lane, held } of states(d)) {
         const mine = d.after(held);
         const g = d.guides({ state: null, guides: [{ lane, state: held }] });
-        if ((rest.layout.edges[lane]?.cross ?? 0) > 1e-6) {
+        // (Drawn: open, or a column folded into its side's rail.)
+        const e = rest.layout.edges[lane];
+        if (e && (e.cross > 1e-6 || !!e.folded)) {
           drawn++;
           for (const m of g) {
             expect(rest.marks.some((r) => r.lane === lane && r.kind === m.kind && m.rect.x >= r.rect.x - 1e-9 && m.rect.x + m.rect.width <= r.rect.x + r.rect.width + 1e-9 && m.rect.y >= r.rect.y - 1e-9 && m.rect.y + m.rect.height <= r.rect.y + r.rect.height + 1e-9)).toBe(true);

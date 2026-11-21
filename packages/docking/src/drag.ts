@@ -152,7 +152,9 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     const l = base.lanes.find((x) => x.id === lane);
     // (`emptyLanes: "edge"` draws an empty lane as its thin strip on screen: nothing to create.)
     const raw = l && options.emptyLanes !== "edge" && l.spots.length === 1 && state.edges.some((e) => e.id === lane) ? rawSpot(base, l.spots[0]!.id) : null;
-    const out = raw && (raw.layout.edges[lane]?.cross ?? 0) > EPS ? flat(marksIn(base, state, dragged, raw.layout, false, options.emptyLanes)).filter((m) => m.lane === lane) : null;
+    // (Drawn there open, or folded into its side's rail.)
+    const there = raw?.layout.edges[lane];
+    const out = raw && there && (there.cross > EPS || !!there.folded) ? flat(marksIn(base, state, dragged, raw.layout, false, options.emptyLanes)).filter((m) => m.lane === lane) : null;
     createdMemo.set(lane, out && out.length > 0 ? out : null);
     return createdMemo.get(lane)!;
   };
@@ -169,18 +171,27 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     // The Near lane: the one shown with another state than the screen's (a would-land state), at most one.
     let near: { lane: string; marks: DockLaneMark[] } | null = null;
     const shown: { lane: string; marks: DockLaneMark[]; created?: true }[] = [];
+    // Drawn on screen: open, or a column folded into its side's rail (its items the rail's segments).
+    const drawnThere = (id: string): boolean => {
+      const e = screen.layout.edges[id];
+      return !!e && (e.cross > EPS || !!e.folded);
+    };
     for (const g of frame.guides) {
       const mine = after(g.state);
       if (mine === screen) {
         // Rule B: a lane the screen doesn't draw (an empty edge with no band there) is drawn in the layout that creates
-        // it, its one spot's; every other lane in the screen's layout.
-        const made = (screen.layout.edges[g.lane]?.cross ?? 1) <= EPS ? created(g.lane) : null;
-        shown.push(made ? { lane: g.lane, marks: made, created: true } : { lane: g.lane, marks: screen.marks.filter((m) => m.lane === g.lane) });
+        // it, its one spot's; every other lane in the screen's layout. A lane of no edge (a new column beside one) marks its
+        // spots' landings, each in its own layout: it too is drawn as the layout that creates it, and gives way like one.
+        // (A dynamic column the screen deletes, emptied by the lift, has no edge there: not drawn either.)
+        const own = screen.marks.filter((m) => m.lane === g.lane);
+        const edgeless = !state.edges.some((e) => e.id === g.lane);
+        const made = edgeless ? own : !drawnThere(g.lane) ? created(g.lane) : null;
+        shown.push(made ? { lane: g.lane, marks: made, created: true } : { lane: g.lane, marks: own });
         continue;
       }
       // Rule B: a lane drawn on screen is drawn there, less the landing the pointer would take in it; a lane the screen
       // doesn't draw is drawn in the layout that creates it.
-      const onScreen = (screen.layout.edges[g.lane]?.cross ?? 0) > EPS;
+      const onScreen = drawnThere(g.lane);
       const axis = axisOf.get(g.lane) ?? "x";
       // (A box part the landing leaves `MIN_PIECE` px or shorter is no room; a line goes only where the landing covers it.)
       const own = screen.marks.filter((m) => m.lane === g.lane);
