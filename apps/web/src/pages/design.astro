@@ -105,7 +105,7 @@ const shadows = pick(/^shadow/);
           <tbody>{contrastRows[0]!.cells.map((c, i) => <tr><th scope="row">{c.mode} · {c.g === "bg" ? "page" : c.g === "bg-sunken" ? "sunken" : "card"}</th>{contrastRows.map((r) => <td class={r.cells[i]!.v >= 4.5 ? "ok" : "bad"}>{r.cells[i]!.v.toFixed(1)}</td>)}</tr>)}</tbody>
         </table>
       </div>
-      <div class="rule"><h3>Figure caption</h3><p>A mono caption, with a <code>--part</code> tick, above each figure's first note (<code>.fig-plan</code>): <em>SCOPE · MOTION CARRIES THE PANEL</em> on a Move page, <em>PLAN · PLACEMENT RETURNS RECTS</em> on a Place page. CSS content only.</p></div>
+      <div class="rule"><h3>Figure caption</h3><p>A mono caption, with a <code>--part</code> tick, above each figure's first note (<code>.fig-plan</code>): <em>SCOPE · MOTION CARRIES THE PANEL</em> on a Move page, <em>PLAN · DOCKING RETURNS RECTS</em> on a Dock page. CSS content only.</p></div>
       <div class="rule"><h3>Leader-line notes</h3><p>Small mono chips with a dashed elbow to what the package is doing now (<code>styles/notes.css</code>). Decoration: aria-hidden, driven by classes the islands already set, anchored with CSS where a part moves, and a plain key under the figure on a phone. Placement's notes never say it draws or moves anything.</p></div>
       <div class="rule"><h3>Text contrast</h3><p>Every text token meets WCAG AA (4.5:1) on <code>--bg</code>: <code>--text-3</code> is 5.06 in light and 5.53 in dark; <code>--signal-text</code> is the orange for text, <code>--signal-ink</code> the ink on an orange fill.</p></div>
     </div>
