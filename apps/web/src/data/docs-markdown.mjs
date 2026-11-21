@@ -5,7 +5,9 @@
 //   - the first `# h1` leaves the body and becomes the page's h1 (file.data.astro.frontmatter.title); any other h1
 //     is made an h2, so a page never has two;
 //   - a GitHub alert (`> [!CAUTION]` then a heading and text) becomes a styled <aside class="docs-callout">, its
-//     heading a plain title (not a heading, so it is neither in the contents list nor has an id).
+//     heading a plain title (not a heading, so it is neither in the contents list nor has an id);
+//   - a `mermaid` fence is dropped (the repository keeps its diagram source), and a heading left with nothing under it
+//     goes too.
 // rehype (the HTML tree):
 //   - relative links and images point at the repository on GitHub (main), links to this site become site-relative;
 //   - a table is wrapped in a block that scrolls on its own, and a table whose header row is empty (`| | |`) loses it.
@@ -25,6 +27,7 @@ export function remarkDocs() {
     }
     // "Site and live demos: motion.n-uf.com" points at the site it is now shown on: dropped
     tree.children = tree.children.filter((n) => !selfLink(n));
+    dropMermaid(tree);
     const walk = (node) => {
       for (const child of node.children ?? []) {
         if (child.type === "heading" && child.depth === 1) child.depth = 2;
@@ -34,6 +37,32 @@ export function remarkDocs() {
     };
     walk(tree);
   };
+}
+
+/**
+ * A mermaid fence is the repository's diagram source; this site draws no diagrams, so it never reaches the page. A
+ * heading the fence leaves with nothing under it (the next node is another heading of the same or a higher level, or
+ * the end) goes with it; a heading with prose under it stays.
+ */
+function dropMermaid(parent) {
+  const kids = parent.children;
+  if (!kids) return;
+  const emptied = new Set();
+  const kept = [];
+  for (const n of kids) {
+    if (n.type === "code" && String(n.lang ?? "").toLowerCase() === "mermaid") {
+      const prev = kept[kept.length - 1];
+      if (prev?.type === "heading") emptied.add(prev);
+      continue;
+    }
+    kept.push(n);
+  }
+  parent.children = kept.filter((n, i) => {
+    if (!emptied.has(n)) return true;
+    const next = kept[i + 1];
+    return next !== undefined && !(next.type === "heading" && next.depth <= n.depth);
+  });
+  for (const n of parent.children) dropMermaid(n);
 }
 
 /** A paragraph that starts "Site and live demos" and whose only link is to motion.n-uf.com's root. */

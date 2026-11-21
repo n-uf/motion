@@ -51,6 +51,21 @@ test("a second h1 is made an h2: one h1 per page", async () => {
   assert.match(code, /<h2 id="b">B<\/h2>/);
 });
 
+test("a mermaid fence never reaches the page; other fences stay", async () => {
+  const { code } = await render("# A\n\n## Parts\n\n```mermaid\nflowchart LR\n  a --> b\n```\n\nProse under the diagram.\n\n```ts\nconst a = 1;\n```\n");
+  assert.doesNotMatch(code, /mermaid|flowchart/);
+  assert.match(code, /<h2 id="parts">Parts<\/h2>/, "a heading with prose under it stays");
+  assert.match(code, /Prose under the diagram\./);
+  assert.match(code, /const a = 1;/);
+});
+
+test("a heading left with nothing under it by a mermaid fence goes too", async () => {
+  const { code, metadata } = await render("# A\n\n## Diagram only\n\n```mermaid\ngraph TD\n  x --> y\n```\n\n## Next\n\nText.\n\n### Last\n\n```mermaid\ngraph TD\n  p --> q\n```\n");
+  assert.doesNotMatch(code, /mermaid|graph TD/);
+  assert.doesNotMatch(code, /Diagram only|Last/);
+  assert.deepEqual(metadata.headings.map((h) => h.slug), ["next"]);
+});
+
 test("links and tables", async () => {
   const { code } = await render("[a](./x.md) and [site](https://motion.n-uf.com/drag-intent/)\n\n| | |\n|---|---|\n| `f()` | does f |\n\n| Code | Says |\n|---|---|\n| a | b |\n");
   assert.match(code, /href="https:\/\/github.com\/n-uf\/motion\/blob\/main\/packages\/motion\/x.md"/);
