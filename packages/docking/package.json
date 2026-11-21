@@ -62,8 +62,9 @@
   "scripts": {
     "build": "tsup && node ./scripts/check-dist.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
-    "test": "vitest run",
-    "check": "pnpm typecheck && pnpm test && pnpm build",
+    "test": "DOCKING_RUN=rest vitest run",
+    "test:sweep": "DOCKING_RUN=sweep vitest run",
+    "check": "pnpm typecheck && pnpm test && pnpm test:sweep && pnpm build",
     "prepack": "pnpm --filter @n-uf/placement build && pnpm run build"
   },
   "dependencies": {
