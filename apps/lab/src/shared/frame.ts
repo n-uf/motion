@@ -1,6 +1,6 @@
 /**
  * Reading back what the page draws, for the checks: an element's scale and its frame's rect, and what is on top at a
- * point. (Drawing is @n-uf/motion/layout's.)
+ * point. (Drawing is `domDrawable`'s, from @n-uf/motion/browser; `drawBox` and `layOutBox` are its writers.)
  */
 import type { Rect } from "@n-uf/motion";
 import type { ScaleSample } from "@n-uf/motion/testing";
