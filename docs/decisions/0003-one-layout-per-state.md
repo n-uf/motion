@@ -77,6 +77,4 @@ the frame and the commit alike. Taken: the second.
 
 2026-11-21: `shown(frame)` names the drawn layout; guides are cut in it.
 
-2026-11-21 (D1, before release): the concept this decision calls a state is a held place. `LandingState` became
-`LandingHeld`, `LandingFrame.state` and the guide refs' `state` became `held` (`DockGuideFrame.held` too), `DockHeld.lane`
-(never read) was dropped, and "state" now means only the dock state. The file name keeps its first wording.
+2026-11-21: a held place is named `held`.

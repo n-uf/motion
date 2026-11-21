@@ -6,8 +6,8 @@
  * - `stateCode(state, options)`: the state's stored form as a literal (`storeDockState`, one JSON-compatible literal, every
  *   key quoted, the items by id), read back over the window's declared items (`readDockState`), solved (`solve`), the
  *   rules a drag adds to it and the options a drag's `dockDrag()` runs with;
- * - `moveCode(drop, options)`: the calls the last drag made: `dockDrag(...)`, the release's state (the lane, spot and
- *   pointer), its commit (`drag.after(release)`), or what else the release did (home, refused, cancelled); under the
+ * - `moveCode(drop, options)`: the calls the last drag made: `dockDrag(...)`, the release's held place (the lane, spot
+ *   and pointer), its commit (`drag.after(release)`), or what else the release did (home, refused, cancelled); under the
  *   published rules `targets(...)` and the target's `after(pointer, grab)`.
  */
 import { storeDockState, type DockState, type StoredDockState } from "@n-uf/docking";

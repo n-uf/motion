@@ -28,7 +28,7 @@ import type { DockLayout, DockState } from "./model";
 import { baseOf, drawnIn, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
 import type { DockDrop, DropResult } from "./targets/model";
 
-/** A held place of a drag: where a release now lands (`@n-uf/motion/drag`'s `LandingHeld` has this shape). `null` is rest (it lands nowhere). */
+/** A held place of a drag: where a release now lands (`@n-uf/motion/drag`'s `LandingHeld` fits it). `null` is rest (it lands nowhere). */
 export type DockHeld =
   | {
       readonly kind: "spot";
