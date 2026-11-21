@@ -41,6 +41,7 @@
       "types": "./index.ts",
       "default": "./index.ts"
     },
+    "./package.json": "./package.json",
     "./clock": {
       "types": "./src/clock/index.ts",
       "default": "./src/clock/index.ts"

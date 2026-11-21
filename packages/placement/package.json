@@ -30,6 +30,7 @@
       "types": "./index.ts",
       "default": "./index.ts"
     },
+    "./package.json": "./package.json",
     "./stack": {
       "types": "./src/stack/index.ts",
       "default": "./src/stack/index.ts"
