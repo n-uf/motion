@@ -167,6 +167,8 @@ describe("a tile among its own rail's tiles", () => {
     const homeRail = ts.filter((t) => t.place.kind === "home" && t.id.startsWith("rail:right:"));
     expect(homeRail).toHaveLength(1);
     const t = homeRail[0]!;
+    // It keeps the rail stop's precedence (1), though a column's gaps (2) lie beside its pieces.
+    expect(t.priority).toBe(1);
     // Home is a place: nothing changes, and the layout is the one on the screen.
     const a = t.after({ x: 0, y: 0 });
     expect(a.state).toBe(s);

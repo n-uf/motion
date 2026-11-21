@@ -184,7 +184,7 @@ export function ownColumnRun(c: Ctx, side: "left" | "right", rail: EdgeSpec): Ed
   const spec = railColumnSpec(c, edge, rect(shown.rect.x, top, shown.rect.width, Math.max(...tiles.map((r) => r.y + r.height)) - top));
   if (!spec) return null;
   const stays = ({ layout }: DropResult): boolean => layout.items[dragged]?.rail === side && layout.items[dragged]?.edge === edge.id;
-  return { ...spec, own: null, holds: false, slots: spec.slots.map((s) => (s.home ? { ...s, id: homeId } : { ...s, ok: s.ok && stays(s.result) })) };
+  return { ...spec, own: null, holds: false, homePriority: EDGE_KINDS.railStop.priority, slots: spec.slots.map((s) => (s.home ? { ...s, id: homeId } : { ...s, ok: s.ok && stays(s.result) })) };
 }
 
 /**

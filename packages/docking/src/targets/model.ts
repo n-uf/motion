@@ -225,6 +225,8 @@ export interface EdgeSpec {
    * at: tiles split at their midpoints, their leading half before them, their trailing half after them.
    */
   readonly cards: readonly Span[];
+  /** The priority of its home tiles where it is not its kind's (the held tile's column in a rail: its home is the rail stop's). */
+  readonly homePriority?: 1 | 2;
   /** The band across, `[from, to]`, as deep as the edge is seen or after `after`. */
   readonly across: (after?: DockLayout) => Span;
   /** The part of the band across it owns: its seen thickness, or an undrawn edge's thin band at its boundary. */

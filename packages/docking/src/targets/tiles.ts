@@ -241,7 +241,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         if (!hasRoom([[a, b]], bodies)) return;
         const homeTile = (id: string, u: number, w: number, line: number): Tile => {
           const hit = band(u, w, s.home ? s.result.layout : undefined);
-          return tile(z.zone, hit, { kind: "home", id, order: data.layer, priority: data.priority, keep: keepAt(Math.min(Math.max(line, u), w), hit), place: { kind: "home" } });
+          return tile(z.zone, hit, { kind: "home", id, order: data.layer, priority: spec.homePriority ?? data.priority, keep: keepAt(Math.min(Math.max(line, u), w), hit), place: { kind: "home" } });
         };
         if (s.home) {
           for (const [u, w] of [[a, b], ...stripsOf(i)] as Span[]) out.push(...split(homeTile(s.id, u, w, p)));
