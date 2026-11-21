@@ -44,8 +44,10 @@ test('"scene" left the docking model: "dock state" in its copy, an old name in b
   assert.equal(scan("- `Scene` → `DockState`.", "packages/docking/CHANGELOG.md"), null);
   assert.equal(scan("`@n-uf/placement/scene` ends.", "packages/placement/README.md"), null);
   assert.equal(scan("A dock state keeps its items.", "packages/docking/src/model.ts"), null);
-  // Outside the libraries' own copy (the site moves later), the word is not checked.
-  assert.equal(scan("The scene keeps its items.", "apps/web/src/pages/index.astro"), null);
+  // The site's source and motion's pages are checked too; a decision record (history) is not.
+  assert.match(scan("The scene keeps its items.", "apps/web/src/pages/index.astro")?.use ?? "", /dock state/);
+  assert.match(scan("The scene still declares it.", "docs/motion.md")?.use ?? "", /dock state/);
+  assert.equal(scan("The scene keeps its items.", "docs/decisions/0001-the-hand-rule.md"), null);
 });
 
 test("only a changelog's Unreleased section is read", () => {
