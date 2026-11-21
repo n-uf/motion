@@ -8,8 +8,10 @@ on:
   pull_request:
     # Draft PRs are not checked; marking one ready starts the run.
     types: [opened, synchronize, reopened, ready_for_review]
-    # A change to docs alone runs nothing: docs travel with a release, whose code changes run the checks.
-    paths-ignore: ["docs/**", "**/*.md"]
+    # A change to docs alone runs nothing: docs travel with a release, whose code changes run the checks. A changelog
+    # fragment (packages/*/changes/*.md) does run them, for `pnpm changes`. (paths-ignore takes no `!` negation, so
+    # this is `paths`: everything, minus docs, minus markdown, plus the fragments; the last matching pattern wins.)
+    paths: ["**", "!docs/**", "!**/*.md", "packages/*/changes/**"]
   workflow_dispatch:
 
 concurrency:
