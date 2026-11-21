@@ -57,7 +57,7 @@ An application window is a set of places: bars along the top and bottom, columns
 - **The host draws and measures.** The library never touches a DOM. The host measures its items, declares their forms as numbers, draws the rects it gets back, and feeds pointer samples to a drag intent.
 - **Composition with motion without a dependency.** The landing model is the docking drag, and `dockDrag` is its geometry, a plain shape it reads as it is. A drop target from `targets` has the shape `@n-uf/motion/drag` takes (`id`, `priority`, `hit`, `slot`, and a few optional fields), for the menus, keys and conformance pick that read the list of places. A rect has the same shape in all three packages. The pick rule (which target the pointer is over) and the landing model are motion's; where the conformance code needs them, the host passes them in (`createReferenceHost({ pick })`, `createLandingHost({ landing })`).
 
-Nothing under `packages/docking/src` outside `src/testing` imports `@n-uf/motion`, and `src/testing` imports only its types (for `AssertLanding` and `AssertGeometry`, erased from the JavaScript). The package's one dependency is `@n-uf/placement`; `@n-uf/motion` is an optional peer dependency (for the testing entry's types) and a development dependency, and the package's tests import it to drive the pick rule and the landing model.
+Nothing under `packages/docking/src` outside `src/testing` imports `@n-uf/motion`, and `src/testing` imports only its types (for `AssertLanding` and `AssertGeometry`, erased from the JavaScript). The package's one dependency is `@n-uf/placement`; `@n-uf/motion` is an optional peer dependency (`peerDependenciesMeta` marks it optional) and a development dependency: the package's tests import it to drive the pick rule and the landing model, and a host that does not use motion needs nothing installed.
 
 ## How the parts fit
 
@@ -91,7 +91,7 @@ flowchart LR
   after -- "after.layout = solve(after.state, { previous })" --> layout
 ```
 
-Every edge in the diagram is a pure function call. The state goes round the loop: a drop commits `after.state`, the host solves it with the layout it had as `previous`, draws the result, and may store it. The landing model reads the drag's geometry and gives back a state; `dockDrag` turns each state into its one layout. A pointer drag reads `lanes` and `dockDrag` (built from the same generation as `targets`); `targets` itself is the list of places for menus, keys and the conformance pick.
+Every step between these parts is a pure function call. The state goes round the loop: a drop commits `after.state`, the host solves it with the layout it had as `previous`, draws the result, and may store it. The landing model reads the drag's geometry and gives back a state; `dockDrag` turns each state into its one layout. A pointer drag reads `lanes` and `dockDrag` (built from the same generation as `targets`); `targets` itself is the list of places for menus, keys and the conformance pick.
 
 The code is layered the same way:
 
