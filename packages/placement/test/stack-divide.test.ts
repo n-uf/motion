@@ -114,10 +114,10 @@ describe("resizeBetween", () => {
 
   it("the first resize writes the length of the pair only, so nothing else shifts and the others stay unsized", () => {
     const next = resizeBetween(input, "a", "b", 10);
-    expect(typeof next.items[0]!.length?.column).toBe("number");
-    expect(typeof next.items[1]!.length?.column).toBe("number");
+    expect(typeof next.items[0]!.lengths?.column).toBe("number");
+    expect(typeof next.items[1]!.lengths?.column).toBe("number");
     expect(next.items[2]).toBe(input.items[2]);
-    expect(next.items[2]!.length).toBeUndefined();
+    expect(next.items[2]!.lengths).toBeUndefined();
     // The pair lays out as it was drawn, and so does the rest (the lengths' units: stack-divide-pair.test.ts).
     const after = fitStack(next);
     expect(mainOf(after, "a")).toBeCloseTo(mainOf(fit, "a") + 10, 6);
@@ -126,15 +126,15 @@ describe("resizeBetween", () => {
     const mixed = stack([panel("a", 1), folded("b", 2), panel("c", 3)], 600);
     const written = resizeBetween(mixed, "a", "c", 20);
     expect(written.items[1]).toBe(mixed.items[1]);
-    expect(written.items[0]!.length?.column).toBeDefined();
+    expect(written.items[0]!.lengths?.column).toBeDefined();
     expect(mainOf(fitStack(written), "b")).toBe(28);
   });
 
   it("the other axis's length is kept", () => {
-    const withRow: StackInput = { ...input, items: input.items.map((it) => ({ ...it, length: { row: 123 } })) };
+    const withRow: StackInput = { ...input, items: input.items.map((it) => ({ ...it, lengths: { row: 123 } })) };
     const next = resizeBetween(withRow, "a", "b", 10);
-    expect(next.items.every((it) => it.length?.row === 123)).toBe(true);
-    expect(next.items.map((it) => typeof it.length?.column)).toEqual(["number", "number", "undefined"]);
+    expect(next.items.every((it) => it.lengths?.row === 123)).toBe(true);
+    expect(next.items.map((it) => typeof it.lengths?.column)).toEqual(["number", "number", "undefined"]);
   });
 
   it("neither goes below its least: clamped, no collapse and no push", () => {
@@ -170,15 +170,15 @@ describe("resizeBetween", () => {
     expect(mainOf(after, "c")).toBeCloseTo(mainOf(before, "c") - 25, 6);
     expect(mainOf(after, "b")).toBe(28);
     // The collapsed panel's asked length, if any, is kept and not applied.
-    const kept = fitStack(resizeBetween({ ...mixed, items: mixed.items.map((it) => (it.id === "b" ? { ...it, length: { column: 400 } } : it)) }, "a", "c", 25));
+    const kept = fitStack(resizeBetween({ ...mixed, items: mixed.items.map((it) => (it.id === "b" ? { ...it, lengths: { column: 400 } } : it)) }, "a", "c", 25));
     expect(mainOf(kept, "b")).toBe(28);
   });
 
   it("works along a row on the row length", () => {
     const row = stack([panel("a", 1, 200), panel("b", 2, 100)], 600, "row");
     const next = resizeBetween(row, "a", "b", 40);
-    expect(next.items[0]!.length?.row).toBeDefined();
-    expect(next.items[0]!.length?.column).toBeUndefined();
+    expect(next.items[0]!.lengths?.row).toBeDefined();
+    expect(next.items[0]!.lengths?.column).toBeUndefined();
     const fit0 = fitStack(row);
     const fit1 = fitStack(next);
     expect(mainOf(fit1, "a")).toBeCloseTo(mainOf(fit0, "a") + 40, 6);
@@ -207,7 +207,7 @@ describe("resizeBetween", () => {
       ...sized,
       items: sized.items.map((it): StackItem => (only(it) ? { ...it, forms: it.forms.map((f, i): StackForm => (i === 0 ? { ...f, main: { ...f.main, natural: f.main.natural + 77 } } : f)) } : it)),
     });
-    expect(fitStack(remeasured((it) => it.length?.column !== undefined))).toEqual(fitStack(sized));
+    expect(fitStack(remeasured((it) => it.lengths?.column !== undefined))).toEqual(fitStack(sized));
     // `c` was not part of the drag: it asks its natural, as it did before.
     expect(mainOf(fitStack(remeasured((it) => it.id === "c")), "c")).toBeGreaterThan(mainOf(fitStack(sized), "c"));
   });
@@ -268,7 +268,7 @@ describe("resetLengths", () => {
     const input = stack([panel("a", 1, 160), panel("b", 2, 100), panel("c", 3, 120)], 700);
     const dragged = resizeBetween(resizeBetween(input, "a", "b", 40), "b", "c", -20);
     const reset = resetLengths(dragged);
-    expect(reset.items.every((it) => it.length === undefined)).toBe(true);
+    expect(reset.items.every((it) => it.lengths === undefined)).toBe(true);
     expect(fitStack(reset)).toEqual(fitStack(input));
     expect(reset).toEqual(input);
   });
@@ -276,8 +276,8 @@ describe("resetLengths", () => {
   it("the other axis's length stays, and an unsized stack is the same object", () => {
     const input = stack([panel("a", 1), panel("b", 2)], 600);
     expect(resetLengths(input)).toBe(input);
-    const both: StackInput = { ...input, items: input.items.map((it) => ({ ...it, length: { column: 100, row: 50 } })) };
-    expect(resetLengths(both).items.map((it) => it.length)).toEqual([{ row: 50 }, { row: 50 }]);
+    const both: StackInput = { ...input, items: input.items.map((it) => ({ ...it, lengths: { column: 100, row: 50 } })) };
+    expect(resetLengths(both).items.map((it) => it.lengths)).toEqual([{ row: 50 }, { row: 50 }]);
   });
 });
 
@@ -294,7 +294,7 @@ describe("properties", () => {
     ],
   });
   const sizedOrNot = (rand: () => number, items: readonly StackItem[], axis: "column" | "row"): StackItem[] =>
-    items.map((it) => (rand() < 0.5 ? { ...it, length: { [axis]: 60 + Math.floor(rand() * 400) } } : it));
+    items.map((it) => (rand() < 0.5 ? { ...it, lengths: { [axis]: 60 +Math.floor(rand() * 400) } } : it));
   const growing = (input: StackInput, fit: StackFit): string[] =>
     fit.items.filter((p) => input.items.find((it) => it.id === p.id)!.forms[p.form]!.main.grows === true && p.kind !== "menu").map((p) => p.id);
 
@@ -380,7 +380,7 @@ describe("properties", () => {
   it("the asked length travels with the item to another stack of the same axis, and a bar never reads a column length", () => {
     const sized = resizeBetween(stack([panel("a", 1, 160), panel("b", 2, 100)], 700), "a", "b", 35);
     const moved = sized.items[0]!;
-    expect(moved.length?.column).toBeDefined();
+    expect(moved.lengths?.column).toBeDefined();
     const there = stack([moved, panel("x", 5, 100)], 700);
     expect(mainOf(fitStack(there), "a")).toBeGreaterThan(mainOf(fitStack(stack([panel("a", 1, 160), panel("x", 5, 100)], 700)), "a"));
     const bar = fitStack(stack([moved, panel("x", 5, 100)], 700, "row"));
@@ -405,7 +405,7 @@ describe("properties", () => {
     for (let trial = 0; trial < 80; trial++) {
       const input = stack(mix(rand, 1 + Math.floor(rand() * 6)), 40 + Math.floor(rand() * 600), rand() < 0.5 ? "column" : "row");
       expect(resetLengths(input)).toBe(input);
-      expect(fitStack({ ...input, items: input.items.map((it) => ({ ...it, length: {} })) })).toEqual(fitStack(input));
+      expect(fitStack({ ...input, items: input.items.map((it) => ({ ...it, lengths: {} })) })).toEqual(fitStack(input));
     }
   });
 });

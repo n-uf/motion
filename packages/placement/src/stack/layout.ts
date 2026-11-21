@@ -21,7 +21,7 @@
  *    the groups.
  * 5. The room the items leave goes to the forms that grow, shared by their natural sizes. With none, the items keep
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
- *    same share of what it can give. A growing form whose item asks for a length (`StackItem.length`, for the stack's
+ *    same share of what it can give. A growing form whose item asks for a length (`StackItem.lengths`, for the stack's
  *    axis) is read at that length in place of its natural size, nothing else changes. With room, an ask is a weight and the
  *    least a floor on the drawn size: a form whose share would be under its least is drawn at its least, the others share the rest.
  *
@@ -427,7 +427,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   // While the growing fixed items still hold (the forms fit with them at their natural length), the others take the
   // shortage first: a held item's least is its natural length.
   const min = (i: number): number => mainOf(form(i), hold && holds(i) ? "natural" : "min", cross);
-  // What a growing form asks for: its item's asked length (`StackItem.length`) when it has one, else the form's natural.
+  // What a growing form asks for: its item's asked length (`StackItem.lengths`) when it has one, else the form's natural.
   const nat = (i: number): number => Math.max(min(i), askedLength(items[i]!, form(i), input.axis) ?? mainOf(form(i), "natural", cross));
   const sumMin = drawn.reduce((s, i) => s + min(i), 0);
   const sumNat = drawn.reduce((s, i) => s + nat(i), 0);

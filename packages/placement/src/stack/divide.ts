@@ -1,7 +1,7 @@
 /**
  * Stacked items that share a draggable divider: one makes its neighbor longer and the other shorter by the same
  * amount, and nothing else in the stack moves. A divider's state is the asked length of the items on both sides
- * (`StackItem.length`), which `fitStack` reads in place of a growing form's natural; these are the functions that read and
+ * (`StackItem.lengths`), which `fitStack` reads in place of a growing form's natural; these are the functions that read and
  * write it. Pure: a state in, a state out (the same object when nothing changed).
  *
  * A growing item is one drawn in a form that grows (`main.grows`, not in the » menu): the items that share spare length,
@@ -93,10 +93,10 @@ function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: R
     if (drawn === undefined) return it;
     // A length of 0 is no length (the item would read its natural), so an end whose least is 0 asks a hair over it.
     const length = Math.max(ask(byId.get(it.id)!, drawn), 2 * EPS);
-    const was = it.length?.[input.axis];
+    const was = it.lengths?.[input.axis];
     if (was !== undefined && was > EPS && Math.abs(was - length) <= EPS) return it;
     changed = true;
-    return { ...it, length: { ...it.length, [input.axis]: length } };
+    return { ...it, lengths: { ...it.lengths, [input.axis]: length } };
   });
   return changed ? { ...input, items } : input;
 }
@@ -190,11 +190,11 @@ export function resetBetween(input: StackInput, before: string, after: string, o
 export function resetLengths(input: StackInput): StackInput {
   let changed = false;
   const items = input.items.map((it) => {
-    if (it.length?.[input.axis] === undefined) return it;
+    if (it.lengths?.[input.axis] === undefined) return it;
     changed = true;
-    const { [input.axis]: _dropped, ...rest } = it.length;
-    const { length: _length, ...bare } = it;
-    return Object.keys(rest).length > 0 ? { ...bare, length: rest } : bare;
+    const { [input.axis]: _dropped, ...rest } = it.lengths;
+    const { lengths: _lengths, ...bare } = it;
+    return Object.keys(rest).length > 0 ? { ...bare, lengths: rest } : bare;
   });
   return changed ? { ...input, items } : input;
 }

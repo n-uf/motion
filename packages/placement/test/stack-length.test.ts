@@ -1,5 +1,5 @@
 /**
- * An asked length: `StackItem.length` (per axis, px along the stack) is read in place of the natural of the growing form
+ * An asked length: `StackItem.lengths` (per axis, px along the stack) is read in place of the natural of the growing form
  * the item is in. The least stays the form's `main.min`; there is no new formula, so the spare-room branch (sized
  * panels scale together in proportion) and the short branch (they interpolate toward their least) both apply.
  * A stack that declares no length is laid out exactly as before.
@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { fitStack, type StackFit, type StackForm, type StackItem } from "../src/stack";
 import { group, mix, panel, seeded, stack } from "./stack-fixture";
 
-const withLength = (it: StackItem, length: NonNullable<StackItem["length"]>): StackItem => ({ ...it, length });
+const withLength = (it: StackItem, lengths: NonNullable<StackItem["lengths"]>): StackItem => ({ ...it, lengths });
 const heights = (fit: StackFit): number[] => fit.items.map((p) => p.rect.height);
 const sum = (xs: readonly number[]): number => xs.reduce((s, x) => s + x, 0);
 const close = (a: readonly number[], b: readonly number[]): void => {

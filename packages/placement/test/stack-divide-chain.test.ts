@@ -101,7 +101,7 @@ describe("the items that share spare length keep their drawn size when their nei
     const fit = fitStack(input);
     const after = fitStack(next);
     for (const [i, it] of input.items.entries()) {
-      if (it.id === "a" || it.id === "c") expect(next.items[i]!.length?.column).toBeDefined();
+      if (it.id === "a" || it.id === "c") expect(next.items[i]!.lengths?.column).toBeDefined();
       else {
         expect(next.items[i]).toBe(it);
         expect(mainOf(after, it.id)).toBeCloseTo(mainOf(fit, it.id), 6);
@@ -151,11 +151,11 @@ describe("resetBetween on a pair nobody touched", () => {
 describe("resetLengths", () => {
   it("counts a change only when an item has a length for the stack's axis", () => {
     const input = stack([panel("a", 1), panel("b", 2)], 600);
-    const other: StackInput = { ...input, items: input.items.map((it) => ({ ...it, length: { row: 50 } })) };
+    const other: StackInput = { ...input, items: input.items.map((it) => ({ ...it, lengths: { row: 50 } })) };
     expect(resetLengths(other)).toBe(other);
-    const empty: StackInput = { ...input, items: input.items.map((it) => ({ ...it, length: {} })) };
+    const empty: StackInput = { ...input, items: input.items.map((it) => ({ ...it, lengths: {} })) };
     expect(resetLengths(empty)).toBe(empty);
-    const some: StackInput = { ...input, items: [{ ...input.items[0]!, length: { column: 90 } }, input.items[1]!] };
+    const some: StackInput = { ...input, items: [{ ...input.items[0]!, lengths: { column: 90 } }, input.items[1]!] };
     const reset = resetLengths(some);
     expect(reset).not.toBe(some);
     expect(reset.items[1]).toBe(input.items[1]);
@@ -192,11 +192,11 @@ describe("a collapsed item that was never sized", () => {
         const next = resizeBetween(input, "a", "c", delta);
         expect(next).not.toBe(input);
         expect(next.items[1]).toBe(input.items[1]);
-        expect(next.items[1]!.length).toBeUndefined();
+        expect(next.items[1]!.lengths).toBeUndefined();
         const open = (s: StackInput): StackInput => ({ ...s, items: s.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) });
         const now = fitStack(open(next));
         // The reopened column is the model's, with `b` asking its natural beside the pair's written asks.
-        const asks = [next.items[0]!.length!.column!, 160, next.items[2]!.length!.column!];
+        const asks = [next.items[0]!.lengths!.column!, 160, next.items[2]!.lengths!.column!];
         const want = expected(asks, length);
         ["a", "b", "c"].forEach((id, i) => expect(mainOf(now, id)).toBeCloseTo(want[i]!, 5));
         // It keeps its proportion unless an end of the pair is held at its least (its ask under the least, and its share
@@ -227,22 +227,22 @@ describe("a collapsed item that was never sized", () => {
     const fit = fitStack(reopened);
     // `c` is held at its least; `a` and `b` share the rest in proportion to their asks (a's written length, b's natural).
     expect(mainOf(fit, "c")).toBeCloseTo(90, 6);
-    expect(mainOf(fit, "b") / mainOf(fit, "a")).toBeCloseTo(160 / next.items[0]!.length!.column!, 6);
+    expect(mainOf(fit, "b") / mainOf(fit, "a")).toBeCloseTo(160 / next.items[0]!.lengths!.column!, 6);
     expect(mainOf(fit, "a") + mainOf(fit, "b") + mainOf(fit, "c")).toBeCloseTo(700, 6);
   });
 
   it("a collapsed item with a length of its own keeps it, and a short stack writes nothing for it", () => {
-    const input = stack([panel("a", 1, 200), { ...folded("b", 2, 160), length: { column: 321 } }, panel("c", 3, 100)], 700);
-    expect(resizeBetween(input, "a", "c", 20).items[1]!.length?.column).toBe(321);
+    const input = stack([panel("a", 1, 200), { ...folded("b", 2, 160), lengths: { column: 321 } }, panel("c", 3, 100)], 700);
+    expect(resizeBetween(input, "a", "c", 20).items[1]!.lengths?.column).toBe(321);
     const short = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 300)], 400);
     expect(fitStack(short).items.map((p) => p.kind)).toEqual(["open", "header", "open"]);
-    expect(resizeBetween(short, "a", "c", 10).items[1]!.length).toBeUndefined();
+    expect(resizeBetween(short, "a", "c", 10).items[1]!.lengths).toBeUndefined();
   });
 
   it("an item in the menu, a group and a fixed item get none", () => {
     const input = stack([panel("a", 1, 200), group("g", 2), panel("c", 3, 100), { ...folded("f", 4), fixed: true }], 900);
     const next = resizeBetween(input, "a", "c", 20);
-    expect(next.items.find((it) => it.id === "g")!.length).toBeUndefined();
-    expect(next.items.find((it) => it.id === "f")!.length).toBeUndefined();
+    expect(next.items.find((it) => it.id === "g")!.lengths).toBeUndefined();
+    expect(next.items.find((it) => it.id === "f")!.lengths).toBeUndefined();
   });
 });

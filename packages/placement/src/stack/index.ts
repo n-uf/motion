@@ -12,7 +12,7 @@
  *   or a refusal with its reason.
  * - `fitFloat(rect, stage, avoid)`: a float moved inside the stage and clear of the docked content.
  *
- * `StackItem.length` is the length a person asked an item to have (per axis), read by `fitStack` in place of a growing
+ * `StackItem.lengths` is the length a person asked an item to have (per axis), read by `fitStack` in place of a growing
  * form's natural; `dividers`, `resizeBetween`, `resetBetween` and `resetLengths` trade it between the nearest open growing
  * items. A stack that declares none is laid out exactly as before.
  *

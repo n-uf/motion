@@ -283,7 +283,7 @@ export interface StackItem {
    * which order never reads it. It is in ask units, not drawn px: with room to spare a drawn size is the ask times the
    * shared scale, or its least when that is more. `resizeBetween` and `resetBetween` write it for the pair only; `resetLengths` clears it.
    */
-  readonly length?: StackLengths;
+  readonly lengths?: StackLengths;
 }
 
 /** The cross size a stack may take. With no form setting it, the stack is a `rail` wide (default {@link DEFAULT_RAIL}). */
@@ -382,7 +382,7 @@ export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? formBody(
  * shares spare length, so its length is one a divider drag writes.
  */
 export function askedLength(item: StackItem, form: StackForm, axis: StackAxis): number | undefined {
-  const v = item.length?.[axis];
+  const v = item.lengths?.[axis];
   if (v === undefined || !Number.isFinite(v) || v <= EPS) return undefined;
   return form.kind !== "menu" && form.main.grows === true ? v : undefined;
 }
