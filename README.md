@@ -70,15 +70,16 @@ pnpm lab     # the motion lab on http://localhost:3060
 - [`docs/`](./docs): the design pages and the reference pages of the packages, [proposals](./docs/proposals)
   (features before they are built, the parked ones as the backlog) and [decisions](./docs/decisions) (one record per
   settled rule).
-- `apps/lab`: a lab (not published), with an overview, a glossary and three
-  working pages: Motion, a tiling stage for the window motion rules (master,
-  dwindle, columns, grid; drop indicator or snap to slot); Document window,
-  one Reference host (panels, toolbars and floats in a window; every conformance
-  row of `@n-uf/docking/testing` and the drag intent's cases play on
-  it, and its presets are tried by a real mouse); and Checks, which runs the
-  pages' scenarios. Every move is checked frame by frame. "Run all scenarios"
-  plays scripted moves; `window.__motionLab.runAll()` returns the results for
-  a headless try.
+- `apps/lab`: a lab (not published), with an overview, a glossary and four
+  working pages. Motion has two: Settle and tiling, a tiling stage whose
+  windows are the items of one layout motion (master, dwindle, columns, grid;
+  the drop preview is Outline, Placeholder or Glide), and Drag intent and
+  previews, the drag intent's cases on the Document window. The Document window
+  is one Reference host (panels, toolbars and floats in a window; every
+  conformance row of `@n-uf/docking/testing` plays on it, and its presets are
+  tried by a real mouse). Checks runs the pages' scenarios. Every move is
+  checked frame by frame. "Run all scenarios" plays scripted moves;
+  `window.__motionLab.runAll()` returns the results for a headless try.
 - Versions are calendar versions `YY.M.R`, as in hypr-tiling: `pnpm version:bump`.
 - Licensed under [PolyForm Perimeter 1.0.1](./LICENSE).
 
