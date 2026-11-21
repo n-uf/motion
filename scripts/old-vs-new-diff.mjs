@@ -80,16 +80,22 @@ export function globToRegExp(glob) {
   return new RegExp(`^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".")}$`);
 }
 
+/** `a|b` as alternatives of globs, for a package or a kind (their names hold no `|`; a case id may, so a case is one glob). */
+const alternatives = (glob) => {
+  const each = glob.split("|").map(globToRegExp);
+  return { test: (s) => each.some((r) => r.test(s)) };
+};
+
 /**
- * The expectations (`{ package, kind, case, reason }`, each of package, kind and case a glob, default `*`) against the
- * changes (`{ package, kind, id }`): which expectation covers each change (the first that matches), which changes are
- * covered by none, and which expectations matched nothing.
+ * The expectations (`{ package, kind, case, reason }`, each of package, kind and case a glob, default `*`; package and
+ * kind may list alternatives as `a|b`) against the changes (`{ package, kind, id }`): which expectation covers each
+ * change (the first that matches), which changes are covered by none, and which expectations matched nothing.
  */
 export function matchExpectations(expectations, changes) {
   const rules = expectations.map((e) => ({
     e,
-    package: globToRegExp(e.package ?? "*"),
-    kind: globToRegExp(e.kind ?? "*"),
+    package: alternatives(e.package ?? "*"),
+    kind: alternatives(e.kind ?? "*"),
     case: globToRegExp(e.case ?? e["case-id"] ?? e.caseId ?? "*"),
     count: 0,
   }));

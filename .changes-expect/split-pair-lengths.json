@@ -1,0 +1,6 @@
+[
+  { "package": "*", "kind": "dividers", "case": "*", "reason": "a divider's range follows the pair rule: an ask is a weight and the least a floor on the drawn size" },
+  { "package": "*", "kind": "resize", "case": "*", "reason": "a divider drag (or a reset) writes the dragged pair's lengths only, in ask units; a bystander gets none" },
+  { "package": "*", "kind": "fit|fit-previous|gaps|solve|targets|drops|lanes|stops|refusals|after|release-after|guides", "case": "*asked*", "reason": "an item with an asked length is laid out by the new rule" },
+  { "package": "*", "kind": "fit|fit-previous|gaps|solve|targets|drops|lanes|stops|refusals|after|release-after|guides", "case": "*+asks*", "reason": "a random case with an asked length is laid out by the new rule" }
+]

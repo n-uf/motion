@@ -72,7 +72,8 @@ describe("record placement", () => {
       // Seeded random mixes: 3 to 9 items, any use age, some kept, some folded by hand; both axes.
       for (let k = 0; k < 80; k++) {
         const items = mix(rnd, 3 + Math.floor(rnd() * 7)).map((it: Any) => (it.id.startsWith("p") && rnd() < 0.4 ? { ...it, ...asked(60 + Math.floor(rnd() * 400)) } : it));
-        cases.push({ id: `random ${k}`, input: make(items, 100 + Math.floor(rnd() * 1100), rnd() < 0.7 ? "column" : "row") });
+        // (A case with asked lengths says so in its id, so a change expected only there can be named.)
+        cases.push({ id: `random ${k}${items.some((it: Any) => lengthsOf(it)) ? " +asks" : ""}`, input: make(items, 100 + Math.floor(rnd() * 1100), rnd() < 0.7 ? "column" : "row") });
       }
       return { stacks: cases.length };
     });

@@ -120,7 +120,8 @@ describe("record docking", () => {
         for (const side of ["left", "right"] as const) for (let ring = 0; ring < Math.floor(rnd() * 3); ring++) edges.push(column(`${side}${ring}`, side, ring, [...many(p, 4), ...many(g, 1)]));
         const state = { stage: { x: 0, y: 0, width: 700 + Math.floor(rnd() * 800), height: 420 + Math.floor(rnd() * 500) }, edges, items: byId(items), floats: [], floatKinds: ["panel", "group"] };
         const dragged = items.length ? pick(items).id : undefined;
-        wins.push({ name: `random ${seed}`, state, ...(dragged ? { dragged } : {}), options: { endReach: 24 }, play: false });
+        // (A window with asked lengths says so in its name, so a change expected only there can be named.)
+        wins.push({ name: `random ${seed}${items.some((it) => lengthsOf(it)) ? " +asks" : ""}`, state, ...(dragged ? { dragged } : {}), options: { endReach: 24 }, play: false });
       }
       return { windows: wins.length - before };
     });
