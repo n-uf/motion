@@ -92,6 +92,33 @@ function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: R
 }
 
 /**
+ * The two items of the divider between `before` and `after` redrawn: `to(b, a)` is the length `before` is to be drawn at
+ * (`after` takes the rest of their combined length). The same object when they aren't neighbors or `before` stays.
+ */
+function trade(input: StackInput, before: string, after: string, options: FitOptions, to: (b: Grower, a: Grower) => number): StackInput {
+  const fit = fitStack(input, options);
+  const all = growers(input, fit);
+  const ends = pair(
+    all.filter((g) => !g.fixed),
+    before,
+    after,
+  );
+  if (!ends) return input;
+  const [b, a] = ends;
+  const first = to(b, a);
+  if (Math.abs(first - b.drawn) <= EPS) return input;
+  return written(
+    input,
+    fit,
+    all,
+    new Map([
+      [b.id, first],
+      [a.id, b.drawn + a.drawn - first],
+    ]),
+  );
+}
+
+/**
  * The dividers of a stack laid out as `fit`, one per pair of nearest open growing items, in the stack's order. A collapsed
  * item has none of its own; where collapsed items sit between two open ones there is one divider between the open
  * ones, on the far edge of the last collapsed one.
@@ -125,26 +152,7 @@ export function dividers(input: StackInput, fit: StackFit): StackDivider[] {
  */
 export function resizeBetween(input: StackInput, before: string, after: string, delta: number, options: FitOptions = {}): StackInput {
   if (!Number.isFinite(delta)) return input;
-  const fit = fitStack(input, options);
-  const all = growers(input, fit);
-  const ends = pair(
-    all.filter((g) => !g.fixed),
-    before,
-    after,
-  );
-  if (!ends) return input;
-  const [b, a] = ends;
-  const d = Math.min(Math.max(delta, 0 - Math.max(0, b.drawn - b.least)), Math.max(0, a.drawn - a.least));
-  if (Math.abs(d) <= EPS) return input;
-  return written(
-    input,
-    fit,
-    all,
-    new Map([
-      [b.id, b.drawn + d],
-      [a.id, a.drawn - d],
-    ]),
-  );
+  return trade(input, before, after, options, (b, a) => b.drawn + Math.min(Math.max(delta, 0 - Math.max(0, b.drawn - b.least)), Math.max(0, a.drawn - a.least)));
 }
 
 /**
@@ -153,28 +161,11 @@ export function resizeBetween(input: StackInput, before: string, after: string, 
  * the same object when the two are at that split already, or are not neighbors.
  */
 export function resetBetween(input: StackInput, before: string, after: string, options: FitOptions = {}): StackInput {
-  const fit = fitStack(input, options);
-  const all = growers(input, fit);
-  const ends = pair(
-    all.filter((g) => !g.fixed),
-    before,
-    after,
-  );
-  if (!ends) return input;
-  const [b, a] = ends;
-  const both = b.drawn + a.drawn;
-  const want = b.natural + a.natural > EPS ? (both * b.natural) / (b.natural + a.natural) : both / 2;
-  const first = Math.min(Math.max(want, b.least), Math.max(b.least, both - a.least));
-  if (Math.abs(first - b.drawn) <= EPS) return input;
-  return written(
-    input,
-    fit,
-    all,
-    new Map([
-      [b.id, first],
-      [a.id, both - first],
-    ]),
-  );
+  return trade(input, before, after, options, (b, a) => {
+    const both = b.drawn + a.drawn;
+    const want = b.natural + a.natural > EPS ? (both * b.natural) / (b.natural + a.natural) : both / 2;
+    return Math.min(Math.max(want, b.least), Math.max(b.least, both - a.least));
+  });
 }
 
 /**
