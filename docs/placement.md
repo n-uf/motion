@@ -1,6 +1,6 @@
 # @n-uf/placement: design
 
-**What this page is.** The architecture of `@n-uf/placement` as it is built: what the library is for, the rules a consumer can rely on, and the public SDK entry by entry. The API contract is the package's exported TypeScript types (the files its `exports` map names); where this page and those types disagree, the types win. Code comments cite this page's sections by heading, for example "docs/placement.md, Entry: stack". The detailed behavior, with examples, is on [placement-reference.md](./placement-reference.md).
+**What this page is.** The architecture of `@n-uf/placement` as it is built: what the library is for, the rules a consumer can rely on, and the public SDK entry by entry. The API contract is the package's exported TypeScript types (the files its `exports` map names); where this page and those types disagree, the types win. Code comments cite this page's sections by heading, for example "docs/placement.md, Entry: stack". The detailed behavior, with examples, is on [placement-reference.md](./placement-reference.md), which covers behavior; the exported types are the contract.
 
 ## In one paragraph
 
@@ -58,13 +58,13 @@ flowchart LR
 - **Under `previous`**, a change of ages alone reshapes nothing, and room coming back undoes the give-way steps (`StackFit.steps`) in exact reverse.
 - **Coded notes** say why: `form-down`, `to-menu`, `too-wide`, `no-forms`, `overflow`. A note's `code` is the contract.
 
-A form's `kind` is the host's label. What the solver and a window model read is said by fields that default from the kind: `body` (an open panel; sets the cross size), `folded` (only its bar shows), `compact` (icons only), `setsCross`, `wrap`, `grip`, `hides`, `title`, `rank`.
+A form's `kind` is the host's label, with three exceptions where the solver reads it as a word: `menu` (the » entry's form takes no room of its own, in the fit, in `stackGaps` and in the dividers), the group kinds `row`, `stacked`, `wrap`, `icons` and `fold` (with `ownCross`, a group form is drawn at its own size across), and kind equality (under `previous` a form is kept only while its kind is the same as before, and a step to a form of the same kind, a compact variant, is the one a growing title's hold covers). What the solver and a window model otherwise read is said by fields that default from the kind: `body` (an open panel; sets the cross size), `folded` (only its bar shows), `compact` (icons only), `setsCross`, `wrap`, `grip`, `hides`, `title`, `rank`.
 
 ## One edge's drop places
 
 `stackGaps(input, item, { previous, allows })` gives every gap of the stack, the item lifted out first, in order. A gap that takes the item carries the stack after the drop, its fit and the item's slot: the preview is the result. A gap that doesn't carries a reason: `no-forms`, `fixed`, `not-accepted`, `not-allowed`, `to-menu`, `overflow`, `too-wide`, `squeezes-fixed`. The item counts as just used, so the others give way before it; a fixed item may shrink to its minimum to make room, never further.
 
-`stackGaps` has no hit zones and no time. Where the pointer is, and how a flicker between two gaps is calmed, is the host's (`@n-uf/motion/drag`).
+`stackGaps` has no hit zones and no time. Where the pointer is, and how a flicker between two gaps is calmed, is the host's (`@n-uf/motion/drag`). The root's `Target` shape does carry a drag's own fields as plain data (`arm`, `armedHit`, `opensRoom`, `roomHold` in ms, `roomHit`): the docking model sets them, and `stackGaps` and the tiling targets set none.
 
 ## Principles
 
@@ -73,7 +73,7 @@ A form's `kind` is the host's label. What the solver and a window model read is 
 | **Pure.** Geometry in, rects out; no DOM, timer, global clock or framework in any entry. | `test/guard.test.ts` scans every source file and every entry in `exports`; `scripts/check-dist.mjs` checks the built package for host globals and DOM types |
 | **No dependencies, and apart from motion and docking.** Placement and motion compose through the shared target shape, in neither direction by import; docking stands on placement, never the reverse. | `test/guard.test.ts`; dependency rules `placement-not-motion`, `motion-not-placement`, `placement-not-docking` |
 | **Entries layer downward.** `./stack`, `./tiling` and `./popup` stand on the root; folders reach each other only through an `index.ts`; apps use public entries only. | dependency rules `stack-root-only`, `tiling-root-only`, `popup-root-only`, `cross-folder-via-index`, `apps-public-entries-only`, `no-circular` |
-| **No words.** Nothing in the solver is a word: kinds, ids and labels are the host's. | review; the solver reads sizes and flags only |
+| **Few words.** Ids and labels are the host's, and so are kinds, but for the three reads named under The edge fit (`menu`, the group kinds for `ownCross`, kind equality under `previous`); everything else the solver reads is sizes and flags. | review; `src/stack/layout.ts` reads `kind` at those places only |
 
 ## The SDK by entry point
 
@@ -101,7 +101,7 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 | `formMain`, `formCrossMin`, `formFitsCross`, `wrapCross`, `wrapLines`, `wrapRows`, `withItem` | A form's length and least cross size, whether a wrap form fits a cross size, its rows, and an input with an item inserted. | A wrap form that fits a cross size fits every wider one. |
 | `DEFAULT_MENU`, `DEFAULT_RAIL` | The » entry's length and an empty stack's width. | Used when the input leaves them out. |
 | `stackGaps`, `StackGap`, `StackGapOptions`, `StackGapRefusal` | Every gap of one edge for an item: the fit its drop makes and the item's slot, or a refusal with its reason. | A gap's fit is the drop's solve; fit only, no hit zones. |
-| `fitFloat`, `FloatFit` | The rect a float gets: moved inside the stage and clear of docked content. | Moves, never resizes; finds a clear place whenever one exists. |
+| `fitFloat`, `FloatFit` | The rect a float gets: moved inside the stage and clear of docked content. | Moves, never resizes; finds a clear place whenever one exists, unless the safety net on the search is hit (`FloatFit.searchCapped`, normally false). |
 
 ### Entry: tiling
 
@@ -132,7 +132,7 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 | --- | --- | --- |
 | `Rect`, `Size`, `Point` | The shapes: a rect is a top-left corner and a size, in whatever px the consumer lays out in. | The same shape as `@n-uf/motion`'s, so the two compose without either importing the other. |
 | `rect`, `overlap`, `overlaps`, `contains`, `clamp`, `clampInto`, `center`, `area`, `subtract`, `EPS`, `PLANE` | The geometry: build a rect, the area two rects share, whether they share more than a tolerance (touching edges do not overlap), whether a rect holds a point (its edges included), clamping a number or moving a rect inside an area, a rect's center, a rect's area, a rect less another as disjoint rects, the comparison tolerance, a rect covering any point. | Pure; `clampInto` moves, never resizes, and a rect larger than the area keeps its top-left corner on the area's. |
-| `Target`, `pickRank`, `REFUSAL_RANK` | The drop-target shape `@n-uf/motion/drag` takes, and the rank a pick orders by. | A refusal ranks after every priority 1 and 2 target and before priority 3; lower wins. |
+| `Target`, `pickRank`, `REFUSAL_RANK` | The drop-target shape `@n-uf/motion/drag` takes (`id`, `priority`, `hit`, `hits`, `slot`, `label`, `free`), the fields the docking model sets for refusals, rails and rooms that open (`refuse`, `bounds`, `arm`, `armedHit`, `opensRoom`, `roomHold`, `roomHit`; of these the root reads only `refuse`, in `pickRank`), and the rank a pick orders by. | A refusal ranks after every priority 1 and 2 target and before priority 3; lower wins. |
 
 ## Glossary
 
