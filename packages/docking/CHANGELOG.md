@@ -9,8 +9,17 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from
 `@n-uf/placement/scene/cases` to `@n-uf/docking/testing`. Behavior is unchanged: for the same input, `solve`,
-`targets`, `refusals`, `stops` and `lanes` give the same answers as the last `@n-uf/placement/scene` (26.11.52). Each edge is
-fitted by `@n-uf/placement/stack`, now this package's one dependency.
+`targets`, `refusals`, `stops` and `lanes` give the same answers as `@n-uf/placement/scene` at its last state (26.11.52
+and the two lane fixes below, unreleased there). Each edge is fitted by `@n-uf/placement/stack`, now this package's one
+dependency.
+
+Lane fixes that were unreleased in `@n-uf/placement/scene` and ship here:
+- **An emptied side column that the dock state declares as an edge shows its guide while a panel is held elsewhere**
+  (fix). Its box at real size was lost because the held panel fills the whole column, so its after-entry marks are
+  empty; the lane now keeps its box as seen, and held in it nothing is drawn over the panel.
+- **An empty lane's marks don't change when another lane is entered**, but for the corner (fix). With `spot` held,
+  every other lane whose marks as seen are predicted keeps them, less the held lane's marks, which own their corners;
+  before, an empty bar was cut at the columns that move aside once the held lane opens.
 
 Host notes: install `@n-uf/docking`, change the imports, and apply the renames below (each a rename only, with the
 same shape and meaning). A stored state from `storeScene` reads back with `readDockState` unchanged: the stored form
