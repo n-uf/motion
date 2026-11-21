@@ -24,19 +24,19 @@ const jsonLd = [
 ];
 const box = (r: { x: number; y: number; w: number; h: number }) => `left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px`;
 const RULES: [string, string, string][] = [
-  ["When does the drag start?", "After the pointer moves past a threshold. A click below it does nothing. On touch: a 180 ms hold, then the threshold.", "mouse 5 px; touch 180 ms + 8 px"],
+  ["When does the drag start?", "After the pointer moves past a threshold. A click below it does nothing. On touch: a 180 ms hold, then the threshold; a finger that moves that far before the hold is over is a swipe, not a drag.", "mouse 5 px; touch 180 ms + 8 px"],
   ["What does the dragged panel look like?", "The real panel, raised, following the pointer 1:1 from the point you grabbed. It never stretches; it changes size only when it lands.", ""],
   ["When does the indicator appear?", "Only when all three hold: the pointer has left the panel's home (where it was when the drag started), there is a target under it, and you are aiming: moving slower than the aim speed, or holding nearly still for a moment. Time spent crossing a big target doesn't count.", "aim speed 0.45 px/ms (450 px/s); still = within 12 px for 90 ms"],
   ["How is speed measured?", "Distance over the last few frames, smoothed, so one slow frame doesn't count as aiming.", "window 50 ms"],
   ["Which target wins when several overlap?", "The most precise one: a rail icon or a tab strip beats an insertion point between sections, which beats \"float here\". Equal priority: the smaller hit area.", "priority 1 · 2 · 3"],
-  ["What stops flicker on boundaries?", "Hysteresis: the current target keeps the pointer until it is clearly in another one (a margin past the boundary), or is clearly out of all of them for a moment. A more precise target takes over at once, once the pointer is 4 px inside it.", "hysteresis margin 10 px; grace across the gap between two hit areas 120 ms; breakthrough 4 px"],
+  ["What stops flicker on boundaries?", "Hysteresis: the current target keeps the pointer until it is clearly in another one (a margin past the boundary), or is clearly out of all of them for a moment. A more precise target takes over at once, once the pointer is 4 px inside it. The margin and the 4 px shrink for a small zone, to at most a fifth of its size, so a thin strip can still be entered by gliding in from its neighbor.", "band 10 px; breakthrough 4 px; both at most a fifth of a zone's size; grace across the gap between two hit areas 120 ms"],
   ["When does a shown indicator move or go?", "Leaving its target while travelling hides it at once. While aiming, it moves to a new target only after a switch delay, so moving between targets never flashes. A more precise target still takes over at once, 4 px inside it.", "150 ms"],
   ["When do the other panels make room?", "Only after the indicator has stayed on the same target for a while, so nothing reflows while you pass over it. Leaving the target closes the room at once.", "160 ms"],
   ["What does a release do?", "Lands where the indicator shows. If no indicator was showing yet (a quick flick), it lands on the target under the pointer at release; with none, the panel glides home. A release always lands on what is shown, so the drop follows the indicator, not the exact release point.", ""],
   ["How do you cancel?", "Escape, a release back over home, or the browser cancelling the pointer: the panel glides home and nothing else changes.", ""],
   ["How do things move?", "The indicator fades in and glides between targets; the landing and the room-making use settle (no overshoot, no jumps).", "fade 90 ms; glide 110 ms; settle tempo 25"],
-  ["Auto-scroll", "Near the stage's edge a scrolling layout scrolls, faster the closer the pointer is; the indicator is hidden while it scrolls.", "edge 40 px"],
-  ["Keyboard", "The same targets in a fixed order: a key to pick up, arrows to step through targets (the indicator shows each), Enter to drop, Escape to cancel.", ""],
+  ["Auto-scroll", "Not shown here: this desk does not scroll, and the intent does not scroll anything itself. A scrolling layout scrolls on its own and tells the intent: hide(time) while the view moves under the pointer (the indicator goes and the aim starts again), and moveHome(dx, dy) for the panel's home.", ""],
+  ["Keyboard", "Not shown here: this demo drags with a pointer, and Escape cancels. The intent reads pointer samples and the modifier keys held, not arrow keys. A host that wants keyboard moves steps through its own list of places; @n-uf/docking's stops() gives one for a dock.", ""],
 ];
 ---
 <Site title={page.title} description={page.description} path={path} headline="A drop indicator only once you aim." jsonLd={jsonLd} ogImage="/og/drag-intent.png">
@@ -81,7 +81,7 @@ const RULES: [string, string, string][] = [
     <div class="section-head">
       <span class="eyebrow">The phases</span>
       <h2 class="section-title">Pressed, lifted, travelling, aiming, settling</h2>
-      <p>A press moves nothing until the pointer passes 5 px; then the panel lifts and follows the pointer 1:1. While it travels there is no indicator. Slowing down or dwelling is aiming: the indicator shows, then the other panels make room. A release settles the panel into place; a release while travelling lands on the target under the pointer, or returns home if there is none; Escape returns home.</p>
+      <p>A press moves nothing until the pointer passes 5 px (a touch: after a 180 ms hold, then 8 px); then the panel lifts and follows the pointer 1:1. While it travels there is no indicator. Slowing down or dwelling is aiming: the indicator shows, then the other panels make room. A release settles the panel into place; a release while travelling lands on the target under the pointer, or returns home if there is none; Escape returns home.</p>
     </div>
     <div class="diagram">
       <svg class="phases" viewBox="0 0 1130 166" width="1130" height="166" role="img" aria-label="Drag phases: pressed, lifted, travelling, aiming, settling, with cancel back to home">
@@ -95,6 +95,7 @@ const RULES: [string, string, string][] = [
           <path class="arr" d="M163 48 H242"/><path class="arr" d="M398 48 H477"/><path class="arr" d="M633 40 H712"/><path class="arr" d="M712 58 H633"/><path class="arr" d="M868 48 H947"/>
           <path class="arr" d="M555 76 V118 H1035 V79"/>
           <text class="k" x="202" y="38" text-anchor="middle">5 px</text>
+          <text class="k" x="202" y="100" text-anchor="middle">touch: hold 180 ms, then 8 px</text>
           <text class="k" x="437" y="38" text-anchor="middle">leaves home</text>
           <text class="k" x="672" y="32" text-anchor="middle">slows / dwells</text>
           <text class="k" x="672" y="76" text-anchor="middle">speeds up</text>
@@ -127,7 +128,7 @@ const RULES: [string, string, string][] = [
       <li>Moving between targets never flashes: a new target must wait out the 150 ms switch delay before the indicator moves to it (the flash count stays zero in every recorded path).</li>
       <li>The drop always equals the last indicator shown, or the target under the pointer when none was shown.</li>
     </ul>
-    <p class="aside">These rules are <code>@n-uf/motion/drag</code>'s; the page runs them in its own code, and the cancel, glide, edge-scroll and keyboard details above are the demo's own behavior around the model. Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its place</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>
+    <p class="aside">These rules are <code>@n-uf/motion/drag</code>'s: "This model" above runs <code>createDragIntent</code>, with <code>liftDecision</code> for the lift and <code>previewPlan</code> for what each preview mode draws. Naive is this page's own, kept for the contrast. Escape and the glides of the panel and the indicator are the demo's own behavior around the model; auto-scroll and keyboard moves are not shown here. Toolbar groups drop by the same model: see <a href="/toolbar-groups/">how a group finds its place</a>. The landing glide is <a href="/window-motion/">the settle curve</a>.</p>
   </section>
 
   <Faq path={path} />
