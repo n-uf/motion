@@ -51,7 +51,32 @@ Removed (one-line migration each):
   `fitFloat` stays.
 - The `@n-uf/motion` development dependency: placement's tests no longer use it.
 
-Unreleased in `./scene` when it left: two lane fixes ship with `@n-uf/docking` (see its CHANGELOG).
+## 26.11.53
+
+- `./stack`, **`controlLadder(spec)`: a group's forms generated from its controls** (additive). A host declares a group
+  by its controls (`{ id, tiers, foldOrder? }`, the lengths per tier longest first, plus `gap`, `grip`, `more` (the
+  group's own » cell) and `cross`), and gets the ordered `StackForm[]` with `rank` and `hides` set: the tier steps one
+  control at a time in fold order (rank `100 * t + i / n`), the partial folds at the last tier that hide the first `k`
+  controls in fold order (rank `400 + k / n`, so the group with the fewest hidden controls folds next), then `fold`
+  (`hides` every control, rank 500) and `menu` (600). A bar of such groups runs short control by control: every group's
+  tier steps, then every partial fold, then folds, and a growing fixed title gives way only after every group's `row`
+  steps. There is no new solver rule: `fitStack` takes the lowest-ranked next form, passes over a form that doesn't
+  shorten the stack, and grows back in the exact reverse. The shape is fixed (`n * T + 2` forms for `n` controls and
+  `T` tiers; a form no shorter than the one before is still emitted), so form indexes in `previous` stay valid when a
+  length changes; when the control set changes, solve the group without `previous`. `keep` lifts a pinned primary's
+  last forms; `column: { icons }` adds the group's column forms. The result is `{ row, column? }`, assignable to
+  `SceneItem.forms`. Hosts that hand-write forms are unchanged.
+- `./scene`, **under `sideColumns: "one"`, a side with a declared column edge, empty or not, is that side's column**
+  (fix). Such a column, empty already or emptied by the lift of a lone panel, left its side with no column holding an
+  item, so a new-column line `column:<side>:$` was offered for the same place as that column, and a host drew two
+  identical boxes under "all". The side now offers no new column: the declared column is the place. A side with no
+  declared column, and a dynamic (`column: true`) column, which an empty side loses, are unchanged.
+- `./scene`, **an emptied side column that the scene declares as an edge shows its guide while a panel is held
+  elsewhere** (fix). Its box at real size was lost because the held panel fills the whole column, so its after-entry
+  marks are empty; the lane now keeps its box as seen, and held in it nothing is drawn over the panel.
+- `./scene`, **an empty lane's marks don't change when another lane is entered**, but for the corner (fix). With `spot`
+  held, every other lane whose marks as seen are predicted keeps them, less the held lane's marks, which own their
+  corners; before, an empty bar was cut at the columns that move aside once the held lane opens.
 
 ## 26.11.52
 

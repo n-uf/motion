@@ -12,6 +12,10 @@
  *   or a refusal with its reason.
  * - `fitFloat(rect, stage, avoid)`: a float moved inside the stage and clear of the docked content.
  *
+ * `controlLadder(spec)` generates a control group's forms from its controls (lengths per tier, a gap, a grip, its own »
+ * cell): tier steps one control at a time, partial folds, then `fold` and `menu`, with `rank` and `hides` set, so a bar
+ * runs short control by control with no new solver rule. Hosts that hand-write forms are unchanged.
+ *
  * It never imports a window model. See docs/placement.md, Entry: stack.
  */
 export { cutEdges, type BandSide, type EdgeBand, type EdgeCut } from "./cut";

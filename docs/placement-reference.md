@@ -189,6 +189,65 @@ console.log(row.items.map((p) => [p.kind, p.rect.x, p.rect.width]));
 // [ [ 'fold', 12, 36 ], [ 'row', 56, 100 ], [ 'row', 164, 100 ] ] (three rows need 340: Views, the oldest, folds)
 ```
 
+## A group's ladder from its controls
+
+`controlLadder(spec)` generates a group's forms from what it holds, so a bar runs short control by control and not group
+by group. It is additive: a host that hand-writes its forms is unchanged, and nothing in `fitStack` knows about it. The
+result is ordinary forms with `rank` and `hides` set, so the solver's rules do the work (the lowest-ranked next form
+across all items, its tie-breaks, the way back by `previous`).
+
+```ts
+import { controlLadder, fitStack, type ControlLadderSpec } from "@n-uf/placement/stack";
+
+const spec: ControlLadderSpec = {
+  controls: [
+    { id: "fit", tiers: [48, 30, 22] }, // lengths per tier, longest first, in the host's order of presentation
+    { id: "in", tiers: [34, 26, 22] },
+    { id: "out", tiers: [34, 26, 22] },
+  ],
+  gap: 4, grip: 10, more: 22, cross: 28,
+};
+const { row } = controlLadder(spec);
+console.log(row.map((f) => [f.kind, f.main.min, f.rank ?? 0, f.hides ?? []]));
+// [ ['row', 134, 0, []], ['row', 126, 100, []], ['row', 118, 100.33, []], ['row', 100, 100.67, []],
+//   ['row', 96, 200, []], … ['row', 80, 400.33, ['out']], ['row', 54, 400.67, ['in', 'out']],
+//   ['fold', 32, 500, ['fit', 'in', 'out']], ['menu', 0, 600, []] ]
+```
+
+- **The spec.** `controls` in drawing order, each `{ id, tiers, foldOrder? }`: `tiers` are the control's lengths along
+  the stack per tier, longest first (a tier it doesn't list keeps its last length; the group's tier count is its longest
+  list). `gap` is between two controls, `grip` the group's grip cell, `more` the group's own » cell, `cross` its
+  thickness; the grip and `more` are the cells' own widths, with no gap added. `foldOrder` (default the control's index)
+  says which control folds first: the higher number, ties to the later control. `column: { icons, cross? }` adds the
+  group's forms down a column (an `icons` strip, then the menu); `keep` (default 0) lifts a pinned primary (below).
+- **The ladder, in order.** For `n` controls and `T` tiers: (1) every control at tier 0, a `row`; (2) the tier steps, one
+  control at a time in fold order: the control that folds first takes tier 1, then the next, then the first takes
+  tier 2, and so on to tier `T - 1` for all, each a `row` with every control shown, rank `100 * t + i / n` (`i` the step's
+  index within tier `t`), so groups of different sizes level within a tier; (3) the partial folds, for `k = 1 … n - 1` a
+  `row` at the last tier that hides the first `k` controls in fold order (`hides` lists them; its length is the shown
+  controls, the gaps, the grip and `more`), rank `100 * max(4, T) + k / n`, so the group with the fewest hidden controls
+  folds next; (4) `fold` (the grip and `more`, `hides` every control), rank `100 * (max(4, T) + 1)`, then `menu`, one
+  rank higher. A bar's ranks line up by tier number: give its groups one tier count.
+- **A fixed shape.** Every form is always emitted, even when it is no shorter than the one before (a partial fold whose
+  `more` cell is longer than the controls it hides, tiers that repeat). `fitStack` passes over a form that doesn't
+  shorten the stack and takes the next one that does, so the form count is `n * T + 2` (none with no controls) and an
+  index in `previous`, in the history and in a hand fold's `from` stays valid when a length changes. When the control set
+  itself changes, solve the group without `previous`.
+- **Order across a bar.** Ranks are spaced by step type, so every group's tier steps come before any group's partial fold,
+  every partial fold before any `fold`, and `fold` before `menu`; within a step type the usual tie-breaks decide. Two
+  like groups never differ by more than one form. A growing fixed item (a title) keeps its natural length while any group
+  has a `row` step left: the generated forms are all `row` kind until `fold`, so it gives way only after every group is
+  down to its last partial fold. Growing back is the exact reverse, and a 1 px wobble around a step boundary flips only
+  that step.
+- **The room left.** Growth undoes the last step first, so the room left over is always less than that step needs back;
+  it is not the cheapest step of the bar, because a cheaper step of another group sits earlier in the history.
+- **A pinned primary.** `keep: 1` adds 1000 to the ranks of the partial folds, `fold` and `menu` (and of the column's
+  menu), so every group of a lower level gives way entirely before it folds a control; its tier steps are unchanged.
+  `SceneItem.priority` still adds to every form's rank, and the 100-wide spacing keeps it inside its step type.
+- **In a scene.** `controlLadder(spec)` is a `SceneItem.forms`: `{ id, kind: "group", used, forms: controlLadder(spec) }`.
+  The chosen form's `hides` are the item's `hidden`, so a host draws the shown controls and the group's » with exactly
+  those.
+
 ## A title bar, kinds an edge takes, a group's own size
 
 Opt-in options for hosts that dock several kinds of item. All are additive: an input that uses none of them gives the
