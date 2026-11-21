@@ -7,7 +7,7 @@
  */
 import { createLandingModel, LANDING_APPROACH } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { createLandingHost, LANDING_CASES, runLandingCases, type LandingCase } from "../src/scene/cases";
+import { createLandingHost, LANDING_CASES, runLandingCases, type LandingCase } from "../src/testing";
 
 const ROW = { bar: 36, rail: 30 };
 /** The kept lane's reach, px: the entry margin. */
@@ -19,7 +19,7 @@ const steady = LANDING_CASES.find((r) => r.id === "landing-near-corner-steady")!
  * with `edge`, a point in the page within `KEEP` of a band's inner edge keeps its distance from that edge too.
  */
 function at(row: LandingCase, bar: number, rail: number, edge: boolean): LandingCase {
-  const h = row.scene.stage.height;
+  const h = row.state.stage.height;
   const dTop = bar - ROW.bar;
   const dRail = rail - ROW.rail;
   const near = (past: number): boolean => edge && past > 0 && past < KEEP;
@@ -28,7 +28,7 @@ function at(row: LandingCase, bar: number, rail: number, edge: boolean): Landing
   const point = (p: { x: number; y: number }) => ({ x: x(p.x), y: p.x <= ROW.rail && p.y > ROW.bar && p.y < h - ROW.bar ? p.y + dTop : y(p.y) });
   return {
     ...row,
-    scene: { ...row.scene, edges: row.scene.edges.map((e) => ({ ...e, cross: { ...e.cross, min: e.compact ? rail : bar, max: e.compact ? rail : bar, rail: e.compact ? rail : bar } })) },
+    state: { ...row.state, edges: row.state.edges.map((e) => ({ ...e, cross: { ...e.cross, min: e.compact ? rail : bar, max: e.compact ? rail : bar, rail: e.compact ? rail : bar } })) },
     path: row.path.map(point),
   };
 }
