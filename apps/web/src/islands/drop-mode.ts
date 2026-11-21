@@ -20,7 +20,7 @@ const DEFAULT: DropMode = "glide";
 
 /** The id a visitor stored before the switch took the library's names: indicator, gap and snap. */
 const OLD_ID: Readonly<Record<string, DropMode>> = { indicator: "outline", gap: "placeholder", snap: "glide" };
-const asMode = (v: string | null): DropMode => DROP_MODES.find((m) => m === v) ?? OLD_ID[v ?? ""] ?? DEFAULT;
+const asMode = (v: string | null): DropMode => DROP_MODES.find((m) => m === v) ?? (v !== null && Object.hasOwn(OLD_ID, v) ? OLD_ID[v]! : DEFAULT);
 
 /** What a demo does for a mode (the library's `PreviewPlan`, by the demos' own words). */
 export interface DropPlan {

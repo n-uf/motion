@@ -100,7 +100,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>, or take <code>lanes(state, id)</code> for <code>createLandingModel</code>. Every gap in every bar that accepts the group is a target, plus the float target and the group's home. Each carries the layout a release makes: <code>target.after(point, grab).layout.items[id].rect</code>.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code> and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>, or take <code>lanes(state, id)</code> for <code>createLandingModel</code>. Every gap in every bar that accepts the group is a target, plus the float target when groups may float and the group's home. Each carries the layout a release makes: <code>target.after(point, grab).layout.items[id].rect</code>.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
