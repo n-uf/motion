@@ -195,6 +195,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     const drawnStays = state.edges
       .filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen.layout.edges[e.id]?.cross ?? 0) > EPS)
       .map((e) => screen.layout.edges[e.id]!.rect);
+    // (The landing term states the rule; in every state found so far a drawn bar already holds the landing, or no created lane reaches it.)
     const onScreen = [...shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect)), ...drawnStays, ...(screen.landing ? [screen.landing] : [])];
     const axis = (id: string): "x" | "y" => axisOf.get(id) ?? "x";
     const made = shown.filter((s) => s.created).sort((a, b) => (axis(a.lane) === axis(b.lane) ? 0 : axis(a.lane) === "x" ? -1 : 1));

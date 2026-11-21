@@ -23,5 +23,12 @@ export function sweepWindows(): SweepWindow[] {
     windows: { name: string; dragged: string; state: DockState; options: DockLaneOptions; previous: DockLayout }[];
   };
   for (const w of captured.windows) out.push({ name: `captured ${w.name}`, state: w.state, dragged: w.dragged, options: w.options, previous: w.previous });
-  return out;
+  return [...out, ...panelWindows()];
+}
+
+/** Panel drags: each panel of `fixtures/columns-corner.json` held on the spots of both columns (a column is no drawn bar). */
+function panelWindows(): SweepWindow[] {
+  const s = JSON.parse(readFileSync(join(here, "fixtures", "columns-corner.json"), "utf8")) as DockState;
+  const panels = Object.keys(s.items).filter((k) => s.items[k]!.kind === "panel" && !s.items[k]!.fixed);
+  return panels.map((p) => ({ name: `columns-corner.json, panel ${p}`, state: s, dragged: p, options: { endReach: 24, emptyLanes: "real" }, previous: solve(s) }));
 }
