@@ -40,7 +40,9 @@ describe("canDropOnPane against its first form", () => {
     const pick = <T>(list: readonly T[]): T => list[Math.floor(rnd() * list.length)]!;
     const shapes: readonly TreeShape[] = [{}, { gap: 0.4 }, { gap: 0.3, master: 0.3, id: 0.5 }, { axis: 0.2, noRatio: 0.6, gap: 0.5 }];
     const CASES = 120_000;
-    let ok = 0;
+    let centerOk = 0;
+    let sideOk = 0;
+    let zeroAreaOk = 0;
     let room = 0;
     let fit = 0;
     let other = 0;
@@ -48,7 +50,7 @@ describe("canDropOnPane against its first form", () => {
       const n = 1 + Math.floor(rnd() * 7);
       const tree: Split<number> | null = rnd() < 0.03 ? null : randomTree(rnd, n, pick(shapes));
       const area: Rect =
-        rnd() < 0.06
+        rnd() < 0.1
           ? { x: 0, y: 0, width: rnd() < 0.5 ? 0 : 400, height: rnd() < 0.5 ? 0 : 300 }
           : { x: rnd() * 50, y: rnd() * 50, width: 100 + rnd() * 1400, height: 80 + rnd() * 900 };
       // Panes 0..n-1 are in the tree; n and n + 1 are not.
@@ -58,7 +60,7 @@ describe("canDropOnPane against its first form", () => {
       const net = rnd() < 0.5;
       // Floors answer by the pane alone: the two forms ask a different number of times, so no random draw in them.
       const options: DropOptions<number> = {
-        min: rnd() < 0.05 ? pick(ODD) : Math.floor(rnd() * 260),
+        min: rnd() < 0.05 ? pick(ODD) : rnd() < 0.1 ? 0 : Math.floor(rnd() * 260),
         ...(rnd() < 0.6 ? { gap: rnd() < 0.05 ? pick(ODD) : Math.floor(rnd() * 14) } : {}),
         ...(rnd() < 0.3 ? { handle: rnd() < 0.05 ? pick(ODD) : Math.floor(rnd() * 8) } : {}),
         ...(rnd() < 0.5 ? { floor: (child: Split<number>) => ({ min: "pane" in child ? 10 + child.pane * 30 : 60, net: "pane" in child ? net : !net }) } : {}),
@@ -66,13 +68,18 @@ describe("canDropOnPane against its first form", () => {
       const before = canDropOnPaneOld(tree, dragged, at, region, area, options);
       const now = canDropOnPane(tree, dragged, at, region, area, options);
       if (JSON.stringify(now) !== JSON.stringify(before)) expect(now).toEqual(before);
-      if (before.ok) ok++;
-      else if (before.reason!.includes("axis span") || before.reason!.includes("cross span")) room++;
+      if (before.ok) {
+        if (region === "center") centerOk++;
+        else if (!(area.width > 0 && area.height > 0)) zeroAreaOk++;
+        else sideOk++;
+      } else if (before.reason!.includes("axis span") || before.reason!.includes("cross span")) room++;
       else if (before.reason!.includes("footprint")) fit++;
       else other++;
     }
     // Every outcome came up often enough for the comparison to mean something.
-    expect(ok).toBeGreaterThan(CASES / 20);
+    expect(centerOk).toBeGreaterThan(CASES / 20);
+    expect(sideOk).toBeGreaterThan(CASES / 20);
+    expect(zeroAreaOk).toBeGreaterThan(150);
     expect(room).toBeGreaterThan(CASES / 20);
     expect(fit).toBeGreaterThan(500);
     expect(other).toBeGreaterThan(500);

@@ -517,15 +517,15 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
   panes are in it and at least `min` wide and high (fine, with nothing to measure, when `area` has no width or no
   height; `side` only words the reason). Both give `{ ok, reason? }` with the reasons `canDropOnPane` gives, and a
   `min`, `gap` or `handle` that is negative or not finite is 0.
-- `paneRegion(rect, point, previous, { centerRect })` takes the pane's center rectangle as the host already has it
+- `paneRegion(rect, point, previous, { paneCenter })` takes the pane's center rectangle as the host already has it
   (a `PaneCenter`, pane-local px, what `paneCenter(size, options)` gives) and uses it in place of measuring, so
   `center`, `centerX`, `centerY`, `centerMin` and `pixelRatio` are not read; hysteresis still applies. The same center
   gives the same region. It is an option of the one function, not a second name: the point, the previous region and
   the hysteresis are the same inputs either way.
 - `masterRatio(ratio)` and `masterCount(count, n)` are the clamps `masterStack` and a master split apply: the ratio
   within 0.05..0.95 (0.5 when left out or not finite), the count rounded and within 1..n (1 when left out or NaN, and
-  never 0). A host that lays out its own master and stack calls them instead of repeating the numbers. `Rect` is
-  re-exported from `./tiling`: the root's type itself.
+  never 0). A host that lays out its own master and stack calls them instead of repeating the numbers.
+- `Rect` is re-exported from `./tiling`: the root's type itself.
 - `neighbor(rects, from, direction)` gives the nearest pane that way, or null: a candidate's center must be strictly on
   that side of the center of `from`; its score is the center distance along the direction plus a quarter of the one
   across it, plus 100 when it does not overlap `from` across the direction; the lowest score wins, ties to the first in
