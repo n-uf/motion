@@ -223,7 +223,7 @@ The pick rule is an input, never an import: `createReferenceHost({ pick: targetA
 | --- | --- |
 | **Pure.** State in, rects out; no DOM, timer, global clock or framework in either entry. | `scripts/check-dist.mjs` checks the built package for host globals and DOM types, and that it imports only its own chunks and `@n-uf/placement` |
 | **Apart from motion.** Docking and motion compose through the shared target shape; the model imports nothing from motion, and the testing entry only its types. | dependency rules `docking-not-motion`, `docking-testing-motion-types-only`, `motion-not-docking` |
-| **On the general layer, through its entries.** Docking stands on `@n-uf/placement`'s public entries; placement never imports docking. | dependency rules `docking-placement-entries-only`, `placement-not-docking`, `stack-not-model`; `cross-folder-via-index`, `no-circular` |
+| **On the general layer, through its entries.** Docking stands on `@n-uf/placement`'s public entries; placement never imports docking. | dependency rules `docking-placement-entries-only`, `placement-not-docking`; `cross-folder-via-index`, `no-circular` |
 | **One owner per rule.** A window-level rule is written once, in `@n-uf/docking`. | `test/target-model.test.ts` and `test/sweep.test.ts` sweep random windows against the one model |
 | **A change that cannot apply returns its input.** `after === before` says nothing changed. | `test/changes.test.ts` |
 | **Reads never throw.** A stored form that cannot be read gives the base back with a reason. | `test/changes.test.ts` |

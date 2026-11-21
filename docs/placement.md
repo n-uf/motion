@@ -19,7 +19,7 @@ Each rule names the test that pins it. `pnpm check` in the repo root runs them a
 | **Form flags default from the kind**, and a flag the host sets wins. | `test/stack-form-flags.test.ts` |
 | **Older inputs fit as they did.** An input with none of the later options gives the fit of the earlier solvers. | `test/stack-compat.test.ts` |
 | **Panes divide the area exactly**, and a side drop means the same on any pane. | `test/tiling.test.ts` |
-| **Placement is pure and imports nothing from motion or docking.** No DOM, no timer, no global clock, no framework, no dependency. | `test/guard.test.ts`; `pnpm check` (the `placement-not-motion`, `placement-not-docking` and `stack-not-model` dependency rules, `scripts/check-dist.mjs` on the built package) |
+| **Placement is pure and imports nothing from motion or docking.** No DOM, no timer, no global clock, no framework, no dependency. | `test/guard.test.ts`; `pnpm check` (the `placement-not-motion` and `placement-not-docking` dependency rules, `scripts/check-dist.mjs` on the built package) |
 
 ## How the parts fit
 
@@ -38,7 +38,7 @@ flowchart LR
 ```
 
 - The root holds the shapes and the geometry every entry shares, and the drop-target shape.
-- `./stack` is **one edge**: the cut of a stage into bands, the fit of the items along one band, one band's drop places, and the float fit. It never imports a window model (the `stack-not-model` rule).
+- `./stack` is **one edge**: the cut of a stage into bands, the fit of the items along one band, one band's drop places, and the float fit. It never imports a window model: it stands on the root alone (the `stack-root-only` rule), and placement never imports docking (`placement-not-docking`).
 - `./tiling` divides an **area between panes**; it stands on the root alone.
 - `./popup` places a **popup** inside its bounds; it stands on the root alone.
 - `@n-uf/docking` lays out a whole window with `./stack` and owns everything above one edge. Placement never imports it.
@@ -71,7 +71,7 @@ A form's `kind` is the host's label. What the solver and a window model read is 
 | --- | --- |
 | **Pure.** Geometry in, rects out; no DOM, timer, global clock or framework in any entry. | `test/guard.test.ts` scans every source file and every entry in `exports`; `scripts/check-dist.mjs` checks the built package for host globals and DOM types |
 | **No dependencies, and apart from motion and docking.** Placement and motion compose through the shared target shape, in neither direction by import; docking stands on placement, never the reverse. | `test/guard.test.ts`; dependency rules `placement-not-motion`, `motion-not-placement`, `placement-not-docking` |
-| **Entries layer downward.** `./stack`, `./tiling` and `./popup` stand on the root; folders reach each other only through an `index.ts`; apps use public entries only. | dependency rules `cross-folder-via-index`, `stack-not-model`, `tiling-root-only`, `apps-public-entries-only`, `no-circular` |
+| **Entries layer downward.** `./stack`, `./tiling` and `./popup` stand on the root; folders reach each other only through an `index.ts`; apps use public entries only. | dependency rules `stack-root-only`, `tiling-root-only`, `popup-root-only`, `cross-folder-via-index`, `apps-public-entries-only`, `no-circular` |
 | **No words.** Nothing in the solver is a word: kinds, ids and labels are the host's. | review; the solver reads sizes and flags only |
 
 ## The SDK by entry point

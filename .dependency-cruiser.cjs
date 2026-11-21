@@ -64,11 +64,18 @@ module.exports = {
       to: { path: "^packages/$1/src/[^/]+/", pathNot: ["^packages/$1/src/$2/", "/index[.]ts$"] },
     },
     {
-      // The general layer never imports the docking model: `./stack` stands on the root alone.
-      name: "stack-not-model",
+      // The stack stands on the root (geometry) alone: it imports only `src/*.ts` and its own folder.
+      name: "stack-root-only",
       severity: "error",
       from: { path: "^packages/placement/src/stack/" },
-      to: { path: "(^packages/docking|@n-uf/docking)" },
+      to: { path: "^packages/placement/src/[^/]+/", pathNot: "^packages/placement/src/stack/" },
+    },
+    {
+      // The popup positioner stands on the root (geometry) alone: it imports only `src/*.ts` and its own folder.
+      name: "popup-root-only",
+      severity: "error",
+      from: { path: "^packages/placement/src/popup/" },
+      to: { path: "^packages/placement/src/[^/]+/", pathNot: "^packages/placement/src/popup/" },
     },
     {
       // Tiling stands on the root (geometry, `Target`) alone.
