@@ -583,8 +583,8 @@ export function drawnIn(layout: DockLayout, id: string): boolean {
   return drawnRect(layout, id) !== undefined;
 }
 
-/** Where `layout` draws the edge `id`: its rect when open, its side's rail when folded into it, else undefined. Internal. */
-export function drawnRect(layout: DockLayout, id: string): Rect | undefined {
+/** Where `layout` draws the edge `id`: its rect when open, its side's rail when folded into it, else undefined. */
+function drawnRect(layout: DockLayout, id: string): Rect | undefined {
   const e = layout.edges[id];
   if (!e) return undefined;
   if (e.cross > EPS) return e.rect;
