@@ -4,8 +4,8 @@
  * items of an edge on top of `@n-uf/placement/stack`'s.
  */
 import { describe, expect, it } from "vitest";
-import { closeItem, dividers, openItem, readDockState, resetBetween, resetLengths, resizeBetween, solve, storeDockState, type DockItem, type DockLayout, type DockState } from "../src";
-import { bar, byId, column, group, panel, windowState } from "./fixture";
+import { closeItem, dividers, moveTo, openItem, readDockState, resetBetween, resetLengths, resizeBetween, solve, storeDockState, type DockItem, type DockLayout, type DockState } from "../src";
+import { bar, byId, column, form, group, panel, windowState } from "./fixture";
 
 const stateOf = (items: readonly DockItem[], height = 800): DockState => ({
   stage: { x: 0, y: 0, width: 1200, height },
@@ -191,5 +191,61 @@ describe("the dock verbs over an edge", () => {
   it("a group beside the panels takes no part", () => {
     const mixed = stateOf([panel("a", 1), group("g", 2), panel("c", 3)]);
     expect(dividers(mixed, solve(mixed)).map((d) => [d.before, d.after])).toEqual([["a", "c"]]);
+  });
+});
+
+describe("a divider drag writes the dragged pair's lengths only", () => {
+  const NATURAL: Record<string, number> = { a: 300, b: 300, c: 300, d: 200 };
+  const sized = (id: string, used: number): DockItem => ({
+    ...panel(id, used),
+    forms: { ...panel(id, used).forms, column: [form("open", 120, NATURAL[id]!, 260, { grows: true, crossMin: 180 }), ...panel(id, used).forms.column!.slice(1)] },
+  });
+  /** Right column [a, b, c] and left column [d], 1200 tall; a, b and c ask 300, d asks 200. */
+  const split = (height: number): DockState => ({
+    stage: { x: 0, y: 0, width: 1200, height },
+    edges: [column("left", "left", 0, ["d"]), column("right", "right", 0, ["a", "b", "c"])],
+    items: byId(["a", "b", "c", "d"].map((id, i) => sized(id, i))),
+    floats: [],
+    floatKinds: [],
+  });
+  const heights = (s: DockState, ...ids: string[]): number[] => ids.map((id) => Math.round(tall(solve(s), id) * 1e6) / 1e6);
+
+  it("a bystander gets no length, with room to spare and short of it", () => {
+    for (const height of [1200, 900, 600]) {
+      const s = split(height);
+      const next = resizeBetween(s, "a", "b", 40);
+      expect(next.items.a!.length?.column).toBeDefined();
+      expect(next.items.b!.length?.column).toBeDefined();
+      expect(next.items.c).toBe(s.items.c);
+      expect(next.items.d).toBe(s.items.d);
+      expect(next.items.c!.length).toBeUndefined();
+    }
+  });
+
+  it("a bystander moved under another column's panel is drawn as one nobody resized", () => {
+    // a|b by 40 writes c nothing; c moved under d (asks 200) splits 1200 as 480 / 720, as an item never dragged does.
+    for (const height of [1200, 800]) {
+      const s = split(height);
+      const dragged = resizeBetween(s, "a", "b", 40);
+      const at = { edge: "left", at: 1 } as const;
+      const moved = moveTo(dragged, "c", at);
+      const never = moveTo(s, "c", at);
+      expect(solve(moved).items.c!.rect).toEqual(solve(never).items.c!.rect);
+      expect(solve(moved).items.d!.rect).toEqual(solve(never).items.d!.rect);
+    }
+    const moved = moveTo(resizeBetween(split(1200), "a", "b", 40), "c", { edge: "left", at: 1 });
+    expect(heights(moved, "d", "c")).toEqual([480, 720]);
+  });
+
+  it("nothing else in the source column moves, and the pair is drawn as dragged", () => {
+    for (const height of [1200, 800, 600]) {
+      const s = split(height);
+      const was = heights(s, "a", "b", "c");
+      const now = heights(resizeBetween(s, "a", "b", 40), "a", "b", "c");
+      expect(now[0]).toBeCloseTo(was[0]! + 40, 6);
+      expect(now[1]).toBeCloseTo(was[1]! - 40, 6);
+      expect(now[2]).toBeCloseTo(was[2]!, 6);
+    }
+    expect(heights(resizeBetween(split(1200), "a", "b", 40), "a", "b", "c")).toEqual([440, 360, 400]);
   });
 });

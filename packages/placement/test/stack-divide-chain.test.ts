@@ -72,7 +72,7 @@ describe("a growing item that is not an end ends the chain", () => {
   });
 });
 
-describe("the items that share spare length are the items whose length is written", () => {
+describe("the items that share spare length keep their drawn size when their neighbors are dragged, and get no length", () => {
   it("a wrap form that grows keeps its drawn length when its neighbors are dragged, with room and short", () => {
     for (const length of [900, 700, 420, 330]) {
       const input = stack([panel("a", 1, 200), panel("c", 2, 100), words("w", 3)], length);
@@ -89,18 +89,23 @@ describe("the items that share spare length are the items whose length is writte
   it("a wrap form is never resized: the verbs name only its neighbors", () => {
     const input = stack([panel("a", 1, 200), panel("c", 2, 100), words("w", 3)], 700);
     const fit = fitStack(input);
-    const moved = resizeBetween(input, "a", "c", 30);
-    expect(moved.items.find((it) => it.id === "w")!.length?.column).toBeCloseTo(mainOf(fit, "w"), 5);
+    const moved = resizeBetween(input, "a", "c", -10);
+    expect(moved.items.find((it) => it.id === "w")).toBe(input.items.find((it) => it.id === "w"));
+    expect(mainOf(fitStack(moved), "w")).toBeCloseTo(mainOf(fit, "w"), 5);
     expect(dividers(input, fit).map((d) => [d.before, d.after])).toEqual([["a", "c"]]);
   });
 
-  it("every growing form in the drawn layout is written, every other drawn form is not", () => {
+  it("only the pair is written: every other item, growing or not, is the object it was and draws as it did", () => {
     const input = stack([panel("a", 1, 200), group("g", 2), panel("c", 3, 100), words("w", 4), { ...panel("f", 5), fixed: true }], 1100);
     const next = resizeBetween(input, "a", "c", 20);
     const fit = fitStack(input);
-    for (const p of fit.items) {
-      const grows = input.items.find((it) => it.id === p.id)!.forms[p.form]!.main.grows === true;
-      expect(next.items.find((it) => it.id === p.id)!.length?.column !== undefined).toBe(grows);
+    const after = fitStack(next);
+    for (const [i, it] of input.items.entries()) {
+      if (it.id === "a" || it.id === "c") expect(next.items[i]!.length?.column).toBeDefined();
+      else {
+        expect(next.items[i]).toBe(it);
+        expect(mainOf(after, it.id)).toBeCloseTo(mainOf(fit, it.id), 6);
+      }
     }
   });
 });
@@ -158,12 +163,29 @@ describe("resetLengths", () => {
 });
 
 describe("a collapsed item that was never sized", () => {
-  it("gets, with spare room, the length that keeps its proportion for when it reopens", () => {
+  it("gets no length from a drag of its neighbors, and keeps its proportion when it reopens", () => {
+    for (const length of [700, 450, 330]) {
+      const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], length);
+      const next = resizeBetween(input, "a", "c", -20);
+      expect(next).not.toBe(input);
+      expect(next.items[1]).toBe(input.items[1]);
+      expect(next.items[1]!.length).toBeUndefined();
+      // Reopened, it is drawn as it is when nobody resized the others: the pair's asks still add up to what they did.
+      const open = (s: StackInput): StackInput => ({ ...s, items: s.items.map((it) => (it.id === "b" ? { ...it, from: undefined } : it)) });
+      const was = fitStack(open(input));
+      const now = fitStack(open(next));
+      expect(mainOf(now, "b")).toBeCloseTo(mainOf(was, "b"), 5);
+      expect(mainOf(now, "a") + mainOf(now, "c")).toBeCloseTo(mainOf(was, "a") + mainOf(was, "c"), 5);
+    }
+  });
+
+  it("when an end is dragged to its least with room, the stack is written at the drawn sizes and the collapsed item gets the length that keeps its proportion for when it reopens", () => {
     const input = stack([panel("a", 1, 200), folded("b", 2, 160), panel("c", 3, 100)], 700);
     const before = fitStack(input);
     const k = (mainOf(before, "a") + mainOf(before, "c")) / (200 + 100);
     expect(k).toBeGreaterThan(1.5);
-    const next = resizeBetween(input, "a", "c", 20);
+    const next = resizeBetween(input, "a", "c", 10_000);
+    expect(mainOf(fitStack(next), "c")).toBeCloseTo(90, 6);
     expect(next.items[1]!.length?.column).toBeCloseTo(k * 160, 5);
     expect(mainOf(fitStack(next), "b")).toBe(28);
     // Reopened, all three ask for what they were drawn at (the others' lengths are at the spare-room scale, so is its):

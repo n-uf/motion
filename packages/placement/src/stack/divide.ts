@@ -71,31 +71,44 @@ function pair(all: readonly Grower[], before: string, after: string): [Grower, G
 }
 
 /**
- * `input` with every growing item written at the length it is drawn (the pair given moved to `to`), so the stack is laid out
- * as drawn and nothing but the pair moves. Short of length the items are drawn part of the way from their least to the
- * length they ask for (`tight`); a length written one step back from there is drawn exactly that way again, whatever the
- * items that don't grow do. With spare length, a collapsed item that has no length of its own and a form that grows is
- * written the length it would have been drawn at had it been open (`scale` times its natural, the others being
- * drawn that much longer than they ask), so it keeps its proportion when it reopens. Items already at their length stay
- * the same objects.
+ * `input` with the length of each item of the pair written so the stack is laid out as drawn (the pair given moved to
+ * `to`) and nothing but the pair moves. A length is an ask, not a drawn size: with spare length a growing form is drawn
+ * `scale` times its ask, so the ask written is the drawn size over `scale`; short of length the items are drawn part of
+ * the way from their least to their ask (`tight`), so it is `least + (drawn - least) / tight`. The pair's asks add up to
+ * what they did before (their drawn sizes add up to what they did), so the weight the length is shared by, and the scale,
+ * are the same, and no other item needs a length: a bystander keeps whatever it had, which is none when nobody sized it,
+ * and travels to another stack as the item it is.
+ *
+ * One case can't be written that way: with spare length, an end drawn under `scale` times its least would ask for less
+ * than its least, which reads as its least and is drawn longer (`scale` times that). So that it still reaches its least,
+ * the whole stack is written at the drawn sizes instead, which leave no spare length (`resetBetween` always writes it
+ * that way, `only` false): every growing item, and, for each
+ * collapsed item that has no length of its own and a form that grows, the length it would have been drawn at had it been
+ * open (`scale` times its natural), so it keeps its proportion when it reopens. Items already at their length stay the
+ * same objects.
  */
-function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: ReadonlyMap<string, number>): StackInput {
+function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: ReadonlyMap<string, number>, only: boolean): StackInput {
   const known = sizesOf(fit);
   const tight = known?.tight;
   const share = tight !== undefined && tight > EPS && tight < 1 ? tight : 1;
   const scale = known?.scale ?? 1;
+  const roomy = scale > 1 + EPS;
   const byId = new Map(all.map((g) => [g.id, g]));
+  const ask = (g: Grower, drawn: number): number => (roomy ? drawn / scale : g.least + (drawn - g.least) / share);
+  const pairOnly = only && [...to].every(([id, drawn]) => ask(byId.get(id)!, drawn) >= byId.get(id)!.least - EPS);
   let changed = false;
   const items = input.items.map((it) => {
+    if (pairOnly && !to.has(it.id)) return it;
     const g = byId.get(it.id);
     if (!g) {
-      const open = scale > 1 + EPS && it.fixed !== true && it.length?.[input.axis] === undefined ? it.forms.find((f) => f.kind !== "menu" && f.main.grows === true) : undefined;
+      const open = roomy && it.fixed !== true && it.length?.[input.axis] === undefined ? it.forms.find((f) => f.kind !== "menu" && f.main.grows === true) : undefined;
       const natural = open ? scale * formMain(open, "natural", fit.cross) : 0;
       if (natural <= EPS) return it;
       changed = true;
       return { ...it, length: { ...it.length, [input.axis]: natural } };
     }
-    const length = g.least + ((to.get(g.id) ?? g.drawn) - g.least) / share;
+    const drawn = to.get(g.id) ?? g.drawn;
+    const length = pairOnly ? ask(g, drawn) : g.least + (drawn - g.least) / share;
     const was = it.length?.[input.axis];
     if (was !== undefined && Math.abs(was - length) <= EPS) return it;
     changed = true;
@@ -106,9 +119,10 @@ function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: R
 
 /**
  * The two items of the divider between `before` and `after` redrawn: `to(b, a)` is the length `before` is to be drawn at
- * (`after` takes the rest of their combined length). The same object when they aren't neighbors or `before` stays.
+ * (`after` takes the rest of their combined length). The same object when they aren't neighbors or `before` stays. `only`:
+ * write the lengths of the two only (see `written`), else of every growing item.
  */
-function trade(input: StackInput, before: string, after: string, options: FitOptions, to: (b: Grower, a: Grower) => number): StackInput {
+function trade(input: StackInput, before: string, after: string, options: FitOptions, only: boolean, to: (b: Grower, a: Grower) => number): StackInput {
   const fit = fitStack(input, options);
   const all = growers(input, fit);
   const ends = pair(all, before, after);
@@ -124,6 +138,7 @@ function trade(input: StackInput, before: string, after: string, options: FitOpt
       [b.id, first],
       [a.id, b.drawn + a.drawn - first],
     ]),
+    only,
   );
 }
 
@@ -156,14 +171,15 @@ export function dividers(input: StackInput, fit: StackFit): StackDivider[] {
 /**
  * Move the divider between the open growing items `before` and `after` by `delta` px along the stack: `before` gets
  * longer by `delta` and `after` shorter (a negative `delta` the other way), so the stack's total is the same and only the
- * two move. The first resize writes the length each open growing item is drawn at, so nothing else shifts. Neither goes
+ * two move. It writes the length of the two only, in ask units (see `written`), so nothing else shifts and the others
+ * stay as they were, sized or not. Neither goes
  * under its least: `delta` is clamped to the divider's `range`, no item collapses and none is pushed. Returns the same
  * object when nothing changes (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0).
  * `options.previous` is the fit the stack had, as for `fitStack`.
  */
 export function resizeBetween(input: StackInput, before: string, after: string, delta: number, options: FitOptions = {}): StackInput {
   if (!Number.isFinite(delta)) return input;
-  return trade(input, before, after, options, (b, a) => b.drawn + Math.min(Math.max(delta, 0 - Math.max(0, b.drawn - b.least)), Math.max(0, a.drawn - a.least)));
+  return trade(input, before, after, options, true, (b, a) => b.drawn + Math.min(Math.max(delta, 0 - Math.max(0, b.drawn - b.least)), Math.max(0, a.drawn - a.least)));
 }
 
 /**
@@ -171,10 +187,11 @@ export function resizeBetween(input: StackInput, before: string, after: string, 
  * drawn length kept and nothing else moving: in proportion to their naturals (their forms' `main.natural`, the least at
  * most) with room for both, and `least + (natural - least) * s` with one shared `s` when short, as `fitStack` shares a
  * short length. The double-click action. Returns the same object when the two are at that split already (a pair nobody
- * resized always is, in every regime), or are not neighbors.
+ * resized always is, in every regime), or are not neighbors. Unlike a drag it writes the length every growing item is
+ * drawn at, as it always has.
  */
 export function resetBetween(input: StackInput, before: string, after: string, options: FitOptions = {}): StackInput {
-  return trade(input, before, after, options, (b, a) => {
+  return trade(input, before, after, options, false, (b, a) => {
     const both = b.drawn + a.drawn;
     const natural = b.natural + a.natural;
     const least = b.least + a.least;

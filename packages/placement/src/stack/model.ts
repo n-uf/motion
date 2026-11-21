@@ -279,7 +279,8 @@ export interface StackItem {
    * interpolate between their least and their length, so a stack too short for all of them still trades room between
    * them. A form that doesn't grow ignores it (the length is kept for when the item grows again), and so does a
    * stack of the other axis. A stack whose items declare none is laid out exactly as before. What gives way and in
-   * which order never reads it. `resizeBetween`, `resetBetween` and `resetLengths` change it.
+   * which order never reads it. It is in ask units, not drawn px: with room to spare a drawn size is the ask times the
+   * shared scale. `resizeBetween` writes it for the dragged pair only; `resetBetween` and `resetLengths` change it too.
    */
   readonly length?: StackLengths;
 }

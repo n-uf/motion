@@ -112,15 +112,20 @@ describe("resizeBetween", () => {
     expect(mainOf(back, "b")).toBeCloseTo(mainOf(fit, "b") + 30, 6);
   });
 
-  it("the first resize writes the drawn length of every open growing item, so nothing else shifts", () => {
+  it("the first resize writes the length of the pair only, so nothing else shifts and the others stay unsized", () => {
     const next = resizeBetween(input, "a", "b", 10);
-    for (const it of next.items) expect(it.length?.column).toBeCloseTo(mainOf(fitStack(next), it.id), 6);
-    expect(next.items.every((it) => typeof it.length?.column === "number")).toBe(true);
-    // A header-only panel isn't growing: its drawn length is not written (see stack-divide-chain.test.ts for the one it
-    // gets for when it reopens).
+    expect(typeof next.items[0]!.length?.column).toBe("number");
+    expect(typeof next.items[1]!.length?.column).toBe("number");
+    expect(next.items[2]).toBe(input.items[2]);
+    expect(next.items[2]!.length).toBeUndefined();
+    // The pair lays out as it was drawn, and so does the rest (the lengths' units: stack-divide-pair.test.ts).
+    const after = fitStack(next);
+    expect(mainOf(after, "a")).toBeCloseTo(mainOf(fit, "a") + 10, 6);
+    expect(mainOf(after, "c")).toBeCloseTo(mainOf(fit, "c"), 6);
+    // A header-only panel isn't growing: no length is written for it.
     const mixed = stack([panel("a", 1), folded("b", 2), panel("c", 3)], 600);
     const written = resizeBetween(mixed, "a", "c", 20);
-    expect(mixed.items[1]!.length).toBeUndefined();
+    expect(written.items[1]).toBe(mixed.items[1]);
     expect(written.items[0]!.length?.column).toBeDefined();
     expect(mainOf(fitStack(written), "b")).toBe(28);
   });
@@ -128,7 +133,8 @@ describe("resizeBetween", () => {
   it("the other axis's length is kept", () => {
     const withRow: StackInput = { ...input, items: input.items.map((it) => ({ ...it, length: { row: 123 } })) };
     const next = resizeBetween(withRow, "a", "b", 10);
-    expect(next.items.every((it) => it.length?.row === 123 && typeof it.length.column === "number")).toBe(true);
+    expect(next.items.every((it) => it.length?.row === 123)).toBe(true);
+    expect(next.items.map((it) => typeof it.length?.column)).toEqual(["number", "number", "undefined"]);
   });
 
   it("neither goes below its least: clamped, no collapse and no push", () => {

@@ -244,7 +244,7 @@ export function SPLIT_PRESETS(): SplitPreset[] {
       id: "split-reopen-keeps-proportion",
       title: "Panel split: a panel collapsed through a resize reopens in proportion",
       expected:
-        "Pages, Notes folded and Findings in one column; the divider between Pages and Findings is dragged, which writes the lengths of the two open panels and, for folded Notes that asked for none, its natural length scaled as the others are drawn. Unfolded again, the three share the column by the one rule: with room, in proportion to their asked lengths; short of room, each at the same share of the way from its least to its length. The column's total is the same, none under its least, and Notes is open.",
+        "Pages, Notes folded and Findings in one column; the divider between Pages and Findings is dragged, which writes the lengths of those two panels only, in ask units; folded Notes, which asked for none, gets none. Unfolded again, the three share the column by the one rule: with room, in proportion to their asked lengths (Notes asking its natural); short of room, each at the same share of the way from its least to its length. The column's total is the same, none under its least, and Notes is open.",
       setup: (c) => c.setState(collapsed(TALL)),
       check(c) {
         c.setState(collapsed(TALL));
@@ -252,10 +252,10 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const open = { pages: 320, notes: 200, findings: 260 };
         const least = { pages: 160, notes: 120, findings: 140 };
         const total = tall(c, "pages") + tall(c, "notes") + tall(c, "findings");
-        const scale = (tall(c, "pages") + tall(c, "findings")) / (open.pages + open.findings);
         drag(c, "pages", "findings", [40]);
-        const len = (id: "pages" | "notes" | "findings"): number => c.state.items[id]?.length?.column ?? NaN;
-        if (!near(len("notes"), scale * open.notes, 0.5)) bad.push(`Notes asks ${r0(len("notes"))}, not ${r0(scale * open.notes)} (its natural ${open.notes} at the scale ${r0(scale * 1000) / 1000})`);
+        // A panel that asked for no length asks its natural.
+        const len = (id: "pages" | "notes" | "findings"): number => c.state.items[id]?.length?.column ?? open[id];
+        if (c.state.items.notes?.length?.column !== undefined) bad.push(`Notes was written a length (${r0(c.state.items.notes.length.column)}), a bystander of the drag gets none`);
         c.commit(foldItem(c.state, "notes", false));
         const ids = ["pages", "notes", "findings"] as const;
         if (ids.some((id) => kind(c, id) !== "open")) bad.push(`the forms are ${ids.map((id) => kind(c, id)).join("/")}, open all three expected`);
@@ -267,7 +267,7 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const share = (id: (typeof ids)[number]): number => (asked <= total + 0.6 ? tall(c, id) / len(id) : (tall(c, id) - least[id]) / (len(id) - least[id]));
         const shares = ids.map(share);
         if (Math.max(...shares) - Math.min(...shares) > 0.01) bad.push(`the shares differ: ${ids.map((id, i) => `${id} ${r0(shares[i]! * 1000) / 1000}`).join(", ")} (${asked <= total + 0.6 ? "with room" : "short"})`);
-        return { pass: bad.length === 0, now: `Notes asked ${r0(len("notes"))}; reopened: ${ids.map((id) => `${id} ${r0(tall(c, id))}`).join(", ")} of ${r0(total)}.${report(bad)}` };
+        return { pass: bad.length === 0, now: `Notes asks ${r0(len("notes"))}; reopened: ${ids.map((id) => `${id} ${r0(tall(c, id))}`).join(", ")} of ${r0(total)}.${report(bad)}` };
       },
     },
   ];
