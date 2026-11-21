@@ -1,16 +1,17 @@
 // The docs pages: /docs/ (the index) and one page per library, /docs/motion/, /docs/placement/ and /docs/docking/,
 // each rendered at build time from the library's own docs file with the package's version read from its package.json,
 // so a page can't drift from what npm shows. Motion and placement render their package README; docking renders its
-// design page (docs/docking.md: the README is only its short npm page). The docking page is built only when that file
-// exists, so the site builds before the docking release and the page appears once the release adds the file. The
-// pages and their SEO text live here; the rendering is the site's markdown pipeline (@astrojs/markdown-remark) plus
-// the steps in docs-markdown.mjs.
+// design page (docs/docking.md: the README is only its short npm page) and links the full reference
+// (docs/docking-reference.md). The pages and their SEO text live here; the rendering is the site's markdown pipeline
+// (@astrojs/markdown-remark) plus the steps in docs-markdown.mjs.
 // Limits (n-uf-seo): title at most 60 characters, description 120 to 155. Facts come only from the docs files.
 import { createMarkdownProcessor, markdownConfigDefaults, type MarkdownHeading } from "@astrojs/markdown-remark";
 import motionReadme from "../../../../packages/motion/README.md?raw";
 import placementReadme from "../../../../packages/placement/README.md?raw";
+import dockingDesign from "../../../../docs/docking.md?raw";
 import motionPkg from "../../../../packages/motion/package.json";
 import placementPkg from "../../../../packages/placement/package.json";
+import dockingPkg from "../../../../packages/docking/package.json";
 import { codeTheme } from "../components/code-theme";
 import { remarkDocs, rehypeDocs } from "./docs-markdown.mjs";
 import rehypeExternalLinks from "./rehype-external-links.mjs";
@@ -18,14 +19,6 @@ import { externalCheck, newTabNote } from "./links.mjs";
 import { updated } from "./dates.mjs";
 import { PARTS, type PartId } from "./parts";
 import { repoUrl, npmUrl, npmPlacementUrl, npmDockingUrl, site } from "./site";
-
-// The docking files, if the release has added them: a glob that matches nothing is an empty object, not an error.
-const dockingDocs = import.meta.glob<string>("../../../../docs/docking.md", { query: "?raw", import: "default", eager: true });
-const dockingReference = import.meta.glob<string>("../../../../docs/docking-reference.md", { query: "?raw", import: "default", eager: true });
-const dockingPkgs = import.meta.glob<{ version: string; exports: Record<string, unknown> }>("../../../../packages/docking/package.json", { import: "default", eager: true });
-const dockingMd = Object.values(dockingDocs)[0];
-const dockingPkg = Object.values(dockingPkgs)[0];
-if (dockingMd && !dockingPkg) throw new Error("docs: docs/docking.md exists but packages/docking/package.json does not");
 
 export interface DocPage {
   part: PartId;
@@ -99,29 +92,26 @@ export const DOCS: DocPage[] = [
     entries: entriesOf("@n-uf/placement", placementPkg),
     live: PARTS.find((p) => p.id === "placement")!.pages,
   },
-  // @n-uf/docking: only when the release has added docs/docking.md (and the package)
-  ...(dockingMd && dockingPkg
-    ? [{
-        part: "docking" as const,
-        slug: "docking",
-        path: "/docs/docking/",
-        title: "@n-uf/docking docs: dock state, targets and floats",
-        description: "Reference for @n-uf/docking: DockState, solve, drop targets and refusals, storeDockState and readDockState, and the testing rows, entry by entry.",
-        nav: "@n-uf/docking",
-        pkg: "@n-uf/docking",
-        version: dockingPkg.version,
-        install: "npm i @n-uf/docking",
-        npm: npmDockingUrl,
-        source: `${repoUrl}/tree/main/packages/docking`,
-        readmeUrl: `${repoUrl}/blob/main/docs/docking.md`,
-        readmeLabel: "Design page on GitHub",
-        referenceUrl: Object.keys(dockingReference).length > 0 ? `${repoUrl}/blob/main/docs/docking-reference.md` : undefined,
-        dir: "docs",
-        markdown: dockingMd,
-        entries: entriesOf("@n-uf/docking", dockingPkg),
-        live: PARTS.find((p) => p.id === "docking")!.pages,
-      } satisfies DocPage]
-    : []),
+  {
+    part: "docking",
+    slug: "docking",
+    path: "/docs/docking/",
+    title: "@n-uf/docking docs: dock state, targets and floats",
+    description: "Reference for @n-uf/docking: DockState, solve, drop targets and refusals, storeDockState and readDockState, and the testing rows, entry by entry.",
+    nav: "@n-uf/docking",
+    pkg: "@n-uf/docking",
+    version: dockingPkg.version,
+    install: "npm i @n-uf/docking",
+    npm: npmDockingUrl,
+    source: `${repoUrl}/tree/main/packages/docking`,
+    readmeUrl: `${repoUrl}/blob/main/docs/docking.md`,
+    readmeLabel: "Design page on GitHub",
+    referenceUrl: `${repoUrl}/blob/main/docs/docking-reference.md`,
+    dir: "docs",
+    markdown: dockingDesign,
+    entries: entriesOf("@n-uf/docking", dockingPkg),
+    live: PARTS.find((p) => p.id === "docking")!.pages,
+  },
 ];
 
 export const docsIndex = {
