@@ -1,13 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "workspaces": {
-    ".": { "entry": ["scripts/*.mjs"], "ignoreDependencies": ["dependency-cruiser", "jscpd"] },
+    ".": { "entry": ["scripts/*.mjs", "record/*.ts"], "ignoreDependencies": ["dependency-cruiser", "jscpd"] },
     "packages/motion": {
-      "entry": ["index.ts", "browser.ts", "src/*/index.ts", "test/**/*.ts", "bench/**/*.{ts,mjs}", "scripts/*.mjs"],
+      "entry": ["index.ts", "browser.ts", "src/*/index.ts", "test/**/*.ts", "bench/**/*.{ts,mjs}", "scripts/*.mjs", "record/*.ts"],
       "ignoreDependencies": ["@preact/signals-core"]
     },
-    "packages/placement": { "entry": ["index.ts", "src/*/index.ts", "test/**/*.ts", "scripts/*.mjs"] },
-    "packages/docking": { "entry": ["test/**/*.ts", "scripts/*.mjs"] },
+    "packages/placement": { "entry": ["index.ts", "src/*/index.ts", "test/**/*.ts", "scripts/*.mjs", "record/*.ts"] },
+    "packages/docking": { "entry": ["test/**/*.ts", "scripts/*.mjs", "record/*.ts"] },
     "apps/lab": { "entry": ["src/shell/shell.ts"], "project": ["src/**/*.ts"] },
     "apps/web": { "entry": ["src/pages/**/*.{astro,ts}", "src/islands/*.ts", "scripts/*.mjs"], "ignoreBinaries": ["vite"] }
   }
