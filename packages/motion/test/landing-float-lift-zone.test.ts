@@ -65,7 +65,7 @@ describe("landing model: a float's lift zone", () => {
       expect(f.spot).toBeNull();
       expect(f.room).toBe(false);
       expect(f.pending).toBeUndefined();
-      expect(f.state).toEqual({ kind: "float", point: { x: PRESS.x + dx, y: PRESS.y } });
+      expect(f.held).toEqual({ kind: "float", point: { x: PRESS.x + dx, y: PRESS.y } });
       expect(f.landing).toEqual(FLOAT({ x: PRESS.x + dx, y: PRESS.y }));
     }
     // A hand held still there, long enough for a lane's still gate, takes nothing either.
@@ -99,7 +99,7 @@ describe("landing model: a float's lift zone", () => {
     for (const { f } of out) {
       expect(f.region).toBe("open");
       expect(f.room).toBe(false);
-      expect(f.state?.kind).toBe("float");
+      expect(f.held?.kind).toBe("float");
     }
   });
 
