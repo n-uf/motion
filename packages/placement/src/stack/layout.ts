@@ -21,7 +21,8 @@
  *    the groups.
  * 5. The room the items leave goes to the forms that grow, shared by their natural sizes. With none, the items keep
  *    their natural sizes from the start of the stack. Between the minimum and natural sizes every item shrinks by the
- *    same share of what it can give.
+ *    same share of what it can give. A growing form whose item asks for a length (`StackItem.length`, for the stack's
+ *    axis) is read at that length in place of its natural size, nothing else changes.
  *
  * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
  * others give way around it. In step 5 it shrinks and grows like any item.
@@ -38,7 +39,7 @@
  * same input, same fit.
  */
 import { EPS, type Rect } from "../geometry";
-import { formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
+import { askedLength, formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
 const isMenu = (f: StackForm): boolean => f.kind === "menu";
 /** The form kinds of a control group; `ownCross` draws these at their own size across. */
 const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "wrap", "icons", "fold"]);
@@ -425,10 +426,13 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   // While the growing fixed items still hold (the forms fit with them at their natural length), the others take the
   // shortage first: a held item's least is its natural length.
   const min = (i: number): number => mainOf(form(i), hold && holds(i) ? "natural" : "min", cross);
-  const nat = (i: number): number => Math.max(min(i), mainOf(form(i), "natural", cross));
+  // What a growing form asks for: its item's asked length (`StackItem.length`) when it has one, else the form's natural.
+  const nat = (i: number): number => Math.max(min(i), askedLength(items[i]!, form(i), input.axis) ?? mainOf(form(i), "natural", cross));
   const sumMin = drawn.reduce((s, i) => s + min(i), 0);
   const sumNat = drawn.reduce((s, i) => s + nat(i), 0);
   const size = new Map<number, number>();
+  // The share of the way from the least to the asked sizes the items are drawn at: 1 with room enough for all.
+  let tight = 1;
   if (sumNat <= avail + EPS) {
     const growers = drawn.filter((i) => form(i).main.grows);
     const spare = Math.max(0, avail - sumNat);
@@ -439,6 +443,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     }
   } else {
     const t = avail > sumMin && sumNat > sumMin ? (avail - sumMin) / (sumNat - sumMin) : 0;
+    tight = t;
     for (const i of drawn) size.set(i, min(i) + (nat(i) - min(i)) * t);
   }
 
@@ -476,5 +481,16 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   for (const i of menuOrder) if (isMenu(form(i))) notes.push({ code: "to-menu", id: items[i]!.id });
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
-  return { axis: input.axis, length, cross, items: placed, menu, notes, need: minSumWith(false), steps: hist };
+  const fit: StackFit = { axis: input.axis, length, cross, items: placed, menu, notes, need: minSumWith(false), steps: hist };
+  tights.set(fit, tight);
+  return fit;
 }
+
+/** The `tight` share of each fit `solve` made (kept off the fit itself, so a fit is exactly what it was). */
+const tights = new WeakMap<StackFit, number>();
+/**
+ * How far from the least to the asked sizes `fit` drew the items that grow: 1 when the length held them all at their
+ * asked sizes (or more), less when it was short. Undefined for a fit not made by `fitStack`. What a divider drag reads
+ * to write lengths that reproduce the drawn sizes exactly.
+ */
+export const tightOf = (fit: StackFit): number | undefined => tights.get(fit);

@@ -238,6 +238,16 @@ export function wrapCross(spec: WrapSpec): { natural: number; min: number } {
   return { natural, min };
 }
 
+/**
+ * The length a person asked an item to have, px along a stack, per axis: a flex basis. `column` is read by a stack that
+ * runs down, `row` by one that runs across, so an item that moves to a stack of the other axis never reads a length
+ * meant for this one.
+ */
+export interface StackLengths {
+  readonly column?: number;
+  readonly row?: number;
+}
+
 export interface StackItem {
   readonly id: string;
   /** Largest first. The solver starts at `from` and steps down one at a time. An item with none is left out. */
@@ -261,6 +271,17 @@ export interface StackItem {
    * first, or last) is the host's; placement lays out the items it is given.
    */
   readonly fixed?: boolean;
+  /**
+   * The length asked for along the stack (default none). While the item is in a form that grows (`main.grows`, not a
+   * `wrap` form), the solver reads it, for the stack's axis, in place of that form's `main.natural`; the form's
+   * `main.min` stays the least, and a value that isn't a finite number from 0 up is no asked length. There is no new
+   * formula: with spare length the sized items share it in proportion to their lengths, short of length they
+   * interpolate between their least and their length, so a stack too short for all of them still trades room between
+   * them. A form that doesn't grow ignores it (the length is kept for when the item grows again), and so does a
+   * stack of the other axis. A stack whose items declare none is laid out exactly as before. What gives way and in
+   * which order never reads it. `resizeBetween`, `resetBetween` and `resetLengths` change it.
+   */
+  readonly length?: StackLengths;
 }
 
 /** The cross size a stack may take. With no form setting it, the stack is a `rail` wide (default {@link DEFAULT_RAIL}). */
@@ -351,6 +372,16 @@ export const formCompact = (f: StackForm): boolean => f.compact ?? f.kind === "i
 
 /** Whether a form sets the stack's cross size: its own say, else whether it shows its body. */
 export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? formBody(f);
+
+/**
+ * The length item `item` asks for along an `axis` stack while it is in `form`, or undefined: it asks for none, the
+ * value isn't a finite number from 0 up, or the form doesn't grow (a form with no `main.grows`, a `wrap` form, the menu).
+ */
+export function askedLength(item: StackItem, form: StackForm, axis: StackAxis): number | undefined {
+  const v = item.length?.[axis];
+  if (v === undefined || !Number.isFinite(v) || v < 0) return undefined;
+  return form.kind !== "menu" && form.main.grows === true && !form.wrap ? v : undefined;
+}
 
 /** `input` with `item` inserted at index `at` (clamped to the items' range). */
 export function withItem(input: StackInput, item: StackItem, at: number): StackInput {

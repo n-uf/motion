@@ -49,6 +49,7 @@ export {
   type StackFormKind,
   type StackInput,
   type StackItem,
+  type StackLengths,
   type StackMenu,
   type StackNote,
   type StackNoteCode,
