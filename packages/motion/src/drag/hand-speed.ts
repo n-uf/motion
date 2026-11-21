@@ -32,6 +32,9 @@ export interface HandSpeed {
   readonly steady: boolean;
 }
 
+/** The crawl threshold: the longest step over a gap that still reads slow, a length in px (not a speed). */
+export const HAND_SLOW_STEP = 3;
+
 export interface HandSpeedOptions {
   /** How long the samples `long` reads must span, ms. */
   readonly span: number;
@@ -40,8 +43,9 @@ export interface HandSpeedOptions {
   /** A gap between two samples this long or longer starts the hand again, ms. */
   readonly gap: number;
   /**
-   * The longest step over a gap that still reads as the speed it is, px (a landing model passes its `gates.step`): a
-   * hand creeping a pixel or two at a time reads slow; a longer step over a gap (a fling out of a rest) is unknown.
+   * The longest step over a gap that still reads as the speed it is, px (`HAND_SLOW_STEP`, 3 by default; a length, not
+   * a speed, so a landing model's `gates.step` does not set it): a hand creeping a pixel or two at a time reads slow; a
+   * longer step over a gap (a fling out of a rest) is unknown.
    */
   readonly slowStep: number;
   /** How much faster than `long` the newest step may be and the hand still be steady (a slide). */
@@ -56,7 +60,7 @@ export interface HandSpeedOptions {
  * two 60 Hz frames with their timestamps half a frame off, so a hesitation of 40 ms or more starts the hand again; a
  * landing model takes the smaller of it and its `pause`); steady up to 1.5 times.
  */
-export const HAND_SPEED: HandSpeedOptions = { span: 48, steps: 5, gap: 40, slowStep: 3, accelerating: 1.5, gathering: 1.25 };
+export const HAND_SPEED: HandSpeedOptions = { span: 48, steps: 5, gap: 40, slowStep: HAND_SLOW_STEP, accelerating: 1.5, gathering: 1.25 };
 
 export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSpeed {
   const o = { ...HAND_SPEED, ...options };

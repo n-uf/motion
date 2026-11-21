@@ -154,4 +154,20 @@ describe("slide or fling, swept from the bar's corner up a touching rail", () =>
       }
     expect(bad).toEqual([]);
   });
+
+  it("(e) the crawl threshold is a length of its own (HAND_SPEED.slowStep, 3 px): tuning gates.step moves no 4 px step after a gap into slow", () => {
+    expect(HAND_SPEED.slowStep).toBe(3);
+    // The host sends a sample every 50 ms, each 4 px along: every step over a gap, longer than 3 px, so unknown, never slow.
+    const lanes = (gates?: { step: number }): (string | null)[] => {
+      const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: START, grab: { x: 17, y: 15 }, ...(gates ? { gates } : {}) });
+      m.update(START, 0);
+      const seen: (string | null)[] = [];
+      for (let k = 1; k <= 40; k++) seen.push(m.update({ x: START.x, y: START.y - 4 * k }, 50 * k).lane);
+      return seen;
+    };
+    const base = lanes();
+    expect(base).not.toContain("rail-left");
+    expect(lanes({ step: 10 })).toEqual(base);
+    expect(lanes({ step: 1 })).toEqual(base);
+  });
 });
