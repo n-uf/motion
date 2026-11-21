@@ -3,6 +3,20 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
+## Unreleased
+
+- `./scene`, **under `sideColumns: "one"`, a side with a declared column edge, empty or not, is that side's column**
+  (fix). Such a column, empty already or emptied by the lift of a lone panel, left its side with no column holding an
+  item, so a new-column line `column:<side>:$` was offered for the same place as that column, and a host drew two
+  identical boxes under "all". The side now offers no new column: the declared column is the place. A side with no
+  declared column, and a dynamic (`column: true`) column, which an empty side loses, are unchanged.
+- `./scene`, **an emptied side column that the scene declares as an edge shows its guide while a panel is held
+  elsewhere** (fix). Its box at real size was lost because the held panel fills the whole column, so its after-entry
+  marks are empty; the lane now keeps its box as seen, and held in it nothing is drawn over the panel.
+- `./scene`, **an empty lane's marks don't change when another lane is entered**, but for the corner (fix). With `spot`
+  held, every other lane whose marks as seen are predicted keeps them, less the held lane's marks, which own their
+  corners; before, an empty bar was cut at the columns that move aside once the held lane opens.
+
 ## 26.11.52
 
 - `./scene`, **a lane's guide and its mark come from one layout** (behavior change in the marks as seen). An
@@ -14,10 +28,7 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   prediction overlaps another lane's marks, `marks` gives the overlap up (to a lane not predicted; between two predicted
   lanes, to the bar), so no two lanes' `marks` overlap; **`Lane.entry`** keeps the prediction whole, each corner its
   own, and **`Lane.corners`** names the lanes it overlaps, so a landing model gives the corner to the lane the pointer
-  picks (`@n-uf/motion` reads them). An empty lane's marks don't change when another lane is entered, but for the
-  corner: with `spot` held, every other lane whose marks as seen are predicted keeps them (not cut at the columns that
-  move aside once it opens), less the held lane's marks, which own their corners. Lanes that hold items keep their
-  marks, and the held lane's are its spot's;
+  picks (`@n-uf/motion` reads them). Lanes that hold items keep their marks; a held spot's regions are unchanged;
   `emptyLanes: "edge"` and lanes with several spots (pitched stretches) predict nothing. Host notes: a host that draws
   `lanes()` marks itself sees an empty bar's box over the columns as seen; one that draws the landing model's guides
   gets the corner rule with no change.
