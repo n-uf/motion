@@ -62,7 +62,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   "/window-motion/": [{ part: "motion", kind: "uses", what: "createSettle, SETTLE_TEMPO, reveal, createFrameLoop" }],
   "/drag-intent/": [
     { part: "motion", kind: "uses", what: "createSettle, createFrameLoop" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
+    { part: "motion", kind: "uses", entry: "/drag", what: "createDragIntent, liftDecision and previewPlan (the page draws three of the library's four preview modes: outline, placeholder and glide; snap draws no indicator)" },
   ],
   "/docking-layouts/": [
     { part: "motion", kind: "uses", what: "createLayoutMotion (every box glides)" },
