@@ -54,7 +54,7 @@ export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; 
   ],
   "/desk-layouts/": [
     { part: "motion", kind: "uses", what: "createSettle (every box glides)" },
-    { part: "placement", kind: "uses", what: "solve from ./scene (the four scene layouts; the page's other five layouts are demos drawn by the page itself)" },
+    { part: "placement", kind: "uses", what: "solve from @n-uf/docking, built on placement (the four docked layouts; the page's other five layouts are demos drawn by the page itself)" },
   ],
   "/toolbar-groups/": [
     { part: "motion", kind: "uses", what: "createSettle" },
