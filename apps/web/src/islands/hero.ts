@@ -17,7 +17,8 @@
  * off screen. A drag ends on release, Escape, a cancelled pointer, a lost capture or the window losing focus.
  */
 import type { Point, Rect } from "@n-uf/motion";
-import { createLayoutMotion, drawBox, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
+import { drawBox } from "@n-uf/motion/browser";
+import { createLayoutMotion, holdItem, type Drawable, type HeldDrag } from "@n-uf/motion/layout";
 import type { RectSample } from "@n-uf/motion/testing";
 import { drive, getSpeed, getTempo, loop, newSettle, omega, onMotionChange, reduced, setSpeed, setTempo, type Tempo } from "./motion";
 import { registerShowcase, setDragging, userAction } from "./showcase";
@@ -46,7 +47,17 @@ export function startHero(band: HTMLElement): void {
   // ---- The panel: a real element on the layout motion --------------------------------------------------------------------
   const rectOf = (p: Pad): Rect => pads[p];
   let where: Pad = "b";
-  const motion = createLayoutMotion({ loop, omega: omega(), reducedMotion: reduced });
+  // Whether the layout motion's frames run; once they stop, the run is judged (`finish`).
+  let running = false;
+  const motion = createLayoutMotion({
+    loop,
+    omega: omega(),
+    reducedMotion: reduced,
+    onActiveChange: (on) => {
+      running = on;
+      if (!on) finish();
+    },
+  });
   // The library's own `drawBox` draws every frame; the box's place is a transform too (the node sits at 0, 0), so no frame
   // writes a left or a top and the page never records a layout shift for the panel.
   let bx = 0, by = 0;
@@ -140,7 +151,6 @@ export function startHero(band: HTMLElement): void {
     arrive = null;
     f?.();
   }
-  motion.onIdle(finish);
 
   // Aim at `to` from where the panel is drawn (a retarget mid-flight carries on, no jump).
   function launch(w: Pad): void {
@@ -261,7 +271,7 @@ export function startHero(band: HTMLElement): void {
     where = pad;
     begin(rectOf(pad));
     d.held.land(rectOf(pad));
-    if (!motion.running) finish();
+    if (!running) finish();
     setDragging(false);
   }
   frameEl.addEventListener("pointerdown", (e) => {
@@ -352,7 +362,7 @@ export function startHero(band: HTMLElement): void {
     if (drag) return;
     const to = rectOf(where);
     // A run in flight is re-aimed: record it afresh against the new target, or the scope would judge the old one.
-    if (motion.running) {
+    if (running) {
       begin(to);
       item.moveTo(to);
     } else item.jumpTo(to);
@@ -367,7 +377,7 @@ export function startHero(band: HTMLElement): void {
 
   (window as unknown as Record<string, unknown>).__hero = {
     report: () => last,
-    state: () => ({ drag: !!drag, where, rec: !!rec, running: motion.running, drawn: { ...item.drawn } }),
+    state: () => ({ drag: !!drag, where, rec: !!rec, running, drawn: { ...item.drawn } }),
     tempos: TEMPOS,
   };
 }

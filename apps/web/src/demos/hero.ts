@@ -94,7 +94,7 @@ export function judge(samples: readonly RectSample[], from: Rect, to: Rect, omeg
  * frame is recorded. The server's first state; the island records its live runs the same way (from the real frames).
  */
 export function simulateRun(from: Rect, to: Rect, omega: number): { samples: RectSample[]; report: RunReport } {
-  const clock = createFakeClock({ frameMs: 1000 / 60 });
+  const clock = createFakeClock({ frameInterval: 1000 / 60 });
   const loop = createFrameLoop({ clock });
   const motion = createLayoutMotion({ loop, omega });
   const item = motion.add("panel", { layOut: () => {}, draw: () => {} }, from);
