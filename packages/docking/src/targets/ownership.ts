@@ -75,11 +75,22 @@ function ownedRectsOf(s: EdgeSpec, along: readonly Span[]): Rect[] {
   return along.map(([a, b]) => (s.vertical ? rect(o.x, a, o.width, b - a) : rect(a, o.y, b - a, o.height)));
 }
 
-/** Every edge's seen rect, with the spec the tiler reads it by (null for an edge it doesn't read). */
+/**
+ * Every edge's seen rect, with the spec the tiler reads it by (null for an edge it doesn't read), and each side's drawn
+ * rail's whole rect: a drawn rail owns its seen rect as every drawn edge does, so what its stops tile and what they leave
+ * (past its last stop, the whole rail for a tile of it, whose stops are all home's) is the rail's, never a column line's.
+ */
 function drawnOf(c: Ctx, live: readonly EdgeSpec[]): { spec: EdgeSpec | null; rect: Rect; lay: LayKey }[] {
-  return Object.entries(c.now.edges)
+  const edges = Object.entries(c.now.edges)
     .filter(([id, e]) => area(e.rect) > EPS && c.lay.has(id))
     .map(([id, e]) => ({ spec: live.find((s) => s.edge?.id === id) ?? null, rect: e.rect, lay: c.lay.get(id)! }));
+  const rails = (["left", "right"] as const).flatMap((side) => {
+    const rail = c.now.rails[side];
+    if (!rail || rail.segments.length === 0 || area(rail.rect) <= EPS) return [];
+    const spec = live.find((s) => s.kind === "railStop" && s.lay.side === side) ?? null;
+    return [{ spec, rect: rail.rect, lay: spec?.lay ?? { phase: EDGE_KINDS.railStop.phase, side, at: -1 } }];
+  });
+  return [...edges, ...rails];
 }
 
 /**
