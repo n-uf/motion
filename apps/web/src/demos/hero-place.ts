@@ -1,10 +1,11 @@
 /**
  * The home hero's placement illustration: "numbers in, rects out", three rows, each one real placement call. Left, the
  * call's inputs as plain numbers; right, the rects it returns, drawn to scale. Static, and computed here at build time by the
- * functions themselves (`positionPopup` from `@n-uf/placement`, `fitStack` from `/stack`, `masterStack` from `/tiling`);
- * no rect is placed by hand. Placement knows no window, no panel and no app: it takes numbers and returns rects.
+ * functions themselves (`positionPopup` from `@n-uf/placement/popup`, `fitStack` from `/stack`, `masterStack` from
+ * `/tiling`); no rect is placed by hand. Placement knows no window, no panel and no app: it takes numbers and returns rects.
  */
-import { BELOW_LEFT, positionPopup, type Rect } from "@n-uf/placement";
+import type { Rect } from "@n-uf/placement";
+import { BELOW_LEFT, positionPopup } from "@n-uf/placement/popup";
 import { fitStack, type StackForm } from "@n-uf/placement/stack";
 import { masterStack } from "@n-uf/placement/tiling";
 
