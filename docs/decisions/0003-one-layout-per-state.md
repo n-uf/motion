@@ -31,6 +31,13 @@ frame and the commit alike. Taken: the second.
 - **One corner rule remains under "all":** the Near lane's marks win, by rect subtraction in docking. With no Near lane,
   the lane nearest the pointer within the approach's reach names its would-land state for the corner only, switching
   exactly at the reach.
+- **The trail gate reads the landing the frame draws.** A fast change of spot that reflows the window waits for a slow
+  step until the held landing trails the pointer by more than `trail` (40 px); that landing is `landingOf` the spot
+  held. On a sliding spot it is the landing at the hand, not the spot's listed landing at rest, which can lie far from
+  a hand holding the item flush at the stretch's end. Visible: passing a sliding spot's end fast toward the fixed spot
+  after it, the item stays at the hand on the sliding spot until it trails by 40 px or the hand slows (one path in the
+  old-vs-new record changed 6 px past the cut before, about 40 px past the landing now;
+  `test/trail-gate-current-landing.test.ts`).
 - **`owns` stays on the landing model's lane.** A rail drop strip taking the pointer from a lane it overlaps is a
   hit-testing rule with gates (its own entry gate, "came in since the lift", the lift zone), not geometry: it can't be
   expressed as rects without changing hit-testing.
