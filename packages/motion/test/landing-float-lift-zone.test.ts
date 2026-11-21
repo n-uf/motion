@@ -157,6 +157,23 @@ describe("landing model: a float's lift zone", () => {
     expect(last.f.room).toBe(true);
   });
 
+  it("the zone's lane-less verdict is not carried past it: over a blocked rail band, refused in the zone, open (lane pending) after, and the release floats", () => {
+    const rail: LandingLane = { id: "rail", rect: rect(0, 0, 40, 600), axis: "y", spots: [{ id: "rail/s", along: [0, 600], landing: rect(0, 100, 32, 200) }], refused: [] };
+    const rg: LandingRegions = { lanes: [rail], refused: [], content: rect(0, 0, 800, 600), blocked: [rect(0, 0, 32, 600)], stage: rect(0, 0, 800, 600) };
+    const m = createLandingModel({ ...listed(rg, (p) => rect(p.x - 10, p.y - 10, 120, 28)), lift: { x: 20, y: 300 }, placeGuides: "near" });
+    let t = 0;
+    m.update({ x: 20, y: 300 }, 0);
+    for (let y = 300; y <= 330; y += 2) {
+      const f = m.update({ x: 20, y }, (t += 4));
+      if (y - 300 <= 16) expect(f.region, `y ${y}`).toBe("refused");
+      else {
+        expect(f.region, `y ${y}`).toBe("open");
+        expect(f.pending, `y ${y}`).toBe("rail");
+      }
+    }
+    expect(m.release({ x: 20, y: 330 }, t + 4)).toEqual({ kind: "float", point: { x: 20, y: 330 } });
+  });
+
   it("a lift with a `home` (a docked item) is not a float: its zone is the home lane's, as before", () => {
     const m = createLandingModel({ ...listed(regions(), FLOAT), home: { lane: "top", spot: "top/start" }, lift: PRESS });
     const f = m.update(PRESS, 0);

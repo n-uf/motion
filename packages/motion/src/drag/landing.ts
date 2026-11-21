@@ -711,7 +711,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
         else region = "refused";
       }
     }
-    previous = region;
+    // (A zone frame inside a real lane leaves `previous` as it was: the zone's lane-less verdict is not carried past it.)
+    previous = floatZone && base.lanes.some((l) => strictlyIn(l.rect, p)) ? previous : region;
     lastPending = pending;
     const shown: LandingRegion = shift && (region === "lane" || region === "open") ? "open" : region;
     const lane0 = laneIn(base, laneId);
