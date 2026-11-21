@@ -15,19 +15,24 @@
   <a class="lab-card" href="#/motion/settle">
     <p class="eyebrow"><span>Motion</span></p>
     <h3>How things move</h3>
-    <p>Two pages. Settle and tiling: every move is one critically damped settle that never passes its target, size
-      changes reveal instead of stretching, and tiled windows reorder by drag. Drag intent and previews: a drop target
-      shows only while you aim, and with the snap preview the held item settles into its slot.</p>
-    <p class="lab-card-links"><span>Settle and tiling</span> · <span>Drag intent and previews</span></p>
+    <p>Two pages. Settle and tiling: every window is an item of one layout motion that settles to its place and never
+      passes it, size changes reveal instead of stretching, and tiled windows reorder by drag under the drop preview you
+      pick (Outline, Placeholder or Glide). Drag intent and previews: a drop target shows only while you aim, and with
+      the Snap preview the held item settles into its slot. The landing model (lanes and spots) runs on the Document
+      window.</p>
+    <p class="lab-card-links"><span>Settle and tiling</span> · <span>Drag intent and previews</span> · <span>Landing model</span></p>
   </a>
   <a class="lab-card" href="#/docwin">
     <p class="eyebrow"><span>Document window</span></p>
     <h3>Where things go</h3>
     <p>One window as one dock state: a title bar, top and bottom bars, side columns, pages that scroll under them and floats
       above. Panels and toolbars take the largest form that fits and give way least recently used first; you drag them
-      to any gap, float them, freeze them and reload them. Each case sets the window up, says what should happen and
-      checks it, and every conformance row of <code>@n-uf/docking/testing</code> plays on the same window.</p>
-    <p class="lab-card-links"><span>Docking cases</span> · <span>Drag intent</span> · <span>Conformance rows</span></p>
+      to any gap, float them, freeze them and reload them. A drag can run on the landing model, over the lanes of
+      <code>@n-uf/docking</code>, and the toolbar groups are declared by their controls
+      (<code>controlLadder</code> from <code>@n-uf/placement/stack</code>). Each case sets the window up, says what
+      should happen and checks it, and every conformance row and landing row of <code>@n-uf/docking/testing</code>
+      plays on the same window.</p>
+    <p class="lab-card-links"><span>Docking cases</span> · <span>Drag intent</span> · <span>Landing model</span> · <span>Conformance rows</span></p>
   </a>
   <a class="lab-card" href="?checks#/checks">
     <p class="eyebrow"><span>Checks</span></p>
