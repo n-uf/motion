@@ -482,15 +482,21 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
   const fit: StackFit = { axis: input.axis, length, cross, items: placed, menu, notes, need: minSumWith(false), steps: hist };
-  tights.set(fit, tight);
+  sizes.set(fit, { tight, least: new Map(drawn.map((i) => [items[i]!.id, min(i)])) });
   return fit;
 }
 
-/** The `tight` share of each fit `solve` made (kept off the fit itself, so a fit is exactly what it was). */
-const tights = new WeakMap<StackFit, number>();
+/** What `solve` knew about the sizes of a fit and the fit doesn't say. */
+export interface FitSizes {
+  /** How far from the least to the asked sizes the items were drawn: 1 with room for all of them, less when short. */
+  readonly tight: number;
+  /** The least each drawn item could take as the sizes were shared (a held growing fixed item's is its natural). */
+  readonly least: ReadonlyMap<string, number>;
+}
+/** The sizes of each fit `solve` made, kept off the fit itself so a fit is exactly what it was. */
+const sizes = new WeakMap<StackFit, FitSizes>();
 /**
- * How far from the least to the asked sizes `fit` drew the items that grow: 1 when the length held them all at their
- * asked sizes (or more), less when it was short. Undefined for a fit not made by `fitStack`. What a divider drag reads
- * to write lengths that reproduce the drawn sizes exactly.
+ * What `fitStack` knew about how it shared the length: `undefined` for a fit it didn't make. A divider drag reads it to
+ * write lengths that reproduce the drawn sizes exactly.
  */
-export const tightOf = (fit: StackFit): number | undefined => tights.get(fit);
+export const sizesOf = (fit: StackFit): FitSizes | undefined => sizes.get(fit);

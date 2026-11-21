@@ -54,5 +54,6 @@ export {
   type StackNote,
   type StackNoteCode,
 } from "./model";
+export { dividers, resetBetween, resetLengths, resizeBetween, type StackDivider } from "./divide";
 export { stackGaps, type StackGap, type StackGapOptions, type StackGapRefusal } from "./gaps";
 export { fitFloat, type FloatFit } from "./float-fit";
