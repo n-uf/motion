@@ -45,7 +45,7 @@ describe("a float pressed inside an empty bar's band: the lift zone", () => {
       const f = model.update({ x: PRESS.x + dx, y: PRESS.y }, (t += 40));
       expect(f.lane).toBeNull();
       expect(f.room).toBe(false);
-      expect(f.state).toEqual({ kind: "float", point: { x: PRESS.x + dx, y: PRESS.y } });
+      expect(f.held).toEqual({ kind: "float", point: { x: PRESS.x + dx, y: PRESS.y } });
     }
     for (let r = 0; r < 40; r++) model.update({ x: PRESS.x + 6, y: PRESS.y }, (t += 8));
     expect(model.frame.lane).toBeNull();
