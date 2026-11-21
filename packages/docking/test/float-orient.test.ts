@@ -185,14 +185,24 @@ describe("a state stored with the old single floatSize", () => {
     expect(solve(orientFloat(up, "tb", "row")).items.tb!.rect).toEqual(solve(read.state).items.tb!.rect);
   });
 
-  it("an item not floating that declares floatSizes takes it for its own orient; a stored size for that orient wins", () => {
+  it("an item the store docks takes it for its own orient, declared or not; a stored size for that orient wins", () => {
     const read = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 } } } }, base());
-    expect(read.state.items.card!.floatSizes).toBeUndefined();
-    expect(read.dropped).toEqual(["item:card:floatSize"]);
+    expect(read.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 } });
+    expect(read.dropped).toEqual([]);
     const declared = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { row: { width: 500, height: 150 } } } } }, base());
     expect(declared.state.items.card!.floatSizes).toEqual({ column: { width: 310, height: 380 }, row: { width: 500, height: 150 } });
     const own = readDockState({ v: 1, edges: [], floats: [], items: { card: { used: 1, floatSize: { width: 310, height: 380 }, floatSizes: { column: { width: 320, height: 390 } } } } }, base());
     expect(own.state.items.card!.floatSizes).toEqual({ column: { width: 320, height: 390 } });
+  });
+
+  it("a docked item's old size survives the upgrade for its next float-out, though the store strips the base's floatSizes", () => {
+    // The host's base declares a row size; an old store keeps the user's 200 x 40 as `floatSize` on the docked toolbar.
+    const b: DockState = { ...base(), items: { ...base().items, tb: toolbar("tb", { floatSizes: { row: flat } }) }, floats: [] };
+    const read = readDockState({ v: 1, edges: [], floats: [], items: { tb: { used: 12, floatSize: { width: 200, height: 40 } } } }, b);
+    expect(read.dropped).toEqual([]);
+    expect(read.state.items.tb!.floatSizes).toEqual({ row: { width: 200, height: 40 } });
+    const out = floatAt(read.state, "tb");
+    expect(out.floats.find((f) => f.id === "tb")!.rect).toMatchObject({ width: 200, height: 40 });
   });
 
   it("drops an old size that isn't a size", () => {
