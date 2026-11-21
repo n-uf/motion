@@ -27,8 +27,8 @@ runs across the whole width and the left one starts below it; cut after it, the 
   cut after every reserved band, whatever the list order, from the final `rest` less the `over` bands before them, so
   each lies inside `rest`, two on one side lie side by side, and `rest` stays whole.
 - A band is never thicker than the room left across it; a negative or missing size is 0. `gap` is space after the
-  band, taken only when the band takes some room, and never more than the room left. A stage of negative size is cut
-  as one of size 0, so every rect has a size of 0 or more.
+  band, taken only when the band takes some room, and never more than the room left. A stage width or height that is
+  negative or not finite is cut as 0, so every rect has a size of 0 or more.
 - Band ids are unique: a repeated id throws.
 
 The reserved bands and `rest` tile the stage with no overlap, each `over` band lies inside `rest`, and each corner
