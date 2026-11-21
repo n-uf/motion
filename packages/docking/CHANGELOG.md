@@ -10,7 +10,9 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from
 `@n-uf/placement/scene/cases` to `@n-uf/docking/testing`. Behavior is unchanged: for the same input, `solve`,
 `targets`, `refusals`, `stops` and `lanes` give the same answers as `@n-uf/placement/scene` at its last state (26.11.53
-and the fix below, unreleased there). Each edge is fitted by `@n-uf/placement/stack`, now this package's one dependency.
+and the fix below, unreleased there), and a stored state reads back to the same layout: the one exception is in form,
+not in frames (a stored `floatSize` becomes `floatSizes`, see Removed). Each edge is fitted by `@n-uf/placement/stack`,
+now this package's one dependency.
 
 Fixed since `./scene` 26.11.53, on its release line when the model moved:
 - **`endReach` only adds** (fix). With any `endReach` and an empty bar across a compact rail's end, the rail's end
@@ -24,9 +26,10 @@ Fixed since `./scene` 26.11.53, on its release line when the model moved:
 
 Host notes: install `@n-uf/docking`, change the imports, and apply the renames below (each a rename only, with the
 same shape and meaning). A stored state from `storeScene` reads back with `readDockState` unchanged (the stored form
-and its version are the same), but for one field: a stored `floatSize` reads back as `floatSizes` for its float's
-orient on an item whose store declares `floatSizes`, and is dropped on one that declares none (see below). `@n-uf/docking/testing`'s types name `@n-uf/motion/drag`'s: `@n-uf/motion` is an optional peer
-dependency, needed only by a suite that runs the landing rows.
+and its version are the same), but for one field: a stored `floatSize` reads back as `floatSizes` (see `floatSize`
+under Removed). `@n-uf/docking/testing`'s types name `@n-uf/motion/drag`'s: `@n-uf/motion` is an optional peer
+dependency, needed only by a suite that runs the landing rows. The edge-id error's prefix is `docking:` (it was
+`placement:`): a host that matches the message changes the prefix.
 
 Entries:
 - `@n-uf/placement/scene` → `@n-uf/docking`.
@@ -41,14 +44,15 @@ The model's types:
   sets them), beside `hidden`: each shown control's tier by id, so a host draws each control at `tiers[id]` without
   knowing the ladder's order. Absent for a hand-written form, a `fold`, a `menu` and a » menu entry.
 - Removed: **`SceneItem.floatSize`**, deprecated in 26.11.52. `floatSize` → `floatSizes[orient]`: declare the size for
-  the orient the item floats in (both orients where it floats either way). A state stored with it still reads:
-  on an item whose store declares `floatSizes`, `readDockState` takes a stored `floatSize` as the size for the orient
-  its float is in (the item's own where it floats nowhere), unless the store sizes that orient itself, and
-  `storeDockState` writes `floatSizes` only. An item that declares no `floatSizes` is framed at its stored rect, as
-  before: its old `floatSize` never set its frame and is dropped (`item:<id>:floatSize`), so the frames read the same.
-  The one thing it still set, the size `floatAt` gives such an item with no rect, is now its natural size: pass a rect,
-  or declare `floatSizes`. `floatSizeOf(item, orient?)` and
-  `floatSizesOf(item)` lose the orient the old size was set in.
+  the orient the item floats in (both orients where it floats either way). A state stored with it still reads, and
+  `storeDockState` writes `floatSizes` only. `readDockState` takes a stored `floatSize` as:
+  - on an item the store docks: `floatSizes[floatOrientOf(item)]`, unless the store sizes that orient itself, so the
+    user's float size survives the upgrade for the next float-out (a float target, `floatAt` with no rect);
+  - on a float whose store gives `floatSizes`: the size for the orient the float is in, unless the store sizes it;
+  - on a float whose store gives no `floatSizes`: nothing. It is dropped (`item:<id>:floatSize`), and the float stays
+    framed at its stored rect, as before (a size there would replace that frame).
+- `floatSizeOf(item, orient?)` and `floatSizesOf(item)` lose the orient the old size was set in (it was the legacy
+  `floatSize`'s).
 - `SceneLayout` → `DockLayout`; `SceneItemLayout` → `DockItemLayout`; `SceneEdgeLayout` → `DockEdgeLayout`;
   `SceneRailLayout` → `DockRailLayout`; `SceneNote` → `DockNote`; `SceneNoteCode` → `DockNoteCode`.
 - `StoredScene` → `StoredDockState`; `StoredSceneEdge` → `StoredDockStateEdge`; `StoredSceneFloat` →
