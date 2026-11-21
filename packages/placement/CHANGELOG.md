@@ -25,6 +25,7 @@ Added:
   stack after the drop, its fit and the item's slot, or a refusal with its reason (`StackGap`, `StackGapOptions`,
   `StackGapRefusal`).
 - **`@n-uf/placement/popup`**: the popup positioner's own entry.
+- `./stack`, **`controlLadder(spec)`** and **`StackForm.tiers`**: a group's forms generated from its controls, below.
 
 Moved (one-line migration each):
 - `@n-uf/placement/scene` → `@n-uf/docking`; `@n-uf/placement/scene/cases` → `@n-uf/docking/testing`. Install
@@ -52,7 +53,7 @@ Removed (one-line migration each):
   `fitFloat` stays.
 - The `@n-uf/motion` development dependency: placement's tests no longer use it.
 
-Added:
+The control ladder, in full (additive, listed under Added above):
 
 - `./stack`, **`controlLadder(spec)`: a group's forms generated from its controls** (additive). A host declares a group
   by its controls (`{ id, tiers, foldOrder? }`, the lengths per tier longest first, plus `gap`, `grip`, `more` (the
