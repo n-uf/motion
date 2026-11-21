@@ -5,7 +5,7 @@
  * - placement (where things fit): the hit zones a demo computes as a thin dashed outline labelled with its id and
  *   priority, and the slot rects (the one shown drawn stronger);
  * - docking (where the bars' groups dock): at rest the rect `solve` gave each group, labelled with the form it took;
- *   during a drag docking's targets (each hit dashed), its refusals (hatched) and the shown target's slot;
+ *   during a drag docking's targets (each hit dashed), its refusals (tinted) and the shown target's slot;
  * - motion (how things move): the settle's target against the rect drawn now, the held item's trail, and the aiming
  *   state as a dot at the pointer (gray while travelling, accent while aiming, a ring once the room opens).
  *

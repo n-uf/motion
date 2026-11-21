@@ -62,8 +62,11 @@ test("as the title bar runs out of room, groups step down row → icons → grip
   const first = (id) => seen.findIndex((f) => f[id] !== "row");
   assert.ok(first("speed") < first("preview"), "speed (older) gives way before preview");
   // The title has the higher priority: it keeps its row while another group can still step down.
+  // At 300 px the title's row (180) and the reserved room (8 + 50 + 12 … 12 + 120 + 8) can't both fit: it must step down.
+  assert.ok(seen.every((f) => typeof f.title === "string"), "the title is laid out at every width");
   const t = first("title");
-  assert.ok(t === -1 || seen[t].preview === "menu", "the title steps down only after preview went to the menu");
+  assert.notEqual(t, -1, "the title steps down once nothing else can");
+  assert.equal(seen[t].preview, "menu", "the title steps down only after preview went to the menu");
 });
 
 test("by use: a group used more recently gives way after an older one", () => {

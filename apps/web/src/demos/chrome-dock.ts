@@ -1,5 +1,5 @@
 /**
- * The window chrome as a dock state (`@n-uf/docking`): what islands/chrome.ts solves, drags and stores. Pure data, no
+ * The window chrome as a dock state (`@n-uf/docking`): what islands/dock-chrome.ts solves, drags and stores. Pure data, no
  * DOM, so the node tests (scripts/chrome-dock.test.mjs) run it as it is.
  *
  * - **Edges.** Three bars across the window (the title bar, a top bar under it, a bottom bar), each with start, center

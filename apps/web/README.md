@@ -28,7 +28,7 @@ sitemap and linked only from the footer.
   pointer-following stays 1:1; the drag's timing rules and the showcase pause read real time. **Tempo** (calm 20 ·
   default 25 · quick 37) re-tempos every live settle.
 - Every figure is a window (`src/components/Chrome.astro`) whose controls are toolbar groups: the server renders the
-  default arrangement, and `src/islands/chrome.ts` (the same module the toolbar-groups page demonstrates) makes the
+  default arrangement, and `src/islands/dock-chrome.ts` (the same module the toolbar-groups page demonstrates) makes the
   groups draggable between the title bar, top and bottom bars, edges and floating, collapsible, and remembered per
   figure. Shared bar controls: `DropModeSwitch.astro` (Indicator only · Make room · Snap to slot, `previewPlan` in
   `islands/drop-mode.ts`) and `Playback.astro` (Speed, Tempo). Automatic showcases register with
