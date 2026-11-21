@@ -537,8 +537,9 @@ describe("one layout: every held frame draws what its release commits", () => {
  * is home, not a spot of the held tile's column (decision 0002's rule, one answer).
  *
  * The windows are the declared-rail windows of `./rail-windows` (one and two folded columns, narrow too) and the sweep's
- * windows where the held item is a tile of a rail. Known disagreements are pending by name (`AGREE_PENDING`, window and
- * item); the check fails on one not listed and on a listed one that agrees (it flipped: take it off the list).
+ * windows where the held item is a tile of a rail. There are no exceptions: a drawn rail owns its whole rect, so a
+ * new-column line's zone starts where the rail ends (the rest of the rail is home), and the lanes of a new column give
+ * way to the rail as seen, in `targets()` and in the lanes alike.
  */
 const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 
@@ -559,25 +560,6 @@ function decisions(s: DockState, held: string, previous: DockLayout | undefined,
   const open = inside(regions.content, p) && !regions.blocked.some((b) => inside(b, p)) && !regions.refused.some((b) => inside(b, p));
   return { targets: t, lanes: over.length === 0 ? (open ? "float" : "stay") : over.map(lane).join("+") };
 }
-
-/**
- * Known disagreements (`<window> | <item>`), none of them about a column's run: in a narrow window `targets()` offers a new
- * column over the whole left rail where the lanes stay (a new-column line's zone starts where the rail stop ends), and so
- * in the narrow window whose right column holds a tray of toolbars (marks or a toolbar held: `column:right:1` over the
- * rail at its inner edge, from the second tile down); in the four windows with a second right column holding p1 (and p1
- * held, its column folded), the lanes' new-column lane lies over the rail's first pixels where `targets()` floats. All
- * are the same on `ce7b796c`.
- */
-const AGREE_PENDING: readonly string[] = [
-  "two folded columns, narrow | notes",
-  "tray column, narrow | marks",
-  "tray column, narrow | tools",
-  "tray column, narrow | tools2",
-  "two right columns, ring 0 holding p1, panel p1 | p1",
-  "two right columns, ring 0 holding p1, panel p1, empty lanes as edges | p1",
-  "two right columns, ring 2 holding p1, panel p1 | p1",
-  "two right columns, ring 2 holding p1, panel p1, empty lanes as edges | p1",
-];
 
 describe("one answer over a rail: the lanes and targets() decide the same", () => {
   const wins: { name: string; s: DockState; held: string; previous?: DockLayout; options: object }[] = [];
@@ -604,13 +586,17 @@ describe("one answer over a rail: the lanes and targets() decide the same", () =
     const l = solve(w.s, w.previous ? { previous: w.previous } : {});
     for (const rail of Object.values(l.rails)) {
       if (!rail || !rail.segments.some((g) => g.id === w.held)) continue;
-      const x = rail.rect.x + rail.rect.width / 2;
-      // Down the rail and a little past either end, off the tiles' ends (1.37 px) so a point is in one tile only.
-      for (let y = Math.max(0, rail.rect.y - 20) + 1.37; y < Math.min(w.s.stage.height, rail.rect.y + rail.rect.height + 20); y += 3) {
-        points++;
-        const d = decisions(w.s, w.held, w.previous, w.options, { x, y });
-        const key = `${w.name} | ${w.held}`;
-        if (d.targets !== d.lanes && !disagree.has(key)) disagree.set(key, `at ${x},${y.toFixed(1)}: targets ${d.targets}, lanes ${d.lanes}`);
+      // Down the rail's middle and a little past either end, off the tiles' ends (1.37 px) so a point is in one tile only;
+      // and down both its sides (1 px in), within the rail: its sides are where a column line's zone meets it.
+      const mid = rail.rect.x + rail.rect.width / 2;
+      for (const x of [mid, rail.rect.x + 1, rail.rect.x + rail.rect.width - 1]) {
+        const past = x === mid ? 20 : 0;
+        for (let y = Math.max(0, rail.rect.y - past) + 1.37; y < Math.min(w.s.stage.height, rail.rect.y + rail.rect.height + past); y += 3) {
+          points++;
+          const d = decisions(w.s, w.held, w.previous, w.options, { x, y });
+          const key = `${w.name} | ${w.held}`;
+          if (d.targets !== d.lanes && !disagree.has(key)) disagree.set(key, `at ${x},${y.toFixed(1)}: targets ${d.targets}, lanes ${d.lanes}`);
+        }
       }
     }
   }
@@ -618,10 +604,7 @@ describe("one answer over a rail: the lanes and targets() decide the same", () =
     expect(wins.length).toBeGreaterThan(15);
     expect(points).toBeGreaterThan(3000);
   });
-  it("no disagreement but the pending ones, by name", () => {
-    expect([...disagree].filter(([k]) => !AGREE_PENDING.includes(k)).map(([k, v]) => `${k}: ${v}`)).toEqual([]);
-  });
-  it("every pending disagreement still disagrees (one that agrees has flipped: take it off the list)", () => {
-    expect(AGREE_PENDING.filter((k) => !disagree.has(k))).toEqual([]);
+  it("no disagreement, with no exceptions", () => {
+    expect([...disagree].map(([k, v]) => `${k}: ${v}`)).toEqual([]);
   });
 });
