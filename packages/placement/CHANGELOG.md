@@ -5,14 +5,14 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
-- `./stack`, **asked lengths and dividers**: `StackItem.length` (`{ column?, row? }`, px along the stack, per axis) is read
+- `./stack`, **asked lengths and dividers**: `StackItem.lengths` (`{ column?, row? }`, px along the stack, per axis) is read
   in place of the `main.natural` of a growing form, the least staying its `main.min`, and `dividers(input, fit)`,
   `resizeBetween`, `resetBetween` and `resetLengths` trade length between the nearest open growing items (a collapsed
   item between two open ones gives one divider, on its far edge; `StackDivider`, `StackLengths`). Additive: a stack that
   declares no length is laid out exactly as before.
-- `./stack`, **a divider drag writes the pair's lengths only, in ask units**: `resizeBetween` writes a `length` for the
+- `./stack`, **a divider drag writes the pair's lengths only, in ask units**: `resizeBetween` writes `lengths` for the
   two items of the dragged pair and for no other item, so a bystander moved to another stack is laid out as an item nobody
-  resized. `length` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or
+  resized. A length in `lengths` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or
   its least when that is more, so the pair's ask is its drawn size over that scale (short of room,
   `least + (drawn - least) / share`), which leaves the scale and every other drawn size as they were. A collapsed item no
   longer gets a length from a drag of its neighbors: reopened, it keeps its proportion unless an end of the pair is held

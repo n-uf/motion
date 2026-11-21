@@ -179,7 +179,7 @@ stack's total stays and nothing else in it moves. The state is one optional numb
 
 ```ts
 interface StackLengths { readonly column?: number; readonly row?: number }
-StackItem.length?: StackLengths;            // px along the stack, the length asked for
+StackItem.lengths?: StackLengths;           // px along the stack, the length asked for
 
 dividers(input: StackInput, fit: StackFit): StackDivider[];
 interface StackDivider {
@@ -192,15 +192,15 @@ resetBetween(input: StackInput, before: string, after: string, options?: FitOpti
 resetLengths(input: StackInput): StackInput;
 ```
 
-- **`StackItem.length`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
+- **`StackItem.lengths`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
   that form grows (`main.grows`, not the menu; a `wrap` form that grows shares spare length, so it reads it too). The least stays the form's `main.min`, a floor on
   the drawn size, not on the ask; a length that isn't a finite number over 0 is no length (a 0 asks nothing: the item reads its natural). There is no new formula. With
   spare length the sized items share it in proportion to their lengths, as a splitter does, and one whose share would be
   under its least is drawn at its least while the others share the rest; short of length they interpolate between
   their least (an ask under it reads as the least) and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
   rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
-  declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `length` is
-  plain data: store it, read it back, and an older state without it lays out as it always did. `length` is in ask
+  declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `lengths` is
+  plain data: store it, read it back, and an older state without it lays out as it always did. A length in it is in ask
   units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or its least when that is more.
 - **A re-measured natural moves nothing** of a sized item. An item nobody sized asks its natural, so when its natural
   changes it re-shares the column with the sized ones: they keep their proportion to one another, not their px (content

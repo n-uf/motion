@@ -7,20 +7,20 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 ## Unreleased
 
-- Added: **`DockItem.length`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to
+- Added: **`DockItem.lengths`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to
   have, read by the edge's stack in place of a growing form's natural, and the verbs on it: **`dividers(state, layout?)`**
   (`DockDivider`), **`resizeBetween`**, **`resetBetween`** and **`resetLengths(state, edgeId)`**. `storeDockState` keeps
-  the length and `readDockState` reads it back (a bad entry is dropped as `item:<id>:length:<axis>`; a store without it
+  the length and `readDockState` reads it back (a bad entry is dropped as `item:<id>:lengths:<axis>`; a store without it
   reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
   only when it was solved from that very state object; otherwise the verb solves the state again.
-- Fixed: **`resizeBetween` and `resetBetween` write `DockItem.length` for the pair only, in ask units** (not drawn px; with
+- Fixed: **`resizeBetween` and `resetBetween` write `DockItem.lengths` for the pair only, in ask units** (not drawn px; with
   room to spare a drawn size is the ask times the shared scale, or its least when that is more), as placement's do. A
   bystander of a drag gets no length, so an item moved to another edge after a drag next to it is laid out as an item
   nobody resized, not at a length inflated by the column's scale.
 - Behavior change (from `@n-uf/placement`): **a length under its least now reads as a weight with room**: the item is drawn
   at its least and the others share the rest by their asks. Short of room an ask under the least still reads as the least.
-  A length of 0 is no length: the item asks its natural, `storeDockState` does not write one (and drops the `length`
-  object when nothing is left), and `readDockState` drops a stored one like any bad entry (`item:<id>:length:<axis>`).
+  A length of 0 is no length: the item asks its natural, `storeDockState` does not write one (and drops the `lengths`
+  object when nothing is left), and `readDockState` drops a stored one like any bad entry (`item:<id>:lengths:<axis>`).
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 

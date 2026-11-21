@@ -935,9 +935,9 @@ takes its first `folded` form on the axis it lies along (a panel's `header`, a g
 `rail` tile), never the next variant (a group's `stacked` or `icons` are for give-way only), and give-way steps down from
 there; unfolded, it takes the form the room allows again. `canFold(state, id)` says whether a hand fold means anything
 where the item lies (false: no folded form on that axis, and `foldItem(…, on)` changes nothing), so a host can leave the
-double-click off. **Dividers**: `DockItem.length` (`{ column?, row? }`, px along the edge, per axis) is the length a person
+double-click off. **Dividers**: `DockItem.lengths` (`{ column?, row? }`, px along the edge, per axis) is the length a person
 asked an item to have; `solve` hands it to the edge's stack, which reads it in place of the natural of a growing form
-(`@n-uf/placement/stack`, "Dividers"). `length` is in ask units, not drawn px; with room to spare a drawn size is the ask
+(`@n-uf/placement/stack`, "Dividers"). A length in `lengths` is in ask units, not drawn px; with room to spare a drawn size is the ask
 times the shared scale, or its least when that is more (short of room an ask under the least reads as the least, and a 0
 is no length). `resizeBetween` and `resetBetween` write it for the two items of the pair only; a bystander keeps what it had, none
 when nobody sized it. `dividers(state, layout?)` lists one `DockDivider` (`{ edge, before, after, rect,
@@ -949,8 +949,8 @@ clears every length of the edge's axis. Each is a change in the sense above: the
 for this very `state` object; left out, made for another state (another stage size, an item moved) or stored and read
 back, the state is solved first. The length travels with the item (moved,
 closed and reopened, folded) and is per axis, so an item moved to a bar never reads a column length;
-`storeDockState` keeps it (`items.<id>.length`) and `readDockState` reads it back, dropping a bad entry as
-`item:<id>:length:<axis>`; a store without it reads with none. `moveTo` and
+`storeDockState` keeps it (`items.<id>.lengths`) and `readDockState` reads it back, dropping a bad entry as
+`item:<id>:lengths:<axis>`; a store without it reads with none. `moveTo` and
 `floatAt` refuse fixed items and kinds the edge or `floatKinds` doesn't list. `moveTo` also takes `{ kind: "column",
 side, ring }` (`ring: Infinity` is the side's inner end: "Move to › Dock left"), `{ kind: "rail", side, ring }` (docked
 folded) and `{ kind: "float", rect?, anchor? }`. `homeFor(state, id, start)` is the place a start state gives the item
@@ -996,7 +996,7 @@ gives `base` back with an `error`.
 | `StoredDockState` | The stored form: `{ v: 1, edges, floats, items, railModes? }`, plain JSON-safe data. `railModes` says per side how its rails show their items. |
 | `StoredDockStateEdge` | `{ id, side, ring, items, size?, column? }`: an edge's order of items and its `size`; `column: true` marks a dynamic column, read back from the side's template even when `base` lacks it. |
 | `StoredDockStateFloat` | `{ id, x, y, width, height, orient?, anchor?, since? }`: a float's rect, orient, anchor and when it was floated. |
-| `StoredDockStateItem` | `{ used, kept?, from?, closed?, align?, space?, length?, floatSizes?, floatSize? }`: an item's state. `floatSize` is the old single size, which `readDockState` reads as `floatSizes` and `storeDockState` never writes. |
+| `StoredDockStateItem` | `{ used, kept?, from?, closed?, align?, space?, lengths?, floatSizes?, floatSize? }`: an item's state. `floatSize` is the old single size, which `readDockState` reads as `floatSizes` and `storeDockState` never writes. |
 | `DockStateRead` | What `readDockState` returns: `{ state, dropped, error? }`: the state read over `base`, what was left out, and the reason when nothing could be read (`state` is `base`). |
 
 ## Testing (`@n-uf/docking/testing`)
