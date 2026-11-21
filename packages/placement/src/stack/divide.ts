@@ -94,7 +94,7 @@ function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: R
     // A length of 0 is no length (the item would read its natural), so an end whose least is 0 asks a hair over it.
     const length = Math.max(ask(byId.get(it.id)!, drawn), 2 * EPS);
     const was = it.length?.[input.axis];
-    if (was !== undefined && Math.abs(was - length) <= EPS) return it;
+    if (was !== undefined && was > EPS && Math.abs(was - length) <= EPS) return it;
     changed = true;
     return { ...it, length: { ...it.length, [input.axis]: length } };
   });

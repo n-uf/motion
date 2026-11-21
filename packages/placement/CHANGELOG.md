@@ -24,7 +24,8 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
   drawn size, not on the ask: with room to spare, an item whose share of the length (its ask times the scale) would be
   under its least is drawn at its least and the others share the rest in proportion to their asks. Before, a length under
   the least was read as the least. Short of room an ask under the least still reads as the least. A length of 0 (or under
-  `EPS`) is no length: the item asks its natural. A stack that declares no length, or none under its least, is laid out
+  `EPS`) is no length: the item asks its natural, so an item a stored state holds at 0 (dragged fully shut when its least
+  is 0) opens at its natural when that state is read again. A stack that declares no length, or none under its least, is laid out
   exactly as before.
 
 ## 26.11.54
