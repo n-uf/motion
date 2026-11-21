@@ -21,7 +21,7 @@ const inside = (a: Rect, b: Rect): Rect | null => {
   return x1 - x0 > 1e-6 && y1 - y0 > 1e-6 ? { x: x0, y: y0, width: x1 - x0, height: y1 - y0 } : null;
 };
 const covers = (r: Rect, p: Point): boolean => p.x >= r.x - 1e-6 && p.x <= r.x + r.width + 1e-6 && p.y >= r.y - 1e-6 && p.y <= r.y + r.height + 1e-6;
-/** A line thinner than 2 px is drawn 2 px thick, centred on its place. */
+/** A line thinner than 2 px is drawn 2 px thick, centered on its place. */
 function thick(r: Rect, kind: string): Rect {
   const vertical = r.width <= r.height;
   const own = vertical ? r.width : r.height;
@@ -72,21 +72,23 @@ describe("a shared corner of two empty lanes is covered by exactly one drawn mar
         const rails = new Set(pairs.map((p) => p.r.id));
         const regions = { ...d.regions, lanes: d.regions.lanes.map((l) => (rails.has(l.id) ? { ...l, rect: { ...l.rect, y: l.rect.y + cut, height: l.rect.height - 2 * cut } } : l)) };
         const stage = d.regions.stage;
-        // The pointer: beside each rail 8 and 4 px off it, and held in it, at its head, middle and foot; beside each bar; far.
+        // The pointer: beside each rail 8 and 4 px off it, and held in it, 200 px from its head, at its middle and 200 px from its foot (the landing then lies clear of the corners: the item over a corner is the hand cases'); beside each bar; far.
         const pointers: Point[] = [{ x: stage.x + stage.width / 2, y: stage.y + stage.height / 2 }];
         for (const { r } of pairs) {
           const left = r.rect.x + r.rect.width / 2 < stage.x + stage.width / 2;
           const edge = left ? r.rect.x + r.rect.width : r.rect.x;
-          for (const y of [r.rect.y + 70, r.rect.y + r.rect.height / 2, r.rect.y + r.rect.height - 70]) pointers.push({ x: edge + (left ? 8 : -8), y }, { x: edge + (left ? 4 : -4), y }, { x: r.rect.x + r.rect.width / 2, y });
+          for (const y of [r.rect.y + 200, r.rect.y + r.rect.height / 2, r.rect.y + r.rect.height - 200]) pointers.push({ x: edge + (left ? 8 : -8), y }, { x: edge + (left ? 4 : -4), y }, { x: r.rect.x + r.rect.width / 2, y });
         }
         for (const { b } of pairs) pointers.push({ x: 400, y: b.rect.y < stage.y + stage.height / 2 ? b.rect.y + b.rect.height + 8 : b.rect.y - 8 });
-        for (const to of pointers)
+        const drawn = (f: LandingFrame) =>
+          f.guides.flatMap((g) => {
+            const r = inside(thick(g.rect, g.kind), regions.lanes.find((l) => l.id === g.lane)!.rect);
+            return r ? [{ lane: g.lane, rect: r }] : [];
+          });
+        for (const to of pointers) {
           for (const mode of ["all", "near"] as const) {
             const f = settled(d, regions, mode, to);
-            const marks = f.guides.flatMap((g) => {
-              const r = inside(thick(g.rect, g.kind), regions.lanes.find((l) => l.id === g.lane)!.rect);
-              return r ? [{ lane: g.lane, rect: r }] : [];
-            });
+            const marks = drawn(f);
             for (const { r, b } of pairs)
               for (const dx of [4, 15, r.rect.width - 4])
                 for (const dy of [4, 15, b.rect.height - 4]) {
@@ -99,6 +101,7 @@ describe("a shared corner of two empty lanes is covered by exactly one drawn mar
                   else expect(n.length, at).toBeLessThanOrEqual(1);
                 }
           }
+        }
       });
     }
   }

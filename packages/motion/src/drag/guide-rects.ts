@@ -54,7 +54,7 @@ export interface GuideRectsOptions {
 
 /** The least length, px, a box part a clear rect cut keeps (`minLength`'s default). */
 export const MIN_BOX_LENGTH = 8;
-/** The thickness, px, a thinner line is drawn at, centred on its place (`lineThickness`'s default). */
+/** The thickness, px, a thinner line is drawn at, centered on its place (`lineThickness`'s default). */
 export const LINE_THICKNESS = 2;
 
 const EPS = 1e-6;
