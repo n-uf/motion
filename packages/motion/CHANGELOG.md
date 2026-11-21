@@ -7,25 +7,25 @@ Unreleased entries live in `changes/` until a release joins them.
 
 ## Unreleased
 
-### One layout: the landing model takes states (breaking; with `@n-uf/docking`'s `dockDrag`)
+### One layout: the landing model takes a held place (breaking; with `@n-uf/docking`'s `dockDrag`)
 
-The landing model picks states and does no layout: every rect of a state is the host's geometry's, so a held frame draws
+The landing model picks a held place and does no layout: every rect of a held place is the host's geometry's, so a held frame draws
 exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geometry as it is.
 
 - **Options.** `createLandingModel({ regions, landingOf, spotsOf?, home?, lift?, margins?, gates?, approach?, placeGuides? })`
-  (`LandingOptions` extends the new `LandingGeometry`: `regions` for hit-testing, `landingOf(state)`, the one rect the
-  model reads of a state, and `spotsOf(spot)`, a held lane's stretches in that spot's layout). Removed: `regionsFor`
+  (`LandingOptions` extends the new `LandingGeometry`: `regions` for hit-testing, `landingOf(held)`, the one rect the
+  model reads of a held place, and `spotsOf(spot)`, a held lane's stretches in that spot's layout). Removed: `regionsFor`
   (use `spotsOf`), `floatLanding` (`landingOf({ kind: "float", point })`), `grab` (the geometry's: `dockDrag`'s option).
   `setRegions(regions, regionsFor?)` → `setGeometry(geometry)`, whole.
-- **States.** New `LandingState`: `{ kind: "spot", lane, spot, point }` or `{ kind: "float", point }`. `LandingFrame`
-  gains `state` (the state a release lands now, or null); its `landing` is `landingOf(state)`; its `guides` are now
-  `{ lane, state }[]`, each lane shown with the state its guide stands for (the geometry draws them: docking's
+- **Held places.** New `LandingHeld`: `{ kind: "spot", lane, spot, point }` or `{ kind: "float", point }`. `LandingFrame`
+  gains `held` (the held place a release lands now, or null); its `landing` is `landingOf(held)`; its `guides` are now
+  `{ lane, held }[]`, each lane shown with the held place its guide stands for (the geometry draws them: docking's
   `guides(frame)`). `LandingRelease` is `{ kind: "spot", lane, spot, point, home }`, `{ kind: "float", point }` or null:
   `at` and `rect` are gone; commit `after(release).state`.
 - **Removed types and fields.** `LandingGuide`, `LandingMark`, `LandingSlide`, `SNAP_DISTANCE`; `LandingLane.marks`,
   `entry` and `corners`; `LandingSpot.slide`. `LandingLane.owns` stays (a hit-testing rule). The model's own sliding
   arithmetic (`landingAt`), its guide geometry and corner owner, and its `guideRects` call are gone: the geometry draws.
-- **Behavior.** Under `"all"` with no Near lane, the lane nearest the pointer within `reach` names its would-land state,
+- **Behavior.** Under `"all"` with no Near lane, the lane nearest the pointer within `reach` names its would-land held place,
   for the corner only, switching exactly at `reach`. The trail gate reads `landingOf` the spot held (a sliding spot's
   landing where the hand holds it, not its listed one). `release().home` holds where the geometry lands the item
   home. Hit-testing reads the stage, the lanes' rects, refused, blocked and content as seen (`regions`) on every frame;

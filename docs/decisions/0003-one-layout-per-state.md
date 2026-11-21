@@ -1,7 +1,7 @@
-# 0003: One layout per state of a drag
+# 0003: One layout per held place of a drag
 
 While its room is open, a held frame draws exactly the layout its release commits: every item, the landing and every
-guide come from one function, `dockDrag(...).after(state)`, and the landing model picks states instead of doing
+guide come from one function, `dockDrag(...).after(held)`, and the landing model picks a held place instead of doing
 geometry. (The other frames: see the float exception below.)
 
 ## Context
@@ -12,25 +12,27 @@ one shape: the guide of an empty lane and its mark after entry came from two lay
 as seen while the commit drew the edge whole (decision 0002); and hosts rebuilt the held room by hand instead of reading
 the layout the drop commits.
 
-Weighed: patching each derivation (each fix added a layout), and one function for the layout of a state, read by the
-frame and the commit alike. Taken: the second.
+Weighed: patching each derivation (each fix added a layout), and one function for the layout of a held place, read by
+the frame and the commit alike. Taken: the second.
 
 ## Decision
 
-- **A state** is where a release now lands: a lane's spot with the pointer, the float at the pointer, or rest.
-- **`after(state)`** is THE layout of a state: the state a release commits, its layout solved with the drag's one
-  `previous` (the committed layout at the lift), the landing, every lane's marks in that one layout, and for a spot its
-  lane's stretches there. A release commits exactly `after(release).state`.
-- **The landing model takes states.** Its geometry is the regions for hit-testing, `landingOf(state)` and
-  `spotsOf(spot)`; a frame names its state and, per lane shown, the state its guide stands for. It does no layout.
+- **A held place** is where a release now lands: a lane's spot with the pointer, the float at the pointer, or rest.
+  (Only the dock state, `DockState`, and `after(...).state` are called a state.)
+- **`after(held)`** is THE layout of a held place: the dock state a release commits, its layout solved with the drag's
+  one `previous` (the committed layout at the lift), the landing, every lane's marks in that one layout, and for a spot
+  its lane's stretches there. A release commits exactly `after(release).state`.
+- **The landing model takes a held place.** Its geometry is the regions for hit-testing, `landingOf(held)` and
+  `spotsOf(spot)`; a frame names its held place (`frame.held`) and, per lane shown, the held place its guide stands for
+  (`{ lane, held }`). It does no layout.
 - **Hit-testing reads two layouts, named:** a lane's hit rect as seen, stable for the drag; the stretches along a held
   lane in that spot's own layout.
 - **Rule B, as shipped:** a guide is drawn in the layout on screen, less the landing the pointer would take there; only
   a lane the screen doesn't draw (an empty edge, no band) takes the layout that creates it: the Near lane its would-land
-  state's, any other lane its one spot's, its room whole. Such a lane gives up where it meets a lane drawn on screen,
+  held place's, any other lane its one spot's, its room whole. Such a lane gives up where it meets a lane drawn on screen,
   and between two such the bar keeps the corner (`settle`'s rule, read in the layout drawn).
 - **One corner rule remains under "all":** the Near lane's marks win, by rect subtraction in docking. With no Near lane,
-  the lane nearest the pointer within the approach's reach names its would-land state for the corner only, switching
+  the lane nearest the pointer within the approach's reach names its would-land held place for the corner only, switching
   exactly at the reach.
 - **The trail gate reads the landing the frame draws.** A fast change of spot that reflows the window waits for a slow
   step until the held landing trails the pointer by more than `trail` (40 px); that landing is `landingOf` the spot
@@ -50,7 +52,7 @@ frame and the commit alike. Taken: the second.
 - The held frame and the commit agree by construction: the frame's items, landing and guides equal the commit's, exactly
   in node and within 1 px in the DOM. The DOM claim holds in the modes that open the room (Placeholder and Snap, the
   item preview); Outline draws the window at rest by design.
-- A host draws every item but the held one in the layout the draw rule names (`after(frame.state).layout` while the
+- A host draws every item but the held one in the layout the draw rule names (`after(frame.held).layout` while the
   room is open; see the float exception), the guides from `guides(frame)` through
   `guideRects` for cosmetics only, and stores `after(release).state`. It never passes an item's rect (a docked item, a
   float, the held item's landing) as a layout clear: the marks already leave them out. It may keep a cosmetic
@@ -61,7 +63,7 @@ frame and the commit alike. Taken: the second.
 - **No two boxes overlap; a line may cross another lane's box.** A panel joint drawn across a new column's room is a
   marker over a place, not two places claiming one room, and the box keeps the item's length (cutting it there would
   lose a real place).
-- Per moved frame at most one solve, when a state's key changes (a new sliding start, a new float point); a fixed spot
+- Per moved frame at most one solve, when a held place's key changes (a new sliding start, a new float point); a fixed spot
   costs none after the lift.
 - Guarded by `packages/docking/test/one-layout-sweep.test.ts` (items, landing, store, hull, corner, overlap, near,
   entry, created, reach over the lift windows and eleven captured windows, near and all), `test/drag-after.test.ts`,
@@ -74,3 +76,7 @@ frame and the commit alike. Taken: the second.
 `@n-uf/motion` together. The release is named here when it ships.
 
 2026-11-21: `shown(frame)` names the drawn layout; guides are cut in it.
+
+2026-11-21 (D1, before release): the concept this decision calls a state is a held place. `LandingState` became
+`LandingHeld`, `LandingFrame.state` and the guide refs' `state` became `held` (`DockGuideFrame.held` too), `DockHeld.lane`
+(never read) was dropped, and "state" now means only the dock state. The file name keeps its first wording.

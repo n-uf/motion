@@ -39,31 +39,31 @@ Unreleased entries live in `changes/` until a release joins them.
   second column holding the held tile the lanes' new-column lane over the rail's first pixels where `targets()` floats),
   which the sweep lists by name.
 
-### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
+### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s held place)
 
 - **New: `dockDrag(state, dragged, options)`** (`DockDrag`): `regions` (hit-testing, as seen), `after(held)`
   (`DockAfter`: the `state` a release commits, its `layout` solved with the drag's one `previous`, the `landing`, every
   lane's `marks` in that one layout as `DockLaneMark`s, and for a spot its lane's `spots`), `landingOf(held)`,
-  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame`, whose `guides` are `DockGuideRef`s `{ lane, state }`, →
+  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame`, whose `guides` are `DockGuideRef`s `{ lane, held }`, →
   `DockGuide[]`, rule B: a lane on screen less the would-land
   landing; a lane the screen doesn't draw in the layout that creates it, giving way to whatever the screen draws: another
-  lane's marks, a drawn bar or rail, the landing; the Near lane's marks win). `DockHeld` is
-  `{ kind: "spot", spot, point, lane? }` or `{ kind: "float", point }`. It fits `@n-uf/motion/drag`'s
+  lane's marks, a drawn bar or rail, the landing; the Near lane's marks win). `DockHeld` (a held place) is
+  `{ kind: "spot", spot, point }` or `{ kind: "float", point }`. It fits `@n-uf/motion/drag`'s
   `LandingGeometry` as it is; `./testing` adds `AssertGeometry`.
 - **Removed (breaking): the held-frame path of `lanes()`.** `DockLaneOptions.spot` and `lanes(…, { spot })`,
-  `DockLane.entry` and `corners` (the prediction of an empty lane's marks): a held frame is `after(state)`, and a
+  `DockLane.entry` and `corners` (the prediction of an empty lane's marks): a held frame is `after(held)`, and a
   frame's guides `guides(frame)`. `lanes()` gives the regions and each lane's marks as seen.
-- **Changed.** A held lane's marks follow its edge as drawn in that state's layout, corners included (decision 0002:
+- **Changed.** A held lane's marks follow its edge as drawn in that held place's layout, corners included (decision 0002:
   with both side rails holding a toolbar, a toolbar held in the empty top bar draws the bar full width, as the
   commit does). A neighbor's giving way (a striped end) is judged in the layout drawn, not the lifted one. Held on a
   sliding spot, the item is drawn where it lands and the room beside it is a box from 8 px; the bar keeps the corner
   between two empty lanes in a held frame. `./testing`'s `LandingRule` takes `{ regions, landingOf, spotsOf, home?,
   placeGuides? }`, and its host draws guides with `guides(frame)` and commits `after(release).state`.
-- Added: **`DockDrag.shown(frame)`**, the layout a landing frame draws (`after(frame.state).layout` while the frame's room
+- Added: **`DockDrag.shown(frame)`**, the layout a landing frame draws (`after(frame.held).layout` while the frame's room
   is open, else the window at rest), and **`DockGuideFrame.room`** (required; the landing model's `LandingFrame.room`, so a
   landing frame still fits; a host that builds its own frame passes it, and passes false where it draws no room for a spot).
 - Fixed: **a float frame's guides are cut in the window as drawn.** `guides(frame)` took the screen from
-  `after(frame.state)`, so on a float frame (whose room is not open: the gap closes on release) the marks were cut in
+  `after(frame.held)`, so on a float frame (whose room is not open: the gap closes on release) the marks were cut in
   the float's commit layout, the column closed up, while the host drew the window at rest. `guides(frame)` now cuts in
   `shown(frame)`. A frame whose room is open (every spot frame the landing model gives) gives the guides it gave before.
 

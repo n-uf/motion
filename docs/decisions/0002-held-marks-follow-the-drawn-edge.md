@@ -1,6 +1,6 @@
 # 0002: A held frame's marks follow the edge as drawn
 
-*Decision [0003](0003-one-layout-per-state.md) replaced `lanes(…, { spot })`, which the Context below describes as it was: a held frame's marks now come from `dockDrag(...).after(state)`, and this rule holds for them.*
+*Decision [0003](0003-one-layout-per-state.md) replaced `lanes(…, { spot })`, which the Context below describes as it was: a held frame's marks now come from `dockDrag(...).after(held)`, and this rule holds for them.*
 
 A lane's marks follow its edge as drawn in the layout they are drawn in. Only its hit rect stays as seen.
 
@@ -43,4 +43,4 @@ The rule stated so a test can pin it:
 
 ## Date
 
-2026-11-20, not yet released: it ships with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws, while its room is open, the layout its release commits, `dockDrag(...).after(state)`, which replaces `lanes(…, { spot })`), in the release after 26.11.54. The release is named here when it ships.
+2026-11-20, not yet released: it ships with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws, while its room is open, the layout its release commits, `dockDrag(...).after(held)`, which replaces `lanes(…, { spot })`), in the release after 26.11.54. The release is named here when it ships.
