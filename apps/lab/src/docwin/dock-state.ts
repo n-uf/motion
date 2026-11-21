@@ -726,7 +726,7 @@ export function createDocwin(o: DocwinOptions) {
   };
   /**
    * The drag of `id` (`dockDrag()` over the window's own rules, the layout committed now as its one `previous`): its
-   * regions for hit-testing and the one layout of each state, which the window draws and a release commits. With the
+   * regions for hit-testing and the one layout of each held place, which the window draws and a release commits. With the
    * press's `grab`, so a toolbar brought back to where it was pressed lands on its own place, and the viewer's stretch
    * positions (free: a sliding spot per free stretch; pitched: spots at the pitch).
    */
@@ -824,7 +824,7 @@ export function createDocwin(o: DocwinOptions) {
   }
 
   /**
-   * The guides to draw this frame: the drag's (`guides(frame)`: each lane's marks in the layout of the state it names,
+   * The guides to draw this frame: the drag's (`guides(frame)`: each lane's marks in the layout of the held place it names,
    * which already leave out every item drawn there and the landing), with only the host's cosmetics added: inside the
    * window, a box inset 2 px, a line 2 px across the lane, the thin kinds kept clear of the panels' content.
    */
@@ -1342,7 +1342,7 @@ export function createDocwin(o: DocwinOptions) {
     const mf = L.model.update(d.pointer, now, d.keys);
     const spot = mf.region === "lane" && mf.spot ? spotOf(L, mf.spot) : null;
     const target = landingTarget(L, mf.region, mf.spot);
-    // Every spot lands where the frame says (`landingOf` its state: a sliding one at the hand), and is home where the
+    // Every spot lands where the frame says (`landingOf` its held place: a sliding one at the hand), and is home where the
     // model's release says so (the item's own spot, landing where it lies). (At the frame's own point a release
     // samples nothing: it reads the frame.)
     const spotLanding = spot ? mf.landing : null;
@@ -1432,7 +1432,7 @@ export function createDocwin(o: DocwinOptions) {
     const refused = cancel ? null : d.refused;
     const r = d.landing && !cancel ? d.landing.model.release(d.pointer, now, d.keys) : null;
     const slid = !!r && r.kind === "spot" && !!d.landing && !!spotOf(d.landing, r.spot)?.slide;
-    // Under the landing model the release commits its state's one layout (`after`): what the frame drew.
+    // Under the landing model the release commits its held place's one layout (`after`): what the frame drew.
     const landedAfter = !cancel && !refused && d.landing && r ? d.landing.drag.after(r) : null;
     const t =
       cancel || refused
