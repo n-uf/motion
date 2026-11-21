@@ -9,22 +9,18 @@
  * (`fixtures/kit-windows-lift.json`). Each empty lane is entered from each of its sides that lies inside the stage, under
  * "near" and "all", in `emptyLanes: "real"`.
  */
-import { createLandingModel, guideRects, type LandingFrame } from "@n-uf/motion/drag";
+import { guideRects } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { lanes, solve, type DockRegions } from "../src";
+import { modelOver, type DrawnFrame } from "./landing-model";
 import { dragOf, windows, type Drag } from "./lift-windows";
+
+type LandingFrame = DrawnFrame;
 
 /** The frames of a drag along `legs` (each a point and the speed to it, px/ms), a frame every 8 ms, then a rest. */
 function play(d: Drag, mode: "near" | "all", legs: readonly [Point, number][], rest = 200): { point: Point; frame: LandingFrame }[] {
-  const model = createLandingModel({
-    regions: d.regions,
-    regionsFor: d.regionsFor,
-    grab: d.grab,
-    floatLanding: (p) => d.regions.float?.after(p, d.grab).layout.items[d.w.dragged]?.rect ?? null,
-    ...(d.home ? { home: d.home } : {}),
-    placeGuides: mode,
-  });
+  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
   const out: { point: Point; frame: LandingFrame }[] = [];
   let t = 0;
   let at = d.press;
@@ -210,8 +206,7 @@ describe("the corner under \"all\" goes to the lane nearest the pointer within r
     [{ x: rail.rect.x + rail.rect.width / 2, y: 250 }, 0.1],
   ];
 
-  it("within reach of the rail, over the column, the rail's predicted box owns the corner: no jump at entry", () => {
-    expect(rail.entry && rail.corners).toBeTruthy();
+  it("within reach of the rail, over the column, the rail's would-land guide owns the corner: no jump at entry", () => {
     const fs = play(d, "all", legs);
     const e = fs.findIndex((f) => f.frame.lane === "bar:left" && f.frame.region === "lane");
     expect(e).toBeGreaterThan(0);

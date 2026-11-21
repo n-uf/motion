@@ -3,6 +3,8 @@
  * pitched spots are (their ids, landings, marks and ends); the default is `"free"`, whose own checks are the
  * `lanes-stretch-*` files, the landing rows and the frame-is-commit sweep.
  */
-import { lanes as published, type DockLaneOptions, type DockRegions, type DockState } from "../src";
+import { dockDrag as publishedDrag, lanes as published, type DockDrag, type DockLaneOptions, type DockRegions, type DockState } from "../src";
 
 export const lanes = (state: DockState, dragged: string, options: DockLaneOptions = {}): DockRegions => published(state, dragged, { stretchPositions: "pitched", ...options });
+/** `dockDrag()` pinned the same way. */
+export const dockDrag = (state: DockState, dragged: string, options: Omit<DockLaneOptions, "spot"> = {}): DockDrag => publishedDrag(state, dragged, { stretchPositions: "pitched", ...options });

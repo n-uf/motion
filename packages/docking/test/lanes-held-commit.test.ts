@@ -12,9 +12,10 @@
  * windows at a toolbar's lift, the rail-entry and corner fixtures), side rails holding items and empty, for `lanes()`
  * itself and for the guides a landing model shows held at each spot under "near" and "all".
  */
-import { createLandingModel, type LandingFrame } from "@n-uf/motion/drag";
-// Pending #41 until the one-layout change: the four sweeps and the 1080 px case below are `it.fails` (they fail
-// today; a pass fails them, which is the flip to report).
+import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
+// Pending #41: the two `lanes(…, { spot })` sweeps and the 1080 px case below are `it.fails` (they read the held marks
+// of the old path, which clip as seen; a pass fails them, which is the flip to report). The landing model's sweeps,
+// over `dockDrag`, have flipped.
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { lanes, solve, type DockRegions, type DockState, type DockLayout } from "../src";
@@ -174,14 +175,7 @@ function sweepLanes(): Tally {
 
 /** The landing model's frame held at `sp`: the pointer led there from the press and rested. */
 function heldFrame(d: Drag, mode: "near" | "all", sp: Spot, lane: Lane): LandingFrame {
-  const model = createLandingModel({
-    regions: d.regions,
-    regionsFor: d.regionsFor,
-    grab: d.grab,
-    floatLanding: (p) => d.regions.float?.after(p, d.grab).layout.items[d.w.dragged]?.rect ?? null,
-    ...(d.home ? { home: d.home } : {}),
-    placeGuides: mode,
-  });
+  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
   const a = lane.axis;
   // Along the lane at the middle of the spot's stretch, across it at the lane's middle line.
   const along = (sp.along[0] + sp.along[1]) / 2;
@@ -266,7 +260,7 @@ describe("a held frame's marks are the commit's (decision 0002)", () => {
   });
 
   for (const mode of ["near", "all"] as const)
-    it.fails(`the landing model under "${mode}", held at each spot: the hull and the corner owner hold for its guides`, () => {
+    it(`the landing model under "${mode}", held at each spot: the hull and the corner owner hold for its guides`, () => {
       const m = sweepModel(mode);
       expect(m.held).toBeGreaterThan(150);
       expect(m.alone).toBeGreaterThan(20);

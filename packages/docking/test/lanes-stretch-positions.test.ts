@@ -7,7 +7,7 @@
  * rails, start and end zones.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, solve, type DockEdge, type DockLane, type DockLaneOptions, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockEdge, type DockLane, type DockLaneOptions, type DockState } from "../src";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { FLUSH, INSET, kitState } from "./kit-window";
@@ -174,13 +174,13 @@ describe("stretch positions: free", () => {
               expect(after.layout.items[held]!.rect).toEqual(own);
               expect(after.state.items[held]!.space ?? 0).toBe(s.items[held]!.space ?? 0);
               // The landing model, fed these regions and the grab: press, wobble, release.
-              const m = createLandingModel({ regions, regionsFor: (spot) => lanes(s, held, { previous: seen, grab, stretchPositions: "free", spot }), home: { lane: edge, spot: home.id }, grab });
+              const m = createLandingModel({ ...dockDrag(s, held, { previous: seen, grab, stretchPositions: "free" }), home: { lane: edge, spot: home.id } });
               let t = 0;
               m.update(press, t);
               for (let k = 0; k < 8; k++) for (const d of [6, -6]) m.update(ax === "x" ? { x: press.x + d, y: press.y } : { x: press.x, y: press.y + d }, (t += 16));
               const rest = ax === "x" ? { x: press.x + 5, y: press.y } : { x: press.x, y: press.y + 5 };
               for (let k = 0; k < 10; k++) m.update(rest, (t += 8));
-              expect(m.release(rest, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true, at: lo(own, ax) });
+              expect(m.release(rest, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, point: rest, home: true });
               // Away along the stretch and released: that is no longer home, and its drop lands where the frame showed.
               const room = home.slide!;
               const aim = Math.round((room.from + room.to) / 2) === Math.round(lo(own, ax)) ? room.from + 20 : (room.from + room.to) / 2;
@@ -192,7 +192,7 @@ describe("stretch positions: free", () => {
               const r = m.release(to, t);
               expect(r).toMatchObject({ kind: "spot", lane: edge, spot: home.id, home: false });
               const landed = home.target.after(to, grab).layout.items[held]!.rect;
-              expect(Math.abs(lo(landed, ax) - (r as { at: number }).at)).toBeLessThanOrEqual(0.5);
+              expect(Math.abs(lo(landed, ax) - lo(dockDrag(s, held, { previous: seen, grab, stretchPositions: "free" }).after(r).landing!, ax))).toBeLessThanOrEqual(0.5);
               expect(Math.abs(lo(m.frame.landing!, ax) - lo(landed, ax))).toBeLessThanOrEqual(0.5);
             });
           });

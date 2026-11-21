@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { createLandingModel } from "@n-uf/motion/drag";
-import { lanes, solve, type DockSpot, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockSpot, type DockState } from "../src";
 import { bar, byId, group } from "./fixture";
 
 /**
@@ -48,15 +48,18 @@ describe("a sliding spot's snap points: keyed by what they commit", () => {
       expect(spot.target.after(point(center!), GRAB).state.items.c!.align).toBe("center");
       expect(spot.target.after(point(416), GRAB).state.items.c!.align).not.toBe("center");
       // Through the landing model: the frame shows it, the release says where, and committing there is the same dock.
-      const m = createLandingModel({ regions, home: { lane: "top", spot: spot.id }, grab: GRAB });
+      const drag = dockDrag(s, "c", { previous: solve(s), grab: GRAB, stretchPositions: "free" });
+      expect(drag.regions.lanes.map((l) => l.spots.map((x) => x.id))).toEqual(regions.lanes.map((l) => l.spots.map((x) => x.id)));
+      const m = createLandingModel({ ...drag, home: { lane: "top", spot: spot.id } });
       let t = 0;
       m.update(point(center!), (t += 8));
       for (let i = 0; i < 20; i++) m.update(point(center!), (t += 8));
       expect(m.frame.spot).toBe(spot.id);
       expect(m.frame.landing!.x).toBe(center);
-      const r = m.release(point(center!), t) as { at: number };
-      expect(r.at).toBe(center);
-      expect(spot.target.after(point(r.at), GRAB).state.items.c!.align).toBe("center");
+      const r = m.release(point(center!), t)!;
+      const after = drag.after(r);
+      expect(after.landing!.x).toBe(center);
+      expect(after.state.items.c!.align).toBe("center");
     });
 
   it("a center dock landing exactly on the stretch's start is that point: the center dock wins over the plain dock", () => {

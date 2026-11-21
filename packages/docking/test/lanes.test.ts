@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { refusals, solve, SPOT_PITCH, targets, type DockRegions, type DockState } from "../src";
-import { lanes } from "./pitched-lanes";
+import { dockDrag, lanes } from "./pitched-lanes";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { FLUSH, INSET, kitState } from "./kit-window";
@@ -226,7 +226,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
       const press = { x: own.x + 20, y: own.y + 10 };
       const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
       for (const y of [200, 300, 500]) {
-        const mm = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, spot }), ...(home ? { home } : {}) });
+        const mm = createLandingModel({ ...dockDrag(s, "findings", { previous }), ...(home ? { home } : {}) });
         const to = { x: col.x + col.width / 2, y };
         const n = Math.ceil(Math.hypot(to.x - press.x, to.y - press.y) / 1.5 / 8);
         let t = 0;
@@ -252,7 +252,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
       const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
       for (const speed of [0.3, 1.5])
         for (const y of [200, 400]) {
-          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, spot }), ...(home ? { home } : {}) });
+          const m = createLandingModel({ ...dockDrag(s, "findings", { previous }), ...(home ? { home } : {}) });
           // Into the left column's middle, then out to the strip's middle at the window's edge, and settled there.
           const col = previous.edges["left-0"]!.rect;
           const via = { x: col.x + col.width / 2, y };
@@ -284,7 +284,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
       const rs = lanes(s, "pages", { previous, grab });
       const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
       for (const speed of [0.3, 1.5]) {
-        const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "pages", { previous, grab, spot }), home });
+        const m = createLandingModel({ ...dockDrag(s, "pages", { previous, grab }), home });
         const away = { x: 700, y: 400 };
         let t = 0;
         m.update(press, t);
@@ -296,7 +296,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
           for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
         }
         for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-        expect([speed, m.release(press, t)]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, home: true }]);
+        expect([speed, m.release(press, t)]).toEqual([speed, { kind: "spot", lane: home.lane, spot: home.spot, point: press, home: true }]);
       }
     });
 
@@ -315,7 +315,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
       const rail = rs.lanes.find((l) => l.id === "rail:right")!;
       for (const y of [20, 100, 200, 400, 700])
         for (const via of [true, false]) {
-          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home });
+          const m = createLandingModel({ ...dockDrag(s, "findings", { previous, grab }), home });
           const to = { x: rail.rect.x + rail.rect.width / 2, y };
           const legs = via ? [press, { x: 700, y: 400 }, to] : [press, to];
           let t = 0;
@@ -352,10 +352,10 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
             for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
             return t;
           };
-          const want = { kind: "spot", lane: home.lane, spot: home.spot, home: true };
+          const want = { kind: "spot", lane: home.lane, spot: home.spot, point: press, home: true };
           // Plain, and with the view moved (`hide()`) while away.
           for (const hidden of [false, true]) {
-            const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home });
+            const m = createLandingModel({ ...dockDrag(s, "findings", { previous, grab }), home });
             let t = 0;
             m.update(press, t);
             t = slide(m, press, away, t);
@@ -368,7 +368,7 @@ describe("lanes(): a rail drop strip's lane is the strip at the window's side", 
             expect([x, y, hidden, m.release(press, t)]).toEqual([x, y, hidden, want]);
           }
           // The first update 40 px off the press (a late host), the lift given.
-          const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "findings", { previous, grab, spot }), home, lift: press });
+          const m = createLandingModel({ ...dockDrag(s, "findings", { previous, grab }), home, lift: press });
           const late = { x: press.x - 40, y: press.y };
           let t = 0;
           m.update(late, t);

@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, LANDING_GATES, type LandingLane, type LandingModel, type LandingRegions } from "../src/drag";
 import { HAND_SPEED } from "../src/drag/hand-speed";
+import { listed } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const regions = (): LandingRegions => {
@@ -40,7 +41,7 @@ interface Hand {
 function play(hand: Hand, travel: number): { entered: number; model: LandingModel; t: number; at: Point } {
   let s = hand.seed * 7919 + 17;
   const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-  const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: START, grab: { x: 17, y: 15 } });
+  const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: START });
   m.update(START, 0);
   let k = 0;
   let y = START.y;
@@ -143,7 +144,7 @@ describe("slide or fling, swept from the bar's corner up a touching rail", () =>
     const bad: string[] = [];
     for (const v of [0.016, 0.02, 0.025])
       for (const dt of [8, 16]) {
-        const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: START, grab: { x: 17, y: 15 } });
+        const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: START });
         m.update(START, 0);
         let entered = -1;
         let y = START.y;
@@ -163,7 +164,7 @@ describe("slide or fling, swept from the bar's corner up a touching rail", () =>
     expect(HAND_SPEED.slowStep).toBe(3);
     // The host sends a sample every 50 ms, each 4 px along: every step over a gap, longer than 3 px, so unknown, never slow.
     const lanes = (gates?: { stepSpeed: number }): (string | null)[] => {
-      const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: START, grab: { x: 17, y: 15 }, ...(gates ? { gates } : {}) });
+      const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: START, ...(gates ? { gates } : {}) });
       m.update(START, 0);
       const seen: (string | null)[] = [];
       for (let k = 1; k <= 40; k++) seen.push(m.update({ x: START.x, y: START.y - 4 * k }, 50 * k).lane);

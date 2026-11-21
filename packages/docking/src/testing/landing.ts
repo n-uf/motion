@@ -1,6 +1,6 @@
 /**
  * The landing rows: the landing model's properties as conformance rows, played on any host that drags with a landing
- * model (`@n-uf/motion/drag`'s `createLandingModel` over `lanes()`). Docking never imports motion: the model comes in
+ * model (`@n-uf/motion/drag`'s `createLandingModel` over `dockDrag()`). Docking never imports motion: the model comes in
  * as an input, the way the pick rule does (`createLandingHost({ landing: createLandingModel })`).
  *
  * A row is plain data: a state, the item dragged, a pointer path at a speed (its first point the press, on the item),
@@ -11,7 +11,8 @@
  * Every row runs on every host that drags with a landing model.
  */
 import { rect, type Point, type Rect } from "@n-uf/placement";
-import { lanes, type DockLane, type DockLaneOptions, type DockRegions } from "../lanes";
+import { dockDrag, type DockHeld } from "../drag";
+import { lanes, type DockLane, type DockLaneOptions, type DockRegions, type DockSpot } from "../lanes";
 import type { DockEdge, DockState, DockItem, DockLayout } from "../index";
 import { solve } from "../solve";
 import { dockedIn, layoutIssues } from "./run";
@@ -59,18 +60,27 @@ export interface LandingModelLike {
     point: Point,
     time: number,
     keys?: { readonly shift?: boolean },
-  ): { readonly region: LandingRegionName; readonly lane: string | null; readonly spot: string | null; readonly landing: Rect | null; readonly room: boolean; readonly guides?: readonly LandingCaseGuide[]; readonly pending?: string };
-  /** What a release at `point` and `time` lands (the last update's point: what its frame showed). */
-  release(point: Point, time: number): { readonly kind: "spot"; readonly lane: string; readonly spot: string; readonly home: boolean } | { readonly kind: "float"; readonly rect: Rect } | null;
+  ): {
+    readonly region: LandingRegionName;
+    readonly lane: string | null;
+    readonly spot: string | null;
+    /** The state a release lands now (`DockHeld`), or null. */
+    readonly state: DockHeld | null;
+    readonly landing: Rect | null;
+    readonly room: boolean;
+    /** The lanes whose guides show, each with the state its guide stands for (`DockDrag.guides` draws them). */
+    readonly guides: readonly { readonly lane: string; readonly state: DockHeld | null }[];
+    readonly pending?: string;
+  };
+  /** What a release at `point` and `time` lands (the last update's point: what its frame showed): a state, or null. */
+  release(point: Point, time: number): (DockHeld & { readonly home?: boolean }) | null;
 }
 /** What makes a landing model: `createLandingModel`, as an input. */
 export type LandingRule = (options: {
   readonly regions: DockRegions;
-  readonly regionsFor: (spot: string) => DockRegions;
-  readonly floatLanding: (point: Point) => Rect | null;
+  readonly landingOf: (state: DockHeld) => Rect | null;
+  readonly spotsOf: (spot: string) => readonly DockSpot[] | null;
   readonly home?: { readonly lane: string; readonly spot: string };
-  /** Where the press holds the item (a landing model's `grab`): a sliding spot's landing follows the pointer less it. */
-  readonly grab?: { readonly x: number; readonly y: number };
   readonly placeGuides?: "off" | "near" | "all";
 }) => LandingModelLike;
 
@@ -457,14 +467,15 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly s
       const grab = { x: press.x - own.rect.x, y: press.y - own.rect.y };
       // `stretchPositions` left out, the library's default.
       const laneOptions: DockLaneOptions = { previous, grab, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
-      const regions = lanes(s, row.item, laneOptions);
-      const regionsFor = (spot: string): DockRegions => lanes(s, row.item, { ...laneOptions, spot });
+      const drag = dockDrag(s, row.item, laneOptions);
+      const regions = drag.regions;
       const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-      const model = o.landing({ regions, regionsFor, grab, floatLanding: (p) => regions.float?.after(p, grab).layout.items[row.item]?.rect ?? null, ...(home ? { home } : {}), placeGuides: "near" });
+      const model = o.landing({ regions, landingOf: drag.landingOf, spotsOf: drag.spotsOf, ...(home ? { home } : {}), placeGuides: "near" });
       const frames: LandingCaseFrame[] = [];
       const play = (p: Point, t: number, moving: boolean): void => {
         const f = model.update(p, t);
-        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room, ...(f.guides ? { guides: f.guides } : {}), ...(f.pending ? { pending: f.pending } : {}) });
+        const guides: LandingCaseGuide[] = drag.guides(f).map((g) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect }));
+        frames.push({ t, point: p, moving, region: f.region, lane: f.lane, spot: f.spot, landing: f.landing, room: f.room, guides, ...(f.pending ? { pending: f.pending } : {}) });
       };
       let t = 0;
       let at = press;
@@ -476,10 +487,8 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly s
       }
       for (let r = SAMPLE; r <= (row.rest ?? 0); r += SAMPLE) play(at, (t += SAMPLE), false);
       const out = model.release(at, t);
-      const spot = out?.kind === "spot" ? [...regions.lanes, ...regionsFor(out.spot).lanes].flatMap((l) => l.spots).find((x) => x.id === out.spot) : undefined;
-      // The model says whether the release is home (on a sliding spot, only at the item's own place, not along its stretch).
-      const target = out?.kind === "float" ? regions.float : spot && out?.kind === "spot" && !out.home ? spot.target : null;
-      const next = target ? target.after(at, grab).state : s;
+      // The release commits its state's layout (`after`); home commits nothing.
+      const next = out && !(out.kind === "spot" && out.home) ? drag.after(out).state : s;
       return { frames, layout: solve(next, { previous }), before: previous, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
     },
   };

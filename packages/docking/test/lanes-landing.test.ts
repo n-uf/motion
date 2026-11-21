@@ -3,11 +3,12 @@
  * rail, swept at more speeds than the landing rows (`LANDING_CASES`, ./cases-landing.test.ts) play, and what a frame
  * shows is what the drop commits.
  */
-import { createLandingModel, type LandingFrame, type LandingOptions } from "@n-uf/motion/drag";
+import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point } from "@n-uf/placement";
 import { solve, SPOT_PITCH, type DockState, type DockItem } from "../src";
-import { lanes } from "./pitched-lanes";
+import { modelOver, type DrawnFrame as LandingFrame, type HostModel } from "./landing-model";
+import { dockDrag, lanes } from "./pitched-lanes";
 import { bar, byId, column, controls, group, panel, title } from "./fixture";
 
 /** A 1080×640 window: a top bar (y 0–36) with a at its start, a toolbar rail at the left (x 0–30, y 36–640): tools, zoom. */
@@ -20,20 +21,14 @@ const state: DockState = {
 };
 const GRAB = { x: 10, y: 10 };
 
-/** The model's options for a drag of `id` from its own place, pressed at `press` (its grab passed to `lanes()`, as a host does). */
-function optionsFor(id: string, sc: DockState = state, press?: Point): LandingOptions {
+/** The model for a drag of `id` from its own place, pressed at `press` (its grab passed to the drag, as a host does). */
+function optionsFor(id: string, sc: DockState = state, press?: Point): HostModel {
   const previous = solve(sc);
   const r = previous.items[id]!.rect;
   const grab = press ? { x: press.x - r.x, y: press.y - r.y } : GRAB;
-  const regions = lanes(sc, id, { previous, grab });
-  const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
-  return {
-    regions,
-    regionsFor: (spot) => lanes(sc, id, { previous, grab, spot }),
-    floatLanding: (p) => regions.float?.after(p, grab).layout.items[id]?.rect ?? null,
-    ...(home ? { home } : {}),
-    placeGuides: "near",
-  };
+  const drag = dockDrag(sc, id, { previous, grab });
+  const home = drag.regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
+  return modelOver(drag, { ...(home ? { home } : {}), placeGuides: "near" });
 }
 
 /** Drive keys [ms, x, y] (linear between) every 8 ms; every frame with its point. */
@@ -41,7 +36,7 @@ function run(id: string, keys: readonly (readonly [number, number, number])[]): 
   return runOn(state, id, keys);
 }
 function runOn(sc: DockState, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel(optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] }));
+  const m = optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] });
   const out: { p: Point; f: LandingFrame }[] = [];
   for (let t = 0; t <= keys.at(-1)![0] + 1e-6; t += 8) {
     let i = 0;
@@ -59,7 +54,7 @@ function runOn(sc: DockState, id: string, keys: readonly (readonly [number, numb
  * frames with the latest sample, every frame kept (the last one before each hop included).
  */
 function runMouse(sc: DockState, id: string, keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel(optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] }));
+  const m = optionsFor(id, sc, { x: keys[0]![1], y: keys[0]![2] });
   const out: { p: Point; f: LandingFrame }[] = [];
   const at = (t: number): Point => {
     let i = 0;
@@ -278,7 +273,7 @@ describe("back at its press point, an item lands home wherever it was pressed", 
           // A press point inside another lane too (the empty top bar's band reaches over the top of the left rail, where
           // tools lies) is the corner's question, which lane takes an overlap, not the grab's: not swept here.
           if (regions.lanes.some((l) => l.id !== h.lane.id && press.x > l.rect.x && press.x < l.rect.x + l.rect.width && press.y > l.rect.y && press.y < l.rect.y + l.rect.height)) continue;
-          const m = createLandingModel({ regions, regionsFor: (spot) => lanes(sc, id, { previous, grab, spot }), floatLanding: (p) => regions.float?.after(p, grab).layout.items[id]?.rect ?? null, home: { lane: h.lane.id, spot: h.spot.id } });
+          const m = createLandingModel({ ...dockDrag(sc, id, { previous, grab }), home: { lane: h.lane.id, spot: h.spot.id } });
           const keys = path([press, { x: 540, y: 320 }, press], speed, 80);
           let last = press;
           let lastT = 0;

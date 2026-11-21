@@ -35,18 +35,16 @@ export {
   type LandingApproach,
   type LandingFrame,
   type LandingGates,
-  type LandingGuide,
+  type LandingGeometry,
   type LandingLane,
   type LandingMargins,
-  type LandingMark,
   type LandingModel,
   type LandingOptions,
   type LandingRegion,
   type LandingRegions,
   type LandingRelease,
-  type LandingSlide,
   type LandingSpot,
-  SNAP_DISTANCE,
+  type LandingState,
 } from "./landing";
 export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type PlaceGuides, type PreviewFrame, type PreviewMode, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/shapes";
 import { createLandingModel, type LandingLane, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
 /**
@@ -16,7 +17,7 @@ describe("landing model: far beyond the held lane, the frame is held but refused
     return { lanes: [bottom, rail], refused: [], content: rect(0, 0, 868, 599), blocked: [rect(12, 12, 220, 575)], stage: rect(0, 0, 868, 630), item: { width: 362, height: 31 } };
   };
   it("a flick up the rail, held 288 px from its bar, shows the refused place and releases home", () => {
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
     m.update({ x: 25, y: 614 }, 0);
     for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
     const f = m.frame;
@@ -29,7 +30,7 @@ describe("landing model: far beyond the held lane, the frame is held but refused
   });
 
   it("the refusal is sticky: a wobble of ±1.5 px at its edge (52 px past the bar) never flips lane and refused", () => {
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
     m.update({ x: 25, y: 614 }, 0);
     // Flung two frames up the rail, to 51 px above the bar (y 548), then wobbling 1.5 px either way.
     m.update({ x: 25, y: 581 }, 16);

@@ -1,6 +1,6 @@
 import type { Rect } from "../shapes";
 
-/** A guide to place: any record with a `kind` and a `rect` (a landing model's `LandingGuide`, a lane's marks). */
+/** A guide to place: any record with a `kind` and a `rect` (a lane's marks, as a host's geometry draws a frame's guides). */
 export interface PlacedGuide {
   readonly kind: "line" | "box" | "hatch";
   readonly rect: Rect;
@@ -55,7 +55,7 @@ export interface GuideRectsOptions {
 /** The least length, px, a box part a clear rect cut keeps (`minLength`'s default). */
 export const MIN_BOX_LENGTH = 8;
 /** The thickness, px, a thinner line is drawn at, centered on its place (`lineThickness`'s default). */
-export const LINE_THICKNESS = 2;
+const LINE_THICKNESS = 2;
 
 const EPS = 1e-6;
 

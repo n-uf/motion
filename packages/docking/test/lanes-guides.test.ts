@@ -6,7 +6,7 @@ import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { HATCH_EDGE, HATCH_END, solve, SPOT_PITCH, type DockState, type DockItem } from "../src";
-import { lanes } from "./pitched-lanes";
+import { dockDrag, lanes } from "./pitched-lanes";
 import { WINDOW_A, winState } from "../src/testing/windows";
 import { modelState } from "./model-window";
 import { bar, byId, column, controls, group, panel, title } from "./fixture";
@@ -468,7 +468,7 @@ describe("lanes(): a guide at every spot but the held one's", () => {
     const grab = { x: 10, y: 10 };
     const regions = lanes(s, "views", { previous, grab });
     const home = regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0]!;
-    const m = createLandingModel({ regions, regionsFor: (spot) => lanes(s, "views", { previous, grab, spot }), floatLanding: (p) => regions.float?.after(p, grab).layout.items.views?.rect ?? null, home });
+    const m = createLandingModel({ ...dockDrag(s, "views", { previous, grab }), home });
     const rail = regions.lanes.find((x) => x.id === "rail-right")!;
     // From the press, up into the page, then right across the right column into the rail's band, slowly.
     const pts: Point[] = [];

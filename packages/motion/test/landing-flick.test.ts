@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/shapes";
 import { createLandingModel, type LandingLane, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -17,7 +18,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
   };
   const flick = (restMs: number) => {
     // (The fast slide rule is capped at `gates.slideSpeed`, 2 px/ms: this flick is 3 px/ms.)
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
     m.update({ x: 25, y: 614 }, 0);
     // 3 px/ms, a frame every 16 ms: 48 px a frame, from (25, 614) to (14, 301) in 7 frames.
     for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
@@ -42,7 +43,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
 
   /** The flick, then `n` frames 8 ms apart at 1.5 px/ms on up the rail (12 px each). */
   const tail = (n: number, gates?: { slideSpeed: number }) => {
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 }, ...(gates ? { gates } : {}) });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, ...(gates ? { gates } : {}) });
     m.update({ x: 25, y: 614 }, 0);
     for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
     for (let k = 1; k <= n; k++) m.update({ x: 14, y: 301 - 12 * k }, 112 + 8 * k);
@@ -74,7 +75,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
           for (let seed = 1; seed <= 10; seed++) {
             let s = seed * 7919;
             const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
-            const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+            const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
             m.update({ x: 25, y: 614 }, 0);
             // The hand moves at `v` px/ms in real time; each sample's timestamp is off by up to `j` of a frame.
             const n = Math.ceil(313 / (v * dt));
@@ -93,7 +94,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
   });
 
   it("a slide at exactly 2 px/ms (the gate) takes the rail; with `gates: { slideSpeed: Infinity }` the fling does too", () => {
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
     m.update({ x: 25, y: 614 }, 0);
     // 16 px a frame straight up the rail's x 25, from y 614 to y 310.
     for (let k = 1; k <= 19; k++) m.update({ x: 25, y: 614 - 16 * k }, 8 * k);
@@ -105,7 +106,7 @@ describe("landing model: a fast flick up a rail from the bar under it", () => {
   it("a steady 1.5 px/ms slide with ±30% timestamp jitter enters the rail about where a smooth one does: a frame read as fast adds nothing and resets nothing", () => {
     /** How far up the rail the hand has slid when the rail takes it, px; frames at 16 ms times `jitter(k)`. */
     const entry = (jitter: (k: number) => number): number => {
-      const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+      const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
       m.update({ x: 25, y: 614 }, 0);
       let t = 0;
       for (let k = 1; k <= 40; k++) {

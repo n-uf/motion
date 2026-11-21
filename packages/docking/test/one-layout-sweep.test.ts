@@ -22,13 +22,11 @@
  * are `./one-layout-windows`. Known failures are pending by name (`PENDING`): the sweep fails on a failure not listed
  * and on a listed one that passes (it flipped: take it off the list).
  */
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import { createLandingModel, type LandingFrame, type LandingRelease } from "@n-uf/motion/drag";
+import { LANDING_APPROACH, type LandingRelease } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { lanes, readDockState, solve, storeDockState, type DockDrop, type DockLayout, type DockRegions, type DockState } from "../src";
+import { dockDrag, readDockState, solve, storeDockState, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
+import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
 
 type Axis = "x" | "y";
@@ -63,8 +61,8 @@ const alone = (layout: DockLayout, edge: string, dragged: string): boolean => la
 /** The drag of a window as the sweep plays it: what the landing model and the host read. */
 interface Drag {
   readonly w: SweepWindow;
+  readonly drag: DockDrag;
   readonly regions: DockRegions;
-  readonly regionsFor: (spot: string) => DockRegions;
   readonly grab: Point;
   readonly press: Point;
   readonly home?: { readonly lane: string; readonly spot: string };
@@ -76,9 +74,10 @@ function dragOf(w: SweepWindow): Drag | null {
   const given = w.options.grab;
   const grab = given && given.x < own.rect.width && given.y < own.rect.height ? given : { x: own.rect.width / 2, y: own.rect.height / 2 };
   const options = { ...w.options, previous: w.previous, grab };
-  const regions = lanes(w.state, w.dragged, options);
+  const drag = dockDrag(w.state, w.dragged, options);
+  const regions = drag.regions;
   const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-  return { w, regions, regionsFor: (spot) => lanes(w.state, w.dragged, { ...options, spot }), grab, press: { x: own.rect.x + grab.x, y: own.rect.y + grab.y }, ...(home ? { home } : {}) };
+  return { w, drag, regions, grab, press: { x: own.rect.x + grab.x, y: own.rect.y + grab.y }, ...(home ? { home } : {}) };
 }
 
 /** A frame as the host draws it. */
@@ -90,14 +89,7 @@ interface Drawn {
 
 /** The frames of a drag along `legs` (each a point and the speed to it, px/ms), a frame every 8 ms, then a rest. */
 function play(d: Drag, mode: Mode, legs: readonly (readonly [Point, number])[], rest = 200): Drawn[] {
-  const model = createLandingModel({
-    regions: d.regions,
-    regionsFor: d.regionsFor,
-    grab: d.grab,
-    floatLanding: (p) => d.regions.float?.after(p, d.grab).layout.items[d.w.dragged]?.rect ?? null,
-    ...(d.home ? { home: d.home } : {}),
-    placeGuides: mode,
-  });
+  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
   const out: Drawn[] = [];
   let t = 0;
   let at = d.press;
@@ -140,23 +132,19 @@ function paths(d: Drag): { name: string; legs: [Point, number][] }[] {
 /** What a release lands: the drop, its result, and the committed layout after the store round trip. */
 interface Landed {
   readonly key: string;
-  readonly target: DockDrop;
   readonly after: { readonly state: DockState; readonly layout: DockLayout };
   readonly commit: DockLayout;
   readonly stored: DockLayout;
 }
 
-function landedOf(d: Drag, r: LandingRelease, p: Point): Landed | null {
+function landedOf(d: Drag, r: LandingRelease): Landed | null {
   if (!r) return null;
-  let target: DockDrop | null = null;
-  if (r.kind === "float") target = d.regions.float;
-  else for (const reg of [d.regions, d.regionsFor(r.spot)]) for (const l of reg.lanes) for (const s of l.spots) if (s.id === r.spot) target ??= s.target;
-  if (!target) return null;
-  const after = target.after(p, d.grab);
+  // The release commits its state's one layout.
+  const after = d.drag.after(r);
+  if (after.landing === null) return null;
   const read = readDockState(storeDockState(after.state), d.w.state);
   return {
     key: r.kind === "float" ? "float" : r.spot,
-    target,
     after,
     commit: solve(read.state, { previous: d.w.previous }),
     stored: solve(after.state, { previous: d.w.previous }),
@@ -264,7 +252,6 @@ function sweep(): Result {
     count("windows");
     const s = w.state;
     const laneIds = new Set(d.regions.lanes.map((l) => l.id));
-    const seenLayout = solve(s, { previous: w.previous });
     const landedMemo = new Map<string, Landed | null>();
     const checkedDrop = new Set<string>();
     for (const path of paths(d))
@@ -278,15 +265,43 @@ function sweep(): Result {
             for (let j = i + 1; j < gs.length; j++)
               if (gs[i]!.lane !== gs[j]!.lane && inter(gs[i]!.rect, gs[j]!.rect, 0.01))
                 fail(`overlap | ${w.name} | ${[gs[i]!.lane, gs[j]!.lane].sort().join(" & ")} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${gs[i]!.id} ${fmt(gs[i]!.rect)} over ${gs[j]!.id} ${fmt(gs[j]!.rect)}`);
+          // entry: a lane shown for another state than the screen's (the Near lane, or the corner's owner by reach), or
+          // the entered lane, shows its entry: its marks in that state's layout, which leave out only the landing there.
+          // (A lane the screen draws is the named exception, rule B: the screen's less the landing, the `near` clause.)
+          const screen0 = d.drag.after(f.frame.state);
+          for (const g of f.frame.named) {
+            const l = d.regions.lanes.find((x) => x.id === g.lane);
+            if (!l) continue;
+            const entered = g.lane === f.frame.lane && f.frame.region === "lane";
+            if (!entered && (g.state === f.frame.state || (screen0.layout.edges[g.lane]?.cross ?? 0) > 1e-6)) continue;
+            const mine = d.drag.after(g.state);
+            count("entry");
+            const want = spans(mine.marks.filter((m) => m.lane === g.lane), l.axis);
+            const got = spans(gs.filter((x) => x.lane === g.lane), l.axis);
+            if (spanDiff(want.box, got.box) > 1e-6 || want.lines.join() !== got.lines.join()) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: guide ${JSON.stringify(got)} vs entry ${JSON.stringify(want)}`);
+            if (mine.landing) for (const x of gs) if (x.lane === g.lane && x.kind !== "line" && inter(x.rect, mine.landing, 0.01)) fail(`entry | ${w.name} | ${g.lane} | ${mode}`, `${x.id} under the landing`);
+          }
+          // reach: under "all" with no Near lane (none held or pending), the corner's owner is the lane nearest the
+          // pointer within the approach's reach, exactly: owned within it, none past it.
+          if (mode === "all" && !f.frame.lane && !f.frame.pending && f.frame.region !== "open") {
+            const dist = (r: Rect): number => Math.hypot(Math.max(r.x - f.point.x, 0, f.point.x - (r.x + r.width)), Math.max(r.y - f.point.y, 0, f.point.y - (r.y + r.height)));
+            const nearest = [...d.regions.lanes].map((l) => ({ id: l.id, dd: dist(l.rect) })).filter((x) => x.dd <= LANDING_APPROACH.reach).sort((a, b) => a.dd - b.dd)[0];
+            const owner = f.frame.named.find((g) => g.state !== f.frame.state)?.lane;
+            count("reach");
+            if (nearest ? owner !== nearest.id && f.frame.named.some((g) => g.lane === nearest.id && g.state === f.frame.state) && wouldPick(d, nearest.id, f.point) : owner !== undefined)
+              fail(`reach | ${w.name} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: owner ${owner ?? "-"}, nearest within reach ${nearest?.id ?? "-"}`);
+          }
           // near: a populated lane's Near guide before entry is the screen's guide less the would-land landing.
           const nearLanes = [...new Set(gs.map((g) => g.lane))].filter((id) => id !== f.frame.lane);
           if (mode === "near" && !f.frame.lane)
             for (const id of nearLanes) {
               const l = d.regions.lanes.find((x) => x.id === id);
-              if (!l || !edgeOf(s, id) || !drawn(seenLayout, id) || itemsOn(seenLayout, id, w.dragged).length === 0) continue;
+              // The screen: the frame's state's layout (the window as seen at rest, the float's while it floats).
+              const screen = d.drag.after(f.frame.state);
+              if (!l || !edgeOf(s, id) || !drawn(screen.layout, id) || itemsOn(screen.layout, id, w.dragged).length === 0) continue;
               count("near populated");
               const would = wouldLand(d, l, f.point);
-              const want = spans(lessAlong(l.marks.map((m) => ({ lane: id, id: m.id, kind: m.kind, rect: m.rect })), would, l.axis), l.axis);
+              const want = spans(lessAlong(screen.marks.filter((m) => m.lane === id), would, l.axis), l.axis);
               const got = spans(gs.filter((g) => g.lane === id), l.axis);
               const diff = spanDiff(want.box, got.box);
               if (diff > 2 || want.lines.length !== got.lines.length || want.lines.some((v, k) => Math.abs(v - got.lines[k]!) > 1))
@@ -296,7 +311,7 @@ function sweep(): Result {
           const r = f.release;
           if (!r) continue;
           const landingKey = `${r.kind === "float" ? "float" : r.spot} ${fmt(f.frame.landing)}`;
-          if (!landedMemo.has(landingKey)) landedMemo.set(landingKey, landedOf(d, r, f.point));
+          if (!landedMemo.has(landingKey)) landedMemo.set(landingKey, landedOf(d, r));
           const landed = landedMemo.get(landingKey)!;
           if (!landed) {
             fail(`release | ${w.name} | ${r.kind === "float" ? "float" : r.spot}`, "no drop for the release");
@@ -354,6 +369,13 @@ function sweep(): Result {
   return { failures, counts };
 }
 
+/** Whether the pointer at `p` picks a spot along lane `id` (not a refused stretch): a would-land state there. */
+function wouldPick(d: Drag, id: string, p: Point): boolean {
+  const l = d.regions.lanes.find((x) => x.id === id)!;
+  const a = l.axis === "x" ? p.x : p.y;
+  return l.spots.length > 0 && !l.refused.some((r) => a >= r.along[0] && a <= r.along[1]);
+}
+
 /** Where the held item would land in `l` at `p`: the spot the pointer picks there, its drop's landing. */
 function wouldLand(d: Drag, l: Lane, p: Point): Rect | null {
   const a = l.axis === "x" ? p.x : p.y;
@@ -363,11 +385,11 @@ function wouldLand(d: Drag, l: Lane, p: Point): Rect | null {
 }
 
 /**
- * Today's known failures, by case name: `<clause> | <window> | <lane, spot or place> | <mode>`
- * (`fixtures/one-layout-pending.json`). Each is a held frame the library draws in another layout than it commits; the
- * one-layout change fixes them, and the list empties.
+ * Known failures, by case name: `<clause> | <window> | <lane, spot or place> | <mode>`. The sweep landed with 165 (#41:
+ * hull 118, corner 47), all flipped by the one-layout change (a held frame drawn from `after(state)`). A new known
+ * failure goes here by name until it is fixed.
  */
-const PENDING: readonly string[] = (JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "fixtures", "one-layout-pending.json"), "utf8")) as { pending: string[] }).pending;
+const PENDING: readonly string[] = [];
 
 describe("one layout: every held frame draws what its release commits", () => {
   const r = sweep();
