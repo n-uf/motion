@@ -9,8 +9,8 @@
  */
 import { createLandingModel, type LandingFrame } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import type { Point, Rect } from "../src/geometry";
-import { solve } from "../src/scene";
+import type { Point, Rect } from "@n-uf/placement";
+import { solve } from "../src";
 import { dragOf, windows, type Drag } from "./lift-windows";
 
 const inside = (a: Rect, b: Rect): Rect | null => {
@@ -46,8 +46,8 @@ function settled(d: Drag, regions: Drag["regions"], mode: "near" | "all", to: Po
 const NAMES = [
   "kit: window 1, columns both sides",
   "real window, empty side rails",
-  "empty-corners-scene.json, tools",
-  "columns-corner-scene.json, g3",
+  "empty-corners.json, tools",
+  "columns-corner.json, g3",
   "lab: views and review in the top bar, tools",
   "lab: the title bar full, tools",
   "lab: the title bar full, zoom",
@@ -60,8 +60,8 @@ describe("a shared corner of two empty lanes is covered by exactly one drawn mar
   it("the windows are there", () => expect(WINDOWS.length).toBe(NAMES.length));
   for (const w of WINDOWS) {
     const d = dragOf(w)!;
-    const seen = solve(w.scene, { previous: d.options.previous! });
-    const emptyIds = new Set(d.regions.lanes.filter((l) => w.scene.edges.some((e) => e.id === l.id) && (seen.edges[l.id]?.cross ?? 0) <= 1e-6).map((l) => l.id));
+    const seen = solve(w.state, { previous: d.options.previous! });
+    const emptyIds = new Set(d.regions.lanes.filter((l) => w.state.edges.some((e) => e.id === l.id) && (seen.edges[l.id]?.cross ?? 0) <= 1e-6).map((l) => l.id));
     // Each rail with a prediction, and the empty bars it shares a corner with that lie across its column.
     const pairs = d.regions.lanes
       .filter((r) => r.axis === "y" && r.entry && r.corners)
