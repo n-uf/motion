@@ -134,6 +134,9 @@
    monospace characters with their letter spacing, plus 8 px of padding each side), so a fit change moves nothing. */
 .dw-fit { box-sizing: border-box; flex: none; display: inline-flex; align-items: center; justify-content: center; width: calc(5ch + 5 * 0.08em + 2 * 8px); height: 24px; padding: 0 8px; border: 0; border-radius: 4px; background: transparent; color: inherit; box-shadow: inset 0 0 0 1px var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; line-height: 1; white-space: nowrap; cursor: pointer; }
 .dw-fit:hover { background: var(--accent-soft); }
+/* A ladder group's controls (./ladder): the fit takes its label's own width at each tier, the − + pair is one control. */
+.dw-fit[data-tier] { width: auto; }
+.dw-step { display: inline-flex; align-items: center; }
 .dw-tool i { width: 12px; height: 12px; border: 1.5px solid var(--win-muted); border-radius: 2px; }
 .dw-word[aria-pressed="false"] { color: var(--win-muted); text-decoration: line-through; }
 .dw-sq[aria-pressed="false"] { color: var(--win-muted); }

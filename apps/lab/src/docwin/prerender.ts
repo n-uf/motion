@@ -22,8 +22,11 @@ export interface Dump extends Pick<ProbeFrame, "landing" | "lane" | "spot" | "pe
   readonly pointer: { readonly x: number; readonly y: number } | null;
   readonly held: { readonly id: string; readonly rect: Rect; readonly placed: string | null } | null;
   readonly region: string | null;
-  readonly items: readonly { readonly id: string; readonly edge: string | null; readonly form: string | null; readonly rect: Rect }[];
+  /** `hidden` and `tiers` are the item's layout's (`SceneItemLayout`), left out when empty. */
+  readonly items: readonly { readonly id: string; readonly edge: string | null; readonly form: string | null; readonly rect: Rect; readonly hidden?: readonly string[]; readonly tiers?: Readonly<Record<string, number>> }[];
   readonly errors: readonly string[];
+  /** A key frame a check marked (`mark`): what it is, such as the window's width. */
+  readonly note?: string;
 }
 
 /** The most key frames kept for one preset: a case that drags hundreds of times keeps its first ones. */
@@ -62,7 +65,7 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
     const { layout, hidden } = c.drawn;
     return Object.entries(layout.items)
       .filter(([id, p]) => id !== hidden && !p.inMenu)
-      .map(([id, p]) => ({ id, edge: p.floating ? "float" : (p.edge ?? null), form: p.formKind ?? null, rect: rect(p.rect) }))
+      .map(([id, p]) => ({ id, edge: p.floating ? "float" : (p.edge ?? null), form: p.formKind ?? null, rect: rect(p.rect), ...(p.hidden.length ? { hidden: p.hidden } : {}), ...(p.tiers ? { tiers: p.tiers } : {}) }))
       .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   }
 
@@ -74,7 +77,7 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
     return { node, scrollTop: c.scroll.scrollTop };
   }
 
-  function push(mark: Mark, t: number, f: ProbeFrame | null): void {
+  function push(mark: Mark, t: number, f: ProbeFrame | null, note?: string): void {
     const held = f ? { id: f.held.id as ItemId, rect: rect(f.held.rect), placed: f.held.placed } : null;
     dumps.push({
       t,
@@ -90,6 +93,7 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
       guides: (f?.guides ?? []).map((g) => ({ id: g.id, kind: g.kind, lane: g.lane, rect: rect(g.rect) })),
       items: itemsNow(),
       errors: errors.splice(0),
+      ...(note !== undefined ? { note } : {}),
     });
     shots.push(snap());
   }
@@ -120,6 +124,12 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
     else push("release", t, f);
   }
 
+  /** A check that plays no drag (a window being resized) marks a key frame: a dump and a copy of the window as drawn now. */
+  const mark = (note: string): void => {
+    if (dumps.length > MAX_FRAMES) truncated = true;
+    else push("hop", dumps.length, null, note);
+  };
+
   return {
     /** Start recording: drop the last run's dumps and copies, and listen to the window and to page errors. */
     start(): void {
@@ -132,6 +142,7 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
       lastPlace = null;
       window.addEventListener("error", onError);
       c.setProbe(onProbe);
+      c.setKeyFrames(mark);
     },
     /** The window after setup: the state's dump and copy (always the first). */
     state(): void {
@@ -140,6 +151,7 @@ export function createRecorder(c: Docwin, root: HTMLElement) {
     /** Stop recording; the state's dump and the key frames' as recorded. */
     stop(): { state: Dump; frames: Dump[]; truncated: boolean } {
       c.setProbe(null);
+      c.setKeyFrames(null);
       window.removeEventListener("error", onError);
       // Errors after the last dump belong to it.
       const last = dumps.length - 1;
