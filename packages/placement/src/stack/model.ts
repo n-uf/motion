@@ -110,7 +110,7 @@ export interface StackForm {
    * on `fold` and `menu`): a host draws each control at its tier from it, with no knowledge of the ladder's order. It is
    * always a valid index into the control's own `tiers` (a control with fewer tiers than the group stays on its last; a
    * control with no tiers reports 0). A
-   * hand-written form leaves it out. `./scene` reports the chosen form's as `tiers`.
+   * hand-written form leaves it out. `@n-uf/docking` reports the chosen form's as the item layout's `tiers`.
    */
   readonly tiers?: Readonly<Record<string, number>>;
   /**

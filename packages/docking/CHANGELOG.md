@@ -34,6 +34,9 @@ The model's types:
 - `SceneChrome` → `KeepClear`, and the dock state's field `chrome` → `keepClear` (same rects, same `for` scope).
 - The fields 26.11.52 added keep their names on the renamed types: `DockItem.pushable`, `DockItem.floatSizes`,
   `DockItemLayout.axis`.
+- Added: **`DockItemLayout.tiers`**, the chosen form's `StackForm.tiers` (`@n-uf/placement/stack`'s `controlLadder`
+  sets them), beside `hidden`: each shown control's tier by id, so a host draws each control at `tiers[id]` without
+  knowing the ladder's order. Absent for a hand-written form, a `fold`, a `menu` and a » menu entry.
 - Removed: **`SceneItem.floatSize`**, deprecated in 26.11.52. `floatSize` → `floatSizes[orient]`: declare the size for
   the orient the item floats in (both orients where it floats either way). A state stored with it still reads:
   `readDockState` takes a stored `floatSize` as `floatSizes` for the orient its float is in (the item's own where it
