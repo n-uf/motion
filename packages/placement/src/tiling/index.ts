@@ -14,7 +14,7 @@
  *
  * See docs/placement.md, Entry: tiling.
  */
-export { columns, grid, masterStack, type MasterOptions, type OrderLayout, type TileOptions } from "./order";
+export { columns, grid, masterStack, type MasterOptions, type OrderLayout, type OrderOptions, type TileOptions } from "./order";
 export { dropOnPane, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";
 export { canDropOnPane, type DropOptions, type DropVerdict } from "./drop";
 export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type SplitGeometry, type SplitLayout, type SplitOptions } from "./layout";

@@ -7,10 +7,9 @@ import type { PaneSide } from "./regions";
 
 /**
  * How a layout spaces its panes: `gap` px between neighbors (default 0), `ratio` the master's share (default 0.5),
- * `handle` px a split's divider takes beside the gap (default 0; only a split tree reads it). `count` and `side` are
- * the master area's, which only `masterStack` and a split that lays out as master and stack read.
+ * `handle` px a split's divider takes beside the gap (default 0; only a split tree reads it).
  */
-export interface TileOptions extends MasterOptions {
+export interface TileOptions {
   readonly gap?: number;
   readonly ratio?: number;
   readonly handle?: number;
@@ -18,15 +17,20 @@ export interface TileOptions extends MasterOptions {
 
 /**
  * The master area: `count` panes (rounded, kept within 1..n; default 1) on `side` (default `"left"`). Left and right
- * make it a column of panes stacked vertically; top and bottom a row of panes side by side.
+ * make it a column of panes stacked vertically; top and bottom a row of panes side by side. The one home of the
+ * concept: `masterStack` takes it in its options (`OrderOptions`), a split that lays out as master and stack in its
+ * `master` field.
  */
 export interface MasterOptions {
   readonly count?: number;
   readonly side?: PaneSide;
 }
 
+/** What the order layouts take: `TileOptions` and the master area's `count` and `side` (`columns` and `grid` ignore them). */
+export type OrderOptions = TileOptions & MasterOptions;
+
 /** An order layout: `masterStack`, `columns`, `grid`, or the app's own of the same shape. */
-export type OrderLayout = <K>(panes: readonly K[], area: Rect, options?: TileOptions) => Map<K, Rect>;
+export type OrderLayout = <K>(panes: readonly K[], area: Rect, options?: OrderOptions) => Map<K, Rect>;
 
 /** The master's share in effect: clamped to 0.05..0.95; one that is not finite is 0.5. */
 export const masterRatio = (v: number | undefined): number => (v === undefined || !Number.isFinite(v) ? 0.5 : Math.min(0.95, Math.max(0.05, v)));
@@ -57,7 +61,7 @@ function divide<K>(items: readonly K[], x: number, y: number, width: number, hei
  * the stack first in space. With no stack (n at most `count`) all the panes fill the area, stacked along the side's
  * cross axis. Each area divides its length equally between its panes, the gap between them.
  */
-export function masterStack<K>(panes: readonly K[], area: Rect, options: TileOptions = {}): Map<K, Rect> {
+export function masterStack<K>(panes: readonly K[], area: Rect, options: OrderOptions = {}): Map<K, Rect> {
   const gap = options.gap !== undefined && Number.isFinite(options.gap) && options.gap > 0 ? options.gap : 0;
   const out = new Map<K, Rect>();
   if (panes.length === 0) return out;

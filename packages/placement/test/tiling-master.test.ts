@@ -1,7 +1,7 @@
 /** ./tiling, master and stack: the count and side of the master area, its ratio clamp, and a split that lays out so. */
 import { describe, expect, it } from "vitest";
 import { area as areaOf, type Rect } from "../index";
-import { layoutSplit, layoutSplitTree, masterStack, type PaneSide, type Split } from "../src/tiling";
+import { layoutSplit, layoutSplitTree, masterStack, orderTargets, type PaneSide, type Split } from "../src/tiling";
 import { randomTree, same, seeded, unsound } from "./tiling-fixture";
 
 const AREA: Rect = { x: 0, y: 0, width: 1000, height: 600 };
@@ -148,6 +148,18 @@ describe("a split that lays its panes out as master and stack", () => {
     expect(splits.get("m")!.divider!.x).toBeCloseTo(693, 9);
     expect(splits.get("m")!.divider!.width).toBeCloseTo(10, 9);
     expect(panes.get(1)!.x).toBeCloseTo(703, 9);
+  });
+});
+
+describe("where the master options live", () => {
+  it("the order layouts take count and side (orderTargets passes them on); a split tree's options do not", () => {
+    const ts = orderTargets(masterStack, ["a", "b", "c"], "x", AREA, { gap: 10, count: 2, side: "top" });
+    expect(ts[0]!.layout.get("x")).toEqual(masterStack(["x", "a", "b", "c"], AREA, { gap: 10, count: 2, side: "top" }).get("x"));
+    // The split tree reads them from the split's `master`, never from the layout's options: a type error.
+    // @ts-expect-error count belongs to a split's `master`
+    layoutSplit({ pane: 1 }, AREA, { count: 2 });
+    // @ts-expect-error side belongs to a split's `master`
+    layoutSplitTree({ pane: 1 }, AREA, { side: "top" });
   });
 });
 
