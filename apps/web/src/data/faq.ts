@@ -24,7 +24,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do I position a popup or menu next to its anchor?",
-      a: "Use <code>positionPopup</code> from <code>@n-uf/placement</code>. Give it the anchor rect, popup size, bounds and a rule (anchor point, gravity, offset, and whether it may flip, slide or resize), and it flips, slides or resizes the popup to fit, as far as the rule allows, like Wayland's xdg-positioner. It works on plain data and moves nothing, so your app does the drawing.",
+      a: "Use <code>positionPopup</code> from <code>@n-uf/placement/popup</code>. Give it the anchor rect, popup size, bounds and a rule (anchor point, gravity, offset, and whether it may flip, slide or resize), and it flips, slides or resizes the popup to fit, as far as the rule allows, like Wayland's xdg-positioner. It works on plain data and moves nothing, so your app does the drawing.",
     },
     {
       q: "What license is @n-uf/motion under, and is it stable?",
@@ -32,7 +32,7 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "How do @n-uf/motion and @n-uf/placement work together?",
-      a: "Placement computes where things go and motion moves them, and neither imports the other. A target list from <code>targets</code> in <code>@n-uf/placement/scene</code> is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from any placement layout is what <code>@n-uf/motion/layout</code> glides to. Each package also works alone.",
+      a: "Placement computes where things go and motion moves them, and neither imports the other. A target list from <code>targets</code> in <code>@n-uf/docking</code>, built on placement, is exactly what the drag intent in <code>@n-uf/motion/drag</code> takes, and a rect from any of their layouts is what <code>@n-uf/motion/layout</code> glides to. Each package also works alone.",
     },
   ],
   "/window-motion/": [
@@ -68,17 +68,17 @@ export const FAQS: Record<string, QA[]> = {
     },
     {
       q: "Where does a dragged item land when I release it?",
-      a: "On the shown target whenever one shows: the drop is what was shown. With no indicator showing, a release lands on the target under the pointer, and otherwise on nothing. <code>release(point, targets)</code> returns that target, or null for home, and a release over home does nothing.",
+      a: "On the shown target whenever one shows: the drop is what was shown. With no indicator showing, a release lands on the target under the pointer, and otherwise on nothing. <code>release(point, time, targets)</code> returns that target, or null for home, and a release over home does nothing.",
     },
   ],
   "/desk-layouts/": [
     {
       q: "How do I drag a panel from one dock to another?",
-      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, which lists only the places the scene's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new scene and its layout, so the preview is the result. Your app draws the rects; <code>@n-uf/motion/layout</code> can glide the panels there.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, which lists only the places the dock state's edges accept, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. Each target carries what a release there makes: <code>target.after(point, grab)</code> returns the new state and its layout, so the preview is the result. Your app draws the rects; <code>@n-uf/motion/layout</code> can glide the panels there.",
     },
     {
       q: "Which desk layouts can I build?",
-      a: "Any you can describe as a <code>Scene</code> from <code>@n-uf/placement/scene</code>: edges along the window's sides (columns, docks, toolbars), the panels in them, and floats. This page lays out four: side docks with a bottom dock, the same with a full-width dock, the same with floating panels, and a navigator. Panes that share an area come from <code>./tiling</code>.",
+      a: "Any you can describe as a <code>DockState</code> from <code>@n-uf/docking</code>: edges along the window's sides (columns, docks, toolbars), the panels in them, and floats. This page lays out four: side docks with a bottom dock, the same with a full-width dock, the same with floating panels, and a navigator. Panes that share an area come from <code>./tiling</code>.",
     },
     {
       q: "What gives way when a desk runs out of room?",
@@ -88,23 +88,23 @@ export const FAQS: Record<string, QA[]> = {
   "/toolbar-groups/": [
     {
       q: "What happens to toolbar groups when the toolbar runs out of room?",
-      a: "They step down their forms, a row of words, then icons, then the bar's » menu, lowest <code>priority</code> first, then the one used longest ago. <code>solve</code> from <code>@n-uf/placement/scene</code> gives each group its form and lists the menu's groups in the bar's <code>menu</code>. A higher <code>priority</code> keeps a group's full form longest.",
+      a: "They step down their forms, a row of words, then icons, then the bar's » menu, lowest <code>priority</code> first, then the one used longest ago. <code>solve</code> from <code>@n-uf/docking</code> gives each group its form and lists the menu's groups in the bar's <code>menu</code>. A higher <code>priority</code> keeps a group's full form longest.",
     },
     {
       q: "How many toolbar areas and zones can a toolbar group go in?",
-      a: "Five toolbar areas, title, top, bottom, left and right, each with three zones: start, center and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. In <code>@n-uf/placement/scene</code> each toolbar area is a bar edge, <code>solve</code> lays them out, and your app draws the result.",
+      a: "Five toolbar areas, title, top, bottom, left and right, each with three zones: start, center and end. A group can also float. Insertion points cover before all, between groups, after all and an empty zone. In <code>@n-uf/docking</code> each toolbar area is a bar edge, <code>solve</code> lays them out, and your app draws the result.",
     },
     {
       q: "How do I make toolbar groups draggable?",
-      a: "Take drop targets from <code>targets(scene, id)</code> in <code>@n-uf/placement/scene</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's home. Each target carries the layout a release makes: the group's rect once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
+      a: "Take drop targets from <code>targets(state, id)</code> in <code>@n-uf/docking</code>, and feed them to <code>createDragIntent</code> from <code>@n-uf/motion/drag</code>. The list holds every gap in every bar that accepts the group, the float target when groups may float, and the group's home. Each target carries the layout a release makes: the group's rect once it lands is <code>target.after(point, grab).layout.items[id].rect</code>.",
     },
     {
       q: "How do I save and restore a toolbar layout?",
-      a: "Use <code>storeScene</code> and <code>readScene</code> from <code>@n-uf/placement/scene</code>. <code>storeScene</code> returns versioned plain data that you stringify. Pass the parsed data to <code>readScene</code> with your starting scene: it never throws, an unknown version gives that scene back with the reason in <code>error</code>, and what it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting scene has them.",
+      a: "Use <code>storeDockState</code> and <code>readDockState</code> from <code>@n-uf/docking</code>. <code>storeDockState</code> returns versioned plain data that you stringify. Pass the parsed data to <code>readDockState</code> with your starting state: it never throws, an unknown version gives that state back with the reason in <code>error</code>, and what it can't use is listed in <code>dropped</code>. Groups added since the save go where the starting state has them.",
     },
     {
       q: "How do I step through drop targets with the keyboard?",
-      a: "Use <code>stops(scene, id)</code> from <code>@n-uf/placement/scene</code>. It returns the group's targets in reading order, the left side, the top bars, the bottom bars, the right side and floating last, for the arrow keys and a \"Move to\" menu. Each stop is a target, so its <code>after</code> is the move. Your app handles the keys and draws the focus.",
+      a: "Use <code>stops(state, id)</code> from <code>@n-uf/docking</code>. It returns the group's targets in reading order, the left side, the top bars, the bottom bars, the right side and floating last, for the arrow keys and a \"Move to\" menu. Each stop is a target, so its <code>after</code> is the move. Your app handles the keys and draws the focus.",
     },
   ],
 };
