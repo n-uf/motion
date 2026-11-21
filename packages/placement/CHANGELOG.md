@@ -68,6 +68,11 @@ Added:
   length changes; when the control set changes, solve the group without `previous`. `keep` lifts a pinned primary's
   last forms; `column: { icons }` adds the group's column forms. The result is `{ row, column? }`, assignable to
   `@n-uf/docking`'s `DockItem.forms`. Hosts that hand-write forms are unchanged.
+- `./stack`, **`StackForm.tiers`: each shown control's tier** (additive, part of `controlLadder`). `controlLadder` sets
+  `tiers` (control id to tier index, 0 the longest) on every row form it generates, for the controls the form shows;
+  `fold` and `menu` leave it out, and so does every hand-written form. `@n-uf/docking` reports the chosen form's
+  `tiers` on the item's layout (`DockItemLayout.tiers`) beside `hidden`, so a host draws each control at `tiers[id]`
+  and leaves out `hidden` without knowing the ladder's order.
 
 ## 26.11.53
 

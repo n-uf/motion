@@ -216,6 +216,7 @@ export function emit(d: Draft, edge: DockEdge, r: Rect, solved: EdgeSolve, extra
     items[p.id] = {
       ...shape,
       hidden: inMenu ? [] : (f?.hides ?? []),
+      ...(!inMenu && f?.tiers ? { tiers: f.tiers } : {}),
       rect: drawnRect,
       kind: it.kind,
       axis: column ? "column" : "row",
