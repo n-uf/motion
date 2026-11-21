@@ -201,11 +201,14 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     }
     // A lane drawn in the layout that creates it gives way wherever the screen draws something: another lane's mark, a
     // drawn bar or toolbar rail (its items stay put when the lane opens; a column moves aside, so the guide may lie over
-    // it), or the held landing. Between two such lanes the bar keeps the corner (the bars first, each cut by the ones
-    // before).
-    const drawnStays = state.edges
-      .filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen.layout.edges[e.id]?.cross ?? 0) > EPS)
-      .map((e) => screen.layout.edges[e.id]!.rect);
+    // it), a side rail's segments (its folded columns' tabs), or the held landing. Between two such lanes the bar keeps
+    // the corner (the bars first, each cut by the ones before).
+    const drawnStays = [
+      ...state.edges
+        .filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen.layout.edges[e.id]?.cross ?? 0) > EPS)
+        .map((e) => screen.layout.edges[e.id]!.rect),
+      ...Object.values(screen.layout.rails).flatMap((r) => r?.segments.filter((g) => g.id !== dragged).map((g) => g.rect) ?? []),
+    ];
     // (The landing term states the rule; in every state found so far a drawn bar already holds the landing, or no created lane reaches it.)
     const onScreen = [...shown.filter((s) => !s.created && s !== near).flatMap((s) => s.marks.map((m) => m.rect)), ...drawnStays, ...(screen.landing ? [screen.landing] : [])];
     const axis = (id: string): "x" | "y" => axisOf.get(id) ?? "x";
