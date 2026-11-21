@@ -566,6 +566,21 @@ where it fits, else moved just enough to lie wholly inside the float region (the
 right). Pass `floatFromHeld: true` to `targets` and the float target starts from the same rect, so a host that draws the
 held item there sees what lands. Without it the float target starts from the pointer's rect, wherever that lies.
 
+**"Does not fit" is decided by the hand.** The float target's drop (`after(point, grab)`, so `dockDrag(...).after({
+kind: "float", point })`) fits the float as below, and that clear place counts only while the pointer is still on the
+item there, measured on the hand rect as `heldRect` keeps it inside the stage (the stage clamp never counts against
+it). Where no clear place keeps the item under the pointer (none exists, or the nearest one lies off the pointer), the
+float lies at the hand: over the docked items it covers, still clear of the bars and the chrome, never at a
+least-covered place elsewhere. Such a drop marks the float **`stays: true`** (`DockFloat.stays`): `solve` then only
+keeps it inside the stage and clear of the bars and the chrome, never beside the docked items (a `float-covers` note
+lists that it covers), so it stays put when a column opens under it or the window shrinks, where an unmarked float
+moves clear as before. So a narrow float pushed at a column still stops at the column's edge until the pointer enters
+the column, and a float wider than the open room follows the hand and lands where it is shown. The next drop decides
+the mark again; `floatAt` with a rect clears it; `resizeFloat`, `orientFloat`, `raiseFloat` and `markUsed` keep it;
+`moveTo(state, id, { kind: "float", rect, stays: true })` sets it, and `homeFor` carries it. `fitResize` stops a
+marked float's growing edge at the bars and the chrome only. The store keeps it on a float with no anchor (`stays:
+true`; anything else is dropped as `float:<id>:stays`).
+
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
 item, every bar and every `keepClear` rect (`@n-uf/placement/stack`'s `fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
@@ -596,16 +611,18 @@ own orient), so a float stored at that size draws the same frame and a docked it
 a float whose store declares no `floatSizes` it is dropped (`item:<id>:floatSize`): that float is framed at its stored
 rect.
 
-**Anchored floats keep clear of the other floats.** An anchored float (Float from a menu: `moveTo(state, id,
-{ kind: "float" })` with no rect, or any float with `anchor`) is also kept clear of every float with a rect of its own
-and of the anchored floats floated before it, by the same nearest-clear-place search that keeps it clear of docked
-items, so a second group sent to Float lies beside the first instead of on it. Which float wins never depends on the
-stacking order, so `raiseFloat` reshapes nothing: a float with its own rect always wins, and among anchored floats the one
-floated first does, by `since` (`DockFloat.since`, a missing one counting as 0, so floats with no `since`
-win; ties by id). A float already at a corner stays there when another is sent to Float beside it. Where no
-place is clear of them all, it lies where it would with no other float (it may cover a float, never a docked item it
-could stay clear of). A float with a rect of its own (a drop, a resize) keeps that rect, over another float
-or not.
+**Anchored floats keep clear of the floats floated before them; the float floated first wins.** An anchored float
+(Float from a menu: `moveTo(state, id, { kind: "float" })` with no rect, or any float with `anchor`) is also kept clear
+of the anchored floats floated before it and of the floats with a rect of their own floated strictly before it, by the
+same nearest-clear-place search that keeps it clear of docked items, so a group sent to Float lies beside the floats
+already there instead of on them. Which float was floated first is `since` (`DockFloat.since`, a missing one counting
+as 0, so floats with no `since` win; among anchored floats ties go by id, and a float with a rect of its own floated as
+early wins nothing), never the stacking order, so `raiseFloat` reshapes nothing. A float already at a corner stays
+there when another is sent to Float beside it. Where no place is clear of them all, it lies where it would with no
+other float (it may cover a float, never a docked item it could stay clear of). A float with a rect of its own (a drop,
+a resize) keeps that rect. What the hand does moves nothing else: a float floated after an anchored float (or as
+early), dropped or grown by a corner resize over it, covers it (or lies under it, by the stacking order), and the
+anchored float keeps its place.
 
 **An anchor with an offset.** `anchor` also takes `{ at, dx?, dy? }`: flush with `at`'s side or corner of the content,
 then `dx` px to the right and `dy` px down (negative: left, up; default 0), still following the content as the window
