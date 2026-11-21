@@ -1,10 +1,11 @@
 /**
- * Toolbar groups (island): the sample window's groups dock into five toolbar areas of three zones each, or float; one dotted
- * grip leads each group and carries all its actions. It runs on the same chrome module as every figure's bars
- * (islands/chrome.ts); the server rendered the default state and the cases, and this binds them.
+ * Toolbar groups (island): the sample window's groups dock into five toolbar areas (three bars with three zones each,
+ * two side rails), or float; one dotted grip leads each group and carries all its actions. It runs on the same chrome
+ * as every figure's bars (islands/dock-chrome.ts: a dock state of @n-uf/docking, dragged with @n-uf/motion); the server
+ * rendered the default state and the cases, and this binds them.
  */
 import { $, caseRail } from "./rail";
-import { createChrome } from "./chrome";
+import { createChrome } from "./dock-chrome";
 import { figureChrome } from "./figure-chrome";
 import { CASES, GROUPS, clone } from "../demos/toolbar";
 
@@ -49,5 +50,6 @@ outer.setDemo({
   apply: (i: number) => (casesEl.querySelectorAll("button.case")[i] as HTMLElement).click(),
   model: () => sample.model(),
   drag: () => sample.drag(),
+  dock: () => sample.dock(),
   chrome: () => outer.model(),
 };

@@ -1,6 +1,8 @@
 /**
- * Toolbar groups: the groups, the slots and the cases, and the sample window's markup. Pure strings, so the server
- * renders the default state and the island renders every later one with the same code.
+ * Toolbar groups: the groups, the arrangements (`Model`: which groups sit in which bar and zone, floating or folded) and
+ * the cases, and the sample window's markup. Pure strings: the server renders the first frame from an arrangement in
+ * the bars' flow; the island (islands/dock-chrome.ts) turns it into a dock state (demos/chrome-dock.ts) and places every
+ * group from then on.
  */
 import { icon } from "./icons";
 
@@ -16,8 +18,9 @@ const btns = (list: string[], on = -1): string => list.map((t, i) => `<button cl
 const tbtn = (list: [string, string][], on = -1): string =>
   list.map(([t, i], k) => `<button class="tb text${k === on ? " on" : ""}" title="${t}" tabindex="-1"><span class="t">${t}</span><span class="i">${icon(i)}</span></button>`).join("");
 
-export const GROUPS: Record<string, { label: string; html: string }> = {
-  doc: { label: "Document", html: `<span class="ident"><span class="name">Quarterly plan.pdf</span><span class="page">P 02/04</span></span>` },
+/** The sample window's groups; `priority` (default 0): the higher, the later a group gives way when its bar runs short. */
+export const GROUPS: Record<string, { label: string; html: string; priority?: number }> = {
+  doc: { label: "Document", html: `<span class="ident"><span class="name">Quarterly plan.pdf</span><span class="page">P 02/04</span></span>`, priority: 1 },
   tools: { label: "Tools", html: btns(["pointer", "text", "eraser", "rect", "pen"], 4) },
   view: { label: "View", html: btns(["single", "spread"]) },
   zoom: { label: "Zoom", html: `<span class="zoom"><button class="tb" tabindex="-1" aria-label="Zoom out">${icon("minus")}</button><span class="zoomval">79<span class="h-only">%</span></span><button class="tb" tabindex="-1" aria-label="Zoom in">${icon("plus")}</button></span>` },
@@ -51,7 +54,7 @@ export const CASES: Case[] = [
   { name: "Tools on the right edge", note: "Tools move from the left edge to the right edge.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, right: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
   { name: "Bottom bar's groups to the left edge", note: "All of the bottom bar's groups move together (their menu: Move this bar's groups to › Left edge).", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools", "panel"], end: ["export", "share"] } }) },
   { name: "Two side edges", note: "Tools left; view and zoom on the right, in the middle zone of that side.", m: make({ title: { start: ["doc"] }, left: { start: ["tools"] }, right: { center: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }) },
-  { name: "Everything in the title bar", note: "One bar, no others; when it runs out of room, trailing groups collapse to grip + ».", m: make({ title: { start: ["doc", "tools"], center: ["zoom"], end: ["view", "panel", "export", "share"] } }) },
+  { name: "Everything in the title bar", note: "One bar, no others; as it runs out of room, groups give way: icons, then grip + », then the bar's » menu, the document last.", m: make({ title: { start: ["doc", "tools"], center: ["zoom"], end: ["view", "panel", "export", "share"] } }) },
   { name: "Tools floating", note: "Tools float over the document: the same group plus a frame and shadow.", m: make({ title: { start: ["doc"], end: ["view", "zoom"] }, bottom: { start: ["panel"], end: ["export", "share"] } }, [{ id: "tools", x: 30, y: 30 }]) },
   { name: "A collapsed group", note: "Export double-clicked: its grip plus ».", m: Object.assign(make({ title: { start: ["doc"], end: ["view", "zoom"] }, left: { start: ["tools"] }, bottom: { start: ["panel"], end: ["export", "share"] } }), { collapsed: ["export"] }) },
 ];
@@ -62,16 +65,17 @@ const dots = (n: number): string => "<i></i>".repeat(n);
 /**
  * A toolbar group: its grip, its controls, and the » that stands in for them while collapsed (the `collapsed` class
  * switches between the two, so a group's controls keep their listeners when it collapses or moves). » is a real
- * button: it opens a popover with the group's full horizontal form (islands/chrome.ts).
+ * button: it opens a popover with the group's full horizontal form (islands/dock-chrome.ts). `priority` is its
+ * give-way priority in the dock state (the higher, the later it gives way).
  */
-export function chromeGroupHTML(id: string, name: string, controls: string, collapsed = false): string {
-  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"><span class="g c" tabindex="0" role="button" aria-label="${name} grip" title="${name}" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button type="button" class="tb ovf" data-ovf="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="${name}: show its controls" title="${name}">»</button></div>`;
+export function chromeGroupHTML(id: string, name: string, controls: string, collapsed = false, priority = 0): string {
+  return `<div class="group${collapsed ? " collapsed" : ""}" data-g="${id}"${priority ? ` data-priority="${priority}"` : ""}><span class="g c" tabindex="0" role="button" aria-label="${name} grip" title="${name}" data-handle="${id}">${dots(3)}</span><span class="ctl">${controls}</span><button type="button" class="tb ovf" data-ovf="${id}" aria-haspopup="dialog" aria-expanded="false" aria-label="${name}: show its controls" title="${name}">»</button></div>`;
 }
 /** Where a floating group sits in the window's body. */
 export const floatStyle = (f: Float): string =>
   f.anchor === "bottom" ? "left:0;right:0;bottom:12px;margin-inline:auto;width:max-content" : `left:${f.x}px;top:${f.y}px`;
 function groupHTML(model: Model, g: string, auto: ReadonlySet<string> = new Set()): string {
-  return chromeGroupHTML(g, label(g), GROUPS[g]!.html, model.collapsed.includes(g) || auto.has(g));
+  return chromeGroupHTML(g, label(g), GROUPS[g]!.html, model.collapsed.includes(g) || auto.has(g), GROUPS[g]!.priority);
 }
 const isEmptyHost = (model: Model, h: Host): boolean => ZONES.every((z) => model[h][z].length === 0);
 function barHTML(model: Model, h: Host, auto: ReadonlySet<string>): string {

@@ -1,17 +1,21 @@
 ---
-// A figure as a window whose chrome is toolbar groups (islands/chrome.ts). The server renders the default arrangement:
-// the title bar (the window controls, then groups, then the window's fixed controls: the freeze lock and ↺ Reset), a top and a
-// bottom bar, the left and right edges, floating groups, and between them the figure's body (the default slot: the
-// case rail and the stage). Each group's controls come from the slot of the same name; every group gets one compact
-// dot grip. The window itself cannot move, so it has no grip. A visitor's own arrangement replaces the default once
-// the island starts (and only then: the default never shifts).
+// A figure as a window whose chrome is toolbar groups (islands/dock-chrome.ts: a dock state of @n-uf/docking). The
+// server renders the default arrangement in the bars' flow: the title bar (the window controls, then groups, then the
+// window's fixed controls: the freeze lock, X-ray and ↺ Reset), a top and a bottom bar, the left and right rails,
+// floating groups, and between them the figure's body (the default slot: the case rail and the stage). Each group's
+// controls come from the slot of the same name; every group gets one compact dot grip. The window itself cannot move,
+// so it has no grip. The island solves the same arrangement and places each group where the flow drew it, so the first
+// frame never shifts; a visitor's own arrangement replaces the default then (and only then).
 import { chromeGroupHTML, floatStyle, ZONES, type Host, type Model } from "../demos/toolbar";
 
 interface Props {
   id: string;
   label: string;
-  /** The groups, by slot name, with their names (for grips and the menu). */
-  groups: { id: string; name: string }[];
+  /**
+   * The groups, by slot name, with their names (for grips and the menu) and their give-way priority (default: 1 for the
+   * figure's title, 0 for the others; the higher gives way later when a bar runs short).
+   */
+  groups: { id: string; name: string; priority?: number }[];
   /** The default arrangement. */
   model: Model;
   /** A freeze lock at the title bar's end. */
@@ -20,7 +24,7 @@ interface Props {
 }
 const { id, label, groups, model, lock = false, class: cls = "" } = Astro.props;
 const html = new Map<string, string>();
-for (const g of groups) html.set(g.id, chromeGroupHTML(g.id, g.name, Astro.slots.has(g.id) ? await Astro.slots.render(g.id) : "", model.collapsed.includes(g.id)));
+for (const g of groups) html.set(g.id, chromeGroupHTML(g.id, g.name, Astro.slots.has(g.id) ? await Astro.slots.render(g.id) : "", model.collapsed.includes(g.id), g.priority ?? (g.id === "title" ? 1 : 0)));
 const zones = (h: Host) => ZONES.map((z) => `<div class="zone ${z}" data-host="${h}" data-zone="${z}">${model[h][z].map((g) => html.get(g) ?? "").join("")}</div>`).join("");
 const empty = (h: Host) => h !== "title" && ZONES.every((z) => model[h][z].length === 0);
 const bar = (h: Host, extra = "") => `<div class="bar ${h === "left" || h === "right" ? "v" : "h"} ${h}${empty(h) ? " empty" : ""}" data-host="${h}">${extra}${zones(h)}</div>`;
@@ -28,9 +32,10 @@ const winh = `<span class="winh"><span class="lights" aria-hidden="true"><i></i>
 const lockHtml = lock
   ? `<label class="lock fixed" title="Freeze or unfreeze this window's bars"><input type="checkbox" class="switch" data-chrome-freeze role="switch" aria-label="Freeze the bars"><svg class="ico open" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 4.9-.7"/></svg><svg class="ico shut" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"/></svg><span class="lockhint">hold <kbd>Alt</kbd> to move</span></label>`
   : "";
-// X-ray and ↺ Reset: window chrome (no grip, never collapse). X-ray shows each package's layer (islands/xray.ts); Reset
-// is disabled while the figure is at its default.
-const resetHtml = `<button type="button" class="tb text xray-btn fixed" data-chrome-xray aria-pressed="false" title="X-ray: what placement computes (hit zones, slots) and what motion does (target, trail, aim)">X-ray</button><button type="button" class="tb reset fixed" data-chrome-reset aria-label="Reset the demo" title="Reset the demo" disabled><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M3 2.5v3h3"/></svg></button>`;
+// X-ray and ↺ Reset: window chrome (no grip, never collapse). X-ray shows each library's layer over the window in its
+// color (islands/xray.ts): docking's solve rects and drop targets for the bars, and whatever the demo draws; Reset is
+// disabled while the figure is at its default.
+const resetHtml = `<button type="button" class="tb text xray-btn fixed" data-chrome-xray aria-pressed="false" title="X-ray: each library's layer over this window (docking's solve rects and drop targets, motion's target, trail and aim)">X-ray</button><button type="button" class="tb reset fixed" data-chrome-reset aria-label="Reset the demo" title="Reset the demo" disabled><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8a4.8 4.8 0 1 0 1.5-3.5"/><path d="M3 2.5v3h3"/></svg></button>`;
 const floats = model.float.map((f) => `<div class="floating" style="${floatStyle(f)}">${html.get(f.id) ?? ""}</div>`).join("");
 const names = Object.fromEntries(groups.map((g) => [g.id, g.name]));
 ---
