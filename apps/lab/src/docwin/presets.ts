@@ -1725,8 +1725,8 @@ function PUBLISHED_PRESETS(): Preset[] {
   },
   {
     id: "grip-double-frozen",
-    title: "Frozen: a grip's double-click does nothing; with Alt it folds",
-    expected: "Frozen, a mouse double-click on Notes' header and on Views' grip changes nothing. Holding Alt, each folds and unfolds as it does unfrozen.",
+    title: "Frozen: a grip's double-click still folds; nothing moves",
+    expected: "Frozen, a mouse double-click on Notes' header and on Views' grip folds each and a second one unfolds it, as unfrozen: a fold is the person's own press. No drag starts, nothing outside the item's edge moves and no drop happens. Holding Alt, the same.",
     setup: (c) => {
       c.setState(defaultState());
       c.setFrozen(true);
@@ -1734,18 +1734,14 @@ function PUBLISHED_PRESETS(): Preset[] {
     check(c) {
       const bad: string[] = [];
       c.setFrozen(true);
-      const before = allOf(c);
-      for (const id of ["notes", "views"] as const) {
-        const r = mouseDouble(c, id);
-        if (!r.pressed || r.dragged || c.state.items[id]!.from !== undefined) bad.push(`frozen: ${id} ${r.dragged ? "dragged" : `from ${c.state.items[id]!.from}`}`);
-      }
-      if (allOf(c) !== before) bad.push("frozen: something moved");
+      bad.push(...doubleFold(c, "notes", "left", (p) => p.formKind === "header").map((x) => `frozen, Notes: ${x}`));
+      bad.push(...doubleFold(c, "views", "bottom", (p) => p.form >= 1).map((x) => `frozen, Views: ${x}`));
       c.altOn(true);
       bad.push(...doubleFold(c, "notes", "left", (p) => p.formKind === "header").map((x) => `with Alt, Notes: ${x}`));
       bad.push(...doubleFold(c, "views", "bottom", (p) => p.form >= 1).map((x) => `with Alt, Views: ${x}`));
       c.altOn(false);
       c.setFrozen(false);
-      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Frozen: nothing. With Alt: both fold and unfold." };
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "Frozen and with Alt: both fold and unfold; nothing else moved." };
     },
   },
   ...RAIL_TITLE_PRESETS(),

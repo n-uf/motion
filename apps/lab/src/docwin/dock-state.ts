@@ -1532,10 +1532,11 @@ export function createDocwin(o: DocwinOptions) {
       keys: setKeys,
       ended: (how) => {
         if (how === "doubleActivate") {
-          // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
+          // A double-click on a grip folds it, or unfolds it, frozen or not: a fold is the person's own press, like
+          // minimising, and frozen only stops things moving (it isn't a click either).
           swallowClick();
           // On a rail item the first click has unfolded it already (a click opens it): the double only makes sure.
-          if (!frozen() && (!t.closest("[data-open]") || (state.items[id]?.from ?? 0) >= 1)) toggleFold(id);
+          if (!t.closest("[data-open]") || (state.items[id]?.from ?? 0) >= 1) toggleFold(id);
         } else if (t.closest("[data-open]")) open(id);
         // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
         else if (t.closest(".dw-head")) press(id);
