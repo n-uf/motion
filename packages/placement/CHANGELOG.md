@@ -5,6 +5,38 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 ## Unreleased
 
+- `./tiling`, **behavior change: the gap rule**. A split of extent `W` at ratio `r` with a gutter `g` now puts the
+  middle of the gutter at `W * r`: the first side is `max(0, W * r - g / 2)` long, the second starts at
+  `start + W * r + g / 2` and is `max(0, W * (1 - r) - g / 2)` long. It replaces `(W - g) * r`. At ratio 0.5 both rules
+  agree (to the last bits), at any other ratio a split with a gap lays out differently. The promise that the second
+  side never starts past the rect's end goes: no size is ever negative, and a split with no room may start its second
+  side up to half a gutter past the end. Order layouts (`columns`, `grid`) keep their rule.
+- `./tiling`, **fixed: a ratio that is not finite**. A NaN or infinite `ratio` gave NaN rects; it is now 0.5.
+- `./tiling`, **`masterStack` count and side**: `count` (rounded, within 1 to n, default 1) and `side` (`"left"` by
+  default, `"right"`, `"top"`, `"bottom"`). Left and right make the areas columns of stacked panes, top and bottom
+  rows of panes side by side, right and bottom put the stack first in space, and with no stack the panes fill the area
+  along the side's cross axis. Its `ratio` is now clamped to 0.05..0.95 (not finite: 0.5), and a negative or non-finite
+  `gap` is 0. With the defaults the rects are the earlier ones, to the last bits of the stack's width.
+- `./tiling`, **gutters, split ids and `layoutSplitTree`**: `TileOptions.handle` (px, default 0) is the extra room a
+  split's divider takes beside the gap, so a split's gutter is its gap plus the handle. A split may carry its own
+  `gap` (the handle stays global) and an `id`. `layoutSplitTree(tree, area, options)` gives `{ panes, splits }`, and for
+  each split with an `id` its `rect`, `axis`, `ratio` in effect and `divider` (`SplitLayout`, `SplitGeometry`);
+  `layoutSplit` is its `panes`.
+- `./tiling`, **master splits**: a split with `master: { count?, side? }` lays its subtree out flat, its panes in
+  order through `masterStack` by its ratio and gap (never the handle). The splits under it are not laid out or
+  reported.
+- `./tiling`, **floors and fixed lengths**: the layout options `floor(child, axis, split)` (`{ min, net? }`, the least
+  length along the split; the ratio is clamped to keep it within 0.05..0.95 unless a side says `net: false`, and is
+  0.5 where both floors cannot fit), `fixed(child, axis)` (`{ length, keep? }`, a length along the split: the first
+  that fits takes it and the other side fills the rest; with `keep` on both, each keeps its own) and
+  `fixedAcross(child, axis)` (a length across the split) (`SplitOptions`, `MinLength`, `FixedLength`). With none of
+  them a layout is as before.
+- `./tiling`, **`canDropOnPane(tree, dragged, at, region, area, options)`**: `{ ok, reason? }` whether a drop leaves
+  room: a side needs `2 * min` plus the gutter along the split and `min` across, in the layout without the dragged
+  pane, and both panes at least `min` wide and high in the layout the drop makes (`DropOptions`, `DropVerdict`).
+- `./tiling`, **`neighbor(rects, from, direction)`**: the nearest pane in a direction from a map of rects, by the
+  distance between centers (a candidate's center strictly on that side; the lowest score wins, ties to the first)
+  (`Direction`).
 - `./stack`, **asked lengths and dividers**: `StackItem.lengths` (`{ column?, row? }`, px along the stack, per axis) is read
   in place of the `main.natural` of a growing form, the least staying its `main.min`, and `dividers(input, fit)`,
   `resizeBetween`, `resetBetween` and `resetLengths` trade length between the nearest open growing items (a collapsed

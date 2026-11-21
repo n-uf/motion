@@ -471,19 +471,49 @@ phase that leaves its forms' sizes alone moves no other item.
 layout when panes only reorder, and the split tree when a drop splits a pane on a side.**
 
 - **Order layouts**: `masterStack`, `columns` and `grid` take panes in order and an area (`{ gap, ratio }`), and give a
-  rect per pane. A drop inserts the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one
-  target per index (`at:<index>`), its slot the dragged pane's rect there and `layout` every pane's rect with it there.
-- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio? }`. `layoutSplit(tree, area, { gap })` lays it
-  out, the ratio clamped to 0..1 and no size below 0 however wide the gap; a split with no axis divides along the
-  longer side in halves, so `splitFromOrder(panes)` is dwindle (split along the longer
-  side). `splitPane`, `removePane` and `swapPanes` change it. A drop on a pane goes by the pane's drop region:
+  rect per pane. `masterStack` also takes `count` (how many panes are masters: rounded, within 1 to n, default 1) and
+  `side` (`"left"` by default, `"right"`, `"top"` or `"bottom"`). Left and right make the master area a column with its
+  panes stacked vertically; top and bottom make it a row with its panes side by side; right and bottom put the stack
+  first in space. The master area takes `ratio` of the room the gap leaves, clamped to 0.05..0.95 (not finite: 0.5).
+  With no stack (n at most `count`), all the panes fill the area, stacked along the side's cross axis. A drop inserts
+  the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one target per index
+  (`at:<index>`), its slot the dragged pane's rect there and `layout` every pane's rect with it there.
+- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio?, gap?, id?, master? }`. `layoutSplit(tree, area,
+  { gap, handle })` lays it out. A split's gutter is its gap (its own `gap`, else the layout's) plus the layout's
+  `handle`, and the middle of the gutter sits at the extent times the ratio: the first side is that less half the
+  gutter, the second starts half a gutter past it. The ratio is clamped to 0..1 (not finite: 0.5), and no size is
+  below 0 however wide the gutter. A split with no axis divides along the longer side in halves, so
+  `splitFromOrder(panes)` is dwindle (split along the longer side). `splitPane`, `removePane` and `swapPanes` change
+  it. `layoutSplitTree` is `layoutSplit` and, for each split with an `id`, its box, axis, ratio in effect and
+  `divider` (the gutter strip; null where a fixed length decided the split, or a master split has no stack).
+  A drop on a pane goes by the pane's drop region:
   `paneRegion(rect, point, previous)` is the center (34 % of each axis, at least 24 px) or one of four side trapezoids,
   and holds the previous region for 6 px past its boundary. `dropOnPane(tree, dragged, at, region)` swaps for the
   center and splits `at` on a side, writing that side's axis and ratio 0.5, so a side means the same on any pane.
   `paneTargets(layout, { except?, key? })` gives one target per pane, its id `pane:<key>` (`key` defaults to `String`;
   keys must be unique, since a drag intent follows targets by id). A drop on a pane that isn't in the tree, or on the
   dragged pane itself, changes nothing.
-- `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum.
+- **Floors, fixed lengths and master splits**, all options or fields the host fills per split (see Entry: tiling in
+  the design page for the table). `floor(child, axis, split)` gives `{ min, net? }`: the ratio is clamped so each side
+  keeps its minimum of the room less the gutter, within 0.05..0.95 unless a side says `net: false`, and is 0.5 where
+  the minimums cannot both fit. `fixed(child, axis)` gives `{ length, keep? }`: the first child that gives one takes
+  its length when it fits with the gutter, and the other side fills the rest; with `keep` on both, each keeps its own
+  length and the leftover stays empty. `fixedAcross(child, axis)` gives a length across the split. A split with
+  `master: { count?, side? }` lays its panes out flat through `masterStack` by its ratio and its gap; the splits under
+  it are not laid out. The callbacks are asked about the nodes of the tree being laid out, and `dropOnPane` copies the
+  split nodes it changes, so answer by pane key and by split `id`.
+- `canDropOnPane(tree, dragged, at, region, area, { ...layoutOptions, min })` says `{ ok, reason? }` whether a drop
+  leaves room. The center is fine unless `dragged` is `at`. A side needs, in the layout of the tree without `dragged`,
+  a span of `at` along the split of at least `2 * min` plus the gutter and across it of at least `min`; and in the
+  layout the drop makes, both panes at least `min` wide and high.
+- `neighbor(rects, from, direction)` gives the nearest pane that way, or null: a candidate's center must be strictly on
+  that side of the center of `from`; its score is the center distance along the direction plus a quarter of the one
+  across it, plus 100 when it does not overlap `from` across the direction; the lowest score wins, ties to the first in
+  the map's order. The host chooses the rects. Laid out in a unit square with px floors, every split goes to 0.5 (a
+  floor of tens of px cannot fit), so the choice follows the tree's shape and not its ratios.
+- `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum. It is the
+  other policy of the same minimum: a floor moves the ratio while both sides can keep theirs, `giveWay` floats a pane
+  when a minimum is still broken.
 
 Both kinds of target are the root `Target`, so a drag intent from `@n-uf/motion/drag` takes them as they are; for the
 split tree its `placeOf` is the pane's region:

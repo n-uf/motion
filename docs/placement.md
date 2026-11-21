@@ -19,6 +19,12 @@ Each rule names the test that pins it. `pnpm check` in the repo root runs them a
 | **Form flags default from the kind**, and a flag the host sets wins. | `test/stack-form-flags.test.ts` |
 | **Older inputs fit as they did.** An input with none of the later options gives the fit of the earlier solvers. | `test/stack-compat.test.ts` |
 | **Panes divide the area exactly**, and a side drop means the same on any pane. | `test/tiling.test.ts` |
+| **A split puts the middle of its gutter at its ratio.** The first side is the extent times the ratio less half the gutter, the second starts half a gutter past that; no size is negative, and a ratio that is not finite is 0.5. | `test/tiling-gap.test.ts` (with a sweep) |
+| **A gutter is the gap plus the handle**; a split's own gap replaces the layout's gap, the handle stays global, and a split with an id reports its box, ratio and divider. | `test/tiling-tree.test.ts` (with a sweep) |
+| **Master and stack divide their area exactly**: a count of panes on a side, the ratio within 0.05 to 0.95, no overlap, and with no gap the area covered. | `test/tiling-master.test.ts` (with sweeps) |
+| **A floor holds where both fit, else the ratio is 0.5**; a fixed length that fits is the pane's length, and the first fixed child decides. | `test/tiling-floors.test.ts` (with sweeps) |
+| **A drop is judged by the layout it makes.** A side drop needs room for two panes at least `min` each, measured without the dragged pane, and leaves both at least `min` wide and high. | `test/tiling-drop.test.ts` (with a sweep) |
+| **The neighbor is the lowest score**, over the panes whose center lies strictly that way. | `test/tiling-neighbor.test.ts` (with a sweep) |
 | **Placement is pure and imports nothing from motion or docking.** No DOM, no timer, no global clock, no framework, no dependency. | `test/guard.test.ts`; `pnpm check` (the `placement-not-motion` and `placement-not-docking` dependency rules, `scripts/check-dist.mjs` on the built package) |
 
 ## How the parts fit
@@ -109,12 +115,29 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 
 | Export | What it gives | The rule a consumer relies on |
 | --- | --- | --- |
-| `masterStack`, `columns`, `grid`, `OrderLayout`, `TileOptions` | Order layouts: a rect per pane, in order, for an area (`gap`, `ratio`). | Panes divide the area exactly. |
+| `masterStack`, `columns`, `grid`, `OrderLayout`, `TileOptions`, `MasterOptions` | Order layouts: a rect per pane, in order, for an area (`gap`, `ratio`). `masterStack` also takes a master `count` and a `side` (left, right, top or bottom). | Panes divide the area exactly. The master's ratio is clamped to 0.05..0.95 and a count to 1..n; with no stack the panes fill the area along the side's cross axis. |
 | `orderTargets`, `OrderTarget` | One target per index (`at:<index>`): its slot is the dragged pane's rect there, `layout` every pane's rect with it there. | A drop reorders. |
-| `Split`, `layoutSplit`, `splitFromOrder`, `splitPane`, `removePane`, `swapPanes`, `panesOf`, `dropOnPane` | The split tree: each node is a pane or a split of its rect in two along an axis at a ratio; layout, dwindle from an order, and the changes. | The ratio is clamped to 0..1 and no size is negative; the tree keeps its set of panes (plus the dragged one when missing). |
+| `Split`, `splitFromOrder`, `splitPane`, `removePane`, `swapPanes`, `panesOf`, `dropOnPane` | The split tree: each node is a pane or a split of its rect in two along an axis at a ratio (it may carry a `gap`, an `id` and `master`); dwindle from an order, and the changes. | The tree keeps its set of panes (plus the dragged one when missing). `dropOnPane` copies the split nodes it changes and gives a new split no `id`. |
+| `layoutSplit`, `layoutSplitTree`, `SplitOptions`, `SplitLayout`, `SplitGeometry`, `FixedLength`, `MinLength` | A tree laid out in an area: a rect per pane, and for each split with an `id` its box, its ratio in effect and its divider (the gutter strip). A gutter is the gap plus `handle`. A split with `master` lays its panes out flat as master and stack. | The middle of the gutter sits at the extent times the ratio, no size is negative, a ratio that is not finite is 0.5. See *The split tree's rules* below. |
+| `canDropOnPane`, `DropOptions`, `DropVerdict` | Whether a drop on a pane's region leaves room: `{ ok, reason? }`. | A side needs `2 * min` plus the gutter along the split and `min` across, in the layout without the dragged pane, and leaves both panes at least `min` wide and high. |
+| `neighbor`, `Direction` | The nearest pane in a direction, from a map of rects. | A candidate's center is strictly on that side; the lowest score wins, ties to the first in the map's order. |
 | `paneRegion`, `paneCenter`, `PaneRegion`, `PaneCenter`, `PaneRegionOptions`, `PaneSide`, `PANE_SIDES`, `PANE_REGION_DEFAULTS` | Which of a pane's five drop regions a point is in: the center, or one of four side trapezoids; the previous region holds a few px past its boundary. | A center drop swaps; a side drop splits on that side, so a side means the same on any pane. |
 | `paneTargets`, `PaneTarget`, `PaneTargetsOptions` | One target per pane (`pane:<key>`), its place the pane's region. | Keys must be unique: a drag intent follows targets by id. |
 | `giveWay` | Floats the newest pane while any pane is laid out below its minimum. | Stops when every pane keeps its minimum or one pane is left. |
+
+**The split tree's rules.** A split of an extent `W` at ratio `r` has a gutter `g`: the split's `gap` (else the layout's) plus the layout's `handle`. The first side is `max(0, W·r − g/2)` long. The second starts at `start + W·r + g/2` and is `max(0, W·(1−r) − g/2)` long. So the middle of the gutter sits at `W·r`, at 0.5 both sides are equal, and no size is ever negative. A side too short for half the gutter is 0 long, and the second side of a split with no room may start up to half a gutter past the end. A ratio that is not finite is 0.5; otherwise it is clamped to 0..1.
+
+Three options read the host's own data, per split, of the split's two direct children. The host answers by pane key and by split `id`: `dropOnPane` copies the split nodes it changes, and a split it creates has no `id`.
+
+| Option | The child's … | How the split uses it |
+| --- | --- | --- |
+| `fixed(child, axis)` | fixed length along the split, `{ length, keep? }` | The first child that reports one decides. It takes its length when the length is above 0 and, with the gutter, less than the extent; the other side fills the rest. Otherwise the split goes by its ratio, and the other child is not read. When both report a length with `keep`, each keeps its own and the room left stays empty. A split a fixed length decided has no divider and no floor. |
+| `fixedAcross(child, axis)` | fixed length across the split | The child takes it, from the start of the cross axis, when it is positive and finite. |
+| `floor(child, axis, split)` | least length along the split, `{ min, net? }` | The ratio is clamped so each side keeps its minimum of the room less the gutter (at least 1 px), and within 0.05 to 0.95 (the net) unless either side says `net: false`. Where the two minimums cannot both fit, the ratio is 0.5. With no `floor`, only the clamp to 0..1. |
+
+`giveWay` is the other policy of the same minimum. A floor moves the ratio so both sides keep their minimum while they can fit; `giveWay` floats the newest pane while a minimum is broken. A host can lay out with floors and give way for what still breaks, or use either alone.
+
+A split with `master` lays its subtree out flat: its panes (`panesOf`, in order) through `masterStack`, by the split's ratio (clamped to 0.05..0.95) and gap, never the handle. The splits under it are not laid out, and `layoutSplitTree` does not report them; it reports the split itself, its ratio the clamped master share, its divider the gap between the two areas (null with no stack). `neighbor` reads any map of rects. A host may lay its tree out in a unit square with px floors to make the choice independent of ratios: a floor in px cannot fit a unit square, so every split goes to 0.5.
 
 ### Entry: popup
 
@@ -150,6 +173,11 @@ The repo's glossary page (`apps/lab/src/pages/glossary.html`) fixes the words; t
 | **refusal** | A gap that cannot take the item, with its reason. |
 | **float** | An item that is not docked: drawn above the content at its own rect. |
 | **pane** | One item of a tiling. Not a "tile", which is a rail's icon form. |
+| **split**, **split tree** | A split divides a rect in two, `a` then `b`, at a ratio; a split tree is panes and splits, each split's sides panes or splits. |
+| **gutter**, **handle**, **divider** | The room between a split's two sides: the gap plus the handle (the extra room a divider takes). The divider is the strip the gutter makes, as a rect. |
+| **floor** | The least length a pane keeps along a split; the ratio moves to hold it where both floors fit. |
+| **fixed length** | A length a pane keeps along or across a split whatever the ratio. |
+| **master**, **stack** | A layout of panes in two areas: the first few (the master) on one side, the rest (the stack) on the other. |
 
 ## Considered, not part of the design
 
