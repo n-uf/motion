@@ -58,7 +58,9 @@ export interface SplitGeometry {
   readonly axis: "x" | "y";
   /**
    * The first side's share in effect: the middle of the gutter lies at the box's start plus its extent times this
-   * (for a fixed-length child, the middle of the gutter after the first side over the extent).
+   * (for a fixed-length child, the middle of the gutter after the first side over the extent). For a master split
+   * it is the master area's share (clamped to 0.05..0.95) of the room less the gap, measured from the master's own
+   * side: with the master on the right, ratio 0.3 in 1000 with a gap of 10, the divider lies at 693..703.
    */
   readonly ratio: number;
   /** The gutter between the two sides, as a rect inside `rect`; null where the split has none. */
@@ -128,7 +130,8 @@ function layMaster<K>(tree: Extract<Split<K>, { a: unknown }>, master: MasterOpt
   const panes = panesOf(tree);
   const ratio = masterRatio(tree.ratio);
   const side = master.side ?? "left";
-  for (const [pane, r] of masterStack(panes, area, { gap, ratio, ...master })) ctx.panes.set(pane, r);
+  // Only the count and side come from `master`: the ratio and gap are the split's own.
+  for (const [pane, r] of masterStack(panes, area, { gap, ratio, count: master.count, side })) ctx.panes.set(pane, r);
   if (tree.id === undefined) return;
   const x = side === "left" || side === "right";
   const stacked = panes.length > masterCount(master.count, panes.length);

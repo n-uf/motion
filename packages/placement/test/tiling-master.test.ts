@@ -130,6 +130,25 @@ describe("a split that lays its panes out as master and stack", () => {
     expect(same(other.get(1)!, { x: 505, y: 0, width: 291, height: 295 })).toBe(true);
     expect(same(other.get(3)!, { x: 806, y: 0, width: 194, height: 295 })).toBe(true);
   });
+
+  it("takes only the count and side from `master`: a ratio or gap there (past the types) changes nothing", () => {
+    const sneaky = { count: 1, ratio: 0.9, gap: 50 } as unknown as NonNullable<Extract<Split<number>, { a: unknown }>["master"]>;
+    const split: Split<number> = { id: "m", a: { pane: 1 }, b: { pane: 2 }, ratio: 0.3, master: sneaky };
+    const { panes, splits } = layoutSplitTree(split, AREA, { gap: 10 });
+    // The room is 990: the master column is 0.3 of it, and the divider sits right after it.
+    expect(panes.get(1)!.width).toBeCloseTo(297, 9);
+    expect(panes.get(2)!.x).toBeCloseTo(307, 9);
+    expect(splits.get("m")!.divider).toEqual({ x: 297, y: 0, width: 10, height: 600 });
+  });
+
+  it("measures the reported ratio from the master's side: on the right the divider is after the stack", () => {
+    const split: Split<number> = { id: "m", a: { pane: 1 }, b: { pane: 2 }, ratio: 0.3, master: { side: "right" } };
+    const { panes, splits } = layoutSplitTree(split, AREA, { gap: 10 });
+    expect(splits.get("m")!.ratio).toBe(0.3);
+    expect(splits.get("m")!.divider!.x).toBeCloseTo(693, 9);
+    expect(splits.get("m")!.divider!.width).toBeCloseTo(10, 9);
+    expect(panes.get(1)!.x).toBeCloseTo(703, 9);
+  });
 });
 
 describe("master and stack, seeded sweeps", () => {
