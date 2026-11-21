@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import {
   createDragIntent,
@@ -17,7 +17,9 @@ import {
   type DragKeys,
   type DragTarget,
   type DragTuning,
+  type LandingFrame,
   type Modifiers,
+  type PreviewFrame,
   type PreviewMode,
   type PreviewPlan,
 } from "../src/drag";
@@ -29,6 +31,14 @@ describe("./drag reads the shared modifier keys", () => {
     expect(isHeld(held, "mod")).toBe(true);
     expect(isHeld(held, "shift")).toBe(false);
     expect(isHeld(undefined, "mod")).toBe(false);
+  });
+});
+
+describe("the preview reads a landing frame as it is", () => {
+  it("a LandingFrame is assignable to a PreviewFrame (one LandingRegion for both; a type check)", () => {
+    const asPreview = (f: LandingFrame): PreviewFrame => f;
+    expectTypeOf<LandingFrame["region"]>().toEqualTypeOf<Extract<PreviewFrame, { region: unknown }>["region"]>();
+    expect(typeof asPreview).toBe("function");
   });
 });
 

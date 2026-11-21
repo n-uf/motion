@@ -3,6 +3,7 @@ import { guideRects, LINE_THICKNESS, MIN_BOX_LENGTH } from "./guide-rects";
 import { createHandSpeed, HAND_SPEED } from "./hand-speed";
 import type { DragKeys } from "./intent";
 import type { PlaceGuides } from "./preview";
+import type { LandingRegion } from "./region";
 
 /**
  * The landing model: where a docking drag's item lands, as state rather than a per-frame guess. A host gives it the
@@ -277,7 +278,7 @@ export interface LandingOptions {
   readonly placeGuides?: PlaceGuides;
 }
 
-export type LandingRegion = "lane" | "open" | "refused" | "nowhere";
+export type { LandingRegion };
 
 /** A guide: a mark of a lane, where to draw it now (a spot's landing is a box). */
 export interface LandingGuide {
