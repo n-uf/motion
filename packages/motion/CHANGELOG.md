@@ -46,7 +46,7 @@ a removal, with the name or the call to use instead.
   animator's velocity stays in units per second, and a settle's tempo per second.
 - Signals stay public; nothing requires them, and they leave the package's one-line description.
 
-Unreleased on the release line since 26.11.52 (behavior; they ship there first and leave this section when they do):
+Behavior, from the release line since 26.11.53 (not part of the renames above):
 
 - `./drag`, **a shared corner moves to a lane only when that lane's mark covers it; otherwise the bar keeps it** (fix).
   Under guides `"all"`, a rail that owns a corner (near it, or nearest within reach) cut the bar's guide where its
@@ -59,6 +59,9 @@ Unreleased on the release line since 26.11.52 (behavior; they ship there first a
   parts dropped), not by its whole `entry`. That is a view for the decision, never what a lane returns: a lane's
   `marks` come back as given. A named lane also leaves out the held (or would-be) landing, the stub outside it
   staying the lane's and a joint line it touches being shortened to the parts outside it. Under `"near"` the Near lane's `entry` is clipped to its `rect`.
+
+## 26.11.53
+
 - `./drag`, **`guideRects` shortens a thin guide that a clear rect meets only at its end** (fix). A line or a striped
   strip met by a rect at one end of its length only (a toolbar over the last 10 px of a column's line) was thinned
   across its thickness by that rect and so dropped whole. It is now shortened along its length, as a box is trimmed at
