@@ -692,7 +692,9 @@ facing halves is home's, and is no target of its own. The slot is where the item
   first in zone order: when a bar has no spare length, `center:0` and `end:0` lie on the start zone's last line and
   merge into that start gap (its id stays `gap:<edge>:start:<n>`). The first and last reach `endReach` px past the
   edge's ends, but only a hit that reaches the edge's end goes on past it (a column footer's gap at the foot never covers the
-  top). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
+  top). Reach only adds: it never shrinks or replaces a zone's own span along the edge, nor takes another edge's own span
+  (an empty bar's band cutting the strip off from the zone leaves the strip to the zone's outermost gap; past a bar holding
+  items the strip stops at the bar). Another edge's rect trims a gap's hit: one across from the edge (a bar above a column) at the hit's end along
   the edge, one beside it (a neighboring column) at its side. Across, the hit is the larger of the edge's thickness
   before and after the drop; a compact edge's hits reach 24 px further inward, except where another edge's gap is.
   Hits are cut clear of chrome and of every fixed item that doesn't grow (controls, a readout). A fixed item that grows
