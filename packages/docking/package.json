@@ -69,6 +69,14 @@
   "dependencies": {
     "@n-uf/placement": "workspace:*"
   },
+  "peerDependencies": {
+    "@n-uf/motion": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@n-uf/motion": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@n-uf/motion": "workspace:*",
     "@types/node": "^25.5.0",
