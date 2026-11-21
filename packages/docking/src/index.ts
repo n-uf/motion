@@ -14,7 +14,7 @@
  * Constants: `DEFAULT_HIT_BAND` (a column's gap band, px), `DEFAULT_STRIP` (an empty edge's drop strip, px),
  * `DEFAULT_FLOAT_SIZE`; `SIDES` and `ZONES` list the sides and zones in order.
  *
- * See docs/docking.md: The dock state, Solving, Changes, Targets and refusals, Lanes and Storage, and Entry: docking.
+ * See docs/docking.md: The dock state, Solving, Changes, Targets and refusals, Lanes, One layout, Storage, and Entry: root.
  */
 export {
   DEFAULT_FLOAT_SIZE,
