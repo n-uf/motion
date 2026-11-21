@@ -3,7 +3,7 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion`: both packages carry the same version, and a release bumps both.
 
-## Unreleased
+## 26.11.53
 
 - `./scene`, **under `sideColumns: "one"`, a side with a declared column edge, empty or not, is that side's column**
   (fix). Such a column, empty already or emptied by the lift of a lone panel, left its side with no column holding an
