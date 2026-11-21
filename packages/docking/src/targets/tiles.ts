@@ -2,8 +2,8 @@
  * Tiles: each edge's zones split into its slots' tiles (`tileEdge`), then clipped in precedence order (`clipTiles`):
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
-import { EPS, area, rect, subtract, type Point, type Rect } from "@n-uf/placement";
-import { zoneOf } from "../helpers";
+import { EPS, area, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
+import { axisOf, zoneOf } from "../helpers";
 import { ZONES, type DockLayout, type Zone } from "../model";
 import { distinctSlots, roomReason } from "./edges";
 import { targetId } from "./ids";
@@ -116,6 +116,32 @@ function linesIn(spec: EdgeSpec, z: { a: number; b: number }, mine: readonly Slo
 }
 
 /**
+ * Reach only adds: a zone's room split into its own pieces (along the edge's length, `ends`) and the reach strips past
+ * the edge's ends that another edge's band cuts off from them (`before` the edge's start, `after` its end). A strip takes
+ * no slot's line, so reach never moves a zone's slot out of the zone's own span; the slot at that end of the zone takes
+ * it as one more piece of its tile. Past an edge not drawn (an empty bar's band) the strip reaches on; past a drawn edge
+ * (a bar holding items) it stops at that edge's side, so there is none. A zone with no room of its own keeps its room
+ * as it is, strips and all (a virtual edge, with no `ends`, too).
+ */
+function reachStrips(c: Ctx, spec: EdgeSpec, room: readonly Span[], ends: Span | null): { pieces: Span[]; before: Span[]; after: Span[] } {
+  const inEdge = (s: Span): boolean => !!ends && s[0] < ends[1] - EPS && s[1] > ends[0] + EPS;
+  const pieces = room.filter(inEdge);
+  if (!ends || pieces.length === 0) return { pieces: [...room], before: [], after: [] };
+  const [c0, c1] = spec.across();
+  const bandOf = (a: number, b: number): Rect => (spec.vertical ? rect(c0, a, c1 - c0, b - a) : rect(a, c0, b - a, c1 - c0));
+  // Whether a drawn edge across this one (a bar across a rail's end, not a column along it) lies over the band between `a` and `b`.
+  const across = c.state.edges.filter((e) => (axisOf(e.side) === "column") !== spec.vertical).map((e) => c.now.edges[e.id]);
+  const drawnBetween = (a: number, b: number): boolean => b - a > EPS && across.some((e) => !!e && e.cross > EPS && area(e.rect) > EPS && overlaps(e.rect, bandOf(a, b)));
+  const first = pieces[0]![0];
+  const last = pieces[pieces.length - 1]![1];
+  return {
+    pieces,
+    before: room.filter((s) => s[1] <= ends[0] + EPS && !drawnBetween(s[1], first)),
+    after: room.filter((s) => s[0] >= ends[1] - EPS && !drawnBetween(last, s[0])),
+  };
+}
+
+/**
  * One edge's tiles, every kind alike: each zone's extent less the item's own interval, split halfway between its slots'
  * lines (projected into it), a slot's tile reaching at most its kind's `reach` from its line. A stretch with no slot is
  * refused (`spec.refuse`), a slot the filter removed is refused over its own tile, and the own interval is home's
@@ -148,12 +174,15 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
   const wedged = (line: number): boolean => runs.some(([a, b]) => line > a + EPS && line < b - EPS);
   // Home's slot where the item lies on this edge: its order is the aim that puts the item back.
   const homeSlot = spec.holds && own ? slots.find((s) => s.home && s.order !== undefined) : undefined;
+  const ends: Span | null = alongLimit && drawn ? (v ? [drawn.y, drawn.y + drawn.height] : [drawn.x, drawn.x + drawn.width]) : null;
   const out: Tile[] = [];
   for (const z of spec.zones) {
     // The zone's extent less its reserved rects and what other edges own: a zone left with nothing has no slot.
     const room = less([[z.a, z.b]], [...cuts, ...spec.reserved]).filter(([a, b]) => b - a > EPS);
     // Less the own interval, which home owns: a zone wholly under the item's own place has no room left either.
-    const pieces = own ? less(room, [own]) : room;
+    // Reach only adds: a stretch past the edge's ends cut off from the zone's own room is a reach strip, which takes no
+    // line, so the zone's slots lie in its own span; it joins the outermost slot's tile on its side (`reachStrips`).
+    const { pieces, before, after } = reachStrips(c, spec, own ? less(room, [own]) : room, ends);
     // Panel bodies don't split the pieces (the tiles run across them, clipping takes them out), but a zone whose room
     // is all bodies has no drop place.
     if (!hasRoom(pieces, bodies)) continue;
@@ -167,8 +196,10 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     // order's stretch beside the run stays with the slot at the run's end (the card's leading half is "before it").
     const mine = lined.filter((s) => s.zone === z.zone && !wedged(s.line) && pieces.some(([a, b]) => b > s.line - data.reach + EPS && a < s.line + data.reach - EPS));
     const reason = spec.refuse(z.zone);
-    for (const [pa, pb] of pieces) {
+    for (const [k, [pa, pb]] of pieces.entries()) {
       const { inPiece, at } = linesIn(spec, z, mine, pieces, [pa, pb], own);
+      // The reach strips the slot at each end of this piece takes: those before the zone's first piece, after its last.
+      const stripsOf = (i: number): Span[] => [...(k === 0 && i === 0 ? before : []), ...(k === pieces.length - 1 && i === inPiece.length - 1 ? after : [])];
       if (inPiece.length === 0) {
         // A stretch of a zone with no slot of its own is refused: home is only over the item's own place, and no stretch
         // is handed to another zone's slot. Beside a lone item (the zone's only slot is home) there is room, but no
@@ -221,14 +252,14 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
           return tile(z.zone, hit, { kind: "home", id, order: data.layer, priority: data.priority, keep: keepAt(Math.min(Math.max(line, u), w), hit), place: { kind: "home" } });
         };
         if (s.home) {
-          out.push(...split(homeTile(s.id, a, b, p)));
+          for (const [u, w] of [[a, b], ...stripsOf(i)] as Span[]) out.push(...split(homeTile(s.id, u, w, p)));
           return;
         }
         // A slot of home's order in another zone is the same aim as home over the items it faces: their halves are
         // home's; the rest of its tile, the free stretch beside them, is its own (the item re-aligned, its order kept).
         const faced = homeSlot && s.order === homeSlot.order ? spec.cards.filter(([u, w]) => w > a + EPS && u < b - EPS) : [];
         for (const [u, w] of faced) out.push(...split(homeTile(homeSlot!.id, Math.max(u, a), Math.min(w, b), p)));
-        for (const [u, w] of less([[a, b]], faced)) {
+        for (const [u, w] of [...less([[a, b]], faced), ...stripsOf(i)]) {
           const line = Math.min(Math.max(p, u), w);
           const hit = band(u, w, s.result.layout);
           if (!s.ok) out.push(...refused(z.zone, hit, roomReason(spec, z.zone)));
