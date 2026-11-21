@@ -292,8 +292,8 @@ function liftedLayout(state: DockState, dragged: string, options: DockLaneOption
   return solve(liftItem(state, dragged), options.previous ? { previous: options.previous } : {});
 }
 
-/** A spot of a lane before its stretch is known. */
-interface Raw {
+/** A spot of a lane before its stretch is known (internal to the package). */
+export interface Raw {
   readonly lane: string;
   readonly edge: string | null;
   readonly axis: Axis;
@@ -324,8 +324,8 @@ function othersKey(layout: DockLayout, dragged: string): string {
     .join(";");
 }
 
-/** What one state, item and options give, before any spot is held. */
-interface Base {
+/** What one state, item and options give, before any spot is held (internal to the package). */
+export interface Base {
   readonly raws: ReadonlyMap<string, readonly Raw[]>;
   readonly lanes: readonly DockLane[];
   readonly seen: DockLayout;
@@ -340,8 +340,8 @@ interface Base {
   readonly predicted: ReadonlySet<string>;
 }
 
-/** What a lane's marks read beyond its spots. */
-interface Marking {
+/** What a lane's marks read beyond its spots (internal to the package). */
+export interface Marking {
   /** The pitch of a bar's or a toolbar rail's free-stretch spots (0: none). */
   readonly pitch: number;
   /** A growing item's natural length along `axis` (its drawn length past it is free stretch), else undefined. */
@@ -404,11 +404,7 @@ function keyOf(dragged: string, o: DockLaneOptions): string {
  * worked out again, in that spot's own layout.
  */
 export function lanes(state: DockState, dragged: string, options: DockLaneOptions = {}): DockRegions {
-  const key = keyOf(dragged, options);
-  let perState = memo.get(state);
-  if (!perState) memo.set(state, (perState = new Map()));
-  let base = perState.get(key);
-  if (!base) perState.set(key, (base = build(state, dragged, options)));
+  const base = baseOf(state, dragged, options);
   if (!options.spot) return { ...base.regions, lanes: base.lanes };
   // The held spot: its lane's stretches in its own layout; the other lanes as seen.
   const found = [...base.raws].find(([, rs]) => rs.some((r) => r.id === options.spot));
@@ -440,6 +436,59 @@ export function lanes(state: DockState, dragged: string, options: DockLaneOption
       return { ...l, marks: marksLess(base.lanes[i]!.marks, l.axis, heldMarks) };
     }),
   };
+}
+
+/** The drag's base, remembered per state and options (`previous` by identity; `spot` aside). Internal to the package. */
+export function baseOf(state: DockState, dragged: string, options: DockLaneOptions = {}): Base {
+  const key = keyOf(dragged, options);
+  let perState = memo.get(state);
+  if (!perState) memo.set(state, (perState = new Map()));
+  let base = perState.get(key);
+  if (!base) perState.set(key, (base = build(state, dragged, options)));
+  return base;
+}
+
+/** A lane's id with its marks in one layout. */
+export interface LaneMarks {
+  readonly lane: string;
+  readonly axis: "x" | "y";
+  readonly marks: readonly DockMark[];
+}
+
+/**
+ * Every lane's marks in the one layout `layout` (internal to the package): each lane laid out over `layout` as drawn
+ * there, the held item drawn where `layout` draws it on an edge (`held`: a spot's layout) or nowhere (the layout as seen,
+ * at rest; a float's), each neighbor's giving way judged in `layout` itself, every mark clipped to its lane's rect over
+ * `layout` (decision 0002), and the corners settled between the lanes as `layout` draws them.
+ */
+export function marksIn(base: Base, state: DockState, dragged: string, layout: DockLayout, held: boolean, emptyLanes: EmptyLanes | undefined): LaneMarks[] {
+  const heldEdge = held ? layout.items[dragged] : undefined;
+  const on = heldEdge && !heldEdge.floating && !heldEdge.inMenu ? heldEdge.edge : undefined;
+  const built = base.lanes.flatMap((l) => {
+    const raws = base.raws.get(l.id);
+    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on) : null;
+    return again ? [{ lane: again, over: laneRectOver(raws!, layout, layout, base.marking).rect }] : [];
+  });
+  const over = built.map(({ lane, over: r }) => ({ ...lane, rect: r }));
+  return built.map(({ lane, over: r }) => {
+    const settled = settle(lane, layout, state, dragged, over, emptyLanes, r);
+    return { lane: settled.id, axis: settled.axis, marks: settled.marks };
+  });
+}
+
+/** The lane `id`'s spots with their stretches cut in `layout` (a panel column by halves of what `layout` draws), or null. Internal. */
+export function spotsIn(base: Base, id: string, layout: DockLayout, dragged: string): readonly DockSpot[] | null {
+  const raws = base.raws.get(id);
+  return raws ? (laneFrom(id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(id), base.share, base.marking)?.spots ?? null) : null;
+}
+
+/** The raw spot `id` of the drag (internal): its lane, its target, and the layout its drop draws at rest. */
+export function rawSpot(base: Base, id: string): { readonly lane: string; readonly target: DockDrop; readonly layout: DockLayout; readonly home?: true; readonly slide?: boolean } | null {
+  for (const [lane, list] of base.raws) {
+    const r = list.find((x) => x.id === id);
+    if (r) return { lane, target: r.target, layout: r.layout, ...(r.home ? { home: true as const } : {}), ...(r.slide ? { slide: true } : {}) };
+  }
+  return null;
 }
 
 /** A lane without the prediction as seen (`entry`, `corners`). */
@@ -956,7 +1005,7 @@ function piecesLess(r: Rect, axis: Axis, cs: readonly Rect[]): [number, number][
  * Marks less the rects `cs` they overlap, along `axis`, as `settle` cuts them: a box or a hatch into its pieces (the
  * first keeps its id, the others `~c<n>`), a line kept whole or not at all. Marks `cs` doesn't overlap stay as they are.
  */
-function marksLess(marks: readonly DockMark[], axis: Axis, cs: readonly Rect[]): DockMark[] {
+export function marksLess(marks: readonly DockMark[], axis: Axis, cs: readonly Rect[]): DockMark[] {
   return marks.flatMap((m): DockMark[] => {
     const over = cs.filter((c) => overlaps(m.rect, c));
     if (over.length === 0) return [m];
