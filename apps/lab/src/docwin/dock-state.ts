@@ -1349,8 +1349,10 @@ export function createDocwin(o: DocwinOptions) {
     drawStrips([], null, null);
     const docking = docks(shown);
     const snapTo = plan.snapItem && docking ? shown : null;
-    const room = plan.makeRoom && docking ? shown : null;
     const floats = mf.region === "open" ? L.drag.regions.float : null;
+    // The room the window draws: a docked state's one layout. (Over the document, the one-preview model keeps the window
+    // as committed until the release.)
+    const room = plan.makeRoom && docking ? shown : null;
     const floatAt = floats ? mf.landing : null;
     const sits = snapTo && spot ? spotLanding : onlyItem && homing ? (layout.items[d.id]?.rect ?? null) : null;
     // A refused place: the refusal under the pointer, if any, else nothing lands there; past the window, nothing lands.
@@ -2071,6 +2073,12 @@ export function createDocwin(o: DocwinOptions) {
     /** A check that plays no drag (a window being resized) marks the window as drawn now as a key frame of its case. */
     keyFrame(note: string): void {
       keyFrames?.(note);
+    },
+    /** The landing model's own frame now (its guides naming lanes and states), and the drag it reads, or null. */
+    get landingModel(): { readonly id: ItemId; readonly pointer: Point; readonly frame: LandingFrame; readonly drag: DockDrag; readonly previous: DockLayout } | null {
+      const d = drag;
+      const L = d?.landing;
+      return d && L ? { id: d.id, pointer: d.pointer, frame: L.model.frame, drag: L.drag, previous: layout } : null;
     },
     /** The landing model's frame now (under `"landing"`, during a drag), its guides drawn by the drag, or null. */
     get landingFrame(): DrawnLandingFrame | null {

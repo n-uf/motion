@@ -15,6 +15,7 @@ import { SPLIT_PRESETS } from "./split-presets";
 import { INTENT_PRESETS } from "./intent-presets";
 import { LANDING_PRESETS } from "./landing-presets";
 import { ONE_PREVIEW_PRESETS } from "./one-preview-presets";
+import { ONE_LAYOUT_PRESETS } from "./one-layout-presets";
 import { FADE_DT_CAP, FADE_MS, type Behavior, type Docwin } from "./dock-state";
 import { readDocwin, storeDocwin } from "./store";
 
@@ -296,7 +297,7 @@ function sweepState(edge: EdgeId, order: readonly ItemId[]): DockState {
  */
 export const PRESETS: readonly Preset[] = (() => {
   const as = (behavior: Behavior, ps: readonly Preset[]): Preset[] => ps.map((p) => ({ ...p, behavior }));
-  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", CODE_PRESETS())];
+  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", ONE_LAYOUT_PRESETS()), ...as("landing", CODE_PRESETS())];
 })();
 
 function PUBLISHED_PRESETS(): Preset[] {
