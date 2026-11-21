@@ -61,13 +61,20 @@ describe("a generated form says each control's tier", () => {
     for (let i = 0; i < 60; i++) {
       const s = randomSpec(rand, { strict: i % 2 === 0, n: 2 + (i % 4), tiers: 1 + (i % 4) });
       // Cut some controls' lists short, or empty.
-      const cut: ControlLadderSpec = { ...s, controls: s.controls.map((c, k) => ({ ...c, tiers: k % 3 === 1 ? c.tiers.slice(0, 1 + (i % 2)) : k % 5 === 4 ? [] : c.tiers })) };
+      const cut: ControlLadderSpec = { ...s, controls: s.controls.map((c, k) => ({ ...c, tiers: k === 0 && i % 3 === 0 ? [] : k % 3 === 1 ? c.tiers.slice(0, 1 + (i % 2)) : c.tiers })) };
       for (const [k, f] of controlLadder(cut).row.entries())
         for (const [id, tier] of Object.entries(f.tiers ?? {})) {
           const own = cut.controls.find((c) => c.id === id)!.tiers.length;
           expect(Number.isInteger(tier) && tier >= 0 && tier < Math.max(1, own), `form ${k}, ${id} at tier ${tier} of ${own}`).toBe(true);
         }
     }
+  });
+
+  it("a control with no tiers reports tier 0 on every row form", () => {
+    const empty: ControlLadderSpec = { ...spec, controls: [{ id: "none", tiers: [] }, ...spec.controls] };
+    const rows = controlLadder(empty).row.filter((f) => f.tiers !== undefined && "none" in f.tiers);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows.every((f) => f.tiers!.none === 0)).toBe(true);
   });
 
   it("hand-written forms have none", () => {
