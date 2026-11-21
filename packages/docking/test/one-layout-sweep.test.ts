@@ -26,6 +26,7 @@ import { LANDING_APPROACH, type LandingRelease } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { dockDrag, readDockState, solve, storeDockState, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
+import { marksLess } from "../src/lanes";
 import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
 
@@ -176,22 +177,11 @@ function spanDiff(a: [number, number][], b: [number, number][]): number {
   }
   return d;
 }
-/** `ms` less `r` along `axis`: the pieces either side; a box piece the cut leaves 8 px or shorter is dropped. */
-function lessAlong(ms: readonly Guide[], r: Rect | null, axis: Axis): Guide[] {
-  if (!r) return [...ms];
-  return ms.flatMap((m) => {
-    if (!inter(m.rect, r, 1e-6)) return [m];
-    const [a, b] = [lo(m.rect, axis), hi(m.rect, axis)];
-    const out: Guide[] = [];
-    const put = (p: number, q: number): void => {
-      if (q - p > (m.kind === "box" ? 8 : 1e-6)) out.push({ ...m, rect: axis === "x" ? { ...m.rect, x: p, width: q - p } : { ...m.rect, y: p, height: q - p } });
-    };
-    if (m.kind === "line") return lo(r, axis) <= a && hi(r, axis) >= b ? [] : [m];
-    put(a, Math.min(b, lo(r, axis)));
-    put(Math.max(a, hi(r, axis)), b);
-    return out;
-  });
-}
+/**
+ * `ms` less `r` along `axis`, by the package's one rect subtraction (`marksLess`): the pieces either side, a box piece
+ * the cut leaves 8 px or shorter dropped, a line gone only where `r` covers it.
+ */
+const lessAlong = (ms: readonly Guide[], r: Rect | null, axis: Axis): Guide[] => (r ? marksLess(ms, axis, [r], { suffix: "~l", minBox: 8, lines: "covered" }) : [...ms]);
 
 /** The corners of `layout` where two drawn edge lanes across each other meet, each with the edge that owns it. */
 function corners(s: DockState, layout: DockLayout, laneIds: ReadonlySet<string>): { owner: string; other: string; rect: Rect }[] {
@@ -299,8 +289,14 @@ function sweep(): Result {
               const pd = Math.max(pad(s, g.lane).start, pad(s, g.lane).end) + 1;
               const inWanted = (v: number): boolean => wanted.some(([p, q]) => v >= p - pd && v <= q + pd);
               const extra = got.some(([p, q]) => !inWanted(p + 0.5) || !inWanted(q - 0.5));
-              // What it gives up lies under another lane's guide.
-              const under = (v: number): boolean => others.some((r) => (l.axis === "x" ? v >= r.x - 1 && v <= r.x + r.width + 1 : v >= r.y - 1 && v <= r.y + r.height + 1));
+              // What it gives up lies under something the screen draws, in 2-D: another lane's guide, a drawn bar or toolbar
+              // rail (its items stay put), or the landing on screen.
+              const stay = s.edges.filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen0.layout.edges[e.id]?.cross ?? 0) > 1e-6).map((e) => screen0.layout.edges[e.id]!.rect);
+              const blockers = [...others, ...stay, ...(screen0.landing ? [screen0.landing] : [])];
+              const c0 = Math.min(...want.map((m) => (l.axis === "x" ? m.rect.y : m.rect.x)));
+              const c1 = Math.max(...want.map((m) => (l.axis === "x" ? m.rect.y + m.rect.height : m.rect.x + m.rect.width)));
+              const slab = (v: number): Rect => (l.axis === "x" ? { x: v - 1, y: c0, width: 2, height: c1 - c0 } : { x: c0, y: v - 1, width: c1 - c0, height: 2 });
+              const under = (v: number): boolean => blockers.some((r) => inter(r, slab(v), 0.01) !== null);
               let lost = 0;
               for (const [p, q] of wanted) for (let v = p + 1; v < q - 1; v += 4) if (!got.some(([a, b]) => v >= a - 1 && v <= b + 1) && !under(v)) lost++;
               if (extra || lost > 0) fail(`created | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: guide ${JSON.stringify(got)} vs created ${JSON.stringify(wanted)}`);
@@ -345,6 +341,7 @@ function sweep(): Result {
           if (!checkedDrop.has(landingKey)) {
             checkedDrop.add(landingKey);
             count("drops");
+            if (r.kind === "float") count("float drops");
             // items: every item but the held one where the commit puts it.
             for (const [id, it] of Object.entries(landed.commit.items)) {
               if (id === w.dragged) continue;
@@ -368,6 +365,8 @@ function sweep(): Result {
           }
           if (r.kind !== "spot" || !f.frame.landing) continue;
           count(`held ${mode}`);
+          // landing-free: no guide but a line lies over the landing the frame draws (every lane, near and all).
+          for (const g of gs) if (g.kind !== "line" && inter(g.rect, f.frame.landing, 0.5)) fail(`landing-free | ${w.name} | ${g.lane} | ${mode}`, `at ${Math.round(f.point.x)},${Math.round(f.point.y)}: ${g.id} ${fmt(g.rect)} over the landing ${fmt(f.frame.landing)}`);
           const lane = d.regions.lanes.find((l) => l.id === r.lane);
           if (!lane || !edgeOf(s, lane.id)) continue;
           // hull: where the held item lands alone in its lane, the guides, landing and items span the committed edge.
@@ -422,6 +421,8 @@ describe("one layout: every held frame draws what its release commits", () => {
     expect(r.counts.drops).toBeGreaterThan(500);
     expect(r.counts["hull near"] ?? 0).toBeGreaterThan(50);
     expect(r.counts["near populated"] ?? 0).toBeGreaterThan(20);
+    // Floats land and are checked too (a float landing that went null would leave none).
+    expect(r.counts["float drops"] ?? 0, JSON.stringify(r.counts)).toBeGreaterThan(20);
     // The rule B, entry and reach clauses ran (counts as printed, so a change in coverage shows).
     expect([r.counts.created ?? 0, r.counts.entry ?? 0, r.counts.reach ?? 0].map((n) => n > 20), JSON.stringify(r.counts)).toEqual([true, true, true]);
   });
