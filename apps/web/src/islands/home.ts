@@ -1,459 +1,50 @@
 /**
- * Home (island): the live desk demo, built on @n-uf/motion (settle, reveal, held drag, drag intent). The server rendered
- * its first frame; this animates it. `startHero` starts one instance of the demo (components/HeroDemo.astro), with its own
- * windows, chrome, ↺ Reset and showcase.
+ * Home (island): the live demo is the lab's Document window (apps/lab/src/docwin), mounted as it is, not forked: the lab's
+ * own `createDocwin` runs here on the page's elements (components/HeroDemo.astro). Everything the window does comes from the
+ * three libraries, through that one module:
  *
- * Dragging a window onto another swaps them, by `@n-uf/motion/drag`'s `createDragIntent`: nothing shows while the pointer flies; once it
- * aims at another window the drop shows by the preview mode (Drop indicator: an outline, nothing moves; Open gap: the
- * other window makes room after 160 ms, the dragged one stays under the pointer; Snap to slot: it makes room and the
- * dragged window glides into the slot); the release lands on what was shown, else on the window under the pointer. Its own slot is home: a release there
- * changes nothing. The automatic showcase (layouts and a swap, cycling the three modes on its own, never changing the
- * visitor's) pauses as soon as you act and resumes 10 s after your last action. Speed slows every glide; Tempo sets
- * the settle's.
+ * - @n-uf/docking: the window is a `DockState`; `solve` gives every rect, `targets` and the landing model's `lanes` every
+ *   place a dragged panel or toolbar can dock, and the drop commits the state the target made;
+ * - @n-uf/motion: `@n-uf/motion/drag`'s intent and landing model decide what a drag shows and where it lands, and the
+ *   moves glide on its settle (`@n-uf/motion/layout`'s morph for the held copy);
+ * - @n-uf/placement: the edge fit and float fit inside `solve`.
+ *
+ * What this file adds is only the fit to the page: the window is the slot's width and a fixed height, and follows the slot
+ * as it resizes. It starts from the lab's default window (its own storage key, never the lab's, and never read back: every
+ * visit starts from the default), and does not take focus or scroll the page.
  */
-import { reveal, type Point, type Rect, type Settle } from "@n-uf/motion";
-import { $ } from "./rail";
-import { getSpeed, loop, newSettle, reduced, virtualNow } from "./motion";
-import { registerShowcase, setDragging } from "./showcase";
-import { DROP_MODES, dropMode, onDropMode, previewPlan, type DropMode } from "./drop-mode";
-import { figureChrome } from "./figure-chrome";
-import { createDragIntent, type DragIntent, type DragTarget } from "@n-uf/motion/drag";
-import { DEFAULT_TOOL, LAYOUTS, RESERVE, WINDOWS } from "../demos/home";
-import type { Model } from "../demos/toolbar";
-import { xrayOf, type XR } from "./xray";
+import { createDocwin } from "../../../lab/src/docwin/dock-state";
 
-interface Win { i: number; el: HTMLElement; frame: HTMLElement; body: HTMLElement; settle: Settle<Rect>; slot: number; target: Rect; hold: boolean }
-/** A window's slot as a drop target for `@n-uf/motion/drag`: one zone, one priority, the window it swaps with. */
-interface WinTarget extends DragTarget { win: Win }
-interface Drag {
-  w: Win;
-  dx: number;
-  dy: number;
-  intent: DragIntent<WinTarget>;
-  shown: Win | null;
-  room: Win | null;
-  snapped: boolean;
-  returning: boolean;
-  last: Point;
-  scripted: boolean;
-  /** The drag intent's state, for X-ray. */
-  aim: "fly" | "aim" | "room";
-}
-const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+/** Where the home window keeps its state: its own key, so the lab's stored window and the lab's checks are never written over. */
+const KEY = "motion-site:docwin-home";
+/** The window's height: the slot's (styles/home.css reserves the same box, by the same breakpoint). */
+const heightNow = (): number => (matchMedia("(max-width: 719px)").matches ? 400 : 460);
+/** The window is never narrower than this (the lab's own smallest is 560; the model gives way as the room runs out). */
+const MIN_WIDTH = 320;
 
-/**
- * Start one desk demo: the window `fig` (components/HeroDemo.astro), whose elements' ids carry `prefix`. `checks` names
- * the global the headless checks read. A `#loop-strip` on the page (the home's four steps) is lit as a drag goes: 1
- * placement's targets at the lift, 2 motion's intent while aiming or showing, 3 placement's new layout at a drop, 4
- * motion's settle while the windows glide; X-ray then shows that step's package.
- */
-export function startHero(fig: HTMLElement, prefix = "", checks = "__hero"): void {
-  const el = <T extends HTMLElement = HTMLElement>(id: string): T => $<T>(prefix + id);
-  const demo = el("demo");
-  const readout = el("readout");
-  const readoutSide = el("readout-side");
-  const layoutName = el("layout-name");
-  const shuffle = el("shuffle");
-  fig.classList.add("go"); // the controls that do nothing without this island show now (styles/home.css)
-  /** The stage keeps a band free for the floating tools while they float at the bottom (their default). */
-  let reserve = RESERVE;
-  /** Whether the visitor changed the demo (a swap, a layout, a tool): what ↺ Reset puts back. */
-  let touched = false;
-  /** The showcase's own preview mode during a scripted swap (the visitor's stays as it is). */
-  let scriptMode: DropMode | null = null;
-  const mode = (): DropMode => scriptMode ?? dropMode();
-  const wins: Win[] = [...demo.querySelectorAll<HTMLElement>(".dw")].map((w, i) => ({
-    i,
-    el: w,
-    frame: w.querySelector<HTMLElement>(".dw-frame")!,
-    body: w.querySelector<HTMLElement>(".dw-body")!,
-    settle: newSettle<Rect>({ x: 0, y: 0, width: 0, height: 0 }),
-    slot: i,
-    target: { x: 0, y: 0, width: 0, height: 0 },
-    hold: false,
-  }));
-  let layout = 0;
-  let running: (() => void) | null = null;
-  /** The drag in progress (the user's or the showcase's): set by lift(), cleared by release(). */
-  let drag: Drag | null = null;
-
-  // The drop indicator: the site's signal outline on the target slot, with a label.
-  const ind = document.createElement("div");
-  ind.className = "dw-ind";
-  ind.innerHTML = `<span class="dw-ind-label"></span>`;
-  demo.appendChild(ind);
-
-  const slotRect = (slot: number): Rect => LAYOUTS[layout]!.slots[slot]!(demo.clientWidth, demo.clientHeight - reserve);
-
-  /** Draw one window at its drawn rect: laid out once at its target, moved and clipped, never stretched. */
-  // A window is placed by transform only (its box sits at 0, 0, sized to its target): moving it never changes layout,
-  // so its glides count as no layout shift.
-  function paint(w: Win): void {
-    const f = reveal(w.settle.value, w.target);
-    w.el.style.transform = `translate(${w.target.x + f.dx}px, ${w.target.y + f.dy}px)`;
-    w.frame.style.width = f.width + "px";
-    w.frame.style.height = f.height + "px";
-    w.body.style.clipPath = f.clipRight || f.clipBottom ? `inset(0 ${f.clipRight}px ${f.clipBottom}px 0)` : "";
-  }
-  function place(w: Win, r: Rect): void {
-    w.target = { ...r };
-    Object.assign(w.el.style, { left: "0px", top: "0px", width: r.width + "px", height: r.height + "px" });
-    paint(w);
-  }
-  function showReadout(): void {
-    const w = wins[0]!, d = w.settle.value, t = w.settle.target;
-    const dw = Math.round(d.width), dh = Math.round(d.height), tw = Math.round(t.width), th = Math.round(t.height);
-    // While the window is dragged (held 1:1, or snapped into a slot under the pointer) its settle can count as settled;
-    // say "held" then, not "at rest".
-    const state = drag && drag.w === w ? "held" : w.settle.settled ? "at rest" : "settling";
-    readout.innerHTML = `<b>${WINDOWS[0]!.title}</b> · drawn <b>${dw} × ${dh}</b> · target <b>${tw} × ${th}</b> · ${state}`;
-    // The side form: a state dot (accent while settling) over the drawn size; the name and target in its tooltip.
-    readoutSide.classList.toggle("moving", state !== "at rest");
-    readoutSide.querySelector(".ro-w")!.textContent = String(dw);
-    readoutSide.querySelector(".ro-h")!.textContent = String(dh);
-    readoutSide.title = `${WINDOWS[0]!.title}: drawn ${dw} × ${dh}, target ${tw} × ${th}, ${state}`;
-  }
-
-  // ---- The loop strip: which step of the drag is happening, by which package -------------------------------------------
-  const strip = document.getElementById("loop-strip");
-  let lit = 0, stepTimer = 0, litUntil = 0;
-  function setStep(n: number): void {
-    if (n === lit) return;
-    lit = n;
-    clearTimeout(stepTimer);
-    // Step 4 stays lit at least 600 ms, so a drop that needs no glide still shows it; then the next frame clears it.
-    if (n === 4) {
-      litUntil = performance.now() + 600;
-      stepTimer = window.setTimeout(() => run(), 620);
-    }
-    if (strip) {
-      if (n) strip.dataset.step = String(n);
-      else delete strip.dataset.step;
-    }
-    // X-ray shows the lit step's package (1 and 3 placement, 2 and 4 motion); both when nothing is lit.
-    xrayOf(fig).focus(n ? (n % 2 ? "placement" : "motion") : null);
-  }
-
-  // ---- X-ray: placement's slots and hit zones (the layout's rects, a window per target), motion's settles ------------
-  const xray = xrayOf(fig);
-  const vr = (r: Rect): XR => { const o = demo.getBoundingClientRect(); return { x: o.left + r.x, y: o.top + r.y, w: r.width, h: r.height }; };
-  let trail: Point[] = [];
-  function xrayHero(): void {
-    if (!xray.on) return;
-    const d = drag;
-    // Placement: at rest, the layout's slots; during a drag, each window's slot as a target zone (priority 2, a slot;
-    // the dragged window's own is home), and the one the drop shows.
-    xray.draw("hero:place", d ? {
-      zones: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: w === d.w ? "home" : `${WINDOWS[w.i]!.title} · priority 2` })),
-      slots: d.shown ? [{ r: vr(slotRect(d.shown.slot)), on: true, label: `swap with ${WINDOWS[d.shown.i]!.title}` }] : [],
-    } : { slots: wins.map((w) => ({ r: vr(slotRect(w.slot)), label: `${LAYOUTS[layout]!.name} · slot ${w.slot}` })) });
-    // Motion: each window's settle target against what is drawn; the held one's trail and the aim.
-    for (const w of wins) {
-      const held = !!d && w === d.w;
-      xray.draw(`hero:w${w.i}`, held || !w.settle.settled ? { target: vr(w.settle.target), drawn: vr(w.settle.value), trail: held ? trail : undefined, aim: held ? { p: vr({ x: d!.last.x, y: d!.last.y, width: 0, height: 0 }), state: d!.aim } : null } : null);
-    }
-  }
-  xray.onChange(() => xrayHero());
-
-  /** Step every window that isn't held 1:1 until all rest. */
-  function run(): void {
-    if (running) return;
-    const tick = (dt: number): boolean => {
-      let moving = false;
-      for (const w of wins) {
-        if (!w.hold && w.settle.step(dt)) moving = true;
-        paint(w);
-      }
-      showReadout();
-      // Step 4 ends when every window rests.
-      if (!moving && !drag && lit === 4 && performance.now() >= litUntil) setStep(0);
-      if (xray.on) {
-        if (drag) {
-          trail.push(vr(drag.w.settle.value));
-          if (trail.length > 48) trail.shift();
-        }
-        xrayHero();
-      }
-      return moving || !!drag;
-    };
-    if (reduced()) {
-      wins.forEach((w) => { if (!w.hold) w.settle.snap(); });
-      tick(0);
-      return;
-    }
-    tick(0);
-    running = loop.repeat("write", (f) => {
-      const m = tick(f.delta);
-      if (!m) running = null;
-      return m;
-    });
-  }
-  /** Lay every window out at its slot; `animate` glides it there from where it is drawn. */
-  function relayout(animate: boolean): void {
-    for (const w of wins) {
-      if (drag && w === drag.w) continue;
-      const r = slotRect(w.slot);
-      place(w, r);
-      if (!animate) w.settle.jumpTo({ ...r });
-      else w.settle.setTarget({ ...r });
-    }
-    layoutName.textContent = LAYOUTS[layout]!.name;
-    shuffle.title = `Next layout · ${LAYOUTS[layout]!.name}`;
-    run();
-  }
-  relayout(false);
-  new ResizeObserver(() => { if (!drag) relayout(false); }).observe(demo);
-
-  // ---- Dragging a window onto another --------------------------------------------------------------------------------
-  const homeRect = (): Rect => slotRect(drag!.w.slot);
-  /** The other windows' slots as drop targets, as they stand now (priority 2 and a slot, placement's shape); the dragged window's own slot is the intent's home. */
-  const targetsOf = (d: Drag): WinTarget[] => wins.filter((x) => x !== d.w).map((x): WinTarget => { const r = slotRect(x.slot); return { id: String(x.i), priority: 2, hit: r, slot: r, win: x }; });
-  const pointerRect = (p: Point): Rect => { const h = homeRect(); return { x: p.x - drag!.dx, y: p.y - drag!.dy, width: h.width, height: h.height }; };
-
-  function showIndicator(target: Win | null): void {
-    if (!target || !previewPlan(mode()).outline) {
-      ind.classList.remove("on");
-      return;
-    }
-    const r = slotRect(target.slot);
-    Object.assign(ind.style, { left: r.x + 2 + "px", top: r.y + 2 + "px", width: r.width - 4 + "px", height: r.height - 4 + "px" });
-    ind.querySelector(".dw-ind-label")!.textContent = `Swap with ${WINDOWS[target.i]!.title}`;
-    ind.classList.add("on");
-  }
-  /** Start a drag of `w` grabbed at `p` (demo coordinates). */
-  function lift(w: Win, p: Point, scripted: boolean): void {
-    const d = w.settle.value;
-    drag = { w, dx: p.x - d.x, dy: p.y - d.y, intent: createDragIntent<WinTarget>({ home: slotRect(w.slot) }), shown: null, room: null, snapped: false, returning: false, last: p, scripted, aim: "fly" };
-    trail = [];
-    w.hold = true;
-    w.settle.jumpTo({ ...d });
-    w.el.classList.add("held");
-    if (!scripted) setDragging(true);
-    // Step 1: the drop targets are worked out at the lift (placement's part).
-    setStep(1);
-    run();
-  }
-  /** A pointer sample during a drag (demo coordinates, a timestamp in ms). */
-  function move(p: Point, t: number): void {
-    const d = drag;
-    if (!d) return;
-    d.last = p;
-    const own = inside(homeRect(), p);
-    const frame = d.intent.update(p, t, targetsOf(d));
-    const { room, aiming } = frame;
-    const shown = frame.shown?.win ?? null;
-    const plan = previewPlan(mode());
-    d.aim = !aiming && !shown ? "fly" : room && plan.room ? "room" : "aim";
-    // Step 2 while the intent shows a target or aims away from home (motion's part); 1 while flying or still at home.
-    setStep(shown || (aiming && !own) ? 2 : 1);
-    if (shown !== d.shown) {
-      // The old target goes back to its slot, and a snapped window back to the pointer.
-      if (d.room) {
-        const back = slotRect(d.room.slot);
-        place(d.room, back);
-        d.room.settle.setTarget(back);
-        d.room = null;
-      }
-      if (d.snapped) {
-        d.snapped = false;
-        d.returning = true;
-      }
-      d.shown = shown;
-      showIndicator(shown);
-    }
-    if (shown && room && plan.room && d.room !== shown) {
-      // Making room (Open gap, Snap to slot): the target settles into the dragged window's home slot.
-      const home = homeRect();
-      place(shown, home);
-      shown.settle.setTarget(home);
-      d.room = shown;
-      if (plan.glide) {
-        // Snap to slot: the dragged window glides into the target's slot, its size revealed, never stretched.
-        const slot = slotRect(shown.slot);
-        d.w.hold = false;
-        place(d.w, slot);
-        d.w.settle.setTarget(slot);
-        d.snapped = true;
-        d.returning = false;
-      }
-    }
-    if (!d.snapped) {
-      const r = pointerRect(p);
-      if (d.returning) {
-        // Back to the pointer by settle, then held 1:1 again.
-        place(d.w, homeRect());
-        d.w.hold = false;
-        d.w.settle.setTarget(r);
-        const v = d.w.settle.value;
-        if (Math.abs(v.x - r.x) < 1 && Math.abs(v.y - r.y) < 1 && Math.abs(v.width - r.width) < 1) d.returning = false;
-      } else {
-        if (!d.w.hold) place(d.w, homeRect());
-        d.w.hold = true;
-        d.w.settle.jumpTo(r);
-        paint(d.w);
-      }
-    }
-    run();
-  }
-  /** End the drag: the intent's release decides (what was shown, else the window under the pointer, else home); `cancel` (Escape, a lost pointer) always goes home. */
-  function release(cancel: boolean): void {
-    const d = drag;
-    if (!d) return;
-    drag = null;
-    ind.classList.remove("on");
-    const target = cancel ? null : d.intent.release(d.last, performance.now(), targetsOf(d))?.win ?? null;
-    if (target) [target.slot, d.w.slot] = [d.w.slot, target.slot];
-    if (target && !d.scripted) markTouched();
-    d.w.hold = false;
-    d.w.el.classList.remove("held");
-    // Every window settles to its slot from where it is drawn: a snapped one is already on its way, so no second motion.
-    const r = slotRect(d.w.slot);
-    place(d.w, r);
-    d.w.settle.setTarget(r);
-    // Step 3: a drop makes a new arrangement, whose rects placement works out; then step 4, the settle there (a release
-    // with no target goes straight to 4: the window settles home).
-    setStep(target ? 3 : 4);
-    if (target) stepTimer = window.setTimeout(() => { setStep(4); run(); }, 280);
-    relayout(true);
-    if (!d.scripted) setDragging(false);
-    trail = [];
-    xrayHero();
-  }
-
-  // The user's drag.
-  let pointerId = -1;
-  const local = (e: PointerEvent): Point => { const r = demo.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
-  demo.addEventListener("pointerdown", (e) => {
-    const w = wins.find((x) => x.el === (e.target as HTMLElement).closest<HTMLElement>(".dw"));
-    if (!w || e.button !== 0) return;
-    e.preventDefault();
-    if (drag) release(true);
-    pointerId = e.pointerId;
-    demo.setPointerCapture(e.pointerId);
-    lift(w, local(e), false);
-  });
-  demo.addEventListener("pointermove", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) move(local(e), performance.now()); });
-  // Dwell counts too: while the user drags, keep feeding the last point when the pointer rests.
-  let dwellStop: (() => void) | null = null;
-  demo.addEventListener("pointerdown", () => {
-    if (!drag || drag.scripted || dwellStop) return;
-    dwellStop = loop.repeat("input", () => {
-      if (!drag || drag.scripted) { dwellStop = null; return false; }
-      move(drag.last, performance.now());
-      return true;
-    });
-  });
-  demo.addEventListener("pointerup", (e) => { if (drag && !drag.scripted && e.pointerId === pointerId) { move(local(e), performance.now()); release(false); } });
-  demo.addEventListener("pointercancel", () => { if (drag && !drag.scripted) release(true); });
-  // A drag also ends when the pointer capture is lost (the element was removed, a system gesture took it) and when the
-  // window loses focus (an alert, a tab switch): the window goes back, never stuck to a pointer that is no longer there.
-  demo.addEventListener("lostpointercapture", () => { if (drag && !drag.scripted) release(true); });
-  window.addEventListener("blur", () => { if (drag && !drag.scripted) release(true); });
-  window.addEventListener("keydown", (e) => { if (e.key === "Escape" && drag && !drag.scripted) release(true); });
-  // The drawing tools: one selected (the accent ring), pen by default.
-  const tools = [...fig.querySelectorAll<HTMLButtonElement>("[data-tool]")];
-  const selectTool = (id: string): void => tools.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tool === id)));
-  tools.forEach((b) => b.addEventListener("click", () => { selectTool(b.dataset.tool!); markTouched(); }));
-  const tool = (): string => tools.find((b) => b.getAttribute("aria-pressed") === "true")?.dataset.tool ?? DEFAULT_TOOL;
-  /** The band for the floating tools: kept only while they float at the bottom. */
-  const syncReserve = (m: Model): void => {
-    const next = m.float.some((f) => f.anchor === "bottom") ? RESERVE : 0;
-    if (next === reserve) return;
-    reserve = next;
-    if (!drag) relayout(true);
+export function startHero(fig: HTMLElement): void {
+  const slot = fig.querySelector<HTMLElement>("#docdemo-slot")!;
+  const root = fig.querySelector<HTMLElement>("#dw-root")!;
+  const win = fig.querySelector<HTMLElement>("#dw-win")!;
+  const status = fig.querySelector<HTMLElement>("#dw-status")!;
+  const size = (): { width: number; height: number } => {
+    return { width: Math.max(MIN_WIDTH, Math.floor(slot.clientWidth)), height: heightNow() };
   };
-  const chrome = figureChrome(fig, {
-    onChange: syncReserve,
-    demo: {
-      isDefault: () => !touched && tool() === DEFAULT_TOOL,
-      reset() {
-        // Every window glides back to the first layout, its own slot; the pen is the tool again.
-        touched = false;
-        if (drag) release(true);
-        layout = 0;
-        wins.forEach((w) => (w.slot = w.i));
-        selectTool(DEFAULT_TOOL);
-        syncReserve(chrome.model());
-        relayout(true);
-      },
-    },
+  // The window is shown (not `hidden`) before it is built: it measures its toolbars from what the page renders.
+  root.hidden = false;
+  const c = createDocwin({ root, win, status, storageKey: KEY });
+  const hint = "Drag a panel by its header or a toolbar by its dots, and drop it beside another, on a side or in a bar.";
+  c.reset(size());
+  c.say(hint);
+  // ↺ Reset: the lab's own reset (the default window at this size, no last move).
+  fig.querySelector<HTMLButtonElement>("#dw-reset")!.addEventListener("click", () => {
+    c.reset(size());
+    c.forgetDrop();
+    c.say(hint);
   });
-  function markTouched(): void {
-    touched = true;
-    chrome.demoChanged();
-  }
-  syncReserve(chrome.model());
-  onDropMode(() => { if (drag) showIndicator(drag.shown); });
-  shuffle.addEventListener("click", () => { nextLayout(); markTouched(); });
-
-  // ---- The automatic showcase: layouts, then a swap, cycling the three modes; its pace follows the speed -----------
-  function nextLayout(): void {
-    layout = (layout + 1) % LAYOUTS.length;
-    // Each new layout also rotates which window takes which slot.
-    wins.forEach((w) => (w.slot = (w.slot + 1) % wins.length));
-    relayout(true);
-  }
-  let showTimer = 0, scriptStop: (() => void) | null = null, step = 0;
-  /** A scripted swap in its own preview mode: fly from one window to another, aim, release. */
-  function scriptedSwap(m: DropMode): void {
-    scriptMode = m;
-    const a = wins.find((w) => w.slot === 1)!, b = wins.find((w) => w.slot === 0)!;
-    const ra = slotRect(a.slot), rb = slotRect(b.slot);
-    const from = { x: ra.x + ra.width / 2, y: ra.y + 16 }, to = { x: rb.x + rb.width * 0.55, y: rb.y + rb.height * 0.45 };
-    lift(a, from, true);
-    // The scripted pointer moves on the site's clock (slow motion slows it); the drag's own timing rules stay real-time.
-    const t0 = virtualNow();
-    const ease = (x: number): number => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
-    scriptStop = loop.repeat("input", () => {
-      const t = virtualNow() - t0;
-      if (t < 420) {
-        const f = ease(t / 420);
-        move({ x: from.x + (to.x - from.x) * f, y: from.y + (to.y - from.y) * f }, performance.now());
-      } else if (t < 1300) move({ x: to.x + ((t - 420) / 880) * 4, y: to.y }, performance.now());
-      else {
-        release(false);
-        scriptStop = null;
-        scriptMode = null;
-        return false;
-      }
-      return true;
-    });
-  }
-  function showcaseStep(): void {
-    showTimer = window.setTimeout(() => {
-      step++;
-      if (step % 2 === 1) nextLayout();
-      else scriptedSwap(DROP_MODES[(step / 2) % DROP_MODES.length]!);
-      showcaseStep();
-    }, 2600 / getSpeed());
-  }
-  registerShowcase(fig, {
-    start() {
-      // A clean state: the first layout, every window in its own slot, gliding there.
-      layout = 0;
-      wins.forEach((w) => (w.slot = w.i));
-      relayout(true);
-      step = 0;
-      showcaseStep();
-    },
-    stop() {
-      clearTimeout(showTimer);
-      if (scriptStop) {
-        scriptStop();
-        scriptStop = null;
-        release(true);
-      }
-      scriptMode = null;
-    },
-  });
-
-  // For checks: the windows' slots and the drag's state.
-  (window as unknown as Record<string, unknown>)[checks] = {
-    slots: () => wins.map((w) => w.slot),
-    drag: () => (drag ? { shown: drag.shown ? WINDOWS[drag.shown.i]!.title : null, snapped: drag.snapped } : null),
-    settled: () => wins.every((w) => w.settle.settled),
-    drawn: () => wins.map((w) => ({ ...w.settle.value })),
-    layout: () => layout,
-  };
+  fig.classList.add("go");
+  new ResizeObserver(() => {
+    const s = size();
+    if (!c.dragging && (s.width !== c.state.stage.width || s.height !== c.state.stage.height)) c.setSize(s.width, s.height);
+  }).observe(slot);
 }
-
