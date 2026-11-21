@@ -61,8 +61,7 @@ export const partOf = (id: PartId): Part => PARTS.find((p) => p.id === id)!;
 export const BUILT_WITH: Record<string, { part: PartId; kind: "uses" | "shows"; entry?: string; what: string }[]> = {
   "/window-motion/": [{ part: "motion", kind: "uses", what: "createSettle, SETTLE_TEMPO, reveal, createFrameLoop" }],
   "/drag-intent/": [
-    { part: "motion", kind: "uses", what: "createSettle, createFrameLoop" },
-    { part: "motion", kind: "shows", entry: "/drag", what: "the drag intent and its drop previews (outline, placeholder and glide; the library has a fourth, snap)" },
+    { part: "motion", kind: "uses", what: "createDragIntent, liftDecision, previewPlan (four preview modes; the switch offers outline, placeholder and glide), createSettle, createFrameLoop" },
   ],
   "/docking-layouts/": [
     { part: "motion", kind: "uses", what: "createLayoutMotion (every box glides)" },
