@@ -6,7 +6,7 @@
  * items it stops at the bar's edge. The rail's predicted entry runs its full length, inset or not.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, refusals, targets, type Edge, type Scene, type SceneItem } from "../src/scene";
+import { lanes, refusals, targets, type DockEdge, type DockState, type DockItem } from "../src";
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Side = "left" | "right";
@@ -14,15 +14,15 @@ type At = "end" | "start";
 type Bar = "empty" | "holding" | "absent";
 
 const form = (kind: string, main: number, cross: number) => ({ kind, main: { min: main, natural: main }, cross: { natural: cross } });
-const group = (id: string, main: number): SceneItem =>
+const group = (id: string, main: number): DockItem =>
   ({
     id,
     kind: "group",
     used: 1,
     forms: { row: [form("row", main, 28), form("menu", 0, 0)], column: [form("icons", main, 28), form("menu", 0, 0)] },
     floatSizes: { row: { width: main + 8, height: 34 }, column: { width: 34, height: main + 2 } },
-  }) as unknown as SceneItem;
-const panel = (id: string): SceneItem =>
+  }) as unknown as DockItem;
+const panel = (id: string): DockItem =>
   ({
     id,
     kind: "panel",
@@ -35,7 +35,7 @@ const panel = (id: string): SceneItem =>
       ],
     },
     floatSize: { width: 280, height: 420 },
-  }) as unknown as SceneItem;
+  }) as unknown as DockItem;
 
 interface Case {
   readonly w: number;
@@ -55,10 +55,10 @@ const BAR = "bar";
 const column = () => ({ accepts: ["panel"], cross: { min: 200, max: 560, rail: 32 }, gap: 0, hitBand: "middle" as const });
 
 /** A stage, a compact empty rail on one side, a column with one panel inside it, a bar across one of the rail's ends, a toolbar held as a float. */
-function sceneOf(c: Case): Scene {
-  const edges: Edge[] = [
-    { id: RAIL, side: c.side, ring: 0, accepts: ["group"], compact: true, items: [], cross: { min: 28, max: 28, rail: 28 }, gap: 4, outsideInset: true } as Edge,
-    { id: `${c.side}-0`, side: c.side, ring: 1, column: true, items: ["pages"], accepts: ["panel"], cross: { min: 200, max: 560, rail: 32 }, gap: 0, hitBand: "middle" } as Edge,
+function stateOf(c: Case): DockState {
+  const edges: DockEdge[] = [
+    { id: RAIL, side: c.side, ring: 0, accepts: ["group"], compact: true, items: [], cross: { min: 28, max: 28, rail: 28 }, gap: 4, outsideInset: true } as DockEdge,
+    { id: `${c.side}-0`, side: c.side, ring: 1, column: true, items: ["pages"], accepts: ["panel"], cross: { min: 200, max: 560, rail: 32 }, gap: 0, hitBand: "middle" } as DockEdge,
   ];
   if (c.bar !== "absent")
     edges.unshift({
@@ -72,7 +72,7 @@ function sceneOf(c: Case): Scene {
       gap: 8,
       pad: { start: 8, end: 8 },
       outsideInset: !c.barInside,
-    } as Edge);
+    } as DockEdge);
   return {
     stage: { x: 0, y: 0, width: c.w, height: c.h },
     edges,
@@ -87,19 +87,19 @@ function sceneOf(c: Case): Scene {
     inset: { top: c.inset, right: c.inset, bottom: c.inset, left: c.inset },
     insetWhen: "docked",
     gutter: 0,
-  } as unknown as Scene;
+  } as unknown as DockState;
 }
 
 const ask = (endReach: number) => ({ endReach, grab: { x: 16, y: 8 } });
 const piecesOf = (t: { hit: Rect; hits?: readonly Rect[] }): readonly Rect[] => t.hits ?? [t.hit];
 const inside = (r: Rect, x: number, y: number): boolean => x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height;
-const railTargets = (s: Scene, r: number) => targets(s, "tools", ask(r)).filter((t) => t.id.startsWith(`strip:${RAIL}:`) || t.id.startsWith(`gap:${RAIL}:`));
+const railTargets = (s: DockState, r: number) => targets(s, "tools", ask(r)).filter((t) => t.id.startsWith(`strip:${RAIL}:`) || t.id.startsWith(`gap:${RAIL}:`));
 
 /** Lines down the rail's band, its outer, middle and inner part (the outer one inside an inset's strip). */
 const railLines = (c: Case): number[] => [2, 14, 26].map((d) => (c.side === "left" ? d : c.w - d));
 
 /** Per sample point down the rail's band: the rail targets holding it, the other targets holding it, the refusals holding it. */
-function sample(s: Scene, c: Case, r: number) {
+function sample(s: DockState, c: Case, r: number) {
   const all = targets(s, "tools", ask(r)).filter((t) => !t.free);
   const mine = all.filter((t) => t.id.startsWith(`strip:${RAIL}:`) || t.id.startsWith(`gap:${RAIL}:`));
   const others = all.filter((t) => !mine.includes(t));
@@ -126,7 +126,7 @@ describe("endReach on a compact rail with a bar at its foot", () => {
   for (const inset of [0, 12])
     it(`the rail's end third keeps its end target and the predicted entry runs the full rail (inset ${inset})`, () => {
       const c = minimal(inset);
-      const s = sceneOf(c);
+      const s = stateOf(c);
       for (const r of [0, 24]) {
         const end = railTargets(s, r).find((t) => t.id === `strip:${RAIL}:end`);
         expect(end, `endReach ${r}`).toBeDefined();
@@ -143,10 +143,10 @@ describe("endReach on a compact rail with a bar at its foot", () => {
     });
 
   it("the reach strip past the stage joins the end target; without the bar the end target is one stretch", () => {
-    const s = sceneOf(minimal(0));
+    const s = stateOf(minimal(0));
     const end = railTargets(s, 24).find((t) => t.id === `strip:${RAIL}:end`)!;
     expect(piecesOf(end).some((p) => inside(p, 14, 610))).toBe(true);
-    const bare = sceneOf({ ...minimal(0), bar: "absent" });
+    const bare = stateOf({ ...minimal(0), bar: "absent" });
     const whole = railTargets(bare, 24).find((t) => t.id === `strip:${RAIL}:end`)!;
     expect(piecesOf(whole).some((p) => p.y <= 400 + 1e-6 && p.y + p.height >= 624 - 1e-6)).toBe(true);
   });
@@ -166,9 +166,9 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
           if (bar !== "absent") cases.push({ w, h, side, at, bar, inset: 12, barInside: true });
         }
 
-  it(`every point of the rail's own span is one of its zone targets, none refused for reach (${cases.length} scenes)`, () => {
+  it(`every point of the rail's own span is one of its zone targets, none refused for reach (${cases.length} states)`, () => {
     for (const c of cases) {
-      const s = sceneOf(c);
+      const s = stateOf(c);
       const base = sample(s, c, 0);
       const entry0 = lanes(s, "tools", ask(0)).lanes.find((l) => l.id === RAIL)?.entry;
       // A reach past the bar's thickness too, where a bar holds items: the strip must stop at it, not pass it.
@@ -201,7 +201,7 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
   it("past a bar holding items the reach strip stops at the bar's edge", () => {
     for (const at of ["end", "start"] as const) {
       const c: Case = { w: 800, h: 600, side: "left", at, bar: "holding", inset: 0 };
-      const s = sceneOf(c);
+      const s = stateOf(c);
       // 24 is within the bar's 41 px; 60 goes past it.
       for (const r of [24, 60]) {
         const ts = railTargets(s, r);

@@ -1,11 +1,11 @@
 /**
- * Reach only adds, over whole scenes with panel bodies: no target offered at `endReach: 0` is missing at a larger
+ * Reach only adds, over whole dock states with panel bodies: no target offered at `endReach: 0` is missing at a larger
  * reach. Pinned on a column holding two open panels with an empty bar across its foot: the footer gap, between the last
  * panel and the bar, keeps its own tile, as the ownership's room and the tiler place its line at the column's drawn end.
  */
 import { describe, expect, it } from "vitest";
-import { targets, type Edge, type Scene } from "../src/scene";
-import { byId, column, panel } from "./scene-fixture";
+import { targets, type DockEdge, type DockState } from "../src";
+import { byId, column, panel } from "./fixture";
 
 type Bar = "empty" | "holding" | "absent";
 interface Case {
@@ -26,9 +26,9 @@ const word = (id: string) => ({
   forms: { row: [{ kind: "row", main: { min: 120, natural: 120 }, cross: { natural: 28 } }, { kind: "menu", main: { min: 0, natural: 0 }, cross: { natural: 0 } }] },
 });
 
-function sceneOf(c: Case): Scene {
-  const bar = (id: string, side: "top" | "bottom", state: Bar): Edge[] =>
-    state === "absent" ? [] : [{ id, side, ring: 0, accepts: ["group", "panel"], items: state === "holding" ? [`${id}-w`] : [], cross: { min: 28, max: 28, rail: 28 } } as Edge];
+function stateOf(c: Case): DockState {
+  const bar = (id: string, side: "top" | "bottom", state: Bar): DockEdge[] =>
+    state === "absent" ? [] : [{ id, side, ring: 0, accepts: ["group", "panel"], items: state === "holding" ? [`${id}-w`] : [], cross: { min: 28, max: 28, rail: 28 } } as DockEdge];
   const inCol = c.panels === 2 ? ["p1", "p2"] : ["p1"];
   return {
     stage: { x: 0, y: 0, width: c.w, height: c.h },
@@ -42,15 +42,15 @@ function sceneOf(c: Case): Scene {
     columns: { left: cols, right: cols },
     contentMin: { width: 320, height: 240 },
     inset: { top: c.inset, right: c.inset, bottom: c.inset, left: c.inset },
-  } as unknown as Scene;
+  } as unknown as DockState;
 }
 
-const ids = (s: Scene, dragged: string, endReach: number): string[] => targets(s, dragged, { endReach }).map((t) => t.id);
+const ids = (s: DockState, dragged: string, endReach: number): string[] => targets(s, dragged, { endReach }).map((t) => t.id);
 
 describe("endReach on a column with panel bodies and a bar across its foot", () => {
   for (const r of [8, 24])
     it(`the footer gap keeps its own tile (endReach ${r})`, () => {
-      const s = sceneOf({ w: 1275, h: 580, side: "right", panels: 2, foot: "empty", head: "absent", inset: 0 });
+      const s = stateOf({ w: 1275, h: 580, side: "right", panels: 2, foot: "empty", head: "absent", inset: 0 });
       const at0 = targets(s, "x", { endReach: 0 }).find((t) => t.id === "gap:col0:start:2");
       expect(at0).toBeDefined();
       const now = targets(s, "x", { endReach: r }).find((t) => t.id === "gap:col0:start:2");
@@ -75,9 +75,9 @@ describe("property: no target present at endReach 0 is missing at a larger reach
         for (const foot of ["empty", "holding", "absent"] as const)
           for (const head of ["empty", "absent"] as const) for (const inset of [0, 12]) cases.push({ w, h, side, panels, foot, head, inset });
 
-  it(`a panel and a toolbar held, ${cases.length} scenes, endReach 8, 24 and 60`, () => {
+  it(`a panel and a toolbar held, ${cases.length} states, endReach 8, 24 and 60`, () => {
     for (const c of cases) {
-      const s = sceneOf(c);
+      const s = stateOf(c);
       for (const dragged of ["x", "g"]) {
         const base = ids(s, dragged, 0);
         for (const r of [8, 24, 60]) {
