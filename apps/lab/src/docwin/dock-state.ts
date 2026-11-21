@@ -70,6 +70,7 @@ import {
 /** What the drag intent picks among: the DockState's targets and its refusals (`refuse: true`, never held or shown). */
 type Pick = DockDrop | DockRefusalTarget;
 import { BAR, BAR_INSET, COL_MIN, COL_WIDE, DEFAULT_COUNTS, GROUPS, PANELS, RAIL, ROW_VARIANTS, TITLES, ZOOM_CONTROLS, defaultState, edgeOf, reformPanels, titleOf, setGroupSizes, setTitleSizes, withStage, type Counts, type EdgeId, type GroupId, type GroupMeasure, type ItemId, type PanelId } from "./model";
+import { LADDER_IDS, isLadder, ladderMenu, ladderWords, measureLadder, setLadderSizes, type LadderId, type LadderSize } from "./ladder";
 import { DEFAULT_FEEL, keyName, tuningOf, withFeel, type DragFeel } from "./feel";
 import { readDocwin, storeDocwin, type StoredDocwin } from "./store";
 import { createDragSession, followPointer, swallowClick } from "../shared/session";
@@ -116,7 +117,12 @@ interface FormSpec {
   readonly size: { readonly width: number; readonly height: number };
   /** A rail title's side (`DockItemLayout.railTitle`): which way it reads. */
   readonly railTitle?: "left" | "right" | undefined;
+  /** A ladder group's tiers (`DockItemLayout.tiers`) when it lies along a row (`./ladder`): set for every form it takes, a fold's included. */
+  readonly ladder?: LadderDraw | undefined;
 }
+
+/** How a ladder group is drawn: each shown control at its tier (a fold has none). */
+type LadderDraw = { readonly tiers: Readonly<Record<string, number>> };
 
 /** What the held copy reports to checks: its form, the target it follows, the switches so far, the morph and the DOM. */
 export interface HeldInfo {
@@ -273,6 +279,8 @@ export function createDocwin(o: DocwinOptions) {
   let drawnNow: { layout: DockLayout; hidden: ItemId | undefined } = { layout, hidden: undefined };
   /** The pre-render's listener: told every frame of a drag and its release (`ProbeFrame`). */
   let probe: ((f: ProbeFrame) => void) | null = null;
+  /** The pre-render's listener for the key frames of a check that plays no drag (`keyFrame`). */
+  let keyFrames: ((note: string) => void) | null = null;
   let lastDrop: LastDrop | null = null;
   /** The last drag's trace (the drag in progress, or the one before). */
   let lastTrace: DragTrace | null = null;
@@ -387,10 +395,10 @@ export function createDocwin(o: DocwinOptions) {
    * The overflow cell of a form that hides controls: a narrow "»" (12 px) with a small count badge, the edge's "» N" menu
    * one level down. It opens the popover listing exactly the hidden controls, and is drawn after the form's words.
    */
-  const moreCell = (id: ItemId, hidden: readonly string[]): string =>
+  const moreCell = (id: ItemId, hidden: readonly string[], count = hidden.length): string =>
     hidden.length === 0
       ? ""
-      : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${hidden.length} more ${esc(titleOf(id))} controls"><span class="dw-chev" aria-hidden="true">»</span><span class="dw-cnt" aria-hidden="true">${hidden.length}</span></button>`;
+      : `<button type="button" class="dw-more" data-more="${id}" aria-haspopup="menu" aria-expanded="false" aria-label="${count} more ${esc(titleOf(id))} controls"><span class="dw-chev" aria-hidden="true">»</span><span class="dw-cnt" aria-hidden="true">${count}</span></button>`;
 
   function groupContent(id: ItemId, kind: string, hidden: readonly string[] = []): string {
     const sq = (label: string, attrs = ""): string => `<button type="button" class="dw-sq" ${attrs}>${label}</button>`;
@@ -420,8 +428,23 @@ export function createDocwin(o: DocwinOptions) {
     return `<button type="button" class="dw-railbtn dw-railtitle dw-rt-${side}" data-grip data-open="${id}" aria-label="Open ${titleOf(id)}"><span class="dw-rt">${titleOf(id)}${c === null ? "" : badge(c)}</span></button>`;
   };
 
-  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right"): string {
+  /**
+   * A ladder group's row (`./ladder`) from its layout: the grip, then each control but the hidden ones at its tier, then
+   * the » cell listing exactly them; its `fold` form is the grip and that cell alone.
+   */
+  function ladderInner(id: LadderId, kind: string, draw: LadderDraw, hidden: readonly string[]): string {
+    const dots = '<span class="dw-dots" data-grip aria-hidden="true"></span>';
+    const more = moreCell(id, hidden, ladderMenu(id, hidden, counts).length);
+    if (kind === "fold") return dots + more;
+    return `${dots}<div class="dw-gc">${wordRow(id, ladderWords(id, draw.tiers, hidden, counts, (c) => !state.items[c]?.closed))}${more}</div>`;
+  }
+
+  /** How to draw `id` when it is a ladder group lying along a row (a column's forms are the window's own). */
+  const ladderOf = (id: ItemId, p: { readonly axis: string; readonly tiers?: Readonly<Record<string, number>> | undefined }): LadderDraw | undefined => (isLadder(state, id) && p.axis === "row" ? { tiers: p.tiers ?? {} } : undefined);
+
+  function inner(id: ItemId, kind: string, rows?: readonly (readonly number[])[], hidden: readonly string[] = [], titleSide?: "left" | "right", ladder?: LadderDraw): string {
     const it = state.items[id]!;
+    if (ladder) return ladderInner(id as LadderId, kind, ladder, hidden);
     if (it.kind === "chrome") return id === "title" ? '<span class="dw-title-t">Document title</span>' : '<span class="dw-ctl"></span><span class="dw-ctl"></span><span class="dw-ctl"></span>';
     if (it.kind === "panel") {
       if (kind === "open") return head(id) + `<div class="dw-body">${body(id)}</div>`;
@@ -446,7 +469,7 @@ export function createDocwin(o: DocwinOptions) {
     const r = p.rect;
     // A floating open panel takes resize handles on its four edges and corners (a toolbar's size comes from its forms).
     const handles = p.floating && p.kind === "panel" && p.formKind === "open" ? FLOAT_HANDLES.map((h) => `<div class="dw-fh" data-fh="${h}" aria-hidden="true"></div>`).join("") : "";
-    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden, p.railTitle)}${handles}</section>`;
+    return `<section class="${cls}" data-id="${id}" data-kind="${p.kind}" data-form="${p.formKind}" data-region="${region}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}">${inner(id, p.formKind, p.rows, p.hidden, p.railTitle, ladderOf(id, p))}${handles}</section>`;
   }
 
   /**
@@ -907,12 +930,12 @@ export function createDocwin(o: DocwinOptions) {
   function heldForm(frame: HTMLElement, forms: Map<string, HeldForm>, id: ItemId, kind: string, spec: FormSpec, fromGrip: Point | null): HeldForm {
     const w = spec.size.width;
     const h = spec.size.height;
-    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${spec.hidden.join(",")}|${spec.railTitle ?? ""}|${Math.round(w)}x${Math.round(h)}`;
+    const key = `${spec.formKind}|${spec.axis}|${JSON.stringify(spec.rows ?? null)}|${spec.hidden.join(",")}|${spec.railTitle ?? ""}|${JSON.stringify(spec.ladder ?? null)}|${Math.round(w)}x${Math.round(h)}`;
     const had = forms.get(key);
     if (had) return had;
     const el = document.createElement("section");
     el.className = `dw-item dw-${kind} dw-k-${spec.formKind} dw-ax-${spec.axis}`;
-    el.innerHTML = inner(id, spec.formKind, spec.rows, spec.hidden, spec.railTitle);
+    el.innerHTML = inner(id, spec.formKind, spec.rows, spec.hidden, spec.railTitle, spec.ladder);
     // Hidden until it heads in; it fades in from there.
     Object.assign(el.style, { left: "0px", top: "0px", width: px(w), height: px(h), opacity: "0", visibility: "hidden" });
     frame.append(el);
@@ -928,8 +951,8 @@ export function createDocwin(o: DocwinOptions) {
   function formAt(d: Held, t: DockDrop): FormSpec | null {
     const a = t.after(d.pointer, d.grab);
     const it = a.layout.items[d.id];
-    if (!it || it.inMenu || it.floating) return null;
-    return { formKind: it.formKind, axis: axisOf(a.scene, a.layout, d.id), rows: it.rows, hidden: it.hidden, size: it.rect, railTitle: it.railTitle };
+    if (!it || it.inMenu || (it.floating && t.place.kind !== "float")) return null;
+    return { formKind: it.formKind, axis: it.axis, rows: it.rows, hidden: it.hidden, size: it.rect, railTitle: it.railTitle, ladder: ladderOf(d.id, it) };
   }
 
   /**
@@ -1015,7 +1038,7 @@ export function createDocwin(o: DocwinOptions) {
     place(el, { x: p.x - grab.x, y: p.y - grab.y, width: was.rect.width, height: was.rect.height });
     win.append(el);
     const forms = new Map<string, HeldForm>();
-    const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: axisOf(scene, layout, id), rows: was.rows, hidden: was.hidden, size: was.rect }, null);
+    const homeForm = heldForm(el, forms, id, was.kind, { formKind: was.formKind, axis: was.axis, rows: was.rows, hidden: was.hidden, size: was.rect, ladder: ladderOf(id, was) }, null);
     // The pointer's offset from the grip in the lifted form: every form keeps it, so the grip stays under the pointer.
     const fromGrip = { x: grab.x - homeForm.anchor.x, y: grab.y - homeForm.anchor.y };
     // Shown in full from the lift.
@@ -1537,8 +1560,10 @@ export function createDocwin(o: DocwinOptions) {
     menuList.dataset.edge = "";
     menuList.dataset.more = id;
     menuList.setAttribute("aria-label", `More ${titleOf(id)} controls`);
-    menuList.innerHTML = hidden
-      .map((c) => `<button type="button" role="menuitem" tabindex="-1" data-hidden-control="${esc(c)}"${id === "zoom" ? ` data-zoom="${esc(c)}"` : ""}>${esc(controlLabel(id, c))}</button>`)
+    // A ladder group lists the buttons of each hidden control (a pair lists both); another group lists its hidden ids.
+    const entries = isLadder(state, id) ? ladderMenu(id as LadderId, hidden, counts) : hidden.map((c) => ({ id: c, label: controlLabel(id, c), control: c, act: id === "zoom" ? `data-zoom="${esc(c)}"` : undefined }));
+    menuList.innerHTML = entries
+      .map((e) => `<button type="button" role="menuitem" tabindex="-1" data-hidden-control="${esc(e.id)}" data-control="${esc(e.control)}"${e.act ? ` ${e.act}` : ""}>${esc(e.label)}</button>`)
       .join("");
     const r = btn.getBoundingClientRect();
     const w = win.getBoundingClientRect();
@@ -1930,6 +1955,23 @@ export function createDocwin(o: DocwinOptions) {
   setTitleSizes(measureTitles());
   state = defaultState();
   layout = solve(state);
+  /** The ladder groups' control lengths per tier (./ladder), from hidden copies of the row as `ladderInner` draws it. */
+  setLadderSizes(
+    Object.fromEntries(
+      LADDER_IDS.map((id) => [
+        id,
+        measureLadder(id, (tiers, hidden) => {
+          const el = document.createElement("section");
+          el.className = "dw-item dw-group dw-k-row dw-ax-row";
+          el.dataset.id = id;
+          el.style.cssText = `left:0;top:0;width:max-content;height:${BAR}px;visibility:hidden`;
+          el.innerHTML = ladderInner(id, "row", { tiers }, hidden);
+          layer.append(el);
+          return el;
+        }),
+      ]),
+    ) as Record<LadderId, LadderSize>,
+  );
 
   return {
     get state(): DockState {
@@ -1971,6 +2013,14 @@ export function createDocwin(o: DocwinOptions) {
     /** The pre-render listens to every frame of a drag and its release; null stops it. */
     setProbe(fn: ((f: ProbeFrame) => void) | null): void {
       probe = fn;
+    },
+    /** The pre-render listens to the key frames a check marks with `keyFrame`; null stops it. */
+    setKeyFrames(fn: ((note: string) => void) | null): void {
+      keyFrames = fn;
+    },
+    /** A check that plays no drag (a window being resized) marks the window as drawn now as a key frame of its case. */
+    keyFrame(note: string): void {
+      keyFrames?.(note);
     },
     /** The landing model's frame now (under `"landing"`, during a drag), or null. */
     get landingFrame(): LandingFrame | null {
