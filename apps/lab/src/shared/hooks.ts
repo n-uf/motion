@@ -19,8 +19,6 @@ interface LabHooks {
   runAll: (filter?: ScenarioFilter) => Promise<LabRun[]>;
   runs: LabRun[];
   lastRows: () => Row[];
-  /** The desk page: what gates a snap ("hover" only to check that the scenarios catch an ungated snap). */
-  snapGate?: (gate: "model" | "hover") => void;
 }
 
 declare global {
