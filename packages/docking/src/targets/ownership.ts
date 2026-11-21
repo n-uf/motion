@@ -77,8 +77,9 @@ function ownedRectsOf(s: EdgeSpec, along: readonly Span[]): Rect[] {
 
 /**
  * Every edge's seen rect, with the spec the tiler reads it by (null for an edge it doesn't read), and each side's drawn
- * rail's whole rect: a drawn rail owns its seen rect as every drawn edge does, so what its stops tile and what they leave
+ * rail's rect: a drawn rail owns its seen rect as every drawn edge does, so what its stops tile and what they leave
  * (past its last stop, the whole rail for a tile of it, whose stops are all home's) is the rail's, never a column line's.
+ * Less the run of the held tile's own column (`ownColumnRun`), which is that column's, tiled before the rail's stops.
  */
 function drawnOf(c: Ctx, live: readonly EdgeSpec[]): { spec: EdgeSpec | null; rect: Rect; lay: LayKey }[] {
   const edges = Object.entries(c.now.edges)
@@ -88,7 +89,13 @@ function drawnOf(c: Ctx, live: readonly EdgeSpec[]): { spec: EdgeSpec | null; re
     const rail = c.now.rails[side];
     if (!rail || rail.segments.length === 0 || area(rail.rect) <= EPS) return [];
     const spec = live.find((s) => s.kind === "railStop" && s.lay.side === side) ?? null;
-    return [{ spec, rect: rail.rect, lay: spec?.lay ?? { phase: EDGE_KINDS.railStop.phase, side, at: -1 } }];
+    const lay = spec?.lay ?? { phase: EDGE_KINDS.railStop.phase, side, at: -1 };
+    const me = c.now.items[c.dragged];
+    const run = me?.rail === side ? rail.segments.filter((g) => g.edge === me.edge).map((g) => g.rect) : [];
+    if (run.length === 0) return [{ spec, rect: rail.rect, lay }];
+    const top = Math.min(...run.map((r) => r.y));
+    const own = rect(rail.rect.x, top, rail.rect.width, Math.max(...run.map((r) => r.y + r.height)) - top);
+    return subtract(rail.rect, own).map((r) => ({ spec, rect: r, lay }));
   });
   return [...edges, ...rails];
 }

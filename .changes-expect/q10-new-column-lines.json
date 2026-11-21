@@ -1,0 +1,14 @@
+[
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "two right columns, ring * holding p1, panel p1*",
+    "reason": "case C (the drag is wrong): the new-column lane `column:right:col-right`, with p1 held in its own folded column, lay over that rail; a drawn rail owns its rect, so its hit rect now stops at the rail's inner side (width 236 -> 204). Its spots and marks are unchanged."
+  },
+  {
+    "package": "docking",
+    "kind": "after|guides|landing-frames|release-after",
+    "case": "two right columns, ring 2 holding p1, panel p1, empty lanes as edges | column:right:col-right column:right:col-right/line | *",
+    "reason": "the same lane's paths aim at the middle of its hit rect, which moved left with the cut, so the path to its one spot has one frame more (frame ids #n/82 become #n/83); no landing, guide or commit of the lane's own changes, only where the pointer path rests."
+  }
+]
