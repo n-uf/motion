@@ -17,7 +17,7 @@ npm i @n-uf/docking @n-uf/placement
 
 | Entry | What it gives |
 |---|---|
-| `@n-uf/docking` | One model of a whole window: `solve` for every rect, `targets` and `refusals` for every drag, `lanes` for a landing model, pure changes (`moveTo`, `foldItem`, `floatAt`, `resizeEdge`, ...) and a stored form (`storeDockState`, `readDockState`). |
+| `@n-uf/docking` | One model of a whole window: `solve` for every rect, `targets` and `refusals` for every drag, `dockDrag` for a landing model (its `after(state)`: the one layout a held frame draws and its release commits; `lanes` for hit-testing), pure changes (`moveTo`, `foldItem`, `floatAt`, `resizeEdge`, ...) and a stored form (`storeDockState`, `readDockState`). |
 | `@n-uf/docking/testing` | Conformance rows (`CASES`, `LANDING_CASES`), runners (`runCase`, `runLandingCases`) and reference hosts (`createReferenceHost`, `createLandingHost`) that a host's test suite plays against the model, and `AssertLanding`, a type check that the lanes fit `@n-uf/motion/drag`'s landing model. |
 
 Items declare their forms in `@n-uf/placement/stack`'s vocabulary (`StackForm`).

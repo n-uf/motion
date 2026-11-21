@@ -301,7 +301,8 @@ drag of `id`:
   (the pointer there is in that edge's lane), and the corner clip makes no zero-length `along` stretch. A spot is a place a drop there lands: its `landing` rect, its `target` (the drop, its
   `after()`), and its `along` stretch of the lane, the part that picks it. In a panel column, between two spots that
   share a neighbor (the item `Y` in `X|Y` and `Y|Z`) the boundary is that item's middle as drawn, so a column takes a
-  panel by halves; with `options.spot` the held spot's lane is drawn in that spot's own layout (its room open). On a bar
+  panel by halves; with a spot held, its lane's stretches are cut in that spot's own layout (its room open: a drag's
+  `spotsOf(spot)`). On a bar
   or a toolbar rail, and between any two other spots, the boundary is halfway across the gap between their landings,
   each in its own layout: wherever the pointer is, it is at the landing it picks or no nearer the other, so a toolbar
   moved along an occupied bar stays at the hand (the hand rule: while a lane holds, the landing is the nearest landing
@@ -311,7 +312,7 @@ drag of `id`:
   room inside a sliding range. A spot changes 6 px past the cut, hence the 6. Over a docked item much longer than the
   held one no landing lies inside it: the nearest are flush before and after it, and `g` is about its length less the
   held item's, plus a gutter; [decision 0001](decisions/0001-the-hand-rule.md)). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
-  target's `after(point, grab)` takes it; the press's, constant for the drag, in both calls, with and without `spot`):
+  target's `after(point, grab)` takes it; the press's, constant for the drag):
   on a bar or a toolbar rail along the item's own length, two landings that overlap (spots a pitch apart) are then cut
   at the grab, halfway between the points the pointer would hold in each (with landings of one length, kept within half
   a pitch of their overlap), so a pointer brought back to its press point picks the item's own place however far from
@@ -324,14 +325,14 @@ drag of `id`:
   order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
   between spots whose keys differ (that reflow the window).
-- `marks` per lane, the place guides in the layout as drawn: a mark at every place a drop lands but the held one's.
+- `marks` per lane, the place guides as seen (a drag's `after(state)` gives them in that state's layout): a mark at every place a drop lands but the held one's.
   - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
     A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
   - A neighbor gives way when the item lands in the room beside it: it moves away from the room, leaves the lane (the
-    menu, a float), or steps down to a shorter form than it has now. "Now" is the layout the marks are drawn in (as
-    seen) when no spot is held; with `spot` held, the layout as seen with the held item lifted, since in the spot's
-    own layout a neighbor is already drawn stepped down (it keeps its striped end). The same rule makes a stretch
+    menu, a float), or steps down to a shorter form than it has now. "Now" is the layout the marks are drawn in, one
+    layout: as seen, or a held state's (where a neighbor already drawn stepped down gives way no further, and one the
+    held item pushed gives way to a drop in another room). The same rule makes a stretch
     (below), against the layout as seen with the held item lifted. On a bar
     or a toolbar rail a room's `box` has a fixed striped end inside it (`hatch`, `HATCH_END`) at each side whose
     neighbor gives way (`:before` or `:after` in its id, the neighbor's id in its `givesWay`), whether or not the room
@@ -342,38 +343,23 @@ drag of `id`:
   - An empty lane (`options.emptyLanes`): `"real"` (default) a box at its real size, the band it would open (an empty
     side rail's over a column's outer strip, which moves aside); `"edge"` a thin striped strip (`HATCH_EDGE`) on its
     window side. Either way cut around every item docked in a bar or a toolbar rail.
-  - **A lane's guide and its mark come from one layout.** As seen (no `spot`), an edge lane empty as seen (not
-    drawn there) with one spot or one sliding spot takes its marks in the after-entry layout of that spot: the same
-    marks `lanes(…, { spot })` gives it once that spot is held, worked out the same way and clipped to its rect over
-    that layout, solved once per lift and remembered as the held spot's layout is. So a landing model's guide before
-    entry is the mark after it, the held item aside: an empty top bar's box lies over the panel columns that move down
-    when it opens, not cut at them. Its hit `rect` stays as seen; the guide may lie over a column that hasn't moved
-    yet. Under `emptyLanes: "edge"` nothing is predicted (the thin strips as seen), nor in a lane with more than one
-    spot (pitched stretches). Lanes that hold items keep their marks as seen. With `spot` held, an empty lane's marks
-    don't change but for the corner: every other lane whose marks as seen are predicted keeps them, less the held lane's
-    marks (which own their corners), so entering a rail doesn't cut the empty top bar at the columns again.
-  - **The shared corner.** Two predictions can claim one corner (an empty top bar and an empty rail), and a prediction
-    can lie over another lane's marks (a drawn rail's free end). `lanes()` stays pointer-free: in `marks` a prediction
-    gives the overlap up, to every lane not predicted, and between two predicted lanes to the bar (the earlier of two
-    alike), so no two lanes' `marks` overlap; where it gave something up, `entry` keeps the prediction whole, each
-    corner it shares its own, and `corners` names the lanes it overlaps. A landing model shows `entry` for the lane the
-    pointer picks (held, pending or approached) and cuts the lanes in its `corners` where they overlap it (`@n-uf/motion`'s
-    `createLandingModel`); with no such lane, every lane's `marks`, the bar keeping the corner.
+  - **One layout** (decision 0002, and `dockDrag`, below). A lane's marks lie in one layout: `lanes()` gives them as
+    seen; a drag's `after(state)` gives every lane's in that state's layout, a neighbor's giving way judged there too.
+    Its hit `rect` stays as seen. A lane the screen doesn't draw (an empty edge, no band) is drawn by `guides(frame)` in
+    the layout that creates it: an empty top bar's box lies over the panel columns that move down when it opens, not
+    cut at them (the guide may lie over a column that hasn't moved yet); the Near one in its would-land state's layout,
+    the others in their one spot's, their room whole, giving up where they meet a lane drawn on screen (between two
+    such, the bar keeps the corner). Under `emptyLanes: "edge"` nothing is created (the thin strips as seen), nor for
+    a lane with more than one spot (pitched stretches).
   - Never a box or a line over an item drawn there, nothing over the held item, nothing in a refused stretch, and no
-    two edge lanes' marks overlap (a lane's marks lie inside its lane rect in the layout they are drawn in: a mark shows
-    where a drop goes, and a drop is possible only where the lane takes the pointer, so a bar's marks stop where its
-    lane gives way to a drawn edge; a box is clipped to the rect, a line kept only if it lies inside. As seen, that is
-    the lane's `rect`; in a held frame every lane is drawn in the held spot's layout, where the drop may move its edge,
-    so every lane is clipped to its rect over the spot's layout (`laneRectOver`), the edge as drawn there with the same
-    band, while its hit `rect` for the landing model stays as seen; an empty lane's predicted marks (its guide from its after-entry layout) lie inside
-    its rect over its spot's after-entry layout, the same way. The corner clip is one rule for both: whether and where an empty lane
-    gives way is read from the layout as seen, so a held spot's marks on an edge its drop draws stop where its `rect`
-    does, even where that drop moves the drawn edge across it): at a corner a lane not drawn (an empty bar or rail) gives way to a drawn one, and
-    between two not drawn the bar owns it. A virtual lane (a new column's line, a declared rail) is drawn over what it
-    would push, and may overlap another lane's marks there.
-  - As seen (no `spot`), the lifted item is drawn nowhere, so its own place is free room in its lane. With
-    `options.spot`, every lane's marks lie in that spot's layout (the held item there, its room open, an edge moved by
-    it): a host draws the held lane's guides from the `lanes()` call with `spot` (a landing model's `regionsFor`).
+    two edge lanes' marks overlap: a lane's marks lie inside its rect in the layout they are drawn in (where the lane's
+    edge is drawn there, its edge as drawn, unclipped; otherwise its band, clipped at the edges drawn across it there),
+    a box clipped to the rect, a line kept only if it lies inside. At a corner a lane not drawn (an empty bar or rail)
+    gives way to a drawn one, and between two not drawn the bar owns it, read in that same layout. A virtual lane (a new
+    column's line, a declared rail) is drawn over what it would push, and may overlap another lane's marks there.
+  - As seen the lifted item is drawn nowhere, so its own place is free room in its lane. In a spot's layout the held
+    item is drawn where it lands, its room open, an edge moved by it; beside it on a sliding spot (where it lands
+    anywhere) any room from 8 px is a box.
   - A virtual lane: a box at its landing, a line beside it where the held item is drawn over it. Only where a drop
     lands, so none beside fixed chrome nothing lands next to. Each mark has an `id` (`<lane>/line/<before>|<after>`,
     `<lane>/box/<before>|<after>`, `<lane>/hatch/<before>|<after>`, `^` and `$` at the ends, with the suffixes above)
@@ -410,12 +396,12 @@ within the snap distance of it is home; a taken-over dock (a center dock, say) t
 of the item's own place therefore has no snap of its own there (as pitched spots do): intended, the
 item's own place wins near it. Its `target.after(point, grab)` puts the item's start at the pointer less the
 grab (along the item's own length; across it, the middle), clamped to the range and snapped, else on a whole pixel
-(`slide.step`, the grain a landing model's frame and a release's `at` round by too), and commits a dock keeping the `space` that puts it there: a dock consumes its placed neighbor's room, and the neighbor
+(`slide.step`; a drag's `after` of the sliding spot is this one computation, so the frame and the commit agree), and commits a dock keeping the `space` that puts it there: a dock consumes its placed neighbor's room, and the neighbor
 stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
 place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
 moves it with the pointer) and commits through `after(point, grab)`, as for a float. A spot's `target.place` is the dock
 at the spot's listed landing (on the item's own sliding spot its own zone, index and `space`); a sliding spot commits
-through `after(point, grab)`, and the release's `home` and `at` (and `DockSpot.home`) say where, never the place kind.
+through `after(point, grab)` (a drag's `after(release)`), and the release's `home` (and `DockSpot.home`) and the committed landing say where, never the place kind.
 A step comes only where the order
 changes (passing a neighbor): the cut beside a sliding spot reads its landing flush against the neighbor between them.
 Its guides are its stretch's one box, also while it is held. The range holds the landings that land where aimed with
@@ -444,9 +430,28 @@ Spot ids are keyed by the lane, zone and neighboring items: `<lane>/<zone>/<befo
 A new column's lane is `column:<side>:<the column it lies outside, or $>`, not its ring. Ids survive the window resizing;
 an item opening or moving beside a spot can change it (61–82% kept in the sweeps), so a landing model maps a lost id to
 its lane's nearest spot. The spots come from the same generation and filter as `targets()`, so a spot's landing is
-exactly what its drop commits. `lanes()` is remembered per state and options (`previous` by identity); a call with `spot`
-reworks only the held lane's stretches (0.03–0.66 ms per spot change), while the first call of a lift solves each spot
-once (2–18 ms at 1200–3200 px wide with full bars; 130–190 ms in the most crowded generated windows).
+exactly what its drop commits. `lanes()` is remembered per state and options (`previous` by identity): the first call
+of a lift solves each spot once (2–18 ms at 1200–3200 px wide with full bars; 130–190 ms in the most crowded generated
+windows), and a drag's states reuse that work.
+
+### `dockDrag(state, dragged, options)`: one layout per state
+
+`dockDrag` takes `lanes()`' options and gives a `DockDrag`: `regions` (`lanes()`', for hit-testing only), `after(held)`,
+`landingOf(held)`, `spotsOf(spot)` and `guides(frame)`. A state, `DockHeld`, is `{ kind: "spot", spot, point, lane? }`,
+`{ kind: "float", point }` or null (rest). `after(held)` is a `DockAfter`: `state` (what a release commits; a host stores
+it), `layout` (that state solved with `options.previous`, as the commit solves it), `landing` (the held item's rect
+there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
+spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
+remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
+a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. `landingOf(held)` is
+`after(held).landing`; `spotsOf(spot)` is a spot's lane's stretches in its own layout. `guides(frame)` takes a landing
+frame (`DockGuideFrame`: its `state` and its `guides`, `{ lane, state }` each) and gives its guides (`DockGuide`): each
+lane's marks in the layout of the state it names; a lane drawn on screen less the landing the pointer would take in
+it (a box part 8 px or shorter that cut leaves is dropped); a lane the screen doesn't draw in the layout that creates
+it (the Near lane's would-land state's; any other's one spot's, its room whole, giving up where it meets a lane drawn
+on screen, the bar keeping the corner between two such); the Near lane's marks winning where they meet another's. The
+drag fits `@n-uf/motion/drag`'s `LandingGeometry` as it is (`AssertGeometry<DockDrag>` in `./testing` pins it), and a
+landing frame and release fit `DockGuideFrame` and `DockHeld`.
 
 A declared rail is one lane with one spot, its end: reordering the tiles inside a declared rail is not a lane's job
 (the rail keeps its own tile order).

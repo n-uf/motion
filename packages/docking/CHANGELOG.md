@@ -14,6 +14,25 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
   reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
   only when it was solved from that very state object; otherwise the verb solves the state again.
 
+### One layout for the held frame and the commit (for the release after the first; with `@n-uf/motion`'s states)
+
+- **New: `dockDrag(state, dragged, options)`** (`DockDrag`): `regions` (hit-testing, as seen), `after(held)`
+  (`DockAfter`: the `state` a release commits, its `layout` solved with the drag's one `previous`, the `landing`, every
+  lane's `marks` in that one layout as `DockLaneMark`s, and for a spot its lane's `spots`), `landingOf(held)`,
+  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame` → `DockGuide[]`, rule B: a lane on screen less the would-land
+  landing; a lane the screen doesn't draw in the layout that creates it; the Near lane's marks win). `DockHeld` is
+  `{ kind: "spot", spot, point, lane? }` or `{ kind: "float", point }`. It fits `@n-uf/motion/drag`'s
+  `LandingGeometry` as it is; `./testing` adds `AssertGeometry`.
+- **Removed (breaking): the held-frame path of `lanes()`.** `DockLaneOptions.spot` and `lanes(…, { spot })`,
+  `DockLane.entry` and `corners` (the prediction of an empty lane's marks): a held frame is `after(state)`, and a
+  frame's guides `guides(frame)`. `lanes()` gives the regions and each lane's marks as seen.
+- **Changed.** A held lane's marks follow its edge as drawn in that state's layout, corners included (decision 0002:
+  with both side rails holding a toolbar, a toolbar held in the empty top bar draws the bar full width, as the
+  commit does). A neighbor's giving way (a striped end) is judged in the layout drawn, not the lifted one. Held on a
+  sliding spot, the item is drawn where it lands and the room beside it is a box from 8 px; the bar keeps the corner
+  between two empty lanes in a held frame. `./testing`'s `LandingRule` takes `{ regions, landingOf, spotsOf, home?,
+  placeGuides? }`, and its host draws guides with `guides(frame)` and commits `after(release).state`.
+
 ## 26.11.54
 
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from

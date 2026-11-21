@@ -3,7 +3,8 @@
  * its sides, each a stack of items), the items, the floats above the content and the rects they keep clear of
  * (`keepClear`). `solve(state)` gives every rect a host draws; `targets(state, dragged)` gives every drop place for one
  * item (`DockDrop`), each with the state and layout a release there makes, so the preview is the result; `lanes`
- * arranges the same places for a landing model. The changes are pure and named with their object (`openItem`,
+ * arranges the same places for a landing model, and `dockDrag` gives the one layout of each state of the drag
+ * (`after(state)`: what a held frame draws and its release commits). The changes are pure and named with their object (`openItem`,
  * `foldItem`, `resizeEdge`, ...), and `storeDockState` / `readDockState` keep a state across reloads. No time, no DOM,
  * nothing module-global.
  *
