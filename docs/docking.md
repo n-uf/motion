@@ -210,6 +210,8 @@ No mark lies over an item, the held item or a float, or in a refused stretch. No
 
 Marks have ids that stay while the items either side stay, so a host keys its drawing by them.
 
+A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an item that is not a tile of it. A column folded into it is a lane of its own for its tiles, drawn where its run of tiles lies (the hull of its rail segments), not over the whole rail: its hit rect, its spots' stretches and its marks lie in the run, its spots are the column's gaps (as for a column drawn as a rail), and the rest of the rail is the rail's: home for a tile of that column, as `targets()` says there. The lanes and `targets()` decide the same at every point of a rail (`test/one-layout-sweep.test.ts`).
+
 ## One layout: a drag's states (`dockDrag`)
 
 `dockDrag(state, dragged, options)` is a drag of one item (the options are `lanes()`'s: `previous` is the committed layout at the lift, the one every solve and the commit read; `grab` the press's). It gives:
@@ -353,4 +355,3 @@ The repo's glossary page (`apps/lab/src/pages/glossary.html`) fixes the words; t
 - **Importing motion for the pick rule.** The dependency rules and the build check forbid it (`docking-not-motion`, `scripts/check-dist.mjs`). The pick rule and the landing model come into the conformance code as inputs; the reference host's default pick is its own copy of the rule, held equal to motion's `targetAt` by a test.
 - **Release bookkeeping in the testing entry.** Library versions a row requires, a deadline and a ratchet on the skipped count were considered and left out: every row runs on every host, and a host that can't play one says so as a skipped check.
 - **Cutting lanes at the item's middle, with no grab.** `test/lanes-landing.test.ts` shows that without the grab the press point can miss the item's own place when the item was pressed near an end; that is why `lanes()` takes `grab`.
-- **Reordering tiles inside a declared rail as the rail lane's job.** A declared rail is one lane with one spot, its end (`rail:<side>/end`). A tile moves among its own tiles through its column's lane, whose spots are the column's gaps, as for a column drawn as a rail.

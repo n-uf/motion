@@ -30,7 +30,11 @@ Unreleased entries live in `changes/` until a release joins them.
   (`gap:<edge>:<zone>:<at>`, before each other tile and after the last, wherever it would stay a tile in the rail), over
   its own column's run of tiles only: over the tiles of the rail's other columns, and past the last tile, the place is
   the rail's, home for it, as before. A tile of another column, or the only tile of its column, gets the places it had.
-  A host tells a home by `place.kind === "home"`, never by its id (`rail:<side>:<ring>` stays a home's id).
+  A host tells a home by `place.kind === "home"`, never by its id (`rail:<side>:<ring>` stays a home's id). The lanes
+  agree: a column folded into a declared rail is a lane drawn where its run of tiles lies (the hull of its rail
+  segments), so its hit rect, its spots' stretches and its marks stop at the run, where they took the whole rail (a spot
+  over another column's tiles that reordered the held tile, a stretch past the rail's last tile); a column created folded
+  draws no mark beyond its own tile. `lanes()` and `targets()` decide the same at every point of a rail.
 
 ### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s states)
 

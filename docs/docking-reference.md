@@ -454,8 +454,12 @@ on screen, the bar keeping the corner between two such); the Near lane's marks w
 drag fits `@n-uf/motion/drag`'s `LandingGeometry` as it is (`AssertGeometry<DockDrag>` in `./testing` pins it), and a
 landing frame and release fit `DockGuideFrame` and `DockHeld`.
 
-A declared rail is one lane with one spot, its end: reordering the tiles inside a declared rail is not a lane's job
-(the rail keeps its own tile order).
+A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an item that is not a tile of it. A tile of a
+column folded into it moves among that column's tiles through the column's own lane, drawn where the column's run of tiles
+lies (the hull of its rail segments): the lane's `rect`, its spots' `along` stretches and its marks lie in the run, and
+its spots are the column's gaps, as `targets()` offers them. The rest of the rail (other columns' tiles, and past the
+last tile) is the rail's, home for the tile, as it is in `targets()`; at no point of a rail do the lanes and `targets()`
+decide differently.
 
 **Column footers.** `DockEdge.zoneAccepts` (and `ColumnTemplate.zoneAccepts`, for the columns a drop makes) narrows `accepts` per zone:
 the kinds each zone takes, and a zone not listed takes nothing. A panel column with `{ start: ["panel"], end: ["group"] }`
