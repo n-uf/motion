@@ -4,49 +4,10 @@
  * declared, under every declaration a host adds (`foldedColumnDrop`, `sideColumns`).
  */
 import { describe, expect, it } from "vitest";
-import { solve, targets, type DockDrop, type DockItem, type DockState } from "../src";
+import { lanes, solve, targets, type DockDrop, type DockItem, type DockState } from "../src";
+import { railWindow } from "./rail-windows";
 
-/** Four panels in a kit-shaped window: Pages and Notes on the left, `right` folded on the right (a rail's tiles). */
-function window(o: { rails: boolean; folded?: boolean; one?: boolean; right?: string[]; outer?: string[]; width?: number; hand?: string[] }): DockState {
-  const right = o.right ?? ["findings", "annotations"];
-  // A second folded column, outside the first on the same side: its tiles follow the first column's in the one rail.
-  const outer = o.outer ?? [];
-  const card = { min: 200, max: 560, natural: 280 };
-  const items: Record<string, DockItem> = {};
-  for (const [i, id] of ["pages", "notes", ...right, ...outer].entries())
-    items[id] = {
-      id,
-      kind: "panel",
-      used: i + 1,
-      ...((o.hand ?? [...right, ...outer]).includes(id) ? { from: 2 } : {}),
-      forms: {
-        column: [
-          { kind: "open", main: { min: 120, natural: 300, grows: true }, cross: { natural: card.natural, min: card.min } },
-          { kind: "header", main: { min: 34, natural: 34 }, cross: { natural: card.natural, min: 32 } },
-          { kind: "rail", main: { min: 36, natural: 36 }, cross: { natural: 32 } },
-        ],
-      },
-      floatSizes: { column: { width: card.natural, height: 440 } },
-    } as DockItem;
-  const template = { accepts: ["panel"], cross: { min: card.min, max: card.max, rail: 32 }, gap: 0 };
-  return {
-    stage: { x: 0, y: 0, width: o.width ?? 1440, height: 900 },
-    edges: [
-      { id: "left-0", side: "left", ring: 0, column: true, items: ["pages", "notes"], ...template },
-      { id: "right-0", side: "right", ring: 0, column: true, items: right, ...template },
-      ...(outer.length ? [{ id: "right-1", side: "right" as const, ring: 1, column: true, items: outer, ...template }] : []),
-    ],
-    items,
-    floats: [],
-    floatKinds: ["panel"],
-    columns: { left: template, right: template },
-    ...(o.rails ? { rails: { left: { width: 32, accepts: ["panel"] }, right: { width: 32, accepts: ["panel"] } } } : {}),
-    contentMin: { width: 320, height: 240 },
-    ...(o.one ? { sideColumns: "one" as const } : {}),
-    ...(o.folded ? { foldedColumnDrop: "end" as const } : {}),
-    gutter: 0,
-  } as DockState;
-}
+const window = railWindow;
 
 /** The held item's gaps among `edge`'s members (its own place is `home`, not a gap). */
 const gapsOn = (s: DockState, id: string, edge: string): DockDrop[] => targets(s, id).filter((t) => t.place.kind === "gap" && t.place.edge === edge);
@@ -137,6 +98,19 @@ describe("a tile among its own rail's tiles", () => {
       });
     }
 
+    it("a point just past the run's ends is not a gap of it: before, the other column's tile; after, past the last tile", () => {
+      const s = two();
+      const l = solve(s);
+      const run = ["p1", "p2"].map((id) => l.items[id]!.rect);
+      const [y0, y1] = [Math.min(...run.map((r) => r.y)), Math.max(...run.map((r) => r.y + r.height))];
+      const x = l.rails.right!.rect.x + l.rails.right!.rect.width / 2;
+      for (const held of ["p1", "p2"]) {
+        for (const y of [y0 - 0.5, y0 - 8, y1 + 0.5, y1 + 8]) expect(under(s, held, { x, y }).filter((t) => t.place.kind === "gap").map((t) => t.id), `${held} at ${y}`).toEqual([]);
+        // The run's own ends: inside it, a gap or home.
+        for (const y of [y0 + 0.5, y1 - 0.5]) expect(under(s, held, { x, y }).map((t) => t.place.kind), `${held} at ${y}`).toHaveLength(1);
+      }
+    });
+
     it("the gaps among the held tile's own column still move it", () => {
       const s = two();
       const t = gapsOn(s, "p2", "right-1").find((x) => x.place.kind === "gap" && x.place.at === 0)!;
@@ -220,6 +194,45 @@ describe("a tile among its own rail's tiles", () => {
     // The drop after `b` opens it (it is no longer folded by hand): not offered.
     const after = targets(s, "a").find((t) => t.id === "gap:left-1:start:1");
     expect(after === undefined || after.place.kind === "home").toBe(true);
+  });
+
+  describe("a column folded into the declared rail is drawn where its run of tiles lies (lanes and dockDrag)", () => {
+    const two = (): DockState => window({ rails: true, outer: ["p1", "p2"] });
+    const runOf = (s: DockState, edge: string): [number, number] => {
+      const segs = solve(s).rails.right!.segments.filter((x) => x.edge === edge);
+      return [Math.min(...segs.map((x) => x.rect.y)), Math.max(...segs.map((x) => x.rect.y + x.rect.height))];
+    };
+
+    it("the lane's rect, its spots' stretches and its marks lie in the run, not over the whole rail", () => {
+      const s = two();
+      const [y0, y1] = runOf(s, "right-1");
+      const lane = lanes(s, "p2").lanes.find((l) => l.id === "right-1")!;
+      expect(lane.rect.y).toBeCloseTo(y0, 3);
+      expect(lane.rect.y + lane.rect.height).toBeCloseTo(y1, 3);
+      for (const sp of lane.spots) expect(sp.along[0] >= y0 - 1e-6 && sp.along[1] <= y1 + 1e-6, `${sp.id} ${sp.along} in ${y0}..${y1}`).toBe(true);
+      for (const m of lane.marks) expect(m.rect.y >= y0 - 1e-6 && m.rect.y + m.rect.height <= y1 + 1e-6, `${m.id} ${JSON.stringify(m.rect)} in ${y0}..${y1}`).toBe(true);
+    });
+
+    it("over the other column's tiles, and past the last tile, no lane of the rail takes the pointer", () => {
+      const s = two();
+      const rail = solve(s).rails.right!.rect;
+      const [y0, y1] = runOf(s, "right-1");
+      const r = lanes(s, "p2");
+      for (const y of [10, 36, 60, y1 + 20, rail.y + rail.height - 5]) {
+        const p = { x: rail.x + rail.width / 2, y };
+        const over = r.lanes.filter((l) => l.rect.x <= p.x && p.x <= l.rect.x + l.rect.width && l.rect.y <= p.y && p.y <= l.rect.y + l.rect.height).map((l) => l.id);
+        expect(over, `y ${y} (the run is ${y0}..${y1})`).toEqual([]);
+      }
+    });
+
+    it("the first column's lane ends with its own tiles too (the tiles past it are the other column's)", () => {
+      const s = window({ rails: true, right: ["findings", "annotations", "marks"], outer: ["p1", "p2"] });
+      const [, y1] = runOf(s, "right-0");
+      const lane = lanes(s, "marks").lanes.find((l) => l.id === "right-0");
+      expect(lane).toBeDefined();
+      expect(lane!.rect.y + lane!.rect.height).toBeLessThanOrEqual(y1 + 1e-6);
+      for (const sp of lane!.spots) expect(sp.along[1], sp.id).toBeLessThanOrEqual(y1 + 1e-6);
+    });
   });
 
   it("a column with a tray of toolbars (its end zone): the places of its run lie in the rail, never over the content beside it", () => {

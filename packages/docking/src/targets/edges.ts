@@ -372,6 +372,5 @@ export function railColumnSpec(c: Ctx, edge: DockEdge, run: Rect): EdgeSpec | nu
   const spec = edgeSpec(seen, edge, "railColumn");
   if (!spec) return null;
   const across: Span = [run.x, run.x + run.width];
-  const zones = spec.zones.map((z) => ({ ...z, a: Math.max(z.a, run.y), b: Math.min(z.b, run.y + run.height) })).filter((z) => z.b > z.a);
-  return { ...spec, zones, across: () => across, owned: across };
+  return { ...spec, across: () => across, owned: across };
 }

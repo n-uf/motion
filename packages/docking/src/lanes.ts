@@ -583,12 +583,17 @@ export function drawnIn(layout: DockLayout, id: string): boolean {
   return drawnRect(layout, id) !== undefined;
 }
 
-/** Where `layout` draws the edge `id`: its rect when open, its side's rail when folded into it, else undefined. */
+/**
+ * Where `layout` draws the edge `id`: its rect when open; when folded into its side's rail, the run of its tiles there (the
+ * hull of its segments, as `targets()` cuts it: the rest of the rail is other columns' tiles, or nothing); else undefined.
+ */
 function drawnRect(layout: DockLayout, id: string): Rect | undefined {
   const e = layout.edges[id];
   if (!e) return undefined;
   if (e.cross > EPS) return e.rect;
-  return e.folded ? Object.values(layout.rails).find((r) => r?.segments.some((g) => g.edge === id))?.rect : undefined;
+  if (!e.folded) return undefined;
+  const run = Object.values(layout.rails).flatMap((r) => r?.segments.filter((g) => g.edge === id).map((g) => g.rect) ?? []);
+  return run.length > 0 ? run.reduce(hull) : undefined;
 }
 
 /**
