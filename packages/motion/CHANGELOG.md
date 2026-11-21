@@ -20,10 +20,11 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
   a gap, its step unknown, so it never entered a band over a refused column while it kept creeping. A step over a gap
   that is no longer than 3 px now reads as the slow step it is; a longer one (a fling out of a rest) stays unknown. The
   3 px is a length of its own (`HAND_SPEED.slowStep` of the internal estimate), not `gates.step`, which is a speed.
-- Docs: **the hand's speed, its costs in numbers.** The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`)
-  is internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. A slide into a
-  touching lane now enters about 1.3 to 2.8 times as far up the lane as before 26.11.52 (from the bar under an empty
-  rail, smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
+- Docs only: **the hand's speed estimate of 26.11.52, written up with its costs in numbers.** No behavior change in this
+  entry; it describes what 26.11.52 already does. The estimate (`createHandSpeed`, `HAND_SPEED`, `HandSpeedOptions`) is
+  internal, not exported from `./drag`. A gap of `min(40, gates.pause)` ms starts the hand again. Since 26.11.52 a slide
+  into a touching lane enters about 1.3 to 2.8 times as far up the lane as before it (from the bar under an empty rail,
+  smooth samples: 0.6 px/ms 62 → 82 px at 125 Hz, 67 → 106 at 60 Hz; 1.2 px/ms 67 → 125 and 77 → 173; 1.9 px/ms
   61 → 167 and 91 → 243). A hand jittering on the spot after a fling docks 64 → 104 ms after its last fast sample at
   125 Hz, 64 → 128 ms at 60 Hz.
 
