@@ -44,13 +44,13 @@ function pathsOf(c: Docwin, id: ItemId): ((g: Point) => Key[])[] {
 }
 
 /** Checks every frame of the drags of every toolbar, under `guides`; adds failures to `bad`, counts to `said`. */
-function sweep(c: Docwin, guides: "near" | "all", check: (c: Docwin, bad: string[], counts: Record<string, number>) => void, bad: string[], said: string[]): void {
+function sweep(c: Docwin, guides: "near" | "all", check: (c: Docwin, bad: string[], counts: Record<string, number>, guides: "near" | "all") => void, bad: string[], said: string[]): void {
   const counts: Record<string, number> = {};
   for (const id of GROUPS) {
     fresh(c, guides);
     for (const path of pathsOf(c, id as ItemId)) {
       fresh(c, guides);
-      drive(c, id as ItemId, path, [], () => check(c, bad, counts));
+      drive(c, id as ItemId, path, [], () => check(c, bad, counts, guides));
     }
   }
   said.push(`${guides}: ${Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(", ")}`);
@@ -66,15 +66,17 @@ function itemsCheck(c: Docwin, bad: string[], counts: Record<string, number>): v
   const held = m.id;
   // Named exception: over the document (a float state) this window keeps its committed layout until the release (the
   // one-preview model), so only the float's landing is held to the commit there.
-  if (m.frame.state.kind === "spot")
-  for (const el of c.win.querySelectorAll<HTMLElement>(".dw-items [data-id]")) {
-    const id = el.dataset.id!;
-    if (id === held || el.closest("[data-drag-held]")) continue;
-    const it = commit.items[id];
-    if (!it || it.inMenu) continue;
-    if (off(styleRect(el), it.rect) > 1) {
-      if (bad.length < 6) bad.push(`${id} drawn ${JSON.stringify(styleRect(el))}, committed ${JSON.stringify(it.rect)} (${m.frame.spot ?? m.frame.region})`);
-      return;
+  if (m.frame.state.kind === "spot") {
+    const drawnAt = new Map<string, Rect>();
+    for (const el of c.win.querySelectorAll<HTMLElement>(".dw-items [data-id]")) if (!el.closest("[data-drag-held]")) drawnAt.set(el.dataset.id!, styleRect(el));
+    // Every item the commit draws (in no menu, but the held one) is drawn where the commit puts it; none is missing.
+    for (const [id, it] of Object.entries(commit.items)) {
+      if (id === held || it.inMenu || it.rect.width <= 0 || it.rect.height <= 0) continue;
+      const r = drawnAt.get(id);
+      if (!r || off(r, it.rect) > 1) {
+        if (bad.length < 6) bad.push(`${id} drawn ${r ? JSON.stringify(r) : "nowhere"}, committed ${JSON.stringify(it.rect)} (${m.frame.spot ?? m.frame.region})`);
+        return;
+      }
     }
   }
   const landed = commit.items[held]?.rect;
@@ -82,7 +84,7 @@ function itemsCheck(c: Docwin, bad: string[], counts: Record<string, number>): v
 }
 
 /** Entry and reach: each lane's drawn guides lie within its marks in the state it names; the reach owner is exact. */
-function guidesCheck(c: Docwin, bad: string[], counts: Record<string, number>): void {
+function guidesCheck(c: Docwin, bad: string[], counts: Record<string, number>, guides: "near" | "all"): void {
   const m = c.landingModel;
   if (!m) return;
   const f = m.frame;
@@ -93,18 +95,26 @@ function guidesCheck(c: Docwin, bad: string[], counts: Record<string, number>): 
     counts["entry"] = (counts["entry"] ?? 0) + 1;
     const marks = m.drag.guides({ state: f.state, guides: [g] }).filter((x) => x.lane === g.lane);
     const landing = g.state ? m.drag.landingOf(g.state) : null;
-    for (const d of drawn.filter((x) => x.id.startsWith(`${g.lane}/`))) {
+    const mine = drawn.filter((x) => x.id.startsWith(`${g.lane}/`));
+    for (const d of mine) {
       // (The host insets a box 2 px and draws a line 2 px thick: 3 px either way.)
       if (!marks.some((x) => inside(d.r, x.rect, 3)) && bad.length < 6) bad.push(`${d.id} ${JSON.stringify(d.r)} is not its entry`);
       if (landing && overlaps(d.r, landing) && !d.id.includes("/line/") && bad.length < 6) bad.push(`${d.id} under the landing`);
     }
+    // Not vacuous: a lane whose entry has a box the host's inset leaves room in draws at least one guide.
+    if (marks.some((x) => x.kind === "box" && x.rect.width > 12 && x.rect.height > 12) && mine.length === 0 && bad.length < 6) bad.push(`${g.lane} drew no guide, its entry has ${marks.length} marks`);
   }
-  if (f.lane || f.pending || f.region !== "refused") return;
+  if (guides !== "all" || f.lane || f.pending || f.region !== "refused") return;
   counts["reach"] = (counts["reach"] ?? 0) + 1;
   const p = m.pointer;
-  const nearest = m.drag.regions.lanes.map((l) => ({ id: l.id, d: distanceTo(l.rect, p) })).filter((x) => x.d <= LANDING_APPROACH.reach).sort((a, b) => a.d - b.d)[0];
+  const nearest = m.drag.regions.lanes.map((l) => ({ l, d: distanceTo(l.rect, p) })).filter((x) => x.d <= LANDING_APPROACH.reach).sort((a, b) => a.d - b.d)[0];
   const owner = f.guides.find((g) => g.state !== f.state)?.lane;
+  // The nearest lane within reach owns the corner, unless the pointer picks no spot along it (a refused stretch).
+  const along = nearest ? (nearest.l.axis === "x" ? p.x : p.y) : 0;
+  const picks = !!nearest && nearest.l.spots.length > 0 && !nearest.l.refused.some((r) => along >= r.along[0] && along <= r.along[1]);
   if (!nearest && owner && bad.length < 6) bad.push(`at ${Math.round(p.x)},${Math.round(p.y)} the corner went to ${owner}, past every lane's reach`);
+  if (nearest && picks) counts["owned within reach"] = (counts["owned within reach"] ?? 0) + 1;
+  if (nearest && picks && owner !== nearest.l.id && bad.length < 6) bad.push(`at ${Math.round(p.x)},${Math.round(p.y)} the corner went to ${owner ?? "none"}, not ${nearest.l.id} within reach`);
 }
 
 export function ONE_LAYOUT_PRESETS(): OneLayoutPreset[] {
