@@ -110,6 +110,69 @@ describe("the generated ladder", () => {
   });
 });
 
+describe("fixed rank bands for any tier count", () => {
+  it("tier steps stay in [100, 400) and strictly increase; partial folds are exactly 400 + k / n, fold 500, menu 600", () => {
+    for (let n = 1; n <= 5; n++) {
+      for (let T = 1; T <= 9; T++) {
+        const spec = randomSpec(seeded(n * 10 + T), { strict: true, n, tiers: T });
+        const row = controlLadder(spec).row;
+        const ranks = row.map((f) => f.rank ?? 0);
+        const tiers = ranks.slice(1, tierEnd({ n, T }) + 1);
+        const at = `n ${n}, T ${T}`;
+        tiers.forEach((r, i) => {
+          expect(r, at).toBeGreaterThanOrEqual(100);
+          expect(r, at).toBeLessThan(400);
+          expect(r, `${at}: tier step ${i} ranks above the one before`).toBeGreaterThan(i === 0 ? 0 : tiers[i - 1]!);
+        });
+        const partial = ranks.slice(tierEnd({ n, T }) + 1, foldAt({ n, T }));
+        expect(partial, at).toEqual(Array.from({ length: n - 1 }, (_, i) => 400 + (i + 1) / n));
+        expect(ranks.slice(foldAt({ n, T })), at).toEqual([500, 600]);
+        // Tiers 1 and 2 keep 100 and 200 (step 0 of each tier).
+        if (T >= 2) expect(ranks[1]).toBe(100);
+        if (T >= 3) expect(ranks[1 + n]).toBe(200);
+      }
+    }
+  });
+
+  it("the same bands under keep, with the lift on top", () => {
+    const spec = randomSpec(seeded(3), { strict: true, n: 3, tiers: 8 });
+    const plain = controlLadder(spec).row.map((f) => f.rank ?? 0);
+    const kept = controlLadder({ ...spec, keep: 2 }).row.map((f) => f.rank ?? 0);
+    const s = shapeOf(spec);
+    expect(kept.slice(0, tierEnd(s) + 1)).toEqual(plain.slice(0, tierEnd(s) + 1));
+    expect(kept.slice(tierEnd(s) + 1)).toEqual(plain.slice(tierEnd(s) + 1).map((r) => r + 2000));
+  });
+});
+
+describe("hides along the ladder", () => {
+  it("the tier forms hide none, the partial folds' sets only grow, fold hides every control, over a sweep of specs", () => {
+    const rand = seeded(19);
+    for (let i = 0; i < 60; i++) {
+      const spec = randomSpec(rand, { strict: i % 2 === 0, n: 1 + (i % 5), tiers: 1 + (i % 4) });
+      const s = shapeOf(spec);
+      const row = controlLadder(spec).row;
+      const ids = spec.controls.map((c) => c.id);
+      for (let j = 0; j <= tierEnd(s); j++) expect(row[j]!.hides, `form ${j} is a tier form`).toBeUndefined();
+      let before: readonly string[] = [];
+      for (let j = tierEnd(s) + 1; j < foldAt(s); j++) {
+        const set = row[j]!.hides!;
+        expect(set.length, `partial fold ${j - tierEnd(s)} hides that many`).toBe(j - tierEnd(s));
+        expect(before.every((id) => set.includes(id)), `partial fold ${j - tierEnd(s)} keeps what the one before hid`).toBe(true);
+        expect(set.every((id) => ids.includes(id))).toBe(true);
+        before = set;
+      }
+      expect([...row[foldAt(s)]!.hides!].sort()).toEqual([...ids].sort());
+      expect(row[menuAt(s)]!.hides).toBeUndefined();
+    }
+  });
+
+  it("the fold order is the hiding order, whatever foldOrder says", () => {
+    const spec: ControlLadderSpec = { ...hand, controls: hand.controls.map((c, i) => ({ ...c, foldOrder: [2, 9, 5][i] })) };
+    const sets = controlLadder(spec).row.filter((f) => f.hides && f.kind === "row").map((f) => f.hides);
+    expect(sets).toEqual([["b"], ["b", "c"]]);
+  });
+});
+
 describe("the solver passes over a form that doesn't shorten", () => {
   // A big `more` cell: a partial fold that hides one 10 px control for a 40 px cell is longer than the row it leaves.
   const spec: ControlLadderSpec = { controls: [{ id: "a", tiers: [30, 20] }, { id: "b", tiers: [30, 20] }], gap: 4, more: 40, cross: 28 };
