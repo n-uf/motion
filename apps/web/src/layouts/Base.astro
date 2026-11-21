@@ -61,13 +61,15 @@ const ogImage = new URL(ogPath, Astro.site);
     <noscript><style>.theme{visibility:hidden}</style></noscript>
     <!-- the stored theme, before the first paint, so a dark choice never flashes light; it colors the browser bar too -->
     <script is:inline>try{var t=localStorage.getItem("motion-theme");if(t==="light"||t==="dark"){document.documentElement.dataset.theme=t;document.querySelectorAll("meta[name=theme-color]").forEach(function(m){m.content=t==="dark"?"#111214":"#f7f6f3";m.removeAttribute("media")})}}catch(e){}</script>
-    <!-- Vercel Web Analytics: cookieless, production only (the component skips dev). The Astro component takes no
+    <!-- Vercel Web Analytics: cookieless; in dev it loads Vercel's debug script, which sends nothing. The Astro component takes no
          beforeSend prop; it reads window.webAnalyticsBeforeSend, so this strips the query string from every event's URL
          (a query can carry ids or tokens). The /lab/ app is separate and has none. -->
     <script is:inline>window.webAnalyticsBeforeSend=function(e){try{var u=new URL(e.url);u.search="";return Object.assign({},e,{url:u.toString()})}catch(err){return e}}</script>
-    <Analytics />
   </head>
   <body>
     <slot />
+    <!-- last in the body: the component renders a custom element, and an unknown element in <head> would end the head
+         early and push the page's styles into <body> -->
+    <Analytics />
   </body>
 </html>
