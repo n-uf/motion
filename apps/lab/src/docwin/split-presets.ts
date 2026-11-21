@@ -42,13 +42,17 @@ const middle = (el: HTMLElement): { x: number; y: number } => {
   return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 };
 /** A drag of the divider by `path` (each a distance from the press, px along the column), pointer events as a mouse makes them. */
-function drag(c: Docwin, before: ItemId, after: ItemId, path: readonly number[]): boolean {
+type Ending = "pointerup" | "pointercancel" | "lostpointercapture";
+/** One pointer event at the divider `dy` px along the column from where it was at `p`: the divider holds the pointer, so a browser dispatches them all at it. */
+const pointer = (el: HTMLElement, p: { x: number; y: number }, type: string, dy: number, init: PointerEventInit = {}): void =>
+  void el.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 1, clientX: p.x, clientY: p.y + dy, ...init }));
+function drag(c: Docwin, before: ItemId, after: ItemId, path: readonly number[], end: Ending | null = "pointerup"): boolean {
   const el = dividerOf(c, before, after);
   if (!el) return false;
   const p = middle(el);
-  el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, button: 0, clientX: p.x, clientY: p.y }));
-  for (const dy of path) window.dispatchEvent(new PointerEvent("pointermove", { clientX: p.x, clientY: p.y + dy }));
-  window.dispatchEvent(new PointerEvent("pointerup", { clientX: p.x, clientY: p.y + path[path.length - 1]! }));
+  pointer(el, p, "pointerdown", 0, { button: 0 });
+  for (const dy of path) pointer(el, p, "pointermove", dy);
+  if (end) pointer(el, p, end, path[path.length - 1] ?? 0);
   return true;
 }
 const double = (c: Docwin, before: ItemId, after: ItemId, shift = false): boolean => {
@@ -61,11 +65,16 @@ const key = (c: Docwin, before: ItemId, after: ItemId, k: string): boolean => {
   el?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: k }));
   return !!el;
 };
-/** The untouched window set up, a list for what breaks, and the left column's two lengths as drawn. */
-function fresh(c: Docwin): { bad: string[]; was: { pages: number; notes: number } } {
+/**
+ * The untouched window set up, a list for what breaks, the left column's two lengths as drawn, and the divider between them
+ * with the point its middle is at.
+ */
+function fresh(c: Docwin): { bad: string[]; was: { pages: number; notes: number }; el: HTMLElement | null; p: { x: number; y: number } } {
   c.setState(base());
-  return { bad: [], was: { pages: tall(c, "pages"), notes: tall(c, "notes") } };
+  const el = dividerOf(c, "pages", "notes");
+  return { bad: [], was: { pages: tall(c, "pages"), notes: tall(c, "notes") }, el, p: el ? middle(el) : { x: 0, y: 0 } };
 }
+const MISSING: Verdict = { pass: false, now: "no divider between Pages and Notes is drawn" };
 const report = (bad: readonly string[]): string => (bad.length ? ` Broken: ${bad.join("; ")}.` : "");
 
 export function SPLIT_PRESETS(): SplitPreset[] {
@@ -84,6 +93,10 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         const rest = others(c, ["pages", "notes"]);
         const before = c.state;
         if (dividerCount(c) !== 1) bad.push(`${dividerCount(c)} dividers drawn, one expected`);
+        // The separator says its value (the panel before it, as drawn) and its limits (where its range takes it).
+        const aria = (): string => ["now", "min", "max"].map((k) => dividerOf(c, "pages", "notes")?.getAttribute(`aria-value${k}`)).join("/");
+        const ariaWant = (pages: number, notes: number): string => [pages, 160, pages + notes - 120].map((n) => Math.round(n)).join("/");
+        if (aria() !== ariaWant(at.pages, at.notes)) bad.push(`aria-valuenow/min/max are ${aria()}, ${ariaWant(at.pages, at.notes)} expected`);
         if (!drag(c, "pages", "notes", [10, 20, 30])) return { pass: false, now: "no divider between Pages and Notes is drawn" };
         if (!near(tall(c, "pages"), at.pages + 30) || !near(tall(c, "notes"), at.notes - 30)) bad.push(`+30 px gave Pages ${r0(tall(c, "pages"))} and Notes ${r0(tall(c, "notes"))}, not ${r0(at.pages + 30)} and ${r0(at.notes - 30)}`);
         if (others(c, ["pages", "notes"]) !== rest) bad.push("something besides the two moved");
@@ -98,6 +111,7 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         if (others(c, ["pages", "notes"]) !== rest) bad.push("far down, something besides the two moved");
         drag(c, "pages", "notes", [-200, -5000]);
         if (!near(tall(c, "pages"), 160) || !near(tall(c, "notes"), total - 160) || kind(c, "pages") !== "open") bad.push(`far up: Pages ${r0(tall(c, "pages"))} (${kind(c, "pages")}) and Notes ${r0(tall(c, "notes"))}, not 160 and ${r0(total - 160)}`);
+        if (aria() !== ariaWant(160, total - 160)) bad.push(`dragged far up, aria-valuenow/min/max are ${aria()}, ${ariaWant(160, total - 160)} expected`);
         key(c, "pages", "notes", "End");
         if (!near(tall(c, "notes"), 120)) bad.push(`End: Notes ${r0(tall(c, "notes"))}, not its least 120`);
         key(c, "pages", "notes", "Home");
@@ -126,6 +140,52 @@ export function SPLIT_PRESETS(): SplitPreset[] {
         if (!near(tall(c, "pages"), was.pages) || !near(tall(c, "notes"), was.notes)) bad.push(`after the reset Pages is ${r0(tall(c, "pages"))} and Notes ${r0(tall(c, "notes"))}, not ${r0(was.pages)} and ${r0(was.notes)}`);
         if (others(c, ["pages", "notes"]) !== rest) bad.push("something besides the two moved");
         return { pass: bad.length === 0, now: `untouched ${r0(was.pages)}/${r0(was.notes)}, reset ${r0(tall(c, "pages"))}/${r0(tall(c, "notes"))}.${report(bad)}` };
+      },
+    },
+    {
+      id: "split-double-click-after-jitter",
+      title: "Panel split: a 1 px jitter between the clicks of a double-click keeps the double-click",
+      expected:
+        "A real pointer sequence on the divider between Pages and Notes (press, a 1 px move, release, press, release) and the double-click that follows still reach the divider: it is the same element after the redraw (a redraw updates a divider in place, never replaces it), the 1 px move moved Pages by 1 px, and the double-click puts the pair back at its natural split.",
+      setup: (c) => c.setState(base()),
+      check(c) {
+        const { bad, was, el, p } = fresh(c);
+        if (!el) return MISSING;
+        pointer(el, p, "pointerdown", 0, { button: 0 });
+        pointer(el, p, "pointermove", 1);
+        pointer(el, p, "pointerup", 1);
+        if (!near(tall(c, "pages"), was.pages + 1)) bad.push(`the 1 px move gave Pages ${r0(tall(c, "pages"))}, not ${r0(was.pages + 1)}`);
+        pointer(el, p, "pointerdown", 1, { button: 0 });
+        pointer(el, p, "pointerup", 1);
+        if (!el.isConnected || dividerOf(c, "pages", "notes") !== el) bad.push("the divider element was replaced by a redraw, so the double-click has lost its target");
+        el.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+        if (!near(tall(c, "pages"), was.pages) || !near(tall(c, "notes"), was.notes)) bad.push(`after the double-click Pages is ${r0(tall(c, "pages"))} and Notes ${r0(tall(c, "notes"))}, not ${r0(was.pages)} and ${r0(was.notes)}`);
+        return { pass: bad.length === 0, now: `press, +1 px, release, press, release, double-click: Pages ${r0(was.pages)} -> ${r0(was.pages + 1)} -> ${r0(tall(c, "pages"))}.${report(bad)}` };
+      },
+    },
+    {
+      id: "split-pointercancel-ends-drag",
+      title: "Panel split: a cancelled pointer ends the drag",
+      expected:
+        "A drag of the divider between Pages and Notes whose pointer is cancelled (pointercancel), or whose capture is lost (lostpointercapture), ends there: the length of the last frame stays and later moves of that pointer change nothing; the next press drags again as usual.",
+      setup: (c) => c.setState(base()),
+      check(c) {
+        const { bad, was, el, p } = fresh(c);
+        if (!el) return MISSING;
+        const pages = (): number => tall(c, "pages");
+        drag(c, "pages", "notes", [30], null);
+        pointer(el, p, "pointercancel", 30);
+        pointer(el, p, "pointermove", 80);
+        if (!near(pages(), was.pages + 30)) bad.push(`after pointercancel a move of 80 gave Pages ${r0(pages())}, not ${r0(was.pages + 30)}`);
+        const first = pages();
+        drag(c, "pages", "notes", [10], null);
+        pointer(el, p, "lostpointercapture", 10);
+        pointer(el, p, "pointermove", 50);
+        if (!near(pages(), first + 10)) bad.push(`after lostpointercapture a move of 50 gave Pages ${r0(pages())}, not ${r0(first + 10)}`);
+        const second = pages();
+        drag(c, "pages", "notes", [5]);
+        if (!near(pages(), second + 5)) bad.push(`a new drag gave Pages ${r0(pages())}, not ${r0(second + 5)}`);
+        return { pass: bad.length === 0, now: `Pages ${r0(was.pages)} -> ${r0(first)} (cancel) -> ${r0(second)} (lost capture) -> ${r0(pages())} (a new drag).${report(bad)}` };
       },
     },
     {

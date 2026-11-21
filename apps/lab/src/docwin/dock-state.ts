@@ -548,20 +548,49 @@ export function createDocwin(o: DocwinOptions) {
    * library gives, a grab zone over it. None while a drag holds an item (the layout drawn is then the room's).
    */
   function drawDividers(s: DockState, l: DockLayout): void {
-    dividerLayer.innerHTML = drag
-      ? ""
-      : dividers(s, l)
-          .map((d) => {
-            const side = l.edges[d.edge]?.side;
-            const across = side === "left" || side === "right";
-            const r = across
-              ? { x: d.rect.x, y: d.rect.y + d.rect.height / 2 - DIVIDER_HIT / 2, width: d.rect.width, height: DIVIDER_HIT }
-              : { x: d.rect.x + d.rect.width / 2 - DIVIDER_HIT / 2, y: d.rect.y, width: DIVIDER_HIT, height: d.rect.height };
-            const title = "Drag to trade length between the two panels; double-click for their natural split, Shift+double-click for the column's";
-            return `<div class="dw-divider" data-divider data-edge="${esc(d.edge)}" data-before="${esc(d.before)}" data-after="${esc(d.after)}" data-across="${across}" role="separator" aria-orientation="${across ? "horizontal" : "vertical"}" tabindex="0" title="${title}" style="left:${px(r.x)};top:${px(r.y)};width:${px(r.width)};height:${px(r.height)}"></div>`;
-          })
-          .join("");
+    const keep = new Set<string>();
+    for (const d of drag ? [] : dividers(s, l)) {
+      const key = JSON.stringify([d.before, d.after]);
+      keep.add(key);
+      let el = dividerEls.get(key);
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "dw-divider";
+        el.setAttribute("data-divider", "");
+        el.setAttribute("role", "separator");
+        el.tabIndex = 0;
+        el.title = "Drag to trade length between the two panels; double-click for their natural split, Shift+double-click for the column's";
+        dividerEls.set(key, el);
+        dividerLayer.append(el);
+      }
+      const side = l.edges[d.edge]?.side;
+      const across = side === "left" || side === "right";
+      el.dataset.edge = d.edge;
+      el.dataset.before = d.before;
+      el.dataset.after = d.after;
+      el.dataset.across = String(across);
+      el.setAttribute("aria-orientation", across ? "horizontal" : "vertical");
+      place(
+        el,
+        across
+          ? { x: d.rect.x, y: d.rect.y + d.rect.height / 2 - DIVIDER_HIT / 2, width: d.rect.width, height: DIVIDER_HIT }
+          : { x: d.rect.x + d.rect.width / 2 - DIVIDER_HIT / 2, y: d.rect.y, width: DIVIDER_HIT, height: d.rect.height },
+      );
+      // The value is how long the panel before it is drawn; the limits are where the divider's `range` takes it.
+      const r = l.items[d.before]?.rect;
+      const now = r ? (across ? r.height : r.width) : 0;
+      el.setAttribute("aria-valuenow", String(Math.round(now)));
+      el.setAttribute("aria-valuemin", String(Math.round(now + d.range.min)));
+      el.setAttribute("aria-valuemax", String(Math.round(now + d.range.max)));
+    }
+    for (const [key, el] of dividerEls) {
+      if (keep.has(key)) continue;
+      el.remove();
+      dividerEls.delete(key);
+    }
   }
+  /** The divider elements by pair, kept between draws: a redraw updates one in place and never replaces a node. */
+  const dividerEls = new Map<string, HTMLElement>();
 
   // --- committing ------------------------------------------------------------------------------------------------
 
@@ -1836,7 +1865,10 @@ export function createDocwin(o: DocwinOptions) {
    * A divider, the canonical wiring (what a kit mirrors). A drag: each frame is the state at the press moved by the pointer's
    * distance from the press, `resizeBetween(pressState, before, after, delta, { layout: pressLayout })`, committed. Double-click:
    * `resetBetween` (Shift: `resetLengths` of its edge). Arrow keys: a step (Shift: more), Home and End: the divider's `range`
-   * (`dividers(state, layout)`), then the focus goes back to the redrawn divider.
+   * (`dividers(state, layout)`). A change that leaves the state as it is commits nothing, and a redraw updates the divider's
+   * element in place (never replaces it), so a jitter between the clicks of a double-click keeps its target and the focus
+   * stays. The drag holds the pointer (`setPointerCapture`) and ends on `pointerup`, `pointercancel` or
+   * `lostpointercapture`, whichever comes first.
    */
   function resizeDivider(e: PointerEvent, el: HTMLElement): void {
     const { before, after } = el.dataset;
@@ -1844,18 +1876,29 @@ export function createDocwin(o: DocwinOptions) {
     e.preventDefault();
     const along = (p: { clientX: number; clientY: number }): number => (el.dataset.across === "true" ? p.clientY : p.clientX);
     const press = { state, layout, at: along(e) };
-    const mv = (ev: PointerEvent): void => void commit(resizeBetween(press.state, before, after, along(ev) - press.at, { layout: press.layout }));
-    const up = (): void => {
-      window.removeEventListener("pointermove", mv);
-      window.removeEventListener("pointerup", up);
+    const mv = (ev: PointerEvent): void => change(resizeBetween(press.state, before, after, along(ev) - press.at, { layout: press.layout }));
+    const ends = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+    const end = (): void => {
+      el.removeEventListener("pointermove", mv);
+      for (const t of ends) el.removeEventListener(t, end);
+      if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
     };
-    window.addEventListener("pointermove", mv);
-    window.addEventListener("pointerup", up);
+    el.addEventListener("pointermove", mv);
+    for (const t of ends) el.addEventListener(t, end);
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      // A pointer that isn't active (a synthetic event): the events are dispatched at the divider all the same.
+    }
+  }
+  /** Commit `next` unless it is the state as it is: nothing changed, nothing redrawn. */
+  function change(next: DockState): void {
+    if (next !== state) commit(next);
   }
   win.addEventListener("dblclick", (e) => {
     const dv = (e.target as HTMLElement).closest<HTMLElement>("[data-divider]");
     if (!dv || frozen()) return;
-    commit(e.shiftKey ? resetLengths(state, dv.dataset.edge!) : resetBetween(state, dv.dataset.before!, dv.dataset.after!, { layout }));
+    change(e.shiftKey ? resetLengths(state, dv.dataset.edge!) : resetBetween(state, dv.dataset.before!, dv.dataset.after!, { layout }));
   });
   win.addEventListener("keydown", (e) => {
     const dv = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-divider]");
@@ -1867,8 +1910,7 @@ export function createDocwin(o: DocwinOptions) {
     const delta = !d ? null : e.key === less ? -step : e.key === more ? step : e.key === "Home" ? d.range.min : e.key === "End" ? d.range.max : null;
     if (delta === null) return;
     e.preventDefault();
-    commit(resizeBetween(state, before!, after!, delta, { layout }));
-    dividerLayer.querySelector<HTMLElement>(`[data-before="${before}"][data-after="${after}"]`)?.focus({ preventScroll: true });
+    change(resizeBetween(state, before!, after!, delta, { layout }));
   });
 
   /** The column's resize edge: a plain pointer drag that sets the user's size across (`resizeEdge`). */
