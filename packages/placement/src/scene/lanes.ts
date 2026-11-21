@@ -985,7 +985,12 @@ function predict(
     // Only where its drop draws the lane: the layout `lanes(…, { spot })` draws its marks in.
     if (!held || (held.layout.edges[l.id]?.cross ?? 0) <= EPS) continue;
     const again = heldLaneIn(l.id, raws, held, base, dragged);
-    if (again) whole.set(l.id, settle(again, held.layout, scene, dragged, built, emptyLanes, laneRectOver(raws, held.layout, base.seen, base.marking).rect).marks);
+    if (!again) continue;
+    const after = settle(again, held.layout, scene, dragged, built, emptyLanes, laneRectOver(raws, held.layout, base.seen, base.marking).rect).marks;
+    // An edge that holds nothing else takes the item whole: in its after-entry layout the item fills it, so no room is
+    // left beside it and `edgeMarks` marks nothing. Before entry the lane keeps its box as seen (the room at real size);
+    // held, nothing lies over the item.
+    whole.set(l.id, after.length === 0 && l.marks.length > 0 ? l.marks : after);
   }
   if (whole.size === 0) return [...settled];
   // The bars' predictions first (they own a corner they share with a predicted rail), then the others, in order.
