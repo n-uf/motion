@@ -4,10 +4,11 @@
  * (`StackItem.length`), which `fitStack` reads in place of a growing form's natural; these are the functions that read and
  * write it. Pure: a state in, a state out (the same object when nothing changed).
  *
- * The two ends of a divider are the nearest items that are open and growing on each side of a boundary: an item that
- * draws a form that grows (`main.grows`), isn't in the » menu, isn't `fixed` and isn't a `wrap` form. A header, a rail icon, a
- * group or a folded item between them isn't growing, so it has no divider of its own and doesn't kill the divider
- * across it.
+ * A growing item is one drawn in a form that grows (`main.grows`, not in the » menu): the items that share spare length,
+ * and so the items whose length is written. The two ends of a divider are neighboring growing items, neither `fixed` nor a
+ * `wrap` form. A header, a rail icon, a group or a folded item between them isn't growing, so it has no divider of its own
+ * and doesn't kill the divider across it; a growing item that is not an end (a fixed one, a `wrap` form that grows) ends
+ * the chain: there is no divider across it.
  */
 import { EPS, type Rect } from "../geometry";
 import { fitStack, sizesOf } from "./layout";
@@ -32,7 +33,8 @@ export interface StackDivider {
 
 interface Grower {
   readonly id: string;
-  readonly fixed: boolean;
+  /** Whether it may be an end of a divider: not `fixed` and not a `wrap` form. */
+  readonly end: boolean;
   /** The least it takes as the length was shared. */
   readonly least: number;
   /** What its form asks for by itself, the least at most. */
@@ -54,34 +56,45 @@ function growers(input: StackInput, fit: StackFit): Grower[] {
   fit.items.forEach((p, at) => {
     const item = byId.get(p.id);
     const f = item?.forms[p.form];
-    if (!item || !f || p.kind === "menu" || f.kind === "menu" || f.wrap || f.main.grows !== true) return;
+    if (!item || !f || p.kind === "menu" || f.kind === "menu" || f.main.grows !== true) return;
     const least = known?.least.get(p.id) ?? formMain(f, "min", fit.cross);
-    out.push({ id: p.id, fixed: item.fixed === true, least, natural: Math.max(least, formMain(f, "natural", fit.cross)), drawn: mainOf(p.rect, fit.axis), at });
+    out.push({ id: p.id, end: item.fixed !== true && !f.wrap, least, natural: Math.max(least, formMain(f, "natural", fit.cross)), drawn: mainOf(p.rect, fit.axis), at });
   });
   return out;
 }
 
-/** The two items of a divider, when `before` and `after` are neighbors among the open growing ones in that order. */
-function pair(open: readonly Grower[], before: string, after: string): [Grower, Grower] | null {
-  const i = open.findIndex((g) => g.id === before);
-  const next = open[i + 1];
-  return i >= 0 && next !== undefined && next.id === after ? [open[i]!, next] : null;
+/** The two items of a divider, when `before` and `after` are neighboring growing items, both ends, in that order. */
+function pair(all: readonly Grower[], before: string, after: string): [Grower, Grower] | null {
+  const i = all.findIndex((g) => g.id === before);
+  const next = all[i + 1];
+  return i >= 0 && next !== undefined && next.id === after && all[i]!.end && next.end ? [all[i]!, next] : null;
 }
 
 /**
  * `input` with every growing item written at the length it is drawn (the pair given moved to `to`), so the stack is laid out
  * as drawn and nothing but the pair moves. Short of length the items are drawn part of the way from their least to the
  * length they ask for (`tight`); a length written one step back from there is drawn exactly that way again, whatever the
- * items that don't grow do. Items already at their length stay the same objects.
+ * items that don't grow do. With spare length, a collapsed item that has no length of its own and a form that grows is
+ * written the length it would have been drawn at had it been open (`scale` times its natural, the others being
+ * drawn that much longer than they ask), so it keeps its proportion when it reopens. Items already at their length stay
+ * the same objects.
  */
 function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: ReadonlyMap<string, number>): StackInput {
-  const tight = sizesOf(fit)?.tight;
+  const known = sizesOf(fit);
+  const tight = known?.tight;
   const share = tight !== undefined && tight > EPS && tight < 1 ? tight : 1;
+  const scale = known?.scale ?? 1;
   const byId = new Map(all.map((g) => [g.id, g]));
   let changed = false;
   const items = input.items.map((it) => {
     const g = byId.get(it.id);
-    if (!g) return it;
+    if (!g) {
+      const open = scale > 1 + EPS && it.fixed !== true && it.length?.[input.axis] === undefined ? it.forms.find((f) => f.kind !== "menu" && f.main.grows === true) : undefined;
+      const natural = open ? scale * formMain(open, "natural", fit.cross) : 0;
+      if (natural <= EPS) return it;
+      changed = true;
+      return { ...it, length: { ...it.length, [input.axis]: natural } };
+    }
     const length = g.least + ((to.get(g.id) ?? g.drawn) - g.least) / share;
     const was = it.length?.[input.axis];
     if (was !== undefined && Math.abs(was - length) <= EPS) return it;
@@ -98,11 +111,7 @@ function written(input: StackInput, fit: StackFit, all: readonly Grower[], to: R
 function trade(input: StackInput, before: string, after: string, options: FitOptions, to: (b: Grower, a: Grower) => number): StackInput {
   const fit = fitStack(input, options);
   const all = growers(input, fit);
-  const ends = pair(
-    all.filter((g) => !g.fixed),
-    before,
-    after,
-  );
+  const ends = pair(all, before, after);
   if (!ends) return input;
   const [b, a] = ends;
   const first = to(b, a);
@@ -119,16 +128,18 @@ function trade(input: StackInput, before: string, after: string, options: FitOpt
 }
 
 /**
- * The dividers of a stack laid out as `fit`, one per pair of nearest open growing items, in the stack's order. A collapsed
- * item has none of its own; where collapsed items sit between two open ones there is one divider between the open
- * ones, on the far edge of the last collapsed one.
+ * The dividers of a stack laid out as `fit`, one per pair of neighboring growing items that are both ends, in the stack's
+ * order. A collapsed item has none of its own; where collapsed items sit between two open ones there is one divider
+ * between the open ones, on the far edge of the last collapsed one. A growing item that isn't an end (a fixed one, a
+ * `wrap` form) has none and ends the chain.
  */
 export function dividers(input: StackInput, fit: StackFit): StackDivider[] {
-  const open = growers(input, fit).filter((g) => !g.fixed);
+  const all = growers(input, fit);
   const out: StackDivider[] = [];
-  for (let k = 0; k + 1 < open.length; k++) {
-    const b = open[k]!;
-    const a = open[k + 1]!;
+  for (let k = 0; k + 1 < all.length; k++) {
+    const b = all[k]!;
+    const a = all[k + 1]!;
+    if (!b.end || !a.end) continue;
     // The last item drawn before `after`: the divider sits on its far edge.
     let prev = a.at - 1;
     while (prev > b.at && fit.items[prev]!.kind === "menu") prev--;
@@ -156,14 +167,20 @@ export function resizeBetween(input: StackInput, before: string, after: string, 
 }
 
 /**
- * Give the two items of a divider back their natural split: their combined drawn length shared in proportion to their
- * natural lengths (their forms' `main.natural`, the least at most), nothing else moving. The double-click action. Returns
- * the same object when the two are at that split already, or are not neighbors.
+ * Give the two items of a divider back the split they would be drawn at if both asked for their natural, their combined
+ * drawn length kept and nothing else moving: in proportion to their naturals (their forms' `main.natural`, the least at
+ * most) with room for both, and `least + (natural - least) * s` with one shared `s` when short, as `fitStack` shares a
+ * short length. The double-click action. Returns the same object when the two are at that split already (a pair nobody
+ * resized always is, in every regime), or are not neighbors.
  */
 export function resetBetween(input: StackInput, before: string, after: string, options: FitOptions = {}): StackInput {
   return trade(input, before, after, options, (b, a) => {
     const both = b.drawn + a.drawn;
-    const want = b.natural + a.natural > EPS ? (both * b.natural) / (b.natural + a.natural) : both / 2;
+    const natural = b.natural + a.natural;
+    const least = b.least + a.least;
+    let want: number;
+    if (both >= natural - EPS) want = natural > EPS ? (both * b.natural) / natural : both / 2;
+    else want = b.least + (b.natural - b.least) * (natural - least > EPS ? (both - least) / (natural - least) : 0);
     return Math.min(Math.max(want, b.least), Math.max(b.least, both - a.least));
   });
 }
@@ -175,7 +192,7 @@ export function resetBetween(input: StackInput, before: string, after: string, o
 export function resetLengths(input: StackInput): StackInput {
   let changed = false;
   const items = input.items.map((it) => {
-    if (it.length === undefined) return it;
+    if (it.length?.[input.axis] === undefined) return it;
     changed = true;
     const { [input.axis]: _dropped, ...rest } = it.length;
     const { length: _length, ...bare } = it;

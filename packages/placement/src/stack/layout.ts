@@ -433,10 +433,13 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   const size = new Map<number, number>();
   // The share of the way from the least to the asked sizes the items are drawn at: 1 with room enough for all.
   let tight = 1;
+  // How much longer than it asks a growing form is drawn with spare length: 1 + spare / weight.
+  let scale = 1;
   if (sumNat <= avail + EPS) {
     const growers = drawn.filter((i) => form(i).main.grows);
     const spare = Math.max(0, avail - sumNat);
     const weight = growers.reduce((s, i) => s + nat(i), 0);
+    if (weight > EPS) scale = 1 + spare / weight;
     for (const i of drawn) {
       const share = growers.includes(i) ? (weight > EPS ? nat(i) / weight : 1 / growers.length) : 0;
       size.set(i, nat(i) + spare * share);
@@ -482,7 +485,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
   for (const i of idx) if (tooWide(i, cross)) notes.push({ code: "too-wide", id: items[i]!.id });
   if (overflow > EPS) notes.push({ code: "overflow", over: overflow });
   const fit: StackFit = { axis: input.axis, length, cross, items: placed, menu, notes, need: minSumWith(false), steps: hist };
-  sizes.set(fit, { tight, least: new Map(drawn.map((i) => [items[i]!.id, min(i)])) });
+  sizes.set(fit, { tight, scale, least: new Map(drawn.map((i) => [items[i]!.id, min(i)])) });
   return fit;
 }
 
@@ -490,6 +493,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
 export interface FitSizes {
   /** How far from the least to the asked sizes the items were drawn: 1 with room for all of them, less when short. */
   readonly tight: number;
+  /** How much longer than it asks each growing form was drawn: 1 + spare / weight with spare length, else 1. */
+  readonly scale: number;
   /** The least each drawn item could take as the sizes were shared (a held growing fixed item's is its natural). */
   readonly least: ReadonlyMap<string, number>;
 }

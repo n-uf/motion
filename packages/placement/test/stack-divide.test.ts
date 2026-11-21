@@ -116,11 +116,13 @@ describe("resizeBetween", () => {
     const next = resizeBetween(input, "a", "b", 10);
     for (const it of next.items) expect(it.length?.column).toBeCloseTo(mainOf(fitStack(next), it.id), 6);
     expect(next.items.every((it) => typeof it.length?.column === "number")).toBe(true);
-    // A header-only panel isn't growing: no length is written for it.
+    // A header-only panel isn't growing: its drawn length is not written (see stack-divide-chain.test.ts for the one it
+    // gets for when it reopens).
     const mixed = stack([panel("a", 1), folded("b", 2), panel("c", 3)], 600);
     const written = resizeBetween(mixed, "a", "c", 20);
-    expect(written.items[1]!.length).toBeUndefined();
+    expect(mixed.items[1]!.length).toBeUndefined();
     expect(written.items[0]!.length?.column).toBeDefined();
+    expect(mainOf(fitStack(written), "b")).toBe(28);
   });
 
   it("the other axis's length is kept", () => {
