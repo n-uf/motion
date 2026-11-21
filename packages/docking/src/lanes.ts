@@ -525,7 +525,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is DockLane => !!l);
   // Each lane's marks as seen: the window as seen is one layout (`marksIn`'s rule over it), the held item drawn nowhere.
   // `dockDrag`'s rest reads these.
-  const laneList = newColumnsGiveWay(built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes)), (l) => l.id, state);
+  const laneList = newColumnsGiveWay(built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes)), (l) => l.id, state).map((l) => clearOfRail(l, seen));
   const onLanes = new Set(laneList.map((l) => l.id));
   const rails = Object.values(seen.rails).flatMap((r) => (r && r.rect.width > EPS && r.rect.height > EPS ? [r.rect] : []));
   const blocked = [
@@ -555,6 +555,23 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
       refusals: rs,
     },
   };
+}
+
+/**
+ * A new column's lane gives way to the side's drawn rail, as the layout as seen draws it: the rail owns its rect (a
+ * column line's zone starts where the rail ends, and the rest of the rail is the rail's, home for a tile of it), so the
+ * lane's hit rect stops at the rail's inner side, never over it, though the column's box lands where a lifted tile's rail
+ * was. Only the hit rect (what a pointer is in) is cut; the lane's marks are laid in the layout that makes the column.
+ */
+function clearOfRail(lane: DockLane, seen: DockLayout): DockLane {
+  const side = /^column:(left|right):/.exec(lane.id)?.[1] as "left" | "right" | undefined;
+  const rail = side ? seen.rails[side] : undefined;
+  if (!side || !rail || rail.segments.length === 0) return lane;
+  const r = lane.rect;
+  const q = rail.rect;
+  if (!(q.x < r.x + r.width - EPS && r.x < q.x + q.width - EPS && q.y < r.y + r.height - EPS && r.y < q.y + q.height - EPS)) return lane;
+  const [a, b] = side === "right" ? [r.x, Math.min(r.x + r.width, q.x)] : [Math.max(r.x, q.x + q.width), r.x + r.width];
+  return b - a > EPS ? { ...lane, rect: rect(a, r.y, b - a, r.height) } : lane;
 }
 
 /**
