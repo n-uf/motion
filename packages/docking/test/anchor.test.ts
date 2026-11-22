@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
 import { center } from "@n-uf/placement";
 import { canFold, foldItem, markUsed, parseTargetId, readDockState, refusals, resizeEdge, setSide, solve, storeDockState, targetId, targets, type DockState } from "../src";
-import { anchorState, byId, column, form, panel } from "./fixture";
+import { anchorState } from "./fixture";
 
 describe("an anchor dragged to the other side", () => {
   const movable = (): DockState => ({ ...anchorState(), edges: anchorState().edges.map((e) => (e.id === "anchor:thumbs" ? { ...e, moves: "side" as const } : e)) });
