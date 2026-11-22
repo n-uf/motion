@@ -7,6 +7,7 @@
  */
 import { overlaps, type Rect } from "@n-uf/placement";
 import { dockDrag, solve, targets, type AnchoredKeepClear, type DockLayout, type DockState } from "@n-uf/docking";
+import { same as sameRect } from "../shared/geometry";
 import type { Docwin } from "./dock-state";
 import { DEFAULT_SIZE, defaultState, floating } from "./model";
 
@@ -27,7 +28,9 @@ const withStrip = (s: DockState): DockState => ({ ...s, keepClear: [...(s.keepCl
 const stripOf = (l: DockLayout): Rect | undefined => l.keepClear?.find((c) => c.id === "strip")?.rect;
 /** Where the content's right 24 px lie in `l`. */
 const expectedStrip = (l: DockLayout): Rect => ({ x: l.content.x + l.content.width - 24, y: l.content.y, width: 24, height: l.content.height });
-const same = (a: Rect | undefined, b: Rect | undefined): boolean => !!a && !!b && Math.abs(a.x - b.x) < 0.5 && Math.abs(a.y - b.y) < 0.5 && Math.abs(a.width - b.width) < 0.5 && Math.abs(a.height - b.height) < 0.5;
+/** To the px (the window draws the strip at whole px offsets). */
+const px = (r: Rect): Rect => ({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.width), height: Math.round(r.height) });
+const same = (a: Rect | undefined, b: Rect | undefined): boolean => !!a && !!b && sameRect(px(a), px(b));
 const show = (r: Rect | undefined): string => (r ? `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}` : "none");
 
 /** The reference window: the default one with the strip. */
