@@ -167,13 +167,11 @@ per third. Every empty edge does the same along its own axis: a side edge or a c
 they disagree: a pointer over an item's half aims before or after that item, in its zone (see Aim order under
 Targets); the thirds decide only between and beyond the items, and on empty zones and empty edges.
 
-A **title bar**, a bar with a fixed item that grows and takes no steps (the window title), is a constrained host: a
-toolbar dropped there must land in a form of its first form's step group (its row or a compact variant), every other
-item of the bar keeps its step group (it may take a compact variant, never its icons, its fold or the »), and the title
-keeps its natural width (it may never shrink to its `min` to make room). The title's growth is spare room, not owned
-room: it yields that to the landing, as the title rule lets the toolbars take their compact variants while it holds its
-natural width, so a drop that only makes a neighbor step to a variant lands. A zone where that can't hold has no target
-and no slot, so a bar too full
+A **title bar**, a bar with a fixed item that grows and takes no steps (the window title): its growth is spare room, not
+owned room. For target room the title counts at its natural width, not the width it grew to (filter (ii): its least is
+its natural width), and nothing else is asked, so a drop there lands exactly where it would beside a fixed item of that
+width that doesn't grow, its neighbors giving way as on any bar. The title yields its growth to the landing and never
+shrinks under its natural width to make room. A zone where that can't hold has no target and no slot, so a bar too full
 takes no drop in that zone. The zones are then laid with the title at its natural width, not at the width it grew to:
 
 - a leading toolbar sits right after the title's natural rect;
@@ -222,8 +220,7 @@ control ids it leaves out (`StackForm.hides`, against the item's first form; any
 like any other: taken in declared order, giving way by priority then age, coming back in the exact reverse. The layout
 reports the chosen form's ids as `hidden` on every item (empty when it hides none or sits in a » menu), and `form`
 names the variant; a host draws the kept controls and a "+N" control that lists exactly `hidden`. A drop's `after()`
-previews the variant the drop lands in. A drop onto a title bar lands in a form of its first form's step group
-(`StackForm.stepGroup`, default the kind: the full row or a variant), read from the forms.
+previews the variant the drop lands in.
 
 ```ts
 const zoom: DockItem = {
