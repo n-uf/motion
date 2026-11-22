@@ -1,4 +1,4 @@
-/** A rail target whose drop pushes what lies beside it opens its room as it shows (`Target.opensRoom`). */
+/** A rail target whose drop pushes what lies beside it opens its room as it shows (`DockDrop.opensRoom`). */
 import { createDragIntent, DRAG_DEFAULTS, type DragTarget } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Rect } from "@n-uf/placement";
