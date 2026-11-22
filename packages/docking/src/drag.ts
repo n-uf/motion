@@ -24,7 +24,7 @@
  * `held` and `guides`), though neither package imports the other: `createLandingModel({ ...drag, preview })` is the whole
  * wiring.
  */
-import { EPS, type Point, type Rect } from "@n-uf/placement";
+import { EPS, area, overlaps, subtract, type Point, type Rect } from "@n-uf/placement";
 import type { DockLayout, DockState } from "./model";
 import { baseOf, drawnIn, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
 import type { DockDrop, DropResult } from "./targets/model";
@@ -109,6 +109,22 @@ export interface DockDrag {
 
 /** A box piece a cut at the landing leaves this short or shorter along its lane is no room: not drawn, px. */
 const MIN_PIECE = 8;
+
+/**
+ * Marks trimmed by `cs` (the screen's anchored keep-clear rects): each mark that meets one keeps the largest piece of
+ * its rect clear of all of them, with its id (a strip along a box's side takes that side off, across or along), and is
+ * dropped when nothing of 1 px or more is left. A mark that only touches one (a zero-thick line on its edge) stays.
+ */
+function trimmedBy<M extends DockMark>(marks: readonly M[], cs: readonly Rect[]): M[] {
+  if (cs.length === 0) return [...marks];
+  return marks.flatMap((m): M[] => {
+    const over = cs.filter((c) => overlaps(m.rect, c));
+    if (over.length === 0) return [m];
+    const pieces = over.reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, c)), [m.rect]).filter((p) => p.width >= 1 && p.height >= 1);
+    if (pieces.length === 0) return [];
+    return [{ ...m, rect: pieces.reduce((a, p) => (area(p) > area(a) ? p : a)) }];
+  });
+}
 const ORIGIN = { x: 0, y: 0 };
 
 /**
@@ -200,6 +216,10 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     if (frame.guides.length === 0) return [];
     const held = after(frame.held);
     const screen = screenOf(frame);
+    // The screen's anchored keep-clear rects for every target (`DockLayout.keepClear`; a floats-only one is the float's
+    // alone): a lane predicted in another layout, where the drop moves them, is trimmed by them as the screen has them.
+    // Fixed rects lie alike in every layout and are not cut here.
+    const screenClear = (screen.layout.keepClear ?? []).filter((c) => c.for !== "floats").map((c) => c.rect);
     // The Near lane: the one shown with another held place than the screen's (a would-land held place), at most one.
     let near: { lane: string; marks: DockLaneMark[] } | null = null;
     const shown: { lane: string; marks: DockLaneMark[]; created?: true }[] = [];
@@ -224,14 +244,16 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
       const axis = axisOf.get(g.lane) ?? "x";
       // (A box part the landing leaves `MIN_PIECE` px or shorter is no room; a line goes only where the landing covers it.)
       const own = screen.marks.filter((m) => m.lane === g.lane);
-      const marks = onScreen ? (mine.landing ? marksLess(own, axis, [mine.landing], { suffix: "~l", minBox: MIN_PIECE, lines: "covered" }) : own) : mine.marks.filter((m) => m.lane === g.lane);
+      // A lane the screen doesn't draw is predicted in another layout: it gives way to the screen's anchored keep-clear rects.
+      const predicted = mine.marks.filter((m) => m.lane === g.lane);
+      const marks = onScreen ? (mine.landing ? marksLess(own, axis, [mine.landing], { suffix: "~l", minBox: MIN_PIECE, lines: "covered" }) : own) : trimmedBy(predicted, screenClear);
       near = { lane: g.lane, marks };
       shown.push(near);
     }
     // A lane drawn in the layout that creates it gives way wherever the screen draws something: another lane's mark, a
     // drawn bar or toolbar rail (its items stay put when the lane opens; a column moves aside, so the guide may lie over
     // it), a side rail's segments (its folded columns' tabs), or the held landing. Between two such lanes the bar keeps
-    // the corner (the bars first, each cut by the ones before).
+    // the corner (the bars first, each cut by the ones before). It is trimmed by the screen's anchored keep-clear rects first.
     const drawnStays = [
       ...state.edges
         .filter((e) => (e.side === "top" || e.side === "bottom" || !!e.compact) && (screen.layout.edges[e.id]?.cross ?? 0) > EPS)
@@ -245,7 +267,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     const made = shown.filter((s) => s.created).sort((a, b) => (axis(a.lane) === axis(b.lane) ? 0 : axis(a.lane) === "x" ? -1 : 1));
     const kept: Rect[] = [];
     for (const s of made) {
-      s.marks = marksLess(s.marks, axis(s.lane), [...onScreen, ...kept]);
+      s.marks = marksLess(trimmedBy(s.marks, screenClear), axis(s.lane), [...onScreen, ...kept]);
       kept.push(...s.marks.map((m) => m.rect));
     }
     if (!near) return shown.flatMap((s) => s.marks);
