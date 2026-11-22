@@ -7,7 +7,7 @@
  * (a drop, a resize) covers the anchored float, which keeps its place. The stacking order plays no part. A float
  * with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
  */
-import { EPS, rect, type Rect, type Size } from "@n-uf/placement";
+import { EPS, clampInto, overlaps, rect, type Rect, type Size } from "@n-uf/placement";
 import { fitFloat, formFolded, type FloatFit, type StackForm } from "@n-uf/placement/stack";
 import { anchorName, axisOf, controlsOf, keepClearFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, DockFloat, DockItem } from "../model";
@@ -92,13 +92,35 @@ function fitBeside(want: Rect, region: Rect, avoid: readonly Rect[], earlier: re
 }
 
 /**
- * A float the hand left over content: `fitFloat` clear of the bars and chrome alone (`avoid` past its first `docked`
- * entries), then left there over the docked items (`fitFloat`'s `stay`), `covers` naming what it covers in `avoid`.
+ * `r` moved the least it takes to lie clear of `walls` (the bars and the chrome), inside `region`: as the stage's edge
+ * clamps a float, each wall it overlaps pushes it out along one axis, the shorter way that clears every wall (one push,
+ * or two where two walls meet at a corner). Null where no such push clears them all.
+ */
+function clearOfWalls(r: Rect, region: Rect, walls: readonly Rect[]): Rect | null {
+  const under = (c: Rect): Rect[] => walls.filter((w) => overlaps(c, w, 1e-3));
+  if (under(r).length === 0) return r;
+  const pushes = (c: Rect): Rect[] =>
+    under(c).flatMap((w) =>
+      [rect(w.x - c.width, c.y, c.width, c.height), rect(w.x + w.width, c.y, c.width, c.height), rect(c.x, w.y - c.height, c.width, c.height), rect(c.x, w.y + w.height, c.width, c.height)].map((m) => clampInto(m, region)),
+    );
+  const far = (c: Rect): number => Math.abs(c.x - r.x) + Math.abs(c.y - r.y);
+  let best: Rect | null = null;
+  for (const a of pushes(r))
+    for (const c of under(a).length === 0 ? [a] : pushes(a)) if (under(c).length === 0 && (!best || far(c) < far(best) - 1e-9)) best = c;
+  return best;
+}
+
+/**
+ * A float the hand left over content: kept inside `region` and pushed the least it takes clear of the bars and chrome
+ * (`avoid` past its first `docked` entries; `clearOfWalls`, else `fitFloat` clear of them), then left there over the
+ * docked items (`fitFloat`'s `stay`), `covers` naming what it covers in `avoid`.
  */
 function fitStays(want: Rect, region: Rect, avoid: readonly Rect[], docked: number): FloatFit {
-  const kept = fitFloat(want, region, avoid.slice(docked));
-  const over = fitFloat(kept.rect, region, avoid, { stay: true });
-  return { ...kept, covers: over.covers };
+  const walls = avoid.slice(docked).filter((w) => w.width > 0 && w.height > 0);
+  const inside = clampInto(want, region);
+  const kept = clearOfWalls(inside, region, walls) ?? fitFloat(want, region, walls).rect;
+  const over = fitFloat(kept, region, avoid, { stay: true });
+  return { rect: kept, clamped: kept.x !== want.x || kept.y !== want.y, snapped: false, covers: over.covers, searchCapped: false };
 }
 
 /**
