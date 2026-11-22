@@ -1000,14 +1000,16 @@ item's place left empty and nothing else moved (a release there commits nothing)
 `solve(liftItem(state, id), { previous })`, which would show a result no drop gives.
 
 **Stored form.** `storeDockState(state)` gives `{ v: 1, edges: [{ id, side, ring, items, size?, column? }], floats: [{ id, x, y,
-width, height, orient?, anchor?, since? }], items: { [id]: { used, kept?, from?, closed?, align?, space?, floatSizes? } } }`; no float has a
+width, height, orient?, anchor?, since?, stays? }], items: { [id]: { used, kept?, from?, closed?, align?, space?, floatSizes? } } }`; no float has a
 pinned field. An item's `floatSizes` is `{ row?, column? }`, each a size; an entry that isn't one is dropped and listed
 (`item:<id>:floatSizes:<orient>`), and a store with the old single `floatSize` reads as `floatSizes` for the orient its
 float is in (the item's own orient where it floats nowhere), but on a float whose store declares no `floatSizes` it
 is dropped (`item:<id>:floatSize`). A float's `since` (when it was floated) is kept as stored; one that isn't a number from 0 to
 `Number.MAX_SAFE_INTEGER` is dropped and listed (`float:<id>:since`), and a new `since` never goes past that. A float's `anchor` is stored as given, a name or `{ at, dx?, dy? }`, and read back as stored: the clamp
 on read moves only its rect, which an anchored float doesn't lie by (an unusable anchor or offset field is dropped and
-listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). `readDockState(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
+listed, `float:<id>:anchor`, `float:<id>:anchor:dx`). A float's `stays` (the hand left it over content,
+`DockFloat.stays`) is stored as `true` on a float with no anchor and read back so; one that isn't `true`, or one on an
+anchored float, is dropped and listed (`float:<id>:stays`). `readDockState(data, base)` takes kinds, forms, limits and edges from `base` and order, sizes and states from
 the store, never throws, and lists what it drops: unknown edges and items, kinds an edge doesn't accept, fixed items
 stored in another edge than `base`'s, bad fields, a `pinned` field. A stored edge's order is kept exactly, fixed items
 where the store put them, so a drop after a fixed item round-trips; a fixed item the store lacks goes back to its base
