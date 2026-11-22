@@ -43,7 +43,7 @@ const fresh = (c: Docwin): void => {
 /** Every mark of where the item would land, other than the item itself. */
 function marks(c: Docwin): string[] {
   const out: string[] = [];
-  for (const sel of [".dw-slot", ".dw-marker", ".dw-railstrip"]) for (const el of c.win.querySelectorAll<HTMLElement>(sel)) if (!el.hidden) out.push(sel);
+  for (const sel of [".dw-slot", ".dw-railstrip"]) for (const el of c.win.querySelectorAll<HTMLElement>(sel)) if (!el.hidden) out.push(sel);
   return out;
 }
 
@@ -712,8 +712,8 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
     ),
     preset(
       "one-preview-one-mark",
-      "One landing, one mark: never an outline and an insertion line together",
-      "In every preview, Zoom held at the left window edge, a toolbar over a bar's place and a panel over a column: no frame shows both a dashed outline and an insertion line.",
+      "One landing, one mark: never an outline and a drop strip together",
+      "In every preview, Zoom held at the left window edge, a toolbar over a bar's place and a panel over a column: no frame shows more than one mark of where the item lands (the dashed outline, a drop strip).",
       (c, bad, said) => {
         let frames = 0;
         const spots: readonly [ItemId, (c2: Docwin) => Point | null][] = [
@@ -730,11 +730,9 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
             let both = 0;
             drive(c, id, (g): Key[] => hold(through([g, p], AIM), SETTLE), [], () => {
               frames++;
-              const slot = c.win.querySelector<HTMLElement>(".dw-slot");
-              const line = c.win.querySelector<HTMLElement>(".dw-marker");
-              if (slot && !slot.hidden && line && !line.hidden) both++;
+              if (marks(c).length > 1) both++;
             });
-            if (both) bad.push(`${mode}, ${id}: outline and line together on ${both} frames`);
+            if (both) bad.push(`${mode}, ${id}: more than one mark of the landing together on ${both} frames`);
           }
         said.push(`${frames} frames, one mark at most`);
       },

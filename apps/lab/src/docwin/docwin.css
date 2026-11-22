@@ -260,7 +260,6 @@
 .dw-sq-n small { font-size: 7.5px; line-height: 1; color: var(--win-muted); font-variant-numeric: tabular-nums; }
 .dw-slot { z-index: 5; pointer-events: none; border: 2px dashed var(--signal); border-radius: 6px; background: var(--signal-soft); }
 .dw-slot-label { position: absolute; left: 4px; top: 2px; font-size: 10.5px; color: var(--signal); white-space: nowrap; }
-.dw-marker { z-index: 5; pointer-events: none; background: var(--signal); border-radius: 2px; }
 /* A side rail's drop strip: faint at its real width while a panel is held; highlighted while dwelt on; armed, it grows by
    its magnet (no animation under reduced motion). */
 .dw-strips { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
@@ -280,7 +279,7 @@
 .dw-menu-list button { text-align: left; padding: 4px 8px; border: 0; border-radius: 4px; background: none; font: inherit; color: inherit; cursor: pointer; }
 .dw-menu-list button:hover { background: var(--accent-soft); }
 .dw-menu-list[hidden] { display: none; }
-.dw-slot[hidden], .dw-marker[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden], .dw-cant-go[hidden] { display: none; }
+.dw-slot[hidden], .dw-resize[hidden], .dw-bar[hidden], .dw-colbg[hidden], .dw-cant-go[hidden] { display: none; }
 
 /* The drag session (host contract): while a drag is on, nothing under the root takes hover, a resize handle or a
    selection; the session listens on the window and draws the slot from its shown target only. */

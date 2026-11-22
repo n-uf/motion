@@ -750,7 +750,8 @@ facing halves is home's, and is no target of its own. The slot is where the item
   `reservedRect(state, layout, id)` gives that rect, for a host that marks where nothing may drop. The length it grew
   by is spare room: the drop shrinks it toward its natural size (to its `min` if the room needs it), so a group moved
   out of a title bar can always go back while the room allows. No slot lies over a fixed item's reserved rect. `slot`
-  is the item's rect after the drop and `marker` the insertion line across the edge.
+  is the item's rect after the drop and `marker` the insertion line across the edge (data only; a page draws the slot
+  as the landing's one mark).
 - `endReach` only adds: it never shrinks or replaces a zone's own span along the edge, nor takes another edge's own
   span. An empty bar's band that cuts the strip off from its zone leaves the strip to the zone's outermost slot; past a
   bar holding items the strip stops at the bar.
@@ -1060,7 +1061,7 @@ at, what a user does (`press`, `move`, `release`, `key`, `click`, `resize`, `scr
 by its `place` instead of pixels), and what must be true after: a partial layout (per item: `rect`, `formKind`, `edge`,
 `floating`, `inMenu`, `rail`…, within a tolerance, 0.5 px by default) and, for a host with a page, DOM checks on the
 session's marks (`data-drag-session` on the root during a drag only, `[data-drag-slot][data-drag-target]` for the slot
-(the attribute holds the target's id), `[data-drag-marker]` for the insertion line, `[data-drag-held]` for the held item, `[data-drag-refusal]` for a refusal
+(the attribute holds the target's id; a landing draws that one mark, so a page shows no `[data-drag-marker]` insertion line beside it), `[data-drag-held]` for the held item, `[data-drag-refusal]` for a refusal
 shown at the pointer, "No room here", the attribute holding the refusal's id).
 A drawn item's element is `[data-dock-item="<id>"]` by default, and a DOM check names it with `item` (not a literal
 selector), optionally pinning its `rect` in stage px; a host that marks items another way gives `itemSelector(id)`. A row

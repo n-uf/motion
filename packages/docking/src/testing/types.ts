@@ -131,8 +131,8 @@ export interface LayoutExpect {
 
 /**
  * What a page's DOM must be. The elements are the session's: `data-drag-session="<kind>"` on the root during a drag
- * only, `[data-drag-slot][data-drag-target]` for the slot (the attribute holds the target's id), `[data-drag-marker]`
- * for the insertion line, `[data-drag-held]` for the held item, `[data-drag-refusal]` for a refusal shown at the pointer
+ * only, `[data-drag-slot][data-drag-target]` for the slot (the attribute holds the target's id; a landing draws that one
+ * mark, so a page shows no `[data-drag-marker]` insertion line beside it), `[data-drag-held]` for the held item, `[data-drag-refusal]` for a refusal shown at the pointer
  * ("Can't go here", never a mark over the refused place; the attribute holds the refusal's id). A drawn item's element is found by `item`: the host's
  * `itemSelector(id)`, by default `[data-dock-item="<id>"]` (a rect check reads it).
  */

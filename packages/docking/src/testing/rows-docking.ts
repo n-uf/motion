@@ -205,7 +205,7 @@ export const DOCKING_ROWS: readonly CaseRow[] = [
     expectDom: [
       { at: 2, attr: { "data-drag-session": "panel" }, note: "the root says a panel is dragged" },
       { at: 2, select: "[data-drag-slot][data-drag-target]", count: 1, attr: { "data-drag-target": "gap:column:start:0" }, note: "one slot, on the top gap" },
-      { at: 2, select: "[data-drag-marker]", count: 1, note: "its insertion line" },
+      { at: 2, select: "[data-drag-marker]", count: 0, note: "no insertion line beside it: a gap landing draws one mark, the slot" },
       { at: 2, select: "[data-drag-held]", count: 1, note: "the held item" },
       { at: 3, attr: { "data-drag-session": null }, note: "the session ends with the drop" },
       { at: 3, select: "[data-drag-slot]", count: 0, note: "no slot after the drop" },
