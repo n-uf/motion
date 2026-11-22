@@ -5,18 +5,14 @@ import type { Rect } from "./geometry";
  * 2 a slot; 3 a broad area such as floating anywhere), the zone the pointer hits, and optionally where the item
  * lands, a label and whether it lands freely (no room is made for it). `hits`, when given, is the whole zone as several
  * rects (a zone that isn't one rect), `hit` the largest of them: the pointer is in the zone when it is in any of them.
- * `arm: "dwell"` marks a spring-loaded target (the drag intent arms it once the pointer dwells in it), `armedHit` its
- * zone once armed.
+ * It is a shape of places only: it carries no time and no timing (what a drag intent does as the pointer dwells in a
+ * target's zone is the intent's own, and `@n-uf/docking`'s `DockDrop` carries the fields it reads).
  */
 export interface Target {
   readonly id: string;
   readonly priority: 1 | 2 | 3;
   readonly hit: Rect;
   readonly hits?: readonly Rect[];
-  /** Spring-loaded: no target until the pointer dwells in it. */
-  readonly arm?: "dwell";
-  /** Its zone once armed (the strip grown by its magnet). */
-  readonly armedHit?: Rect;
   readonly slot?: Rect;
   readonly label?: string;
   readonly free?: boolean;
@@ -33,25 +29,6 @@ export interface Target {
    * stage's edge (`x + width`, `y + height`): a host that clamps to `width - 0.5` still picks inside the window.
    */
   readonly bounds?: Rect;
-  /**
-   * Its room opens as it shows: the docking model sets it on a target whose slot overlaps an item its drop moves (a rail pushing
-   * a column, a new-column line, a bar's strip over the columns), and on a rail drop strip's targets, whose room opens
-   * once armed. The drag intent then shows it and makes its room in one frame. Until it shows, a release still lands on
-   * it.
-   */
-  readonly opensRoom?: true;
-  /**
-   * With `opensRoom`, how long it holds before it shows with its room, ms, in place of the drag intent's `roomAfter`. The
-   * docking model sets it to `EDGE_ROOM_HOLD` on a rail target or a new-column line against the window's left or right edge.
-   */
-  readonly roomHold?: number;
-  /**
-   * With `opensRoom`, the zone it holds once its room is open: while the target shows with its room open, a drag intent
-   * holds it wherever the pointer is in this rect. The docking model sets it to the smallest rect holding `hit` and the slot (the
-   * landing rect) on every target whose drop changes an edge's thickness (a side's width or a bar's height): strips,
-   * new-column lines, rails and gaps. A rail drop strip (`armedHit`) doesn't carry it.
-   */
-  readonly roomHit?: Rect;
 }
 
 /**
