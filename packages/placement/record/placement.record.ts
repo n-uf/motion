@@ -160,18 +160,20 @@ describe("record placement", () => {
       for (const gap of [0, 6]) {
         out.attempt("layout-split", `${id} gap ${gap}`, () => tile("layoutSplit")(tree, area, { gap }));
       }
-      // Every split named (every fifth a master split), under options that read a floor, a fixed length and a cross length:
-      // the geometry of each split, not only the panes.
+      // Every split named (every third a master split, its side and count taken from the tree's index and the split's), under
+      // options that read a floor, a fixed length and a cross length: the geometry of each split, not only the panes.
+      const k = Number(id.slice("tree ".length));
       const named = (t: Any, at: { n: number }): Any => {
         if ("pane" in t) return t;
         const n = at.n++;
-        return { ...t, id: `s${n}`, ...(n % 5 === 4 ? { master: { count: 1 + (n % 2), side: ["left", "top", "right", "bottom"][n % 4] } } : {}), a: named(t.a, at), b: named(t.b, at) };
+        const master = n % 3 === k % 3 ? { count: 1 + ((n + k) % 3), side: ["left", "top", "right", "bottom"][(n + k) % 4] } : undefined;
+        return { ...t, id: `s${n}`, ...(master ? { master } : {}), a: named(t.a, at), b: named(t.b, at) };
       };
       const hosted = {
         gap: 4,
         handle: 3,
         floor: (_c: Any, _axis: string, _s: Any) => ({ min: 60 }),
-        fixed: (c: Any) => ("pane" in c && c.pane % 4 === 1 ? { length: 90, keep: c.pane % 8 === 1 } : undefined),
+        fixed: (c: Any) => ("pane" in c && c.pane % 4 === 1 ? { length: 90, keep: true } : undefined),
         fixedAcross: (c: Any) => ("pane" in c && c.pane % 5 === 2 ? 120 : undefined),
       };
       for (const [name, options] of [["plain", {}], ["gap 6 handle 4", { gap: 6, handle: 4 }], ["host callbacks", hosted]] as const)
