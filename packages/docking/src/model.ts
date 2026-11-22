@@ -372,10 +372,11 @@ export interface DockFloat {
   /** Which of the item's forms it uses (default: the item's `floatOrientOf`). */
   readonly orient?: Orient;
   /**
-   * When it was floated, as a sequence: `floatAt` and `moveTo(…, { kind: "float" })` give a newly floated item one more
-   * than the largest `since` among the state's floats (1 when there are none); moving a float that already floats,
-   * `raiseFloat`, `markUsed` and `resizeFloat` keep it. Among anchored floats the earlier (smaller `since`, missing counting as 0, then
-   * the smaller id) wins the place both want.
+   * When it was last floated or placed by the hand, as a sequence: `floatAt` and `moveTo(…, { kind: "float" })` give a
+   * newly floated item, and one placed at a rect (a drop), one more than the largest `since` among the state's floats (1
+   * when there are none), and so does `resizeFloat`; re-anchoring a float that already floats (no rect), `raiseFloat`
+   * and `markUsed` keep it. The earlier (smaller `since`, missing counting as 0; among anchored floats then the smaller
+   * id) wins the place both want, so a float the hand just placed or grown over an anchored float wins over it.
    */
   readonly since?: number;
   /**
