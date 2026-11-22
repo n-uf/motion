@@ -78,6 +78,7 @@
     "build": "tsup && node ./scripts/check-dist.mjs",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.test.json",
     "test": "vitest run",
+    "bench": "vitest bench --run",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepack": "pnpm run build"
   },
