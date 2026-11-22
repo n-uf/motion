@@ -63,6 +63,8 @@ const isSlotOf = (id: string, edge: string): boolean => {
 const sameRect = (a: Rect | null | undefined, b: Rect | null | undefined, eps = 0.5): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= eps && Math.abs(a.y - b.y) <= eps && Math.abs(a.width - b.width) <= eps && Math.abs(a.height - b.height) <= eps;
 const r0 = (n: number): number => Math.round(n);
+/** A long title's natural length, its reserved room: wider than a third of the 1200 px bar (the default is 220). */
+const LONG_TITLE = 520;
 const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.height)}`;
 
 /** The default window, changed by `edit`, at `size`. */
@@ -1177,39 +1179,16 @@ function PUBLISHED_PRESETS(): Preset[] {
     id: "views-over-title-thirds",
     title: "Views over the title bar's thirds: the slot is where the pointer is",
     expected:
-      "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot in that third (over its own place, home) or \"Can't go here\" at the pointer, never a slot far away; let go, it lands where the slot showed.",
+      "The reported state (1200 px: the title, Tools and Zoom leading, Views trailing, Pages floating, Notes left, Findings right). Views held by mouse over the title bar's leading, center and trailing thirds shows a slot where the pointer is, or \"Can't go here\" at the pointer, never a slot far away: the slot reaches into the pointer's third, or, when the pointer is over the title's reserved room, it is the first gap after that room. Let go, it lands where the slot showed.",
     setup: (c) => c.setState(reportedTitle()),
-    check(c) {
-      const bad: string[] = [];
-      const seen: string[] = [];
-      for (const k of [0, 1, 2]) {
-        c.setState(reportedTitle());
-        const bar = c.layout.edges.title!.rect;
-        const x0 = bar.x + (k * bar.width) / 3;
-        const x1 = bar.x + ((k + 1) * bar.width) / 3;
-        const h = mouseHold(c, "views", { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 });
-        const refused = c.refused;
-        // Over its own place the session is homing (no target; "Back to its place", or nothing while the pointer never
-        // left the item's own rect): that is home.
-        const slotEl = c.win.querySelector<HTMLElement>(".dw-slot")!;
-        const own = rectOf(c, "views");
-        const p = { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 };
-        const overOwn = !!own && inside(own, p);
-        const homing = !c.shown && ((!slotEl.hidden && slotEl.title === "Back to its place") || overOwn);
-        const s = c.shown ?? (homing ? ({ id: "home", place: { kind: "home" } } as DockDrop) : null);
-        const slot = s?.place.kind === "home" ? rectOf(c, "views") : (s?.slot ?? null);
-        h.up();
-        const d = c.lastDrop;
-        const near = !!slot && slot.x < x1 + 1 && slot.x + slot.width > x0 - 1;
-        seen.push(`third ${k + 1}: ${refused ? `no room (${refused.id})` : `${s?.id ?? "nothing"}${slot ? ` ${say(slot)}` : ""}`}`);
-        if (!h.lifted) bad.push(`third ${k + 1}: the drag never lifted`);
-        else if (refused) {
-          if (d?.committed) bad.push(`third ${k + 1}: a release over "no room" committed`);
-        } else if (!s || (s.place.kind !== "gap" && s.place.kind !== "home") || !near) bad.push(`third ${k + 1}: ${s?.id ?? "no target"} with its slot ${slot ? say(slot) : "none"} away from the third ${r0(x0)}..${r0(x1)}`);
-        else if (s.place.kind === "gap" && !(d?.committed && sameRect(d.preview, d.landed))) bad.push(`third ${k + 1}: the landing isn't the slot`);
-      }
-      return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
-    },
+    check: (c) => titleThirds(c, reportedTitle, false),
+  },
+  {
+    id: "views-over-long-title-thirds",
+    title: "Views over a long title's bar: the slot is the first gap after the title's room",
+    expected: `The reported state with a title whose reserved room (its natural length, ${LONG_TITLE} px) is wider than a third of the 1200 px bar. Views held by mouse over the title's reserved room shows the first gap after that room (a slot past the room, though the pointer's third lies over the title) or "Can't go here"; past the room its slot reaches into the pointer's third. Let go, it lands where the slot showed.`,
+    setup: (c) => c.setState(longTitle()),
+    check: (c) => titleThirds(c, longTitle, true),
   },
   {
     id: "home-only-over-its-place",
