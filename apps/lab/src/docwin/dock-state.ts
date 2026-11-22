@@ -22,7 +22,7 @@ import {
   createLandingModel,
   DRAG_DEFAULTS,
   guideRects,
-  PLACE_GUIDES_DEFAULT,
+  guidesOf,
   previewPlan,
   type DragIntent,
   type DragKeys,
@@ -719,11 +719,6 @@ export function createDocwin(o: DocwinOptions) {
   const targetsOf = (id: ItemId): DockDrop[] => stateTargets(ruled(), id, reachOf());
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
-  /** The guides the mode asks for (`PLACE_GUIDES_DEFAULT` where the viewer left it), as the landing model reads them. */
-  const guideLevel = (): PlaceGuides => {
-    const p = previewOf();
-    return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
-  };
   /**
    * The drag of `id` (`dockDrag()` over the window's own rules, the layout committed now as its one `previous`): its
    * regions for hit-testing and the one layout of each held place, which the window draws and a release commits. With the
@@ -743,10 +738,9 @@ export function createDocwin(o: DocwinOptions) {
   /** A landing model for a drag of `id` grabbed at `grab`, starting at the item's own place. */
   function landingFor(id: ItemId, grab: Point): NonNullable<Held["landing"]> {
     const drag = dragOf(id, grab);
-    const home = drag.regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
-    // The drag is the model's geometry as it is: its regions, `landingOf`, `spotsOf`.
-    const model = createLandingModel({ ...drag, ...(home ? { home } : {}), placeGuides: guideLevel() });
-    return { model, drag };
+    // The drag is the model's geometry as it is (its regions, `home`, `landingOf`, `spotsOf`); the preview, the one
+    // `previewPlan` reads, names the guide level.
+    return { model: createLandingModel({ ...drag, preview: previewOf() }), drag };
   }
 
   /**
@@ -2207,8 +2201,7 @@ export function createDocwin(o: DocwinOptions) {
       guidesByMode = g ? { ...rest, [mode]: g } : rest;
     },
     get placeGuides(): PlaceGuides {
-      const p = previewOf();
-      return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
+      return guidesOf(previewOf());
     },
     /** How the guides draw an empty lane: at its real size or as a thin striped edge (every mode alike). */
     get emptyLanes(): EmptyLanes {

@@ -184,7 +184,7 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
       ...optionLines(call.settings, "  "),
       `  grab: ${point(call.grab)}, // where the pointer held the item, from its top-left corner`,
       "});",
-      "// The landing model reads the drag as it is: createLandingModel({ ...drag, home, placeGuides }). Each frame the",
+      "// The landing model reads the drag as it is: createLandingModel({ ...drag, preview }). Each frame the",
       "// window draws drag.shown(frame), the landing drag.landingOf(frame.held) and the guides drag.guides(frame).",
     );
   } else {
