@@ -68,15 +68,14 @@ const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.h
 /** The default window, changed by `edit`, at `size`. */
 const stateWith = (edit: (s: DockState) => DockState, size = DEFAULT_SIZE): DockState => edit(defaultState(size));
 /**
- * Review, Views and Zoom in the title bar, at the widest width (from the default, by 20 px) where the bar takes Tools
- * nowhere: a growing title's growth is spare room, so at the default width Zoom's compact variants still make room.
+ * Review, Views and Zoom in the title bar at the widest width (from the default, by 20 px) where it takes Tools nowhere.
+ * At the default width it is not full: a growing title's growth is spare room, so Tools fits with the title at exactly
+ * its natural width and Zoom on its minimal row variant, as it would beside a title of that width that doesn't grow.
  */
 function fullTitle(): DockState {
-  for (let w = DEFAULT_SIZE.width; w >= 600; w -= 20) {
-    const s = stateWith((x) => put(x, "title", ["review", "views", "zoom"]), { ...DEFAULT_SIZE, width: w });
-    if (!targets(s, "tools").some((t) => (t.place as { edge?: string }).edge === "title")) return s;
-  }
-  return stateWith((x) => put(x, "title", ["review", "views", "zoom"]), { ...DEFAULT_SIZE, width: 600 });
+  const at = (width: number): DockState => stateWith((x) => put(x, "title", ["review", "views", "zoom"]), { ...DEFAULT_SIZE, width });
+  for (let w = DEFAULT_SIZE.width; w >= 600; w -= 20) if (!targets(at(w), "tools").some((t) => (t.place as { edge?: string }).edge === "title")) return at(w);
+  return at(600);
 }
 
 /** The window px of the grip's center. */
@@ -1069,21 +1068,16 @@ function PUBLISHED_PRESETS(): Preset[] {
   },
   {
     id: "title-bar-too-full",
-    title: "A title bar too full takes a toolbar only where a compact variant makes room",
+    title: "A title bar too full takes no toolbar",
     expected:
-      "With Review, Views and Zoom in the title bar, Tools has room there only where a toolbar beside it takes a compact variant of its row (the title's growth is spare room): every title-bar target keeps the title at its natural width, lands Tools in its row and keeps Review, Views and Zoom in their rows (a compact variant at most, never icons, a fold or the »); a drop over any third lands on such a place or elsewhere (or goes home), and nothing overlaps the title or the controls.",
-    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+      "With Review, Views and Zoom in the title bar, at the widest width where it is full (see `fullTitle`), Tools has no room without pushing the title under its natural width: no zone of the title bar offers a target or a slot, a drop over any third lands elsewhere (or goes home), and nothing overlaps the title or the controls.",
+    setup: (c) => c.setState(fullTitle()),
     check(c) {
-      const base = stateWith((s) => put(s, "title", ["review", "views", "zoom"]));
+      const base = fullTitle();
       c.setState(base);
       const bad: string[] = [];
-      const natural = reservedRect(c.state, c.layout, "title").width;
       const titleGaps = c.targets("tools").filter((t) => (t.place as { edge?: string }).edge === "title");
-      for (const t of titleGaps) {
-        const l = t.after({ x: 0, y: 0 }).layout;
-        if ((l.items.title?.rect.width ?? 0) < natural - 0.5) bad.push(`${t.id}: the title under its natural width`);
-        for (const id of ["tools", "review", "views", "zoom"]) if (l.items[id]?.inMenu || l.items[id]?.formKind !== "row") bad.push(`${t.id}: ${id} out of its row`);
-      }
+      if (titleGaps.length) bad.push(`targets in the title bar: ${titleGaps.map((t) => t.id).join(", ")}`);
       const bar = c.layout.edges.title!.rect;
       for (const k of [0, 1, 2]) {
         c.setState(base);
@@ -1091,11 +1085,11 @@ function PUBLISHED_PRESETS(): Preset[] {
         const l = c.layout.items.tools;
         const title = reservedRect(c.state, c.layout, "title");
         const ctl = rectOf(c, "controls")!;
-        if (l?.edge === "title" && !titleGaps.some((t) => t.id === c.lastDrop?.target)) bad.push(`third ${k + 1}: landed in the title bar off its targets`);
+        if (l?.edge === "title") bad.push(`third ${k + 1}: landed in the title bar`);
         if (l && !l.floating && l.edge === "title" && (overlap(l.rect, title) > 0 || overlap(l.rect, ctl) > 0)) bad.push(`third ${k + 1}: over the title or the controls`);
-        if ((c.layout.items.title?.rect.width ?? 0) < natural - 0.5) bad.push(`third ${k + 1}: the title under its natural width`);
+        if ((c.layout.items.title?.rect.width ?? 0) < title.width - 0.5) bad.push(`third ${k + 1}: the title under its natural width`);
       }
-      return { pass: bad.length === 0, now: `${titleGaps.length} title-bar targets for Tools.${bad.length ? ` Broken: ${bad.join("; ")}.` : " Each keeps the title natural and the toolbars in their rows."}` };
+      return { pass: bad.length === 0, now: bad.length ? `Broken: ${bad.join("; ")}.` : "No title-bar target for Tools; drops over each third went elsewhere." };
     },
   },
   {
@@ -1251,7 +1245,7 @@ function PUBLISHED_PRESETS(): Preset[] {
   {
     id: "full-title-no-room",
     title: "A full title bar: \"Can't go here\" at the pointer, nothing drawn on the bar",
-    expected: "With Review, Views and Zoom in the title bar and the window narrowed until not even Zoom's compact variants make room for Tools (the widest such width, by 20 px steps from the default), Tools held over each third of the bar shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
+    expected: "With Review, Views and Zoom in the title bar, at the widest width where it is full (see `fullTitle`), Tools held over each third of it shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
     setup: (c) => c.setState(fullTitle()),
     check(c) {
       const bad: string[] = [];
