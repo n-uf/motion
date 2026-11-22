@@ -353,6 +353,7 @@ export function createDocwin(o: DocwinOptions) {
   win.innerHTML = `
     <div class="dw-edges"></div>
     <div class="dw-scroll" tabindex="0" aria-label="Pages"><div class="dw-sheets"></div></div>
+    <div class="dw-keep-clear" aria-hidden="true"></div>
     <div class="dw-items"></div>
     <div class="dw-dividers"></div>
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
@@ -364,6 +365,7 @@ export function createDocwin(o: DocwinOptions) {
     <div class="dw-menu-list" role="menu" hidden></div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const edgeLayer = q<HTMLDivElement>(".dw-edges");
+  const keepClearLayer = q<HTMLDivElement>(".dw-keep-clear");
   const layer = q<HTMLDivElement>(".dw-items");
   const dividerLayer = q<HTMLDivElement>(".dw-dividers");
   const scroll = q<HTMLDivElement>(".dw-scroll");
@@ -528,6 +530,10 @@ export function createDocwin(o: DocwinOptions) {
       .map(([id, e]) => `<div class="${e.side === "left" || e.side === "right" ? "dw-colbg" : "dw-bar"}" data-edge="${esc(id)}" style="left:${px(e.rect.x)};top:${px(e.rect.y)};width:${px(e.rect.width)};height:${px(e.rect.height)}"></div>`)
       .join("");
     place(scroll, l.content);
+    // The overlay strips anchored to the content, where this layout resolves them (`DockLayout.keepClear`).
+    keepClearLayer.innerHTML = (l.keepClear ?? [])
+      .map((c) => `<div class="dw-strip-over" data-keep-clear="${esc(c.id ?? "")}" data-for="${c.for}" style="left:${px(c.rect.x)};top:${px(c.rect.y)};width:${px(c.rect.width)};height:${px(c.rect.height)}"></div>`)
+      .join("");
     if (refit || pageKey === "") drawPages(l.content);
     for (const side of ["left", "right"] as const) {
       const el = q<HTMLDivElement>(`[data-resize=${side}]`);
@@ -845,7 +851,11 @@ export function createDocwin(o: DocwinOptions) {
     // The held copy's accent outline (1 px outside its rect, `.dw-held[data-placed]`) is this host's chrome: a guide keeps
     // 2 px clear of it in the held lane, and gives way only where the copy lies over it elsewhere. A cosmetic clear: the
     // drag's marks already leave out every item and the landing.
-    const textClear = content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] as const }));
+    const textClear: { rect: Rect; clearance: number; kinds: readonly ("line" | "box" | "hatch")[] }[] = content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] }));
+    // The overlay strips as the window draws them now (the layout on screen): a drawing trim only, every guide kind flush
+    // against one for every target. A strip for floats only constrains no lane guide: the float's own landing is the
+    // held copy, which the drag already fits clear of it in the drop's layout.
+    for (const c of drawnNow.layout.keepClear ?? []) if (c.for === "all") textClear.push({ rect: c.rect, clearance: 0, kinds: ["line", "hatch", "box"] });
     const copy = held ? [{ rect: held.drawn.value, clearance: heldLane ? 3 : 0 }, ...(held.preview ? [{ rect: held.preview, clearance: 2 }] : [])] : [];
     const place = (gs: readonly DockGuide[], clear: readonly { rect: Rect; clearance: number }[]) =>
       guideRects(

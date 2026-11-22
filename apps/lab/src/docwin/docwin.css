@@ -217,6 +217,9 @@
 .dw-fh[data-fh="top-right"], .dw-fh[data-fh="bottom-left"] { cursor: nesw-resize; }
 .dw-fh:hover { background: var(--accent-line); }
 
+/* An overlay strip anchored to the content (`DockLayout.keepClear`): a tint with a full border, over the pages. */
+.dw-keep-clear { position: absolute; inset: 0; pointer-events: none; }
+.dw-strip-over { position: absolute; box-sizing: border-box; background: color-mix(in srgb, var(--win-muted) 16%, transparent); border: 1px solid color-mix(in srgb, var(--win-muted) 35%, transparent); }
 /* The drag: the held item, the dashed slot, the insertion marker. */
 /* Place guides: where the item can go, never a landing. A 1 px neutral dotted hairline at half opacity, no fill, no
    accent, no label; they fade out the moment a landing shows (at once under reduced motion). */
