@@ -127,7 +127,7 @@ export function fitFloat(want: Rect, stage: Rect, avoid: readonly Rect[] = [], o
   const under = (cand: Rect): number[] => near.filter((n) => overlaps(cand, n.at, EPS)).map((n) => n.index);
   const blocked = (cand: Rect): boolean => near.some((n) => overlaps(cand, n.at, EPS));
   if (options.stay) return { rect: inside, clamped, snapped: false, covers: under(inside), searchCapped: false };
-  if (!blocked(inside))return { rect: inside, clamped, snapped: false, covers: [], searchCapped: false };
+  if (!blocked(inside)) return { rect: inside, clamped, snapped: false, covers: [], searchCapped: false };
 
   // The places to look at: every x that puts the float against an edge of the stage or of a rect (or where it is),
   // crossed with every y that does; a clear place exists if one does at all, as a float slid against edges.
