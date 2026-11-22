@@ -7,6 +7,78 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.56
+
+- Behavior change: **"does not fit" is decided by the hand.** The float target's drop (`DockDrop.after`, so
+  `dockDrag(...).after({ kind: "float", point })`) keeps a float clear of the docked items only while the pointer is
+  still on the item at that clear place (on the hand rect as kept inside the stage). Otherwise the float lies at the
+  hand, over the docked items it covers, still clear of the bars and the chrome, and the least-covered fallback is not
+  used for it. A narrow float pushed at a column keeps the wall until the pointer enters the column, as before; a float
+  wider than the open room follows the hand and lands where it is shown, instead of jumping to one of a few seams.
+- Added: **`DockFloat.stays`**, the mark of a float the hand left over content. `solve` keeps a marked float inside the
+  stage and clear of the bars and the chrome only, never beside what it covers (a `float-covers` note says what), so
+  it stays put at rest; a float with no mark keeps the rule it had (it moves clear when a column opens under it or the
+  window shrinks). The float target's drop decides the mark again each time; `floatAt` with a rect clears it;
+  `resizeFloat`, `orientFloat`, `raiseFloat` and `markUsed` keep it. `FloatPlace.stays` sets it with a rect
+  (`moveTo`), and the place `homeFor` gives carries it. `fitResize` on a marked float stops a growing edge at the bars
+  and the chrome only. Stored as `stays: true` (`StoredDockStateFloat.stays`); a `stays` that isn't `true`, or one on an
+  anchored float, is dropped and listed (`float:<id>:stays`).
+- The conformance row `P5-neighbour-half-facing-it` now expects the float at the hand, over the neighbor's body
+  (`140,190`), not beside it.
+- A float at the hand, and a marked float at rest, is pushed the least it takes clear of the bars and the chrome, along
+  the axis that needs it (as the stage's edge clamps it), and stays at the hand otherwise; it is never moved to a clear
+  place elsewhere.
+- Behavior change: **the float floated first wins the place both want; what the hand does moves nothing else.** An
+  anchored float keeps clear of the anchored floats floated before it, as before, and of the floats with a rect of their
+  own floated strictly before it (a smaller `since`), no longer of every float with a rect of its own. A float floated
+  after an anchored float (or as early, with no `since`), grown over it by a corner resize or dropped on it, covers it
+  (or lies under it, by the stacking order), and the anchored float keeps its place. A group sent to Float from a menu
+  still lands beside the floats already there.
+- Behavior change: **what the hand covers, it wins; what it doesn't cover never moves.** `floatAt` with a rect (a drop)
+  and `resizeFloat` give the float one more than the largest `since` there only when its new rect lies over an anchored
+  float as drawn, so a float dropped or grown over an anchored float wins over it whichever was floated first; a drop or
+  resize that stays clear of every anchored float keeps its `since`, so a nudge beside an anchored float moves nothing.
+  Re-anchoring with no rect, `raiseFloat` and `markUsed` keep it too.
+- Fixed: **over a drawn rail, a new column's line and `targets()` and the lanes now decide the same** (the one-layout
+  property over a rail has no exceptions left). A drawn rail owns its whole rect, less the held tile's own run, so `targets()` no longer offers a
+  `column:<side>:<ring>` over the rest of a rail (past its last tile, or below a held tile's own run) where the lanes
+  stayed, and a new column's lane gives way to the rail as seen: its hit rect stops at the rail's inner side, so a
+  pointer on the held tile's own rail stays home or floats, as `targets()` says, instead of picking the new column whose
+  box lands where that rail was. With a tile of a rail held, the strip beside the rail is
+  home's in `targets()` (the new-column lines about its folded column are the same move as home), and the lanes now
+  block it too (`regions.blocked` holds the rail's home pieces), so a pointer there stays instead of floating. The new column's marks are unchanged (they are laid in the layout that makes it).
+- **Added: `DockItem.stepping`**, a fixed item that still takes steps (a page readout at a title bar's end with a
+  `controlLadder` of its own). It is never dragged, no hit covers it and nothing lands between it and its zone's anchor
+  (read from the order of ids while it is in the »), but it steps through its forms, folds and goes into its edge's »
+  like a movable item with the same forms. A declaration like `pushable`: taken from `base`, never stored. Plain `fixed`
+  is unchanged.
+- Fixed: **a growing title no longer takes its zone's drop room.** Its growth is spare room, not owned room: for target
+  room a growing fixed item counts at its natural length, not its grown length, so a drop beside it lands exactly where it
+  would beside a fixed item of that length that doesn't grow (its neighbors giving way as on any bar), where it was
+  refused before. The title yields its growth to the landing and never shrinks under its natural length for a drop. A
+  title bar asks nothing else of a drop: the rules that the dropped item keep its first form's kind and that nothing
+  else in the bar change form are gone.
+- The model reads a form's » through `StackForm.menu` (or the fit's menu list), never its kind.
+- Breaking: **`DockDrop` now carries the spring-loading and room fields itself.** `arm: "dwell"`, `armedHit`,
+  `opensRoom`, `roomHold` (ms) and `roomHit` used to come with placement's root `Target`, which now holds only `id`,
+  `priority`, `hit`, `hits`, `slot`, `label`, `free`, `refuse` and `bounds`; they are declared on `DockDrop`, with the same
+  names, types and values on every target (`DockRefusalTarget` has none of them, as before). Only a drag intent
+  (`@n-uf/motion/drag`'s `createDragIntent`) reads them; the landing model and `dockDrag` never do. `EDGE_ROOM_HOLD` and
+  `RailDropPolicy.magnet` are unchanged. No behavior changes.
+
+### The drag is the landing model's whole wiring
+
+- **Added: `DockDrag.home`**, the item's own place at the lift, `{ lane, spot }` (the first spot `lanes()` marks `home`;
+  absent for a float). So `createLandingModel({ ...dockDrag(...), preview })` is the whole wiring. Old: the host scanned
+  `drag.regions.lanes[].spots[].home` for it and passed `home` by hand; a host that still passes its own `home` after the
+  spread keeps working (its value wins), and a host that passed none now gets the drag's.
+- `./testing`, **changed (breaking, type only): `LandingRule`'s options carry `preview` in place of `placeGuides`**
+  (`{ mode, placeGuides? }`, motion's `DragPreview` shape), and `createLandingHost` hands the rule the drag as it is
+  (`{ ...drag, preview }`, its `home` included). `createLandingModel` from `@n-uf/motion/drag` is a rule as before.
+- `./testing`: the reference host keeps a private copy of the refusal rank (2.5), as it can't import it any more from
+  `@n-uf/placement`, which dropped it (see its changelog). The reference pick is unchanged and a test holds it equal to
+  motion's `targetAt`.
+
 ## 26.11.55
 
 - Added: **`DockItem.lengths`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to

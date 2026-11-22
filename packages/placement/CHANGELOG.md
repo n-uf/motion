@@ -5,6 +5,40 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.56
+
+- `./stack`, **added: `fitFloat(want, stage, avoid, { stay: true })`** (`FloatFitOptions`): the float is only moved
+  inside the stage, never beside what it covers; `covers` lists every `avoid` rect it covers there and `snapped` is
+  false. For a float a person left over content on purpose. Without the option every fit is as before.
+- `./stack`, **added: `StackItem.stepping`**, a fixed item that still takes steps (a page readout with a ladder of its
+  own): it keeps its reserved place (`stackGaps` still refuses every gap for it) but steps through its forms and into
+  the » menu, gives way and grows back like a movable item with the same forms, `used` and `kept`, and never holds for
+  the title rule. `itemSteps(item)` is the one reading (not `fixed`, or `stepping`). A drop beside it may step it, never
+  squeeze it under its form's `main.min`. Plain `fixed` is unchanged.
+- `./stack`, **added: the form flags `menu`, `ownCross` and `stepGroup`** (`formMenu`, `formOwnCross`, `formStepGroup`):
+  the solver reads a form's kind only through them. `menu` is a form with no room of its own (default the kind `menu`),
+  `ownCross` a form drawn at its own size across under the stack's `ownCross` (default the group kinds), `stepGroup` the
+  variants a growing title's hold lets come first (default the kind). Each defaults from the kind, so a host that sets
+  none sees no change.
+- **Removed (breaking): `pickRank` and `REFUSAL_RANK`.** `@n-uf/motion/drag` owns the pick's rank (it is the one that picks:
+  `targetAt`); placement read it nowhere itself. A host that imported them from here imports them from
+  `@n-uf/motion/drag` (the same values: a refusal ranks 2.5, a target its priority). `Target` is unchanged, and its
+  `refuse` field still marks a refusal.
+- Breaking: **the root `Target` shrinks to a shape of places.** It is now `id`, `priority`, `hit`, `hits`, `slot`, `label`,
+  `free`, `refuse` and `bounds`, and carries no time and no timing. Five fields leave it, each now on `@n-uf/docking`'s
+  `DockDrop` (and, as before, on `@n-uf/motion/drag`'s `DragTarget`, which is the shape a drag intent reads):
+  `arm: "dwell"` (spring-loaded), `armedHit` (its zone once armed), `opensRoom` (its room opens as it shows), `roomHold`
+  (ms) and `roomHit` (the zone it holds once its room is open). A host that built a root `Target` with one of them types
+  it as a `DragTarget` (or a `DockDrop`) instead; `paneTargets`, `orderTargets` and `stackGaps` never set them. No
+  behavior changes: every target, drop, landing frame and fit is as before.
+- `./tiling`, **faster: `layoutSplit` and `layoutSplitTree`**, with the same outputs. A pane's rect and a split's box are
+  now made once instead of copied, a divider is built only for a split with an `id`, and `layoutSplit` builds no split
+  geometry at all (it used to build it for every split with an `id` and drop it). With no named splits, at 100 panes a
+  layout takes about 4 µs against 7 µs, about 1.1x a hand-written layout that fills a map of rects. With every split
+  named, `layoutSplitTree` still builds the geometry and takes about 7 µs against 10 µs (about 1.8x); `layoutSplit` on
+  the same tree takes about 5 µs. No option was added: a host that needs only pane rects calls `layoutSplit`. `pnpm
+  --filter @n-uf/placement bench` times it.
+
 ## 26.11.55
 
 - `./tiling`, **added: canSplitPane, dropFits, paneRegion's paneCenter option, master clamps, Rect**, for a host with its own
