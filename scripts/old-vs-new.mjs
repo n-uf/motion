@@ -32,7 +32,7 @@ const SHOWN = 2;
 /** The output kinds each recorder must write at the head (the table in docs/old-vs-new.md). */
 const KINDS = {
   docking: ["contract", "solve", "targets", "drops", "refusals", "stops", "lanes", "dividers", "resize", "case-layout", "case-solve", "after-rest", "landing-frames", "guides", "after", "release-after"],
-  placement: ["contract", "fit", "fit-previous", "dividers", "resize", "gaps", "cut", "float-fit", "layout-split", "split-edits", "pane-region", "pane-targets", "order-layout", "order-targets"],
+  placement: ["contract", "fit", "fit-previous", "dividers", "resize", "gaps", "cut", "float-fit", "layout-split", "split-geometry", "split-edits", "pane-region", "pane-targets", "order-layout", "order-targets"],
   motion: ["landing-frames", "layout-frames", "animator"],
 };
 /** The recorders themselves; the files they read (the corpus) are listed in each recording. A change to either between base and head is shown, since it bends what is compared. */

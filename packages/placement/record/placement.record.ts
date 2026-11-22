@@ -6,7 +6,7 @@
  * The corpus: the stack tests' fixtures (`test/stack-fixture.ts`: panels, groups, bar groups) at a sweep of lengths on
  * both axes, a seeded set of random mixes (alone and refitted from their `previous`), stacks with asked lengths, and
  * for tiling a seeded set of split trees and pane lists. Per case: `fitStack`, the dividers and what `resizeBetween` /
- * `resetBetween` write, `stackGaps`, `cutEdges`, `fitFloat`, and for tiling `layoutSplit`, the split edits, the pane
+ * `resetBetween` write, `stackGaps`, `cutEdges`, `fitFloat`, and for tiling `layoutSplit`, `layoutSplitTree` with every split named, the split edits, the pane
  * regions, `paneTargets`, `orderTargets` and the order layouts.
  *
  * Old commits: every call goes through `attempt` and every module through `load`, so a helper or export the old code
@@ -160,6 +160,22 @@ describe("record placement", () => {
       for (const gap of [0, 6]) {
         out.attempt("layout-split", `${id} gap ${gap}`, () => tile("layoutSplit")(tree, area, { gap }));
       }
+      // Every split named (every fifth a master split), under options that read a floor, a fixed length and a cross length:
+      // the geometry of each split, not only the panes.
+      const named = (t: Any, at: { n: number }): Any => {
+        if ("pane" in t) return t;
+        const n = at.n++;
+        return { ...t, id: `s${n}`, ...(n % 5 === 4 ? { master: { count: 1 + (n % 2), side: ["left", "top", "right", "bottom"][n % 4] } } : {}), a: named(t.a, at), b: named(t.b, at) };
+      };
+      const hosted = {
+        gap: 4,
+        handle: 3,
+        floor: (_c: Any, _axis: string, _s: Any) => ({ min: 60 }),
+        fixed: (c: Any) => ("pane" in c && c.pane % 4 === 1 ? { length: 90, keep: c.pane % 8 === 1 } : undefined),
+        fixedAcross: (c: Any) => ("pane" in c && c.pane % 5 === 2 ? 120 : undefined),
+      };
+      for (const [name, options] of [["plain", {}], ["gap 6 handle 4", { gap: 6, handle: 4 }], ["host callbacks", hosted]] as const)
+        out.attempt("split-geometry", `${id} ${name}`, () => tile("layoutSplitTree")(tree === null ? null : named(tree, { n: 0 }), area, options));
       out.attempt("split-edits", id, () => {
         const panes: number[] = tile("panesOf")(tree);
         if (panes.length === 0) return { empty: tile("splitPane")(null, null, 0) };
