@@ -5,10 +5,12 @@
  *
  * A form's kind is the host's label, the name it draws by. What a solver reads is said by fields: `setsCross` (it sets
  * the stack's cross size), `body` (it shows its body: what `open` stands for), `folded` (it shows only its bar: what
- * `header` and `fold` stand for), `compact` (icons only: what `icons` stands for), `title`, `wrap` and `hides`. Each of
- * the three flags defaults from the kind, so forms that leave them out read as before. Two kinds stay structural: a
- * `menu` form has no room of its own (the » entry stands for it), and under `ownCross` the group kinds (`row`,
- * `stacked`, `wrap`, `icons`, `fold`) are drawn at their own size across. Panel and group kinds may be mixed on one item.
+ * `header` and `fold` stand for), `compact` (icons only: what `icons` stands for), `menu` (no room of its own: the »
+ * entry stands for it), `ownCross` (drawn at its own size across under the stack's `ownCross`: what the group kinds
+ * `row`, `stacked`, `wrap`, `icons`, `fold` stand for), `stepGroup` (the variants the title rule steps first: default the
+ * kind), `title`, `wrap` and `hides`. Each flag defaults from the kind, so forms that leave them out read as before; the
+ * solver reads no kind but through them (a kept fit's form at the same index is matched by its kind, a label compared,
+ * never read). Panel and group kinds may be mixed on one item.
  */
 import { EPS, type Rect } from "../geometry";
 
@@ -122,7 +124,34 @@ export interface StackForm {
    * titles (`DockState.railModes`, default `"titles"`) and reports the side it reads from (`DockItemLayout.railTitle`).
    */
   readonly title?: boolean;
+  /**
+   * It has no room of its own: the » entry stands for it while the item is in it. Default: true for the kind `menu`. A
+   * stack's » menu holds exactly the items in such a form (`StackMenu.items`).
+   */
+  readonly menu?: boolean;
+  /**
+   * Under `StackInput.ownCross`, it is drawn at its own `cross.natural` (clamped to the stack's cross size; a `wrap` form
+   * as wide as its rows need) from the start edge, instead of across the whole stack. Default: true for the group kinds
+   * (`row`, `stacked`, `wrap`, `icons`, `fold`), false for the panel kinds and a menu form. Without `ownCross` it is
+   * never read.
+   */
+  readonly ownCross?: boolean;
+  /**
+   * The step group it belongs to: forms of one item with the same key are variants of one form (a toolbar's full row and
+   * its compact rows). The title rule reads it: while a growing item that takes no steps holds its natural length, only
+   * steps within a step group are taken (`StackItem.fixed`). Default: the form's kind.
+   */
+  readonly stepGroup?: string;
 }
+
+/** Whether a form has no room of its own, the » entry standing for it (`menu`, default: the kind `menu`). */
+export const formMenu = (f: StackForm): boolean => f.menu ?? f.kind === "menu";
+/** Whether a form is drawn at its own size across under `ownCross` (`ownCross`, default: the group kinds). */
+export const formOwnCross = (f: StackForm): boolean => f.ownCross ?? GROUP_KINDS.has(f.kind);
+/** A form's step group (`stepGroup`, default: its kind). */
+export const formStepGroup = (f: StackForm): string => f.stepGroup ?? f.kind;
+/** The form kinds of a control group: the default of `ownCross`. */
+const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "wrap", "icons", "fold"]);
 
 const nonNeg = (x: number | undefined): number => (typeof x === "number" && Number.isFinite(x) ? Math.max(0, x) : 0);
 
@@ -139,7 +168,7 @@ export function formCrossMin(f: StackForm): number {
 
 /** A form's length along the stack: its `main` size, or for a `wrap` form its rows at cross size `cross` times the row height. */
 export function formMain(f: StackForm, which: "min" | "natural", cross: number): number {
-  if (f.kind === "menu") return 0;
+  if (formMenu(f)) return 0;
   if (f.wrap) return wrapRows(f.wrap, cross).rows * nonNeg(f.wrap.row);
   return nonNeg(f.main[which]);
 }
@@ -384,7 +413,7 @@ export const formSetsCross = (f: StackForm): boolean => f.setsCross ?? formBody(
 export function askedLength(item: StackItem, form: StackForm, axis: StackAxis): number | undefined {
   const v = item.lengths?.[axis];
   if (v === undefined || !Number.isFinite(v) || v <= EPS) return undefined;
-  return form.kind !== "menu" && form.main.grows === true ? v : undefined;
+  return !formMenu(form) && form.main.grows === true ? v : undefined;
 }
 
 /** `input` with `item` inserted at index `at` (clamped to the items' range). */
@@ -405,7 +434,7 @@ export interface PlacedStackItem {
 export interface StackMenu {
   /** The » entry's rect. */
   readonly rect: Rect;
-  /** The items in it, in the stack's order: exactly the items whose kind is `menu`. */
+  /** The items in it, in the stack's order: exactly the items in a menu form (`StackForm.menu`). */
   readonly items: readonly string[];
 }
 

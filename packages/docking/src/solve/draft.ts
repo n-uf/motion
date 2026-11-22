@@ -119,7 +119,7 @@ function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { start
   const at = (r: Rect): number => (column ? r.y : r.x);
   const out = new Map<string, number>();
   const lengths = new Map<string, number>();
-  const drawn = fit.items.filter((p) => p.kind !== "menu");
+  const drawn = fit.items.filter((p) => !fit.menu?.items.includes(p.id));
   for (const p of drawn) {
     out.set(p.id, at(p.rect));
     lengths.set(p.id, column ? p.rect.height : p.rect.width);
@@ -208,7 +208,7 @@ export function emit(d: Draft, edge: DockEdge, r: Rect, solved: EdgeSolve, extra
   for (const id of solved.leftOutIcons ?? []) notes.push({ code: "no-icons-form", edge: edge.id, id });
   for (const p of stack.items) {
     const it = state.items[p.id]!;
-    const inMenu = p.kind === "menu";
+    const inMenu = !!stack.menu?.items.includes(p.id);
     const drawnRect = toStage(p.rect, inMenu ? undefined : p.id);
     const f = formsOf(it, column ? "column" : "row")[p.form];
     const shape = inMenu ? {} : shapeOf(f, drawnRect, column ? "column" : "row", stack.cross);

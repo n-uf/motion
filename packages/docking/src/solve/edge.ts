@@ -3,7 +3,7 @@
  * user's size. A compact edge is icons only.
  */
 import { EPS } from "@n-uf/placement";
-import { fitStack, formCompact, formCrossMin, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "@n-uf/placement/stack";
+import { fitStack, formCompact, formCrossMin, formMenu, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "@n-uf/placement/stack";
 import { axisOf, formsOf, pastWrap, railModeOf, startOf, zoneOf } from "../helpers";
 import type { DockEdge, DockState, DockEdgeLayout, DockItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
@@ -26,7 +26,7 @@ export const inputOf = (stack: StackFit): StackInput | undefined => inputs.get(s
 
 /** Whether anything drawn in the fit sets its cross size. */
 function hasSetter(fit: StackFit, forms: (id: string) => readonly StackForm[]): boolean {
-  return fit.items.some((p) => p.kind !== "menu" && formSetsCross(forms(p.id)[p.form]!));
+  return fit.items.some((p) => !formMenu(forms(p.id)[p.form]!) && formSetsCross(forms(p.id)[p.form]!));
 }
 
 export interface EdgeSolve {
@@ -183,7 +183,7 @@ function solveEdgeStack(state: DockState, edge: DockEdge, ids: readonly string[]
     const items = input.items.map((it): StackItem => {
       const from = it.from ?? 0;
       if (it.fixed || fits(it.forms[from]!)) return it;
-      const j = it.forms.findIndex((f, k) => k > from && f.kind !== "menu" && fits(f));
+      const j = it.forms.findIndex((f, k) => k > from && !formMenu(f) && fits(f));
       if (j < 0) return it;
       moved = true;
       return { ...it, from: j };
@@ -195,7 +195,7 @@ function solveEdgeStack(state: DockState, edge: DockEdge, ids: readonly string[]
   }
   const size = edge.size;
   if (typeof size === "number" && Number.isFinite(size) && hasSetter(free, formsById)) {
-    const setters = free.items.filter((p) => p.kind !== "menu" && formSetsCross(formsById(p.id)[p.form]!));
+    const setters = free.items.filter((p) => !formMenu(formsById(p.id)[p.form]!) && formSetsCross(formsById(p.id)[p.form]!));
     const lo = Math.max(px(edge.cross.min), ...setters.map((p) => formCrossMin(formsById(p.id)[p.form]!)));
     const s = Math.min(Math.max(size, lo), Math.max(lo, maxOf), room);
     if (Math.abs(s - free.cross) > EPS) {

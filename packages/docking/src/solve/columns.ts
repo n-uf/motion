@@ -5,7 +5,7 @@
  * the content still fits, and room coming back unfolds in the reverse of give-way order.
  */
 import { EPS, type Rect } from "@n-uf/placement";
-import { formCrossMin, formSetsCross, type StackForm } from "@n-uf/placement/stack";
+import { formCrossMin, formMenu, formSetsCross, type StackForm } from "@n-uf/placement/stack";
 import { formsOf, isSideBar, startOf } from "../helpers";
 import type { DockEdge, DockState, DockNote } from "../model";
 import type { Draft } from "./draft";
@@ -57,7 +57,7 @@ export function columnsOf(d: Draft, sideEdges: readonly DockEdge[], area: Rect, 
     // A dynamic column, or a static edge that gives way like one (`giveWay`).
     const dyn = (edge.column === true || edge.giveWay === true) && state.rails?.[side] !== undefined && visible.length > 0;
     const forms = (id: string): readonly StackForm[] => formsOf(state.items[id]!, "column");
-    const setters = solved.free.items.filter((p) => p.kind !== "menu" && formSetsCross(forms(p.id)[p.form]!));
+    const setters = solved.free.items.filter((p) => !formMenu(forms(p.id)[p.form]!) && formSetsCross(forms(p.id)[p.form]!));
     const min = setters.length > 0 ? Math.min(width, Math.max(px(edge.cross.min), ...setters.map((p) => formCrossMin(forms(p.id)[p.form]!)))) : width;
     return {
       edge,

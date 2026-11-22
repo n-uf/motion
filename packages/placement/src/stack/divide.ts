@@ -12,7 +12,7 @@
  */
 import { EPS, type Rect } from "../geometry";
 import { fitStack, sizesOf } from "./layout";
-import { formMain, type FitOptions, type StackAxis, type StackFit, type StackInput } from "./model";
+import { formMain, formMenu, type FitOptions, type StackAxis, type StackFit, type StackInput } from "./model";
 
 /** One divider: between the open growing items `before` and `after` (ids), drawn at `rect`. */
 export interface StackDivider {
@@ -56,7 +56,7 @@ function growers(input: StackInput, fit: StackFit): Grower[] {
   fit.items.forEach((p, at) => {
     const item = byId.get(p.id);
     const f = item?.forms[p.form];
-    if (!item || !f || p.kind === "menu" || f.kind === "menu" || f.main.grows !== true) return;
+    if (!item || !f || formMenu(f) || f.main.grows !== true) return;
     const least = known?.least.get(p.id) ?? formMain(f, "min", fit.cross);
     out.push({ id: p.id, end: item.fixed !== true && !f.wrap, least, natural: Math.max(least, formMain(f, "natural", fit.cross)), drawn: mainOf(p.rect, fit.axis), at });
   });
@@ -139,7 +139,7 @@ export function dividers(input: StackInput, fit: StackFit): StackDivider[] {
     if (!b.end || !a.end) continue;
     // The last item drawn before `after`: the divider sits on its far edge.
     let prev = a.at - 1;
-    while (prev > b.at && fit.items[prev]!.kind === "menu") prev--;
+    while (prev > b.at && fit.menu?.items.includes(fit.items[prev]!.id)) prev--;
     const last = fit.items[prev]!.rect;
     const from = startOf(last, fit.axis) + mainOf(last, fit.axis);
     const thick = Math.max(0, startOf(fit.items[a.at]!.rect, fit.axis) - from);

@@ -3,7 +3,7 @@
  * makes, settled), its reserved stretches and its band across, as the tiler reads them (`EdgeSpec`).
  */
 import { EPS, area, rect, type Rect } from "@n-uf/placement";
-import { formCrossMin, formMain, formSetsCross, type StackForm } from "@n-uf/placement/stack";
+import { formCrossMin, formMain, formMenu, formSetsCross, type StackForm } from "@n-uf/placement/stack";
 import { markUsed, moveAmong, moveTo } from "../changes";
 import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type Zone } from "../model";
@@ -252,7 +252,7 @@ function edgeSlots(c: Ctx, edge: DockEdge, accepts: boolean): Slot[] {
  * The one thickness test of every edge, real or virtual (a new column's line, a rail stop).
  */
 export function thickerThan(forms: readonly StackForm[], cross: number): boolean {
-  const shown = forms.filter((f) => f.kind !== "menu");
+  const shown = forms.filter((f) => !formMenu(f));
   return shown.length > 0 && shown.every((f) => !formSetsCross(f) && formCrossMin(f) > cross + EPS);
 }
 
@@ -278,7 +278,7 @@ export function edgeSpec(c: Ctx, edge: DockEdge, as?: EdgeKind): EdgeSpec | null
   const column = axisOf(edge.side) === "column";
   const at = (r: Rect): number => (column ? r.y : r.x);
   const len = (r: Rect): number => (column ? r.height : r.width);
-  const empty = el.stack.items.every((p) => p.kind === "menu") && !el.menu;
+  const empty = el.stack.items.every((p) => el.stack.menu?.items.includes(p.id)) && !el.menu;
   // Whether it takes the kind at all: listed in `accepts` and taken by at least one zone. An edge whose zones take
   // nothing for it (`zoneAccepts: {}`, a rail the host doesn't draw) is one that doesn't accept it.
   const accepts = edgeTakes(edge, kind);
