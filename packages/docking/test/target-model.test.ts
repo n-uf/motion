@@ -12,7 +12,7 @@ import type { Ownership } from "../src/targets/ownership";
 import { clipTiles } from "../src/targets/tiles";
 import { targetAt } from "@n-uf/motion/drag";
 import { modelState } from "./model-window";
-import { bar, byId, column, form, group, panel, seeded, windowState } from "./fixture";
+import { bar, byId, column, fixedKeepClear, form, group, panel, seeded, windowState } from "./fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 /** Half-open, so two tiles that meet share no point. */
@@ -190,7 +190,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         const taken = [
           ...all.filter((o) => o !== t && !o.free).flatMap((o) => o.hits ?? [o.hit]),
           ...rs.flatMap((r) => r.hits ?? [r.hit]),
-          ...(s.keepClear ?? []),
+          ...fixedKeepClear(s),
           ...(line ? [] : Object.entries(seen.edges).filter(([eid, e]) => eid !== ownEdge && e.rect.width > 1e-6 && e.rect.height > 1e-6).map(([, e]) => e.rect)),
         ];
         const narrowX = l.width <= l.height;
@@ -236,7 +236,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       const anyBody = Object.values(seen.items).filter((x) => x.edge && x.formKind === "open" && !x.floating && !!s.edges.find((e) => e.id === x.edge)?.accepts.includes(it.kind)).map((x) => ({ x: x.rect.x, y: x.rect.y + 12, width: x.rect.width, height: x.rect.height - 24 }));
       for (const pt of virtualPoints) {
         // The item's own rect is home's (the own-not-home category checks it).
-        if (!inside(s.stage, pt) || inStrip(pt) || (s.keepClear ?? []).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
+        if (!inside(s.stage, pt) || inStrip(pt) || fixedKeepClear(s).some((c) => inside(c, pt)) || (ownRect && inside(ownRect, pt)) || anyBody.some((b) => inside(b, pt))) continue;
         points++;
         const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inTarget(x, pt)).map((x) => x.id)];
         if (hits.length === 0) fail("virtual-hole", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}`);
@@ -251,7 +251,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (let x = e.rect.x + 3; x < e.rect.x + e.rect.width - 1; x += 6)
           for (let y = e.rect.y + 3; y < e.rect.y + e.rect.height - 1; y += 6) {
             const pt = { x, y };
-            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.keepClear ?? []), ...anyBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...anyBody, ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
             if (!ts.some((t) => inTarget(t, pt)) && !rs.some((r) => inTarget(r, pt))) fail("seen-hole", `seed ${seed} drag ${id} under ${eid} at ${x.toFixed(0)},${y.toFixed(0)}`);
           }
@@ -266,7 +266,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (let x = card.rect.x + 3; x < card.rect.x + card.rect.width - 1; x += 6)
           for (let y = card.rect.y + 3; y < card.rect.y + card.rect.height - 1; y += 6) {
             const pt = { x, y };
-            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.keepClear ?? []), ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...fixedRects].some((r) => inside(r, pt)) || (ownRect && inside(ownRect, pt))) continue;
             points++;
             const refused = rs.filter((r) => inTarget(r, pt));
             if (refused.length) fail("seen-refused", `seed ${seed} drag ${id} over ${cid} (${e.id}:${zone}) at ${x.toFixed(0)},${y.toFixed(0)}: ${refused.map((r) => `${r.id}/${r.reason}`).join(", ")}`);
@@ -285,7 +285,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
         for (const along of [o0 - 2, o0 - 6, o1 + 2, o1 + 6])
           for (const f of [0.25, 0.5, 0.75]) {
             const pt = vertical ? { x: ownRect.x + ownRect.width * f, y: along } : { x: along, y: ownRect.y + ownRect.height * f };
-            if (!ext || along < ext.a || along >= ext.b || !inside(ownSeen.rect, pt) || !inside(s.stage, pt) || inStrip(pt) || [...(s.keepClear ?? []), ...fixedRects, ...others].some((r) => inside(r, pt))) continue;
+            if (!ext || along < ext.a || along >= ext.b || !inside(ownSeen.rect, pt) || !inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...fixedRects, ...others].some((r) => inside(r, pt))) continue;
             points++;
             const picked = targetAt(all, pt) as DockDrop | null;
             const ownEdgeSlot = picked?.place.kind === "gap" && picked.place.edge === ownEdge.id;
@@ -320,7 +320,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           const offs: [number, number] = card.formKind === "open" ? [6, c1 - c0 - 6] : [(c1 - c0) * 0.25, (c1 - c0) * 0.75];
           offs.forEach((off, half) => {
             const pt = vertical ? { x: card.rect.x + card.rect.width / 2, y: c0 + off } : { x: c0 + off, y: card.rect.y + card.rect.height / 2 };
-            if (!inside(s.stage, pt) || inStrip(pt) || [...(s.keepClear ?? []), ...fixedRects].some((r) => inside(r, pt))) return;
+            if (!inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...fixedRects].some((r) => inside(r, pt))) return;
             points++;
             aimPoints++;
             const i = n + half;
@@ -369,7 +369,7 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           const along = a0 + k;
           const cross = vertical ? band.x + band.width / 2 : band.y + band.height / 2;
           const pt = vertical ? { x: cross, y: along } : { x: along, y: cross };
-          if (inStrip(pt) || [...others, ...fixed, ...bodies, ...(s.keepClear ?? [])].some((o) => inside(o, pt))) continue;
+          if (inStrip(pt) || [...others, ...fixed, ...bodies, ...fixedKeepClear(s)].some((o) => inside(o, pt))) continue;
           if (ownRect && !inside(ownRect, pt) && Object.values(seen.items).some((x) => x !== own && x.edge && x.edge !== e.id && inside(x.rect, pt))) continue;
           points++;
           const zone = extents.find((z) => along >= z.a - 1e-9 && along < z.b - 1e-9)?.zone ?? null;

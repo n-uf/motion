@@ -9,7 +9,7 @@
  */
 import { EPS, clampInto, overlaps, rect, type Rect, type Size } from "@n-uf/placement";
 import { fitFloat, formFolded, type FloatFit, type StackForm } from "@n-uf/placement/stack";
-import { anchorName, axisOf, controlsOf, keepClearFor, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
+import { anchorName, axisOf, controlsOf, floatOrientOf, floatShape, foldedByOf, formsOf, isSince } from "../helpers";
 import type { FloatAnchor, FloatAnchorAt, Orient, DockFloat, DockItem } from "../model";
 import { shapeOf, type Draft } from "./draft";
 import type { Inset } from "./insets";
@@ -155,8 +155,11 @@ export function placeFloat(item: DockItem, f: Pick<DockFloat, "rect" | "orient" 
   return { from, fo, form, fit };
 }
 
-/** Lays every float of the state that isn't placed already; returns their ids in stacking order. */
-export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): string[] {
+/**
+ * Lays every float of the state that isn't placed already, clear of `chrome` (every keep-clear rect of this layout:
+ * the fixed ones and the anchored ones resolved over its content); returns their ids in stacking order.
+ */
+export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset, chrome: readonly Rect[]): string[] {
   const { state, notes, items, edges } = d;
   // Floats: clear of every docked item, every bar and the chrome.
   const avoid: Rect[] = [];
@@ -167,7 +170,7 @@ export function layFloats(d: Draft, stage: Rect, content: Rect, inset: Inset): s
     if (axisOf(e.side) === "row" && e.cross > 0) avoid.push(e.rect);
     if (e.menu) avoid.push(e.menu.rect);
   }
-  for (const c of keepClearFor(state, "floats")) avoid.push(c);
+  for (const c of chrome) avoid.push(c);
   // Floats lie within the stage less the inset at its left and right (the sides the columns pad), the stage's full height.
   const floatRegion = rect(stage.x + px(inset.left), stage.y, Math.max(0, stage.width - px(inset.left) - px(inset.right)), stage.height);
   // The floats drawn, in stacking order; a note for one with no vertical form, in that order too.

@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { overlaps, type Rect } from "@n-uf/placement";
 import { fitResize, floatAt, refusals, solve, targets, type DockState, type KeepClear, type DockDrop } from "../src";
 import { modelState } from "./model-window";
-import { windowState } from "./fixture";
+import { fixedKeepClear, windowState } from "./fixture";
 
 /**
  * Whether a `w` × `h` rect fits somewhere in `stage` clear of every rect in `avoid`. A clear place, if any, can be slid
@@ -154,7 +154,7 @@ describe("property: floats-only chrome changes nothing but the floats", () => {
           const avoid = [
             ...Object.values(l.items).filter((x) => !x.floating).map((x) => x.rect),
             ...Object.values(l.edges).flatMap((e) => [...((e.side === "top" || e.side === "bottom") && e.cross > 0 ? [e.rect] : []), ...(e.menu ? [e.menu.rect] : [])]),
-            ...(spined.keepClear ?? []),
+            ...fixedKeepClear(spined),
           ].filter((x) => x.width > 0 && x.height > 0);
           if (spines.some((sp) => overlaps(r, sp)) && clearPlaceExists(spined.stage, avoid, r.width, r.height)) failures.push(`seed ${seed}: float ${f.id} ${JSON.stringify(r)} lies on a spine though a clear place exists`);
         }

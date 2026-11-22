@@ -33,7 +33,8 @@ export function anchorTargets(state: DockState, dragged: string, options: DockDr
   const placed = layout.edges[edge.id]?.rect;
   const slot = layout.items[dragged]?.rect;
   if (placed && slot && area(placed) > EPS) {
-    const pieces = keepClearFor(state, "targets").reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, rect(c.x, c.y, c.width, c.height))), [placed]).filter((p) => p.width >= 1 && p.height >= 1);
+    // The hit lies on screen: clear of the keep-clear rects of the layout seen now.
+    const pieces = keepClearFor(state, now, "targets").reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, rect(c.x, c.y, c.width, c.height))), [placed]).filter((p) => p.width >= 1 && p.height >= 1);
     if (pieces.length > 0) {
       const hit = pieces.reduce((a, p) => (area(p) > area(a) ? p : a));
       const result: DropResult = { state: moved, layout };

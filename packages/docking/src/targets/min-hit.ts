@@ -68,7 +68,7 @@ function mayGrow(c: Ctx, targets: readonly DockDrop[], i: number, grow: readonly
   const s = c.state.stage;
   for (const g of grow) {
     if (g.x < s.x - EPS || g.y < s.y - EPS || g.x + g.width > s.x + s.width + EPS || g.y + g.height > s.y + s.height + EPS) return false;
-    if ([...keepClearFor(c.state, "targets"), ...away].some((r) => overlaps(r, g))) return false;
+    if ([...keepClearFor(c.state, c.now, "targets"), ...away].some((r) => overlaps(r, g))) return false;
     // Only within its own zone: the tile it had before clipping (its reach included), never past it.
     if (zone.reduce<Rect[]>((ps, z) => ps.flatMap((p) => subtract(p, z)), [g]).some((p) => area(p) > EPS)) return false;
   }

@@ -33,7 +33,6 @@ function placeKey(s: DockState, id: string): string {
  * room its `grows` caps there, so a drop beside it lands as beside a fixed item of that length), nor lie over chrome or a drawn fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
  */
 function soundness(state: DockState, base: DockLayout, dragged: string): (after: DockLayout) => boolean {
-  const chrome = keepClearFor(state, "targets");
   const noteKey = (n: DockLayout["notes"][number]): string | null => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? `${n.edge}:${n.code}:${"id" in n ? n.id : ""}` : null);
   const hadNotes = new Set(base.notes.map(noteKey).filter((k): k is string => k !== null));
   return (after) => {
@@ -57,6 +56,8 @@ function soundness(state: DockState, base: DockLayout, dragged: string): (after:
     const me = after.items[dragged];
     if (!me) return true;
     const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && !(it.inMenu && itemSteps(state.items[id]!)) && id !== dragged).map(([id]) => reservedRect(state, after, id));
+    // A drop's fit reads the keep-clear rects of its own layout (`after`): an anchored one lies where the drop puts it.
+    const chrome = keepClearFor(state, after, "targets");
     return !chrome.some((c) => overlaps(me.rect, c)) && !fixedAfter.some((f) => overlaps(me.rect, f));
   };
 }

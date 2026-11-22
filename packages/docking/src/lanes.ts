@@ -532,7 +532,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const blocked = [
     ...Object.values(seen.edges).filter((e) => e.cross > EPS).map((e) => e.rect),
     ...Object.entries(seen.items).filter(([id, it]) => id !== dragged && !it.floating && !it.inMenu).map(([, it]) => it.rect),
-    ...keepClearFor(state, "targets"),
+    ...keepClearFor(state, seen, "targets"),
     ...rails,
     // A held tile's own rail: every stop is home's in `targets()`, with the new-column lines about its folded column
     // joined to it (the strip beside the rail). A home place takes no float, so it is blocked as `targets()` has it.

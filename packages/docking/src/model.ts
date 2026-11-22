@@ -408,6 +408,39 @@ export interface DockFloat {
  */
 export type KeepClear = Rect & { readonly for?: "all" | "floats" };
 
+/**
+ * A region of the layout a keep-clear rect can be anchored to: `"content"` is `DockLayout.content`, what the cut leaves
+ * for the pages (not `lanes()`' float content).
+ */
+export type KeepClearRegion = "content";
+
+/**
+ * A keep-clear rect anchored to a region of the layout ({@link KeepClearRegion}): `size` px deep at the region's `side`,
+ * along its whole length, clamped to the region (an empty region gives no rect). `solve` resolves it once the edges
+ * and the content are final, before the floats, and writes it to `DockLayout.keepClear` with its `id`, so it moves with
+ * the content a drop opens or closes (an overlay strip a host draws at the content's right edge). Nothing that sizes
+ * the content reads it. A declaration, like `pushable`: `readDockState` takes it from `base`, `storeDockState` never
+ * writes it. A rect that truly lies in stage coordinates stays a {@link KeepClear}.
+ */
+export interface AnchoredKeepClear {
+  readonly region: KeepClearRegion;
+  readonly side: Side;
+  /** How deep it is, px, from `side` into the region. */
+  readonly size: number;
+  /** Who keeps clear of it, as for {@link KeepClear}. */
+  readonly for: "all" | "floats";
+  /** The host's name for it: it comes back on its `DockLayout.keepClear` entry. */
+  readonly id?: string;
+}
+
+/** An anchored keep-clear rect as laid out (`DockLayout.keepClear`). */
+export interface DockKeepClearLayout {
+  /** Stage px, inside its region. */
+  readonly rect: Rect;
+  readonly for: "all" | "floats";
+  readonly id?: string;
+}
+
 export interface DockState {
   /** The window's inner rect. */
   readonly stage: Rect;
@@ -419,9 +452,11 @@ export interface DockState {
   readonly floatKinds: readonly Kind[];
   /**
    * Rects the state keeps clear of (a title the host draws itself, a status line): by default floats and drop targets
-   * both; an entry with `for: "floats"` (a spine drawn over a column) only floats. See {@link KeepClear}.
+   * both; an entry with `for: "floats"` (a spine drawn over a column) only floats. See {@link KeepClear}. An entry
+   * with a `region` is anchored to the layout ({@link AnchoredKeepClear}): `solve` resolves it into
+   * `DockLayout.keepClear`, and every reader takes it from the layout it names.
    */
-  readonly keepClear?: readonly KeepClear[];
+  readonly keepClear?: readonly (KeepClear | AnchoredKeepClear)[];
   /** Spots where a release cancels: `targets` gives a `none` target over each. */
   readonly blocked?: readonly Rect[];
   /** Per side (left, right): what a new column is made from. A side without one gets no new columns. */
@@ -677,6 +712,12 @@ export interface DockLayout {
    * every column can fold into its rail. A host shows its narrow fallback (one panel over the content) while it is `false`.
    */
   readonly columnRoom?: boolean;
+  /**
+   * The state's anchored keep-clear rects ({@link AnchoredKeepClear}) resolved in this layout, in the state's order, each
+   * with its `id`; one whose region is empty has none. Only with a state that declares one: a state with fixed rects
+   * only has no `keepClear` here. A host draws an anchored strip from it.
+   */
+  readonly keepClear?: readonly DockKeepClearLayout[];
   readonly notes: readonly DockNote[];
 }
 

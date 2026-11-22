@@ -4,7 +4,10 @@
  * float. The names are generic.
  */
 import type { StackForm } from "@n-uf/placement/stack";
-import type { DockEdge, DockState, DockItem } from "../src";
+import type { DockEdge, DockState, DockItem, KeepClear } from "../src";
+
+/** The state's fixed keep-clear rects (`KeepClear`), its anchored ones left out: those lie where a layout resolves them. */
+export const fixedKeepClear = (s: DockState): KeepClear[] => (s.keepClear ?? []).filter((c): c is KeepClear => !("region" in c));
 
 export const form = (kind: StackForm["kind"], min: number, natural: number, cross: number, extra: { grows?: boolean; setsCross?: boolean; crossMin?: number; rank?: number } = {}): StackForm => ({
   kind,

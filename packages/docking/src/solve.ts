@@ -43,13 +43,14 @@
  * and `notes`.
  */
 import { rect, type Rect } from "@n-uf/placement";
-import { viewOf } from "./helpers";
+import { keepClearFor, viewOf } from "./helpers";
 import { checkEdgeIds } from "./targets/ids";
 import type { DockState, DockLayout, DockNote, SolveOptions } from "./model";
 import { barGiveWay } from "./solve/bar-giveway";
 import { cutEdge } from "./solve/bars";
 import { createDraft } from "./solve/draft";
 import { layFloats } from "./solve/floats";
+import { resolveKeepClear } from "./solve/keep-clear";
 import { insetOf, insideInset } from "./solve/insets";
 import { contentNotes } from "./solve/notes";
 import { finite, isSide, px } from "./solve/order";
@@ -119,7 +120,9 @@ function layOut(given: DockState, options: SolveOptions, caps: ReadonlyMap<strin
     if (n.code === "bar-shrunk" && d.edges[n.edge]) d.edges[n.edge] = { ...d.edges[n.edge]!, shrunk: true };
   }
   contentNotes(d, content);
-  const floats = layFloats(d, stage, content, inset);
+  // The anchored keep-clear rects: once, here, with the edges and the content final, before the floats.
+  const keepClear = resolveKeepClear(state, content);
+  const floats = layFloats(d, stage, content, inset, keepClearFor(state, { keepClear }, "floats"));
   const { items, edges, rails, railPlaces, columnRoom, notes } = d;
-  return { items, edges, content, floats, rails, railPlaces, ...(columnRoom !== undefined ? { columnRoom } : {}), notes };
+  return { items, edges, content, floats, rails, railPlaces, ...(columnRoom !== undefined ? { columnRoom } : {}), ...(keepClear ? { keepClear } : {}), notes };
 }

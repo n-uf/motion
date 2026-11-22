@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { fitResize, resizeFloat, solve, type DockEdge, type DockState, type DockItem, type DockLayout } from "../src";
 import type { ResizeEdges } from "../src";
-import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./fixture";
+import { bar, byId, column, controls, fixedKeepClear, group, panel, readout, seeded, title } from "./fixture";
 
 /** Random windows: bars, columns (static or dynamic, with rails), panels and groups, floats and chrome. */
 export function randomState(seed: number): DockState {
@@ -149,7 +149,7 @@ describe("fitResize is what resize commits", () => {
               if ((e.side === "top" || e.side === "bottom") && e.cross > 0) keepClear.push([`bar ${k}`, e.rect]);
               if (e.menu) keepClear.push([`menu of ${k}`, e.menu.rect]);
             }
-            (s.keepClear ?? []).forEach((c, i) => keepClear.push([`chrome ${i}`, c]));
+            fixedKeepClear(s).forEach((c, i) => keepClear.push([`chrome ${i}`, c]));
             // A float with no clear place at its size says so (`float-covers`) before or after; it is not this property's.
             const covers = l.notes.some((n) => n.code === "float-covers" && n.id === f.id) || after.notes.some((n) => n.code === "float-covers" && n.id === f.id);
             if (covers) continue;
@@ -210,7 +210,7 @@ describe("a float that already covers a bar does not grow over it", () => {
     const area = (a: { x: number; y: number; width: number; height: number }, b: typeof a): number =>
       Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y));
     const covered = (l: DockLayout, s: DockState, me: { x: number; y: number; width: number; height: number }): number => {
-      const keep = [...Object.entries(l.edges).filter(([, e]) => (e.side === "top" || e.side === "bottom") && e.cross > 0).map(([, e]) => e.rect), ...(s.keepClear ?? []), ...Object.entries(l.items).filter(([k, it]) => k !== "q" && !it.floating).map(([, it]) => it.rect)];
+      const keep = [...Object.entries(l.edges).filter(([, e]) => (e.side === "top" || e.side === "bottom") && e.cross > 0).map(([, e]) => e.rect), ...fixedKeepClear(s), ...Object.entries(l.items).filter(([k, it]) => k !== "q" && !it.floating).map(([, it]) => it.rect)];
       return keep.reduce((sum, r) => sum + area(me, r), 0);
     };
     for (let seed = 1; seed <= 300; seed++) {
