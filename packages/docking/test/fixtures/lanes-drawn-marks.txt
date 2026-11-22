@@ -757,20 +757,40 @@ lab: views and review in the top bar, review: rail-right/start/^|$@slide held
   bottom bottom/box/^|$ box 30,608 1020x32
   rail-right rail-right/box/^|$:after box 1050,198 30x442
 lab: the title bar full, tools: as seen
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/line/views|zoom line 704,0 2x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
   rail-left rail-left/box/^|$ box 0,32 30x608
 lab: the title bar full, tools: top/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/line/views|zoom line 704,0 2x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
   top top/box/^|$:before box 0,32 8x32
   top top/box/^|$:after box 166,32 914x32
   bottom bottom/box/^|$ box 0,608 1080x32
   rail-left rail-left/box/^|$ box 0,64 30x544
   rail-right rail-right/box/^|$ box 1050,64 30x544
 lab: the title bar full, tools: bottom/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/line/views|zoom line 704,0 2x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
   top top/box/^|$ box 0,32 1080x32
   bottom bottom/box/^|$:before box 0,608 8x32
   bottom bottom/box/^|$:after box 166,608 914x32
   rail-left rail-left/box/^|$ box 0,64 30x544
   rail-right rail-right/box/^|$ box 1050,64 30x544
 lab: the title bar full, tools: rail-right/start/^|$@slide held
+  title title/line/title|review line 231,0 2x32
+  title title/line/review|views line 469,0 2x32
+  title title/line/views|zoom line 704,0 2x32
+  title title/box/zoom|controls box 870,0 128x32
+  title title/hatch/zoom|controls:before hatch 870,0 8x32
   top top/box/^|$ box 0,32 1050x32
   bottom bottom/box/^|$ box 0,608 1050x32
   rail-left rail-left/box/^|$ box 0,64 30x544
@@ -983,9 +1003,19 @@ library window, 21 px rails: rail-right/start/^|$@slide held
   rail-left rail-left/box/^|$ box 0,0 21x604
   rail-right rail-right/box/^|$:after box 1059,84 21x520
 real window, empty side rails: as seen
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
   bar:bottom bar:bottom/line/status|$ line 863,599 2x31
 real window, empty side rails: bar:top/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
   bar:bottom bar:bottom/line/status|$ line 863,599 2x31
   bar:top bar:top/box/^|$:before box 0,0 8x31
@@ -993,21 +1023,41 @@ real window, empty side rails: bar:top/start/^|$@slide held
   bar:left bar:left/box/^|$ box 0,31 30x568
   bar:right bar:right/box/^|$ box 838,31 30x568
 real window, empty side rails: bar:left/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
   bar:bottom bar:bottom/line/status|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 30,0 838x31
   bar:left bar:left/box/^|$:after box 0,121 30x478
   bar:right bar:right/box/^|$ box 838,31 30x568
 real window, empty side rails: bar:right/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|status box 0,599 477.63x31
   bar:bottom bar:bottom/line/status|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 0,0 838x31
   bar:left bar:left/box/^|$ box 0,31 30x568
   bar:right bar:right/box/^|$:after box 838,121 30x478
 empty-corners.json, views: as seen
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
   bar:bottom bar:bottom/line/review|$ line 863,599 2x31
 empty-corners.json, views: bar:top/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
   bar:bottom bar:bottom/line/review|$ line 863,599 2x31
   bar:top bar:top/box/^|$:before box 0,0 8x31
@@ -1015,12 +1065,22 @@ empty-corners.json, views: bar:top/start/^|$@slide held
   bar:left bar:left/box/^|$ box 0,31 30x568
   bar:right bar:right/box/^|$ box 838,31 30x568
 empty-corners.json, views: bar:left/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
   bar:bottom bar:bottom/line/review|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 30,0 838x31
   bar:left bar:left/box/^|$:after box 0,121 30x478
   bar:right bar:right/box/^|$ box 838,31 30x568
 empty-corners.json, views: bar:right/start/^|$@slide held
+  bar:title bar:title/box/name|state box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/name|state:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/state|page line 654.98,-28 2x28
+  bar:title bar:title/line/page|zoom line 704.63,-28 2x28
+  bar:title bar:title/line/zoom|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|review box 0,599 477.63x31
   bar:bottom bar:bottom/line/review|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 0,0 838x31
@@ -1057,9 +1117,19 @@ empty-corners.json, tools: bar:right/start/^|$@slide held
   bar:left bar:left/box/^|$ box 0,31 30x568
   bar:right bar:right/box/^|$:after box 838,105 30x494
 columns-corner.json, g2: as seen
+  bar:title bar:title/box/w2|w3 box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/w2|w3:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/w3|w4 line 654.98,-28 2x28
+  bar:title bar:title/line/w4|g1 line 704.63,-28 2x28
+  bar:title bar:title/line/g1|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
   bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
 columns-corner.json, g2: bar:top/start/^|$@slide held
+  bar:title bar:title/box/w2|w3 box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/w2|w3:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/w3|w4 line 654.98,-28 2x28
+  bar:title bar:title/line/w4|g1 line 704.63,-28 2x28
+  bar:title bar:title/line/g1|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
   bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
   bar:top bar:top/box/^|$:before box 0,0 8x31
@@ -1067,12 +1137,22 @@ columns-corner.json, g2: bar:top/start/^|$@slide held
   bar:left bar:left/box/^|$ box 0,31 30x568
   bar:right bar:right/box/^|$ box 838,31 30x568
 columns-corner.json, g2: bar:left/start/^|$@slide held
+  bar:title bar:title/box/w2|w3 box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/w2|w3:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/w3|w4 line 654.98,-28 2x28
+  bar:title bar:title/line/w4|g1 line 704.63,-28 2x28
+  bar:title bar:title/line/g1|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
   bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 30,0 838x31
   bar:left bar:left/box/^|$:after box 0,121 30x478
   bar:right bar:right/box/^|$ box 838,31 30x568
 columns-corner.json, g2: bar:right/start/^|$@slide held
+  bar:title bar:title/box/w2|w3 box 241.63,-28 321.53x28
+  bar:title bar:title/hatch/w2|w3:after hatch 555.16,-28 8x28
+  bar:title bar:title/line/w3|w4 line 654.98,-28 2x28
+  bar:title bar:title/line/w4|g1 line 704.63,-28 2x28
+  bar:title bar:title/line/g1|$ line 863,-28 2x28
   bar:bottom bar:bottom/box/^|z1 box 0,599 477.63x31
   bar:bottom bar:bottom/line/z1|$ line 863,599 2x31
   bar:top bar:top/box/^|$ box 0,0 838x31
