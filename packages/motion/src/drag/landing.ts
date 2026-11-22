@@ -75,7 +75,8 @@ import type { LandingRegion } from "./region";
  * - **Outside every lane:** a refused place, refused; open space (`"open"`: the content less what blocks it, the page),
  *   the float at its landing; outside the stage (past `edge`), nowhere; else (docked content that takes nothing and
  *   refuses nothing) refused.
- * - **Shift** turns a lane or open space into open space (the float), and hides the guides.
+ * - **The float key** (`modifiers.floatKey`, Shift by default) turns a lane or open space into open space (the float), and
+ *   hides the guides.
  * - **Guides** name lanes and the held place each lane's guide stands for (`frame.guides`); the geometry draws them (a lane's
  *   marks in that held place's layout). `"near"` shows a lane only where the pointer can enter it: the held lane's (also over its own
  *   refused stretch); else the pending lane's (the pointer inside it, its gate not passed: a release floats or goes
@@ -283,7 +284,7 @@ export interface LandingFrame {
   readonly held: LandingHeld | null;
   /** Where a release now lands: `landingOf(held)`; null where it lands nowhere (the item goes home). */
   readonly landing: Rect | null;
-  /** The room is open: a spot is held in a lane, no Shift. */
+  /** The room is open: a spot is held in a lane, the float key not held. */
   readonly room: boolean;
   /**
    * The lanes whose place guides show, each with the held place its guide stands for: the frame's `held` (the screen), or,
@@ -291,7 +292,7 @@ export interface LandingFrame {
    * along it). The host's geometry draws them (`@n-uf/docking`'s `guides(frame)`).
    */
   readonly guides: readonly LandingGuideRef[];
-  /** Shift held: the region is open space wherever it was a lane or open space. */
+  /** The float key (`modifiers.floatKey`, Shift by default) held: the region is open space wherever it was a lane or open space. */
   readonly shift: boolean;
   /**
    * The lane the pointer is inside but hasn't entered (its gate not passed yet: a fast pass, or the moment before a slow
