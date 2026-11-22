@@ -585,8 +585,9 @@ the same shape as `@n-uf/motion`'s) and the geometry every entry shares: `rect`,
 
 The `Target` type (a drop target's shape, as `@n-uf/motion/drag` takes it) is exported here too, with its optional
 `hits` (every piece of a zone that isn't one rect; `hit` is the largest), and `pickRank` with `REFUSAL_RANK`: a refusal
-ranks after every priority 1 and 2 target and before priority 3; lower wins. Beside `id`, `priority`, `hit`, `hits`,
-`slot`, `label` and `free`, a `Target` carries the fields the docking model sets as plain data: `refuse` (a refusal;
-`pickRank` reads it), `bounds` (the drawn space a zone belongs to), `arm: "dwell"` with `armedHit` (a spring-loaded
-target and its zone once armed), and `opensRoom` with `roomHold` (ms) and `roomHit` (a target whose room opens as it
-shows). This package reads none of them but `refuse`; `stackGaps` and the tiling targets set none.
+ranks after every priority 1 and 2 target and before priority 3; lower wins. A `Target` is `id`, `priority`, `hit`,
+`hits`, `slot`, `label`, `free`, `refuse` (a refusal; `pickRank` reads it) and `bounds` (the drawn space a zone belongs
+to), and nothing else: it carries no time and no timing. The fields a drag intent reads for a spring-loaded target
+(`arm: "dwell"`, `armedHit`) and for a room that opens as a target shows (`opensRoom`, `roomHold` in ms, `roomHit`) are
+not placement's: `@n-uf/docking`'s `DockDrop` sets them, and `@n-uf/motion/drag`'s `DragTarget` reads them. This package
+reads none of the fields but `refuse`; `stackGaps` and the tiling targets set none.

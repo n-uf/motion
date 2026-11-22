@@ -70,7 +70,7 @@ A form's `kind` is the host's label, with three exceptions where the solver read
 
 `stackGaps(input, item, { previous, allows })` gives every gap of the stack, the item lifted out first, in order. A gap that takes the item carries the stack after the drop, its fit and the item's slot: the preview is the result. A gap that doesn't carries a reason: `no-forms`, `fixed`, `not-accepted`, `not-allowed`, `to-menu`, `overflow`, `too-wide`, `squeezes-fixed`. The item counts as just used, so the others give way before it; a fixed item may shrink to its minimum to make room, never further.
 
-`stackGaps` has no hit zones and no time. Where the pointer is, and how a flicker between two gaps is calmed, is the host's (`@n-uf/motion/drag`). The root's `Target` shape does carry a drag's own fields as plain data (`arm`, `armedHit`, `opensRoom`, `roomHold` in ms, `roomHit`): the docking model sets them, and `stackGaps` and the tiling targets set none.
+`stackGaps` has no hit zones and no time. Where the pointer is, and how a flicker between two gaps is calmed, is the host's (`@n-uf/motion/drag`). The root's `Target` shape carries no time and no timing: it is a shape of places. The spring-loading and room fields a drag intent reads (`arm`, `armedHit`, `opensRoom`, `roomHold` in ms, `roomHit`) are `@n-uf/docking`'s `DockDrop` fields and `@n-uf/motion/drag`'s `DragTarget` fields, not placement's.
 
 ## Principles
 

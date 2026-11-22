@@ -112,7 +112,9 @@ export const DRAG_DEFAULTS: DragTuning = {
 };
 
 /**
- * A drop target: plain data. `hit` is the zone the pointer can be in;
+ * A drop target: plain data. The spring-loading and room fields (`arm`, `armedHit`, `opensRoom`, `roomHold`, `roomHit`) are
+ * the intent's own: they are read here, and `@n-uf/docking`'s `DockDrop` sets them (`@n-uf/placement`'s `Target` has none
+ * of them). `hit` is the zone the pointer can be in;
  * `priority` how precise it is (1 beats 2 beats 3; equal priorities go to the
  * smaller zone). `slot` is where the dragged item would land, `label` what to
  * call it; the model reads neither. A `free` target has no slot (the item

@@ -327,7 +327,7 @@ export const RAIL_STRIP_MIN = 24;
 export const DEFAULT_RAIL_MAGNET = 6;
 /**
  * How long a rail target or a new-column line against the window's left or right edge holds before it shows with its
- * room, ms (`Target.roomHold`): none. It shows, with its room, on the frame the pointer enters it (an aiming pointer),
+ * room, ms (`DockDrop.roomHold`, read only by a drag intent): none. It shows, with its room, on the frame the pointer enters it (an aiming pointer),
  * so a toolbar held at the window's edge never jumps away across the column and back. The cost: grazing the window's
  * edge with a held item opens its rail.
  */

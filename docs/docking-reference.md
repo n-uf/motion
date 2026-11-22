@@ -687,7 +687,9 @@ is passed as `fresh`:
 | Keep open | `keepItem` + `fresh: [id]` |
 | open a closed item | `openItem`: it counts as fresh by itself beside items that stayed open in its edge. Into an edge whose items were all closed it comes back as it was (its column may stay folded by give-way); to show it regardless, `openItem` + `markUsed` + `fresh: [id]`, as for expanding |
 
-**Targets.** `targets(state, id, { previous, endReach, floatSize, floatOrient })` gives, in the `@n-uf/motion/drag` shape:
+**Targets.** `targets(state, id, { previous, endReach, floatSize, floatOrient })` gives `DockDrop`s: placement's `Target` shape plus `item`, `place` and `after`, and the fields a drag intent reads for
+spring-loaded rails and rooms that open (`arm`, `armedHit`, `opensRoom`, `roomHold`, `roomHit`), which `DockDrop` carries
+and placement's `Target` does not. A `DockDrop` is also the shape `@n-uf/motion/drag` takes:
 
 Every hit lies where the user sees things: the layout as it is, the dragged item in place. The item's home is its own place, and so
 are the gaps right beside it (a drop there is the same move). An edge the lift would delete (the item alone in its
