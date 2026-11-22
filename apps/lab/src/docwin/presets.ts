@@ -2261,6 +2261,72 @@ function reportedTitle(): DockState {
   return stateWith((s) => aligned(floating(put(s, "title", ["tools", "zoom", "views"]), "pages", { x: 420, y: 160, width: 260, height: 360 }), "views", "end"), { width: 1200, height: 640 });
 }
 
+/** The reported state with a long title: its row form's natural length is `LONG_TITLE`. */
+function longTitle(): DockState {
+  const s = reportedTitle();
+  const t = s.items.title!;
+  const row = (t.forms.row ?? []).map((form) => ({ ...form, main: { ...form.main, natural: LONG_TITLE } }));
+  return { ...s, items: { ...s.items, title: { ...t, forms: { ...t.forms, row } } } };
+}
+
+/**
+ * Views held by mouse over each third of the title bar of `make()`'s state. Over a third the slot is where the pointer is:
+ * it reaches into the pointer's third, or, when the pointer is over the title's reserved room (the layout's own
+ * `reservedRect`), it is the first gap after that room. A "no room" refusal at the pointer is fine but never commits.
+ * With `wide` the room must be wider than a third, so the leading third's pointer is over it and its slot lies past it.
+ */
+function titleThirds(c: Docwin, make: () => DockState, wide: boolean): { pass: boolean; now: string } {
+  const bad: string[] = [];
+  const seen: string[] = [];
+  for (const k of [0, 1, 2]) {
+    c.setState(make());
+    const bar = c.layout.edges.title!.rect;
+    // The title's reserved room as the layout reserves it, and the first gap after it (from the gaps before the hold).
+    const room = reservedRect(c.state, c.layout, "title");
+    const roomEnd = room.x + room.width;
+    const first = gaps(c, "views")
+      .filter((g) => g.place.edge === "title" && g.slot && g.slot.x >= roomEnd - 1)
+      .map((g) => g.slot!)
+      .sort((a, b) => a.x - b.x)[0];
+    const x0 = bar.x + (k * bar.width) / 3;
+    const x1 = bar.x + ((k + 1) * bar.width) / 3;
+    const p = { x: (x0 + x1) / 2, y: bar.y + bar.height / 2 };
+    const overRoom = p.x >= room.x && p.x < roomEnd;
+    if (wide && k === 0 && !(room.width > bar.width / 3)) bad.push(`the title's room ${r0(room.width)} px isn't wider than a third of the bar (${r0(bar.width / 3)} px)`);
+    if (wide && k === 0 && !overRoom) bad.push(`the leading third's pointer ${r0(p.x)} isn't over the title's room ${say(room)}`);
+    const h = mouseHold(c, "views", p);
+    const refused = c.refused;
+    // Over its own place the session is homing (no target; "Back to its place", or nothing while the pointer never
+    // left the item's own rect): that is home.
+    const slotEl = c.win.querySelector<HTMLElement>(".dw-slot")!;
+    const own = rectOf(c, "views");
+    const overOwn = !!own && inside(own, p);
+    const homing = !c.shown && ((!slotEl.hidden && slotEl.title === "Back to its place") || overOwn);
+    const s = c.shown ?? (homing ? ({ id: "home", place: { kind: "home" } } as DockDrop) : null);
+    const slot = s?.place.kind === "home" ? rectOf(c, "views") : (s?.slot ?? null);
+    h.up();
+    const d = c.lastDrop;
+    const near = !!slot && slot.x < x1 + 1 && slot.x + slot.width > x0 - 1;
+    const isFirst = !!slot && !!first && Math.abs(slot.x - first.x) < 1;
+    seen.push(`third ${k + 1}${overRoom ? ` over the room ${say(room)}` : ""}: ${refused ? `no room (${refused.id})` : `${s?.id ?? "nothing"}${slot ? ` ${say(slot)}` : ""}`}`);
+    if (!h.lifted) bad.push(`third ${k + 1}: the drag never lifted`);
+    else if (refused) {
+      if (d?.committed) bad.push(`third ${k + 1}: a release over "no room" committed`);
+    } else if (!s || (s.place.kind !== "gap" && s.place.kind !== "home")) bad.push(`third ${k + 1}: ${s?.id ?? "no target"}`);
+    // In either case a slot never lies over the title's reserved room: the room is the title's, whatever third it is in.
+    else if (slot && room.width > 0.5 && slot.x < roomEnd - 0.5 && slot.x + slot.width > room.x + 0.5)
+      bad.push(`third ${k + 1}: ${s.id} with its slot ${say(slot)} over the title's room ${say(room)}`);
+    else if (overRoom ? !isFirst && !(s.place.kind === "home" && near) : !near) {
+      bad.push(
+        overRoom
+          ? `third ${k + 1}: over the title's room ${say(room)}, ${s.id} with its slot ${slot ? say(slot) : "none"}, not the first gap after it${first ? ` (${say(first)})` : " (none found)"}`
+          : `third ${k + 1}: ${s.id} with its slot ${slot ? say(slot) : "none"} away from the third ${r0(x0)}..${r0(x1)}`,
+      );
+    } else if (s.place.kind === "gap" && !(d?.committed && sameRect(d.preview, d.landed))) bad.push(`third ${k + 1}: the landing isn't the slot`);
+  }
+  return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+}
+
 /**
  * Whether item `id`'s drawn content leaves its box: the union of its buttons' and labels' rects (outside a panel's
  * scrolling body) against the box, and the box's scroll size against its size. Null when nothing is clipped.
