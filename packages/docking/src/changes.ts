@@ -332,6 +332,25 @@ function nextSince(state: DockState): number {
   return Math.min(most + 1, Number.MAX_SAFE_INTEGER);
 }
 
+/** The anchored floats' rects as `state` draws them, remembered per state. */
+const anchoredDrawn = new WeakMap<DockState, readonly { readonly id: string; readonly rect: Rect }[]>();
+
+/**
+ * Whether `r`, where the hand puts float `id`, lies over an anchored float as drawn now. Only then does the hand's float
+ * win over it (a renewed `since`): what the hand covers it wins, what it doesn't cover never moves.
+ */
+function overAnchored(state: DockState, id: string, r: Rect): boolean {
+  if (!state.floats.some((f) => f.anchor && f.id !== id)) return false;
+  let drawn = anchoredDrawn.get(state);
+  if (!drawn) {
+    const l = solve(state);
+    drawn = state.floats.filter((f) => f.anchor && l.items[f.id]?.floating).map((f) => ({ id: f.id, rect: l.items[f.id]!.rect }));
+    anchoredDrawn.set(state, drawn);
+  }
+  const touch = 1e-3;
+  return drawn.some((d) => d.id !== id && Math.min(r.x + r.width, d.rect.x + d.rect.width) - Math.max(r.x, d.rect.x) > touch && Math.min(r.y + r.height, d.rect.y + d.rect.height) - Math.max(r.y, d.rect.y) > touch);
+}
+
 export function floatAt(state: DockState, id: string, at?: Rect, orient?: Orient): DockState {
   const item = itemOf(state, id);
   if (!item || item.fixed || !state.floatKinds.includes(item.kind)) return state;
@@ -339,9 +358,10 @@ export function floatAt(state: DockState, id: string, at?: Rect, orient?: Orient
   const o: Orient | undefined = orient ?? was?.orient;
   const fo = o ?? floatOrientOf(item);
   const size = floatSizeOf(item, fo);
-  // Placed at a rect (a drop: the hand placed it), it comes after every float there, so it wins the place it is put in
-  // over an anchored float (`DockFloat.since`); re-anchored with no rect, a float that floats already keeps its `since`.
-  const since = was && !at ? was.since : nextSince(state);
+  // Placed at a rect over an anchored float (a drop: the hand placed it there), it comes after every float there, so it
+  // wins over that anchored float (`DockFloat.since`); placed clear of every anchored float, or re-anchored with no
+  // rect, a float that floats already keeps its `since`, so nothing it doesn't cover moves.
+  const since = was && !(at && overAnchored(state, id, at)) ? was.since : nextSince(state);
   const seq = since !== undefined ? { since } : {};
   const float: DockFloat = at
     ? { id, rect: { x: at.x, y: at.y, width: at.width, height: at.height }, ...(o ? { orient: o } : {}), ...seq }
@@ -464,8 +484,10 @@ export function resizeFloat(state: DockState, floatId: string, rect: Rect, movin
   const item = itemOf(state, floatId);
   if (!fit || i < 0 || !item) return state;
   const { anchor: _a, ...plain } = state.floats[i]!;
-  // A hand resize places it: it comes after every float there (`DockFloat.since`), so it wins over an anchored float it grows over.
-  const float: DockFloat = { ...plain, rect: fit.rect, since: nextSince(state) };
+  // A hand resize grown over an anchored float comes after every float there (`DockFloat.since`), so it wins over it;
+  // one that stays clear of every anchored float keeps its `since`.
+  const renew = overAnchored(state, floatId, fit.rect);
+  const float: DockFloat = renew ? { ...plain, rect: fit.rect, since: nextSince(state) } : { ...plain, rect: fit.rect };
   const fo = float.orient ?? floatOrientOf(item);
   return withItem({ ...state, floats: state.floats.map((g, k) => (k === i ? float : g)) }, withFloatSizes(item, { orient: fo, size: { width: fit.rect.width, height: fit.rect.height } }));
 }

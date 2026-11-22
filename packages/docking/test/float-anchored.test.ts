@@ -48,19 +48,21 @@ describe("an anchored float and the other floats", () => {
     expect(overlaps(rects.g1!, rects.strip!)).toBe(false);
   });
 
-  it("since: one more than the largest among the floats; new on a drop and a resize by hand; kept by a re-anchor, raise and use; new after a dock", () => {
+  it("since: one more than the largest among the floats; renewed only by a drop or resize over an anchored float; kept otherwise; new after a dock", () => {
     const one = floatAt(base(), "g1");
     const two = moveTo(one, "g2", { kind: "float" });
     const sinceOf = (s: DockState, id: string) => s.floats.find((f) => f.id === id)?.since;
     expect([sinceOf(two, "g1"), sinceOf(two, "g2")]).toEqual([1, 2]);
-    // Placed by the hand (a drop at a rect, a resize): after every float there.
-    expect(sinceOf(floatAt(two, "g1", { x: 400, y: 300, width: 200, height: 28 }), "g1")).toBe(3);
-    // Re-anchored, raised, used: the same.
+    // Dropped clear of every anchored float, re-anchored, raised, used, resized clear: the same.
+    expect(sinceOf(floatAt(two, "g1", { x: 400, y: 300, width: 200, height: 28 }), "g1")).toBe(1);
     expect(sinceOf(moveTo(two, "g1", { kind: "float", anchor: "content-bottom" }), "g1")).toBe(1);
     expect(sinceOf(raiseFloat(two, "g1"), "g1")).toBe(1);
     expect(sinceOf(markUsed(two, "g1"), "g1")).toBe(1);
     const notes = floatAt(base(), "notes", { x: 400, y: 200, width: 280, height: 320 });
-    expect(sinceOf(resizeFloat(notes, "notes", { x: 400, y: 200, width: 300, height: 340 }), "notes")).toBe(2);
+    expect(sinceOf(resizeFloat(notes, "notes", { x: 400, y: 200, width: 300, height: 340 }), "notes")).toBe(1);
+    // Dropped over the anchored g2: after every float there.
+    const g2 = solve(two).items.g2!.rect;
+    expect(sinceOf(floatAt(two, "g1", { ...g2, width: 200, height: 28 }), "g1")).toBe(3);
     // Docked, then floated again: after every float there now.
     const docked = moveTo(two, "g1", { edge: "toolbar", at: 0 });
     expect(sinceOf(floatAt(docked, "g1"), "g1")).toBe(3);
@@ -136,6 +138,29 @@ describe("an anchored float and the other floats", () => {
     const lg = solve(grown);
     expect(lg.items.g1!.rect).toEqual(g1);
     expect(overlaps(lg.items.notes!.rect, g1)).toBe(true);
+  });
+
+  it("a nudge that stays clear of the anchored float moves nothing else, in both orders of since", () => {
+    // Notes first (since 1), g1 sent to Float after it (since 2): g1 lies beside Notes at the corner.
+    const notesFirst = moveTo(floatAt(base(), "notes", { x: 860, y: 68, width: 280, height: 320 }), "g1", { kind: "float" });
+    // g1 first (since 1), Notes placed by hand beside it, clear of it (since 2).
+    const g1First = (() => {
+      const s = floatAt(base(), "g1");
+      const g = solve(s).items.g1!.rect;
+      return floatAt(s, "notes", { x: g.x - 300, y: g.y, width: 280, height: 320 });
+    })();
+    for (const [name, s] of [["Notes first", notesFirst], ["g1 first", g1First]] as const) {
+      const l = solve(s);
+      const g1 = l.items.g1!.rect;
+      const n = l.items.notes!.rect;
+      expect(overlaps(g1, n), name).toBe(false);
+      const nudged = floatAt(s, "notes", { ...n, y: n.y + 4 });
+      expect(nudged.floats.find((f) => f.id === "notes")?.since, name).toBe(s.floats.find((f) => f.id === "notes")?.since);
+      expect(solve(nudged).items.g1!.rect, name).toEqual(g1);
+      // And grown clear of it by its bottom edge: the same.
+      const grown = resizeFloat(s, "notes", { ...n, height: n.height + 20 }, { bottom: true });
+      expect(solve(grown).items.g1!.rect, name).toEqual(g1);
+    }
   });
 
   it("a float grown by hand over an anchored float covers it; the anchored float stays put", () => {
