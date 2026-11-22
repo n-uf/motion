@@ -115,7 +115,7 @@ const MIN_PIECE = 8;
  * its rect clear of all of them, with its id (a strip along a box's side takes that side off, across or along), and is
  * dropped when nothing of 1 px or more is left. A zero-thick line (a place between two things) is trimmed the same way
  * along its length by each rect whose inside holds its line (strictly: one it only touches, on the rect's edge, leaves
- * it whole), and dropped when nothing of 1 px or more is left.
+ * it whole), and dropped when nothing of 1 px or more is left. A line no rect cuts comes back whole, however short.
  */
 export function trimmedBy<M extends DockMark>(marks: readonly M[], cs: readonly Rect[]): M[] {
   if (cs.length === 0) return [...marks];
@@ -126,12 +126,19 @@ export function trimmedBy<M extends DockMark>(marks: readonly M[], cs: readonly 
       const across = r.height <= EPS;
       const at = across ? r.y : r.x;
       let pieces: [number, number][] = [across ? [r.x, r.x + r.width] : [r.y, r.y + r.height]];
+      // Whether some rect actually cuts it: a line no rect holds comes back as it is, however short (a point too).
+      let touched = false;
       for (const c of cs) {
         const [lo, hi] = across ? [c.y, c.y + c.height] : [c.x, c.x + c.width];
         if (!(at > lo + EPS && at < hi - EPS)) continue;
         const [a, b] = across ? [c.x, c.x + c.width] : [c.y, c.y + c.height];
-        pieces = pieces.flatMap(([s, e]): [number, number][] => (b <= s || a >= e ? [[s, e]] : [...(a > s ? [[s, a] as [number, number]] : []), ...(b < e ? [[b, e] as [number, number]] : [])]));
+        pieces = pieces.flatMap(([s, e]): [number, number][] => {
+          if (b <= s || a >= e) return [[s, e]];
+          touched = true;
+          return [...(a > s ? [[s, a] as [number, number]] : []), ...(b < e ? [[b, e] as [number, number]] : [])];
+        });
       }
+      if (!touched) return [m];
       const kept = pieces.filter(([s, e]) => e - s >= 1);
       if (kept.length === 0) return [];
       const [s, e] = kept.reduce((x, y) => (y[1] - y[0] > x[1] - x[0] ? y : x));

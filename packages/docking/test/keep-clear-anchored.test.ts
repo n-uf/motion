@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { overlaps, subtract, type Rect } from "@n-uf/placement";
-import { dockDrag, fitResize, isAnchoredKeepClear, readDockState, solve, storeDockState, targets, type AnchoredKeepClear, type DockLayout, type DockState, type KeepClear } from "../src";
+import { dockDrag, fitResize, isAnchoredKeepClear, readDockState, solve, storeDockState, targets, type AnchoredKeepClear, type DockDrop, type DockLayout, type DockState, type KeepClear } from "../src";
 import { modelState } from "./model-window";
 import { anchorState, windowState } from "./fixture";
 import { trimmedBy } from "../src/drag";
@@ -24,6 +24,15 @@ describe("trimming a predicted mark by the strip on screen", () => {
     expect(trimmedBy([edge], [clear])[0]).toBe(edge);
     const beside = mark({ x: 0, y: 50, width: 0, height: 200 });
     expect(trimmedBy([beside], [clear])[0]).toBe(beside);
+  });
+  it("a short line or a point away from every clear stays whole, however short", () => {
+    for (const r of [{ x: 300, y: 50, width: 0, height: 0.5 }, { x: 300, y: 50, width: 0.4, height: 0 }, { x: 300, y: 50, width: 0, height: 0 }]) {
+      const m = mark(r);
+      expect(trimmedBy([m], [clear]), JSON.stringify(r)).toEqual([m]);
+      expect(trimmedBy([m], [clear])[0]).toBe(m);
+    }
+    // A point inside a clear is dropped.
+    expect(trimmedBy([mark({ x: 110, y: 50, width: 0, height: 0 })], [clear])).toEqual([]);
   });
   it("a box keeps its largest piece clear of the rect", () => {
     expect(trimmedBy([{ ...mark({ x: 0, y: 0, width: 124, height: 300 }), kind: "box" } as DockMark], [clear]).map((m) => m.rect)).toEqual([{ x: 0, y: 0, width: 100, height: 300 }]);
@@ -231,9 +240,13 @@ describe("(3) a strip anchored where a fixed rect lies acts as that rect on scre
   const hitsOf = (s: DockState, id: string): string => JSON.stringify(targets(s, id).map((t) => [t.id, t.hit, t.hits ?? null]));
 
   it("targets whose hits grow into the strip (the edge's drop strip, a new column's least hit) are cut and kept from growing there, as by the fixed rect", () => {
+    let extras = 0;
+    const areaOf = (hs: readonly Rect[]): number => hs.reduce((s, h) => s + h.width * h.height, 0);
     for (const base of [emptyRightEdge(), noRightColumn()]) {
       const { anchored, fixed, r } = pair(base, "all");
       for (const id of ["notes", "zoom"]) {
+        // A strip for floats only leaves every target as it is.
+        expect(hitsOf(withKeepClear(base, strip("floats")), id), `floats ${id}`).toBe(hitsOf(base, id));
         const reaching = targets(base, id).filter((t) => !t.free && (t.hits ?? [t.hit]).some((h) => overlaps(h, r)));
         expect(reaching.length, id).toBeGreaterThan(0);
         for (const t of targets(anchored, id)) if (!t.free) for (const h of t.hits ?? [t.hit]) expect(overlaps(h, r), `${id} ${t.id}`).toBe(false);
@@ -252,8 +265,19 @@ describe("(3) a strip anchored where a fixed rect lies acts as that rect on scre
           expect(a.has(k), `${id} ${k}`).toBe(true);
           expect(less(a.get(k)!.hits ?? [a.get(k)!.hit]), `${id} ${k}`).toBe(less(t.hits ?? [t.hit]));
         }
+        extras += extra.length;
+        // The docked drops' hits never overlap one another (home, the item's own place, may lie under a gap beside it), so
+        // what the shared targets lose is at most the extras' own area.
+        const docked = [...a.values()].filter((t) => !t.free && t.place.kind !== "home" && t.place.kind !== "none").flatMap((t) => (t.hits ?? [t.hit]).map((h) => ({ id: t.id, h })));
+        for (const p of docked) for (const q of docked) if (p !== q && p.id !== q.id) expect(overlaps(p.h, q.h), `${id} ${p.id} ${q.id}`).toBe(false);
+        const shared = (m: ReadonlyMap<string, DockDrop>): number => areaOf([...b.keys()].filter((k) => !m.get(k)!.free).flatMap((k) => m.get(k)!.hits ?? [m.get(k)!.hit]));
+        const lost = shared(b) - shared(a);
+        expect(lost, id).toBeGreaterThanOrEqual(-0.5);
+        expect(lost, id).toBeLessThanOrEqual(areaOf(owned) + 0.5);
       }
     }
+    // The extras branch is never vacuous: some base offers a drop the fixed rect refuses.
+    expect(extras).toBeGreaterThan(0);
   });
 
   it("an anchor's side target is cut by the strip on screen, as by the fixed rect", () => {
@@ -311,5 +335,21 @@ describe("guides: a lane predicted in another layout gives way to the strip on s
     const bare = dockDrag(base, "notes", { previous: solve(base) });
     const bareBox = bare.guides({ ...frame, guides: bare.regions.lanes.map((l) => ({ lane: l.id, held: null })) }).find((g) => g.lane === lane && g.kind === "box")!;
     expect(bareBox.rect.width).toBe(box.rect.width + STRIP);
+  });
+
+  it('emptyLanes: "edge": the hatch drawn on screen stays as drawn; the Near lane\'s predicted marks keep clear of the strip on screen', () => {
+    const s = withKeepClear(emptyRight(), strip("all"));
+    const drag = dockDrag(s, "notes", { previous: solve(s), emptyLanes: "edge" });
+    const lane = drag.regions.lanes.find((l) => l.id === "right")!;
+    const rest = { held: null, room: false, guides: drag.regions.lanes.map((l) => ({ lane: l.id, held: null })) };
+    const onScreen = stripOf(drag.shown(rest));
+    // At rest: the edge's hatch is the screen's own mark, not predicted, so no strip trims it (as no fixed rect does).
+    const hatch = drag.guides(rest).find((g) => g.lane === "right" && g.kind === "hatch")!;
+    expect(overlaps(hatch.rect, onScreen)).toBe(true);
+    const bare = dockDrag(emptyRight(), "notes", { previous: solve(emptyRight()), emptyLanes: "edge" });
+    expect(hatch.rect).toEqual(bare.guides({ ...rest, guides: bare.regions.lanes.map((l) => ({ lane: l.id, held: null })) }).find((g) => g.lane === "right" && g.kind === "hatch")!.rect);
+    // The Near lane (named with its would-land spot, not drawn on screen): its predicted marks, of any kind, are trimmed.
+    const near = { ...rest, guides: rest.guides.map((g) => (g.lane === "right" ? { ...g, held: { kind: "spot" as const, spot: lane.spots[0]!.id, point: { x: 1190, y: 300 } } } : g)) };
+    for (const g of drag.guides(near).filter((x) => x.lane === "right")) expect(overlaps(g.rect, onScreen), g.id).toBe(false);
   });
 });
