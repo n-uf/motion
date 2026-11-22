@@ -80,7 +80,8 @@ interface Ctx<K> {
   readonly gap: number;
   readonly handle: number;
   readonly panes: Map<K, Rect>;
-  readonly splits: Map<string, SplitGeometry>;
+  /** Where the geometry of the named splits goes; null for `layoutSplit`, which reports panes only and builds none. */
+  readonly splits: Map<string, SplitGeometry> | null;
 }
 
 /**
@@ -95,7 +96,9 @@ interface Ctx<K> {
  * is, so pass an area with no negative side.
  */
 export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: SplitOptions<K> = {}): Map<K, Rect> {
-  return layoutSplitTree(tree, area, options).panes;
+  const ctx: Ctx<K> = { options, gap: px(options.gap), handle: px(options.handle), panes: new Map(), splits: null };
+  lay(tree, area, ctx, false);
+  return ctx.panes;
 }
 
 /**
@@ -104,9 +107,10 @@ export function layoutSplit<K>(tree: Split<K> | null, area: Rect, options: Split
  * that lays out as master and stack is reported too, its nested splits are not.
  */
 export function layoutSplitTree<K>(tree: Split<K> | null, area: Rect, options: SplitOptions<K> = {}): SplitLayout<K> {
-  const ctx: Ctx<K> = { options, gap: px(options.gap), handle: px(options.handle), panes: new Map(), splits: new Map() };
-  lay(tree, area, ctx);
-  return { panes: ctx.panes, splits: ctx.splits };
+  const splits = new Map<string, SplitGeometry>();
+  const ctx: Ctx<K> = { options, gap: px(options.gap), handle: px(options.handle), panes: new Map(), splits };
+  lay(tree, area, ctx, false);
+  return { panes: ctx.panes, splits };
 }
 
 /** The strip `gutter` wide centered on `mid` across `box`, clipped to it. */
@@ -129,30 +133,34 @@ function clampByMin(ratio: number, extent: number, gutter: number, minA: number,
 }
 
 /** A split that lays its panes out flat as master and stack: the gap only, never the handle. */
-function layMaster<K>(tree: Extract<Split<K>, { a: unknown }>, master: MasterOptions, area: Rect, ctx: Ctx<K>): void {
+function layMaster<K>(tree: Extract<Split<K>, { a: unknown }>, master: MasterOptions, area: Rect, ctx: Ctx<K>, owned: boolean): void {
   const gap = tree.gap === undefined ? ctx.gap : px(tree.gap);
   const panes = panesOf(tree);
   const ratio = masterRatio(tree.ratio);
   const side = master.side ?? "left";
   // Only the count and side come from `master`: the ratio and gap are the split's own.
   for (const [pane, r] of masterStack(panes, area, { gap, ratio, count: master.count, side })) ctx.panes.set(pane, r);
-  if (tree.id === undefined) return;
+  if (tree.id === undefined || ctx.splits === null) return;
   const x = side === "left" || side === "right";
   const stacked = panes.length > masterCount(master.count, panes.length);
   const room = Math.max(0, (x ? area.width : area.height) - gap);
   const first = side === "left" || side === "top" ? room * ratio : room * (1 - ratio);
   const mid = (x ? area.x : area.y) + first + gap / 2;
-  ctx.splits.set(tree.id, { rect: { ...area }, axis: x ? "x" : "y", ratio, divider: stacked ? strip(area, x, mid, gap) : null });
+  ctx.splits.set(tree.id, { rect: owned ? area : { ...area }, axis: x ? "x" : "y", ratio, divider: stacked ? strip(area, x, mid, gap) : null });
 }
 
-function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>): void {
+/**
+ * Lays `tree` out in `area`. `owned` says `area` is a rect this layout made itself (a split's child), so a pane or a
+ * split may keep it as its own; the caller's rect (the root) is copied, never kept.
+ */
+function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>, owned: boolean): void {
   if (!tree) return;
   if ("pane" in tree) {
-    ctx.panes.set(tree.pane, { ...area });
+    ctx.panes.set(tree.pane, owned ? area : { ...area });
     return;
   }
   if (tree.master) {
-    layMaster(tree, tree.master, area, ctx);
+    layMaster(tree, tree.master, area, ctx, owned);
     return;
   }
   const axis = tree.axis ?? (area.width >= area.height ? "x" : "y");
@@ -163,12 +171,10 @@ function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>): void {
   const gutter = (tree.gap === undefined ? ctx.gap : px(tree.gap)) + ctx.handle;
   const { fixed, fixedAcross, floor } = ctx.options;
   // Across the split a child with a fixed length takes it from the start; the others take the whole cross extent.
-  const across = (child: Split<K>): number => {
-    const length = fixedAcross?.(child, axis);
-    return usable(length) ? length : cross;
-  };
-  const acrossA = across(tree.a);
-  const acrossB = across(tree.b);
+  const lenA = fixedAcross?.(tree.a, axis);
+  const lenB = fixedAcross?.(tree.b, axis);
+  const acrossA = usable(lenA) ? lenA : cross;
+  const acrossB = usable(lenB) ? lenB : cross;
   const fixedA = fixed?.(tree.a, axis);
   const fixedB = fixed?.(tree.b, axis);
 
@@ -177,16 +183,17 @@ function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>): void {
   let lengthB: number;
   let startB: number;
   let ratio = unit(tree.ratio);
-  let divider: Rect | null = null;
-  const holds = fixedA && fixedB && fixedA.keep && fixedB.keep && usable(fixedA.length) && usable(fixedB.length) ? [fixedA.length, fixedB.length] : null;
+  let ruled = false; // the divider is the gutter strip at the ratio (a split no fixed length decides)
   const lead = fixedA ?? fixedB;
-  if (holds) {
-    [lengthA, lengthB] = holds as [number, number];
+  if (fixedA && fixedB && fixedA.keep && fixedB.keep && usable(fixedA.length) && usable(fixedB.length)) {
+    lengthA = fixedA.length;
+    lengthB = fixedB.length;
     startB = origin + lengthA + gutter;
     ratio = extent > 0 ? (lengthA + gutter / 2) / extent : ratio;
   } else if (lead && usable(lead.length) && lead.length + gutter < extent) {
     const rest = Math.max(0, extent - lead.length - gutter);
-    [lengthA, lengthB] = lead === fixedA ? [lead.length, rest] : [rest, lead.length];
+    lengthA = lead === fixedA ? lead.length : rest;
+    lengthB = lead === fixedA ? rest : lead.length;
     startB = origin + lengthA + gutter;
     ratio = (lengthA + gutter / 2) / extent;
   } else {
@@ -199,14 +206,18 @@ function lay<K>(tree: Split<K> | null, area: Rect, ctx: Ctx<K>): void {
     lengthA = Math.max(0, extent * ratio - gutter / 2);
     lengthB = Math.max(0, extent * (1 - ratio) - gutter / 2);
     startB = origin + extent * ratio + gutter / 2;
-    divider = strip(area, x, origin + extent * ratio, gutter);
+    ruled = true;
   }
-  if (tree.id !== undefined) ctx.splits.set(tree.id, { rect: { ...area }, axis, ratio, divider });
+  // The geometry is built only for a named split and only when the caller asked for it (`layoutSplitTree`).
+  if (tree.id !== undefined && ctx.splits !== null) {
+    const divider = ruled ? strip(area, x, origin + extent * ratio, gutter) : null;
+    ctx.splits.set(tree.id, { rect: owned ? area : { ...area }, axis, ratio, divider });
+  }
   if (x) {
-    lay(tree.a, { x: area.x, y: area.y, width: lengthA, height: acrossA }, ctx);
-    lay(tree.b, { x: startB, y: area.y, width: lengthB, height: acrossB }, ctx);
+    lay(tree.a, { x: area.x, y: area.y, width: lengthA, height: acrossA }, ctx, true);
+    lay(tree.b, { x: startB, y: area.y, width: lengthB, height: acrossB }, ctx, true);
   } else {
-    lay(tree.a, { x: area.x, y: area.y, width: acrossA, height: lengthA }, ctx);
-    lay(tree.b, { x: area.x, y: startB, width: acrossB, height: lengthB }, ctx);
+    lay(tree.a, { x: area.x, y: area.y, width: acrossA, height: lengthA }, ctx, true);
+    lay(tree.b, { x: area.x, y: startB, width: acrossB, height: lengthB }, ctx, true);
   }
 }
