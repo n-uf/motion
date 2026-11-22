@@ -11,6 +11,7 @@ import type { DragFeel, KindFeel } from "./feel";
 import { CODE_PRESETS } from "./code-presets";
 import { KIT_PRESETS } from "./kit-presets";
 import { FIXED_PRESETS } from "./fixed-presets";
+import { KEEP_CLEAR_PRESETS } from "./keep-clear-presets";
 import { LADDER_PRESETS } from "./ladder-presets";
 import { SPLIT_PRESETS } from "./split-presets";
 import { INTENT_PRESETS } from "./intent-presets";
@@ -1785,6 +1786,7 @@ function PUBLISHED_PRESETS(): Preset[] {
   ...RAIL_DOCK_PRESETS(),
   ...KIT_PRESETS(),
   ...FIXED_PRESETS(),
+  ...KEEP_CLEAR_PRESETS(),
   ...INTENT_PRESETS(),
   ];
 }
