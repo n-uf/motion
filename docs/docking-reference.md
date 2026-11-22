@@ -618,7 +618,8 @@ rect.
 of the anchored floats floated before it and of the floats with a rect of their own floated strictly before it, by the
 same nearest-clear-place search that keeps it clear of docked items, so a group sent to Float lies beside the floats
 already there instead of on them. Which float was floated first is `since` (`DockFloat.since`: when it was last
-floated or placed by the hand, since a drop at a rect and a hand `resizeFloat` renew it; a missing one counting
+floated or placed by the hand over an anchored float, since a drop at a rect or a hand `resizeFloat` whose new rect
+lies over an anchored float as drawn renews it, and one that stays clear of every anchored float keeps it; a missing one counting
 as 0, so floats with no `since` win; among anchored floats ties go by id, and a float with a rect of its own floated as
 early wins nothing), never the stacking order, so `raiseFloat` reshapes nothing. A float already at a corner stays
 there when another is sent to Float beside it. Where no place is clear of them all, it lies where it would with no

@@ -191,8 +191,7 @@ describe("a float resized by hand (resize with a rect)", () => {
     const two = floatAt(s, "pages", { x: 0, y: 0, width: 300, height: 300 });
     expect(resizeFloat(two, "notes", { x: 500, y: 200, width: 300, height: 300 }).floats.map((f) => f.id)).toEqual(["notes", "pages"]);
     const anchored: DockState = { ...s, floats: [{ id: "notes", rect: { x: 0, y: 0, width: 280, height: 320 }, anchor: "content-top-right" }] };
-    // (Placed by the hand: after every float there.)
-    expect(resizeFloat(anchored, "notes", { x: 600, y: 100, width: 300, height: 300 }).floats[0]).toEqual({ id: "notes", rect: { x: 600, y: 100, width: 300, height: 300 }, since: 1 });
+    expect(resizeFloat(anchored, "notes", { x: 600, y: 100, width: 300, height: 300 }).floats[0]).toEqual({ id: "notes", rect: { x: 600, y: 100, width: 300, height: 300 } });
   });
 });
 

@@ -164,6 +164,12 @@ describe("bars and chrome only clamp it, as the stage's edge does", () => {
     expect(a.landing).toEqual({ x: 510, y: 140, ...item });
     expect(stays(a.state)).toBe(false);
     expect(solve(a.state).items[KEY]!.rect).toEqual(a.landing);
+    // The same drop with the fixture's Notes (280×320, its default middle grab): up would put it under the bars, so the
+    // least push is left by 260, to 260,240, its y at the hand; through the float target the same.
+    const d = { ...windowState(), keepClear: g.keepClear };
+    const b = floatFrame(d, { x: 660, y: 400 });
+    expect(b.landing).toEqual({ x: 260, y: 240, width: 280, height: 320 });
+    expect(targets(d, KEY).find((t) => t.place.kind === "float")!.after({ x: 660, y: 400 }).layout.items[KEY]!.rect).toEqual(b.landing);
   });
 });
 
