@@ -436,7 +436,8 @@ windows), and a drag's held places reuse that work.
 
 ### `dockDrag(state, dragged, options)`: one layout per held place
 
-`dockDrag` takes `lanes()`' options and gives a `DockDrag`: `regions` (`lanes()`', for hit-testing only), `after(held)`,
+`dockDrag` takes `lanes()`' options and gives a `DockDrag`: `regions` (`lanes()`', for hit-testing only), `home` (the
+item's own place at the lift, `{ lane, spot }`: the first spot `lanes()` marks `home`; absent for a float), `after(held)`,
 `landingOf(held)`, `spotsOf(spot)`, `shown(frame)` and `guides(frame)`. A held place, `DockHeld`, is `{ kind: "spot", spot, point }`,
 `{ kind: "float", point }` or null (rest). `after(held)` is a `DockAfter`: `state` (the dock state a release commits; a host stores
 it), `layout` (that dock state solved with `options.previous`, as the commit solves it), `landing` (the held item's rect
@@ -452,8 +453,10 @@ lane's marks in the layout of the held place it names; a lane drawn on screen le
 it (a box part 8 px or shorter that cut leaves is dropped); a lane the screen doesn't draw in the layout that creates
 it (the Near lane's would-land held place's; any other's one spot's, its room whole, giving up where it meets a lane drawn
 on screen, the bar keeping the corner between two such); the Near lane's marks winning where they meet another's. The
-drag fits `@n-uf/motion/drag`'s `LandingGeometry` as it is (`AssertGeometry<DockDrag>` in `./testing` pins it), and a
-landing frame and release fit `DockGuideFrame` and `DockHeld`.
+drag fits `@n-uf/motion/drag`'s `LandingGeometry` as it is (`AssertGeometry<DockDrag>` in `./testing` pins it), and its
+`home` is the landing model's `home` option, so `createLandingModel({ ...drag, preview })` is the whole wiring (a host's own
+`home` after the spread wins; `preview` is the `DragPreview` the host also gives `previewPlan`, which holds the guide
+level). A landing frame and release fit `DockGuideFrame` and `DockHeld`.
 
 A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an item that is not a tile of it. A tile of a
 column folded into it moves among that column's tiles through the column's own lane, drawn where the column's run of tiles
@@ -786,7 +789,8 @@ facing halves is home's, and is no target of its own. The slot is where the item
   reaches past the stage. Hand them to the drag intent with the targets: `refusalTargets(refusals(state, id))` gives
   each one as a target marked `refuse: true` (its `refusal` the `DockRefusal`), which the intent never holds or
   shows, so a held target's band never covers a refusal; show "Can't go here" while the frame's `refused` is set.
-  In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank`, the drag intent's value): an ordering
+  In the pick a refusal ranks at `REFUSAL_RANK` (2.5, exported with `pickRank` by `@n-uf/motion/drag` alone, which owns
+  it; placement no longer exports either, and the reference host keeps a private copy of the value): an ordering
   rank, not a priority (priorities stay 1, 2 and 3; `refuse: true` is a refusal's tier), after every target of
   priority 1 and 2, before the float's 3. Where a refusal and a target meet or overlap (a gap's end on a refused bar's edge), the
   target wins however small the refusal is; over the refusal alone it wins over the float.
@@ -1207,7 +1211,9 @@ pointer (also on its own refused stretch), (b) L is pending (the frame's `pendin
 pointer is in open space within `NEAR_REACH` (12 px) of L's rect; so none shows over a refused place outside L.
 `moving.guideSwitches` bounds how often the lane whose guides show changes; `end.pending` and `end.landing` read the
 last frame. `createLandingHost({ landing, stretchPositions })` asks `lanes()` for the stretch
-positions given (the library's default when left out).
+positions given (the library's default when left out), and wires the model as a host does:
+`landing({ ...drag, preview: { mode: "placeholder", placeGuides: "near" } })` (`LandingRule`'s options are `regions`,
+`landingOf`, `spotsOf`, `home?` and `preview?`; the drag's `home` comes with the spread).
 
 **`AssertLanding`.** `AssertLanding<R>` is a type that compiles only when `R` is assignable to `@n-uf/motion/drag`'s
 `LandingRegions`, so a host's suite (or this package's own, `test/landing-check.test.ts`) proves at compile time that
