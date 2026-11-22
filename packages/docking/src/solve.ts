@@ -20,9 +20,10 @@
  * 5. **Floats** are fitted inside the stage, clear of every docked item (fixed ones and » entries included), every bar
  *    and the chrome rects (`fitFloat`): the fixed ones, and the ones anchored to the content (`AnchoredKeepClear`),
  *    resolved once here, with the edges and the content final (`./solve/keep-clear`). An anchored float sits flush
- *    with that side or corner of `content` first, and keeps clear of every float with a rect of its own and of the anchored floats floated before it (`since`, then id)
- *    too, where room exists; the stacking order plays no part, so `raiseFloat` reshapes nothing. A
- *    float with `from` over 0 is its bar: its form's natural length along its `orient`, its other size kept.
+ *    with that side or corner of `content` first, and keeps clear of every float with a rect of its own and of the
+ *    anchored floats floated before it (`since`, then id) too, where room exists; the stacking order plays no part, so
+ *    `raiseFloat` reshapes nothing. A float with `from` over 0 is its bar: its form's natural length along its
+ *    `orient`, its other size kept.
  *
  * 6. **Dynamic columns** (`DockEdge.column`, on a side with `DockState.rails[side]`): while the content is narrower than
  *    `contentMin.width` (after `inset` and a `gutter` after each side edge and rail), they shrink toward their minimum
