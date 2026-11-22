@@ -8,6 +8,27 @@ import { overlaps, subtract, type Rect } from "@n-uf/placement";
 import { dockDrag, fitResize, isAnchoredKeepClear, readDockState, solve, storeDockState, targets, type AnchoredKeepClear, type DockLayout, type DockState, type KeepClear } from "../src";
 import { modelState } from "./model-window";
 import { anchorState, windowState } from "./fixture";
+import { trimmedBy } from "../src/drag";
+import type { DockMark } from "../src/lanes";
+
+describe("trimming a predicted mark by the strip on screen", () => {
+  const clear = { x: 100, y: 0, width: 24, height: 400 };
+  const mark = (rect: Rect): DockMark => ({ id: "m", kind: "line", rect }) as DockMark;
+  it("a zero-thick line whose line lies inside a clear is trimmed along it, or dropped when nothing is left", () => {
+    // Vertical, inside the clear over its whole length: dropped.
+    expect(trimmedBy([mark({ x: 110, y: 50, width: 0, height: 200 })], [clear])).toEqual([]);
+    // Horizontal, crossing the clear: the longer side kept.
+    expect(trimmedBy([mark({ x: 0, y: 200, width: 300, height: 0 })], [clear]).map((m) => m.rect)).toEqual([{ x: 124, y: 200, width: 176, height: 0 }]);
+    // On the clear's edge (it only touches it) or beside it: whole, the same object.
+    const edge = mark({ x: 100, y: 50, width: 0, height: 200 });
+    expect(trimmedBy([edge], [clear])[0]).toBe(edge);
+    const beside = mark({ x: 0, y: 50, width: 0, height: 200 });
+    expect(trimmedBy([beside], [clear])[0]).toBe(beside);
+  });
+  it("a box keeps its largest piece clear of the rect", () => {
+    expect(trimmedBy([{ ...mark({ x: 0, y: 0, width: 124, height: 300 }), kind: "box" } as DockMark], [clear]).map((m) => m.rect)).toEqual([{ x: 0, y: 0, width: 100, height: 300 }]);
+  });
+});
 
 const STRIP = 24;
 const strip = (f: "all" | "floats" = "floats", side: AnchoredKeepClear["side"] = "right"): AnchoredKeepClear => ({ region: "content", side, size: STRIP, for: f, id: "strip" });

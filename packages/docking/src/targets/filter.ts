@@ -35,6 +35,8 @@ function placeKey(s: DockState, id: string): string {
 function soundness(state: DockState, base: DockLayout, dragged: string): (after: DockLayout) => boolean {
   const noteKey = (n: DockLayout["notes"][number]): string | null => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? `${n.edge}:${n.code}:${"id" in n ? n.id : ""}` : null);
   const hadNotes = new Set(base.notes.map(noteKey).filter((k): k is string => k !== null));
+  // The state's fixed keep-clear rects (no layout's anchored ones): once per drag.
+  const chrome = keepClearFor(state, {}, "targets");
   return (after) => {
     if (after.notes.some((n) => { const k = noteKey(n); return k !== null && !hadNotes.has(k); })) return false;
     for (const [id, b] of Object.entries(base.items)) {
@@ -57,8 +59,9 @@ function soundness(state: DockState, base: DockLayout, dragged: string): (after:
     if (!me) return true;
     const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && !(it.inMenu && itemSteps(state.items[id]!)) && id !== dragged).map(([id]) => reservedRect(state, after, id));
     // A drop's fit reads the keep-clear rects of its own layout (`after`): an anchored one lies where the drop puts it.
-    const chrome = keepClearFor(state, after, "targets");
-    return !chrome.some((c) => overlaps(me.rect, c)) && !fixedAfter.some((f) => overlaps(me.rect, f));
+    // The fixed ones are the same in every layout: taken once, above.
+    const onChrome = chrome.some((c) => overlaps(me.rect, c)) || (after.keepClear ?? []).some((c) => c.for !== "floats" && overlaps(me.rect, c.rect));
+    return !onChrome && !fixedAfter.some((f) => overlaps(me.rect, f));
   };
 }
 

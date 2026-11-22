@@ -113,11 +113,31 @@ const MIN_PIECE = 8;
 /**
  * Marks trimmed by `cs` (the screen's anchored keep-clear rects): each mark that meets one keeps the largest piece of
  * its rect clear of all of them, with its id (a strip along a box's side takes that side off, across or along), and is
- * dropped when nothing of 1 px or more is left. A mark that only touches one (a zero-thick line on its edge) stays.
+ * dropped when nothing of 1 px or more is left. A zero-thick line (a place between two things) is trimmed the same way
+ * along its length by each rect whose inside holds its line (strictly: one it only touches, on the rect's edge, leaves
+ * it whole), and dropped when nothing of 1 px or more is left.
  */
-function trimmedBy<M extends DockMark>(marks: readonly M[], cs: readonly Rect[]): M[] {
+export function trimmedBy<M extends DockMark>(marks: readonly M[], cs: readonly Rect[]): M[] {
   if (cs.length === 0) return [...marks];
   return marks.flatMap((m): M[] => {
+    const r = m.rect;
+    if (r.width <= EPS || r.height <= EPS) {
+      // Along x for a horizontal line (zero height), along y for a vertical one.
+      const across = r.height <= EPS;
+      const at = across ? r.y : r.x;
+      let pieces: [number, number][] = [across ? [r.x, r.x + r.width] : [r.y, r.y + r.height]];
+      for (const c of cs) {
+        const [lo, hi] = across ? [c.y, c.y + c.height] : [c.x, c.x + c.width];
+        if (!(at > lo + EPS && at < hi - EPS)) continue;
+        const [a, b] = across ? [c.x, c.x + c.width] : [c.y, c.y + c.height];
+        pieces = pieces.flatMap(([s, e]): [number, number][] => (b <= s || a >= e ? [[s, e]] : [...(a > s ? [[s, a] as [number, number]] : []), ...(b < e ? [[b, e] as [number, number]] : [])]));
+      }
+      const kept = pieces.filter(([s, e]) => e - s >= 1);
+      if (kept.length === 0) return [];
+      const [s, e] = kept.reduce((x, y) => (y[1] - y[0] > x[1] - x[0] ? y : x));
+      if (Math.abs(s - (across ? r.x : r.y)) < EPS && Math.abs(e - s - (across ? r.width : r.height)) < EPS) return [m];
+      return [{ ...m, rect: across ? { x: s, y: r.y, width: e - s, height: r.height } : { x: r.x, y: s, width: r.width, height: e - s } }];
+    }
     const over = cs.filter((c) => overlaps(m.rect, c));
     if (over.length === 0) return [m];
     const pieces = over.reduce<Rect[]>((ps, c) => ps.flatMap((p) => subtract(p, c)), [m.rect]).filter((p) => p.width >= 1 && p.height >= 1);
