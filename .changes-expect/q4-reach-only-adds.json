@@ -1,0 +1,50 @@
+[
+  {
+    "package": "docking",
+    "kind": "targets",
+    "case": "columns per side free, panel p*",
+    "reason": "reach only adds, for the new-column lines too: with endReach, a column's end gap's reach strip over the inset strip (past the column's end) no longer takes a column line's own area. The line (column:<side>:<n>) keeps its corner pieces there as at reach 0, and the gap's strip is the narrower rect (hit width 214 -> 176) that leaves them. A line whose drop is the same move as a rail stop or home (rail:<side>:<n>, home:<item>) keeps its pieces the same way, and `blocked` follows"
+  },
+  {
+    "package": "docking",
+    "kind": "targets",
+    "case": "two left columns, *",
+    "reason": "the same, in the windows with two columns on the left: the column lines (and the rail stop or home they are the same move as) keep their pieces in the inset strip, and the end gaps' reach strips stop at them (width 214 -> 176, 230 -> 192; 214 -> 188 or 198 where the right column is emptied); a gap's roomHit, the hull of its hit and landing rect, follows its hit"
+  },
+  {
+    "package": "docking",
+    "kind": "targets",
+    "case": "two right columns, *",
+    "reason": "the same, in the windows with two columns on the right: the column lines (and the rail stop or home they are the same move as) keep their pieces in the inset strip, and the end gaps' reach strips stop at them (width 214 -> 176, 230 -> 192)"
+  },
+  {
+    "package": "docking",
+    "kind": "targets",
+    "case": "two columns a side, the second ones empty, panel p*",
+    "reason": "the same, with a second empty column on each side: the column lines keep their pieces in the inset strip, and the end gaps' reach strips stop at them (width 214 -> 176)"
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "columns per side free, panel p*",
+    "reason": "the lanes read the same targets: the spots' target hits change as the targets' do (the column lines' pieces back, the end gaps' strips narrower); no spot, mark or landing of the lane changes"
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "two left columns, *",
+    "reason": "the lanes read the same targets: the spots' target hits change as the targets' do (the column lines' pieces back, the end gaps' strips narrower, roomHit with the hit; `blocked` follows the rail stop's and home's pieces); no spot, mark or landing changes"
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "two right columns, *",
+    "reason": "the lanes read the same targets: the spots' target hits change as the targets' do (the column lines' pieces back, the end gaps' strips narrower; `blocked` follows the rail stop's and home's pieces); no spot, mark or landing changes"
+  },
+  {
+    "package": "docking",
+    "kind": "lanes",
+    "case": "two columns a side, the second ones empty, panel p*",
+    "reason": "the lanes read the same targets: the spots' target hits change as the targets' do (the column lines' pieces back, the end gaps' strips narrower); no spot, mark or landing changes"
+  }
+]
