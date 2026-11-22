@@ -46,7 +46,9 @@ export interface StackGapOptions {
 
 /** Why a drop's fit leaves no room for the item, or null when it fits beside the others. */
 function refusalOf(base: StackFit, fit: StackFit, dragged: PlacedStackItem, fixed: ReadonlyMap<string, StackItem>, axis: StackInput["axis"], tooWideBefore: ReadonlySet<string>): StackGapRefusal | null {
-  if (dragged.kind === "menu") return "to-menu";
+  const inMenu = new Set(fit.menu?.items ?? []);
+  const wasInMenu = new Set(base.menu?.items ?? []);
+  if (inMenu.has(dragged.id)) return "to-menu";
   for (const n of fit.notes) {
     if (n.code === "overflow") return "overflow";
     if (n.code === "too-wide" && !tooWideBefore.has(n.id)) return "too-wide";
@@ -57,7 +59,7 @@ function refusalOf(base: StackFit, fit: StackFit, dragged: PlacedStackItem, fixe
   for (const p of fit.items) {
     const item = fixed.get(p.id);
     const q = was.get(p.id);
-    if (!item || !q || p.kind === "menu" || q.kind === "menu") continue;
+    if (!item || !q || inMenu.has(p.id) || wasInMenu.has(q.id)) continue;
     if (p.form !== q.form) return "squeezes-fixed";
     if (main(p.rect) < formMain(item.forms[p.form]!, "min", fit.cross) - 1e-6) return "squeezes-fixed";
     if (across(p.rect) < across(q.rect) - 1e-6) return "squeezes-fixed";

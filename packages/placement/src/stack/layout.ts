@@ -28,9 +28,11 @@
  * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
  * others give way around it. In step 5 it shrinks and grows like any item.
  *
- * With `ownCross`, an item in a group form (`row`, `stacked`, `wrap`, `icons`, `fold`) is drawn at its own `cross.natural`
- * (clamped to the stack's cross size) from the start edge instead of across the whole stack; a panel form (`open`,
- * `header`, `rail`) still spans it. Nothing else changes.
+ * With `ownCross`, an item in a form drawn at its own size (`StackForm.ownCross`; default the group kinds `row`, `stacked`,
+ * `wrap`, `icons`, `fold`) is drawn at its own `cross.natural` (clamped to the stack's cross size) from the start edge
+ * instead of across the whole stack; any other form (by default a panel's `open`, `header`, `rail`) still spans it.
+ * Nothing else changes. The solver reads a form's kind through its flags only (`menu`, `ownCross`, `stepGroup`), each
+ * defaulting from the kind; a kept fit's form is matched at its index by its kind, a label compared and never read.
  *
  * `gap` sits between neighboring drawn items (the » entry is one), `pad` before the first and after the last; both
  * count toward the length and the rects include them, so an app draws at the rects.
@@ -40,10 +42,8 @@
  * same input, same fit.
  */
 import { EPS, type Rect } from "../geometry";
-import { askedLength, formCrossMin, formFitsCross, formMain, formSetsCross, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
-const isMenu = (f: StackForm): boolean => f.kind === "menu";
-/** The form kinds of a control group; `ownCross` draws these at their own size across. */
-const GROUP_KINDS: ReadonlySet<string> = new Set(["row", "stacked", "wrap", "icons", "fold"]);
+import { askedLength, formCrossMin, formFitsCross, formMain, formMenu, formOwnCross, formSetsCross, formStepGroup, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
+const isMenu = formMenu;
 const finite = (x: number, fallback = 0): number => (Number.isFinite(x) ? x : fallback);
 /** A form's length along the stack; a `wrap` form's is its rows at cross size `cross` times the row height. */
 const mainOf = formMain;
@@ -210,8 +210,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     return idx.reduce((s, i) => s + mainOf(form(i), held && holds(i) ? "natural" : "min", c), 0) + (inMenu() ? menuMain(input) : 0) + gapsOf() + sp.start + sp.end;
   };
   const minSum = (): number => minSumWith(hold);
-  /** Whether stepping item `i` to form `j` keeps its form's kind (a compact variant of the form it is in). */
-  const sameKind = (i: number, j: number): boolean => items[i]!.forms[j]!.kind === form(i).kind;
+  /** Whether stepping item `i` to form `j` keeps its form's step group (a compact variant of the form it is in). */
+  const sameKind = (i: number, j: number): boolean => formStepGroup(items[i]!.forms[j]!) === formStepGroup(form(i));
   /** The form item `i` would step to: the first later one that shortens the stack, else -1 (it stays). */
   const stepTo = (i: number): number => {
     const from = at[i]!;
@@ -292,7 +292,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       // A step to a form of the same kind (a compact variant) was taken while the growing fixed items held their natural
       // length: it comes back only when they still do. Every other step came after their shrink.
       const forms = (s: StackStep) => items[index.get(s.id)!]!.forms;
-      hold = group.every((s) => forms(s)[s.from]!.kind === forms(s)[s.to]!.kind) && idx.some(holds);
+      hold = group.every((s) => formStepGroup(forms(s)[s.from]!) === formStepGroup(forms(s)[s.to]!)) && idx.some(holds);
       for (const s of [...group].reverse()) at[index.get(s.id)!] = s.from;
       if (minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0))) return true;
       changed.forEach((i, k) => (at[i] = was[k]!));
@@ -477,14 +477,15 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
 
   const rectAt = (from: number, main: number, across = cross): Rect => (input.axis === "column" ? { x: 0, y: from, width: across, height: main } : { x: from, y: 0, width: main, height: across });
   /**
-   * The size across an item is drawn: the stack's, or with `ownCross` and a group form (`row`, `stacked`, `wrap`, `icons`, `fold`),
-   * its own `cross.natural` (clamped to the stack's), from the start edge. The kind decides, not `setsCross`: a group's
-   * form that sets the cross size (a column of words) widens the column but is drawn at its own width, and a panel's form
-   * (`open`, `header`, `rail`) and the » entry fill the stack.
+   * The size across an item is drawn: the stack's, or with `ownCross` and a form drawn at its own size (`StackForm.ownCross`,
+   * default the group kinds `row`, `stacked`, `wrap`, `icons`, `fold`), its own `cross.natural` (clamped to the stack's),
+   * from the start edge. That flag decides, not `setsCross`: a group's form that sets the cross size (a column of words)
+   * widens the column but is drawn at its own width, and a panel's form (`open`, `header`, `rail`) and the » entry fill
+   * the stack.
    */
   const acrossOf = (i: number): number => {
     const f = form(i);
-    if (input.ownCross !== true || !GROUP_KINDS.has(f.kind)) return cross;
+    if (input.ownCross !== true || !formOwnCross(f)) return cross;
     // A wrap form is as wide as its rows need at the stack's cross size.
     if (f.wrap) return Math.min(cross, wrapRows(f.wrap, cross).width);
     return Math.min(cross, Math.max(0, finite(f.cross.natural, cross)));
