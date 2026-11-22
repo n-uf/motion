@@ -10,8 +10,8 @@
 - `./drag`, **added: `guidesOf(preview)`**, the one reading of a preview's guide level (`previewPlan` reads it too; its
   plans are unchanged).
 - `./drag`, **added: the landing model's `modifiers`** (`LandingModifiers` = `{ on, floatKey }`, default
-  `LANDING_MODIFIERS`), the drag intent's `modifiers` shape less the arm key, in place of the fixed `keys.shift`. Pass the
-  intent's `modifiers` as they are. The default is the intent's float key, Shift, so nothing moves unless a host sets it;
+  `LANDING_MODIFIERS`), the drag intent's `modifiers` shape less the arm key, in place of the fixed `keys.shift`. A variable
+  holding the intent's `modifiers` passes as it is (an inline literal with `armKey` does not). The default is the intent's float key, Shift, so nothing moves unless a host sets it;
   `floatKey: "mod"` (⌘ or Ctrl) and the other keys now work, and `on: false` turns the key off. `frame.shift` says the
   float key is held.
 - `./drag`, **removed (type only): `LandingRegions.item`.** The model never read it; `@n-uf/docking`'s regions keep
