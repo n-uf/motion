@@ -149,9 +149,9 @@ function ownersOf(c: Ctx, live: readonly EdgeSpec[], drawn: ReturnType<typeof dr
 
 /**
  * `alongOf(spec)`: the stretches along each edge its surviving slots tile, from the edge tiled on its own (see
- * `ownedRectsOf`).
+ * `ownedRectsOf`). `aloneOf(spec)`: the rects its tiles (slot's or home's, never a refusal's) cover as it tiles on its own.
  */
-export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => readonly Span[]): Ownership {
+export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSpec) => readonly Span[], aloneOf: (s: EdgeSpec) => readonly Rect[]): Ownership {
   const { state, now, dragged } = c;
   const drawn = drawnOf(c, live);
   const owners = ownersOf(c, live, drawn, alongOf);
@@ -173,11 +173,12 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const [t0, t1] = s.thinOwned!;
     return s.vertical ? rect(t0, b.y, t1 - t0, b.height) : rect(b.x, t0, b.width, t1 - t0);
   };
-  // Reach only adds: the part of an edge's band past its own ends (its `endReach` strips) never takes another real
-  // edge's own span (that edge's owned band along its length). There it neither wins over that edge nor keeps its tile.
+  // Reach only adds: the part of an edge's band past its own ends (its `endReach` strips) never takes another edge's own
+  // hit: a drawn edge's owned band along its length, and for an edge with no drawn ends (a column line, a rail stop)
+  // its tiles as it tiles on its own. There it neither wins over that edge nor keeps its tile.
   const endsOf = (s: EdgeSpec): Span | null => {
     const e = s.edge ? now.edges[s.id] : undefined;
-    if (!e || EDGE_KINDS[s.kind].virtual) return null;
+    if (!e) return null;
     const span: Span = s.vertical ? [e.rect.y, e.rect.y + e.rect.height] : [e.rect.x, e.rect.x + e.rect.width];
     return span[1] - span[0] > EPS ? span : null;
   };
@@ -193,22 +194,32 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const [o0, o1] = s.owned;
     return s.vertical ? rect(o0, ends[0], o1 - o0, ends[1] - ends[0]) : rect(ends[0], o0, ends[1] - ends[0], o1 - o0);
   };
-  // `o`'s rect `r` less where its reach crosses `s`'s own span.
-  const reachLess = (o: Owner, r: Rect, s: EdgeSpec): Rect[] => {
-    const span = ownSpanOf(s);
-    if (!o.spec || !span) return [r];
-    return pastEnds(o.spec, r).flatMap((p) => meet(p, span) ?? []).reduce<Rect[]>((acc, cut) => acc.flatMap((q) => subtract(q, cut)), [r]);
+  // What an edge keeps against another's reach, where it is its own: a drawn edge's owned band along its surviving
+  // slots' stretches (within its ends), an edge with no drawn ends its tiles as it tiles on its own. Once per edge.
+  const heldBySpec = new Map<EdgeSpec, readonly Rect[]>();
+  const heldOf = (d: EdgeSpec): readonly Rect[] => {
+    let held = heldBySpec.get(d);
+    if (!held) {
+      const span = ownSpanOf(d);
+      heldBySpec.set(d, (held = span ? ownedRectsOf(d, alongOf(d)).flatMap((r) => meet(r, span) ?? []) : aloneOf(d)));
+    }
+    return held;
   };
-  // Where `s`'s reach crosses another edge's own span, along that edge's surviving slots.
+  // `o`'s rect `r` less where its reach crosses what `s` holds as its own.
+  const reachLess = (o: Owner, r: Rect, s: EdgeSpec): Rect[] => {
+    const held = heldOf(s);
+    if (!o.spec || held.length === 0) return [r];
+    return pastEnds(o.spec, r)
+      .flatMap((p) => held.flatMap((h) => meet(p, h) ?? []))
+      .reduce<Rect[]>((acc, cut) => acc.flatMap((q) => subtract(q, cut)), [r]);
+  };
+  // Where `s`'s reach crosses what another edge holds as its own.
   const reachYields = (s: EdgeSpec): Rect[] => {
     const past = pastEnds(s, bandOf(s));
     if (past.length === 0) return [];
     return live
       .filter((d) => d !== s)
-      .flatMap((d) => {
-        const span = ownSpanOf(d);
-        return span ? ownedRectsOf(d, alongOf(d)).flatMap((r) => meet(r, span) ?? []) : [];
-      })
+      .flatMap((d) => heldOf(d))
       .flatMap((q) => past.flatMap((p) => meet(p, q) ?? []));
   };
   // What each edge yields: the owners that win over it (an empty rail's or bar's depth less the zones it takes nothing
@@ -220,7 +231,7 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
       s,
       [
         ...owners.filter((o) => wins(o, s)).flatMap((o) => (o.deep ? takingRects(s).reduce<Rect[]>((acc, t) => acc.flatMap((r) => subtract(r, t)), [o.rect]) : [o.rect]).flatMap((r) => reachLess(o, r, s))),
-        ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.spec !== s && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s))) : []),
+        ...(EDGE_KINDS[s.kind].virtual ? owners.filter((o) => o.spec !== s && !wins(o, s)).flatMap((o) => subtract(o.rect, ownedRectOf(s)).flatMap((r) => reachLess(o, r, s))) : []),
         ...(s.thinOwned ? live.filter((d) => d !== s).flatMap((d) => takingRects(d).flatMap((t) => subtract(t, thinRectOf(s)))) : []),
         ...reachYields(s),
       ],
