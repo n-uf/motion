@@ -491,6 +491,9 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
   `splitFromOrder(panes)` is dwindle (split along the longer side). `splitPane`, `removePane` and `swapPanes` change
   it. `layoutSplitTree` is `layoutSplit` and, for each split with an `id`, its box, axis, ratio in effect and
   `divider` (the gutter strip; null where a fixed length decided the split, or a master split has no stack).
+  A host that needs only the pane rects calls `layoutSplit`: it builds no split geometry (no box, no divider), and
+  `layoutSplitTree` builds a divider only for a split with an `id`. The rects a layout returns are its own objects,
+  never the caller's `area`. `pnpm --filter @n-uf/placement bench` times both against a hand-written layout.
   A drop on a pane goes by the pane's drop region:
   `paneRegion(rect, point, previous)` is the center (34 % of each axis, at least 24 px) or one of four side trapezoids,
   and holds the previous region for 6 px past its boundary. `dropOnPane(tree, dragged, at, region)` swaps for the
