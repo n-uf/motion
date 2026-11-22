@@ -11,5 +11,9 @@
   screen) is trimmed by the anchored rects on screen; a `for: "floats"` rect cuts no lane guide. A declaration like
   `pushable`: taken from `base`, never stored. A state with fixed rects only lays out exactly as before, and its layout
   has no `keepClear`.
+- **`minRegion` on an anchored entry** (new, additive): `minRegion?: { width?, height? }`. While the region as solved
+  is narrower or shorter than a given bound the entry is inactive: it keeps nothing clear and is absent from
+  `DockLayout.keepClear` (absent, not flagged), so a host draws its overlay exactly when the entry is there. A drop
+  that opens a column and takes the content under the bound has no entry in its `after` layout.
 - Types: `DockState.keepClear` is now `readonly (KeepClear | AnchoredKeepClear)[]`. A host that reads its entries as
   rects narrows them first (`"region" in c` is an anchored one).

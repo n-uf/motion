@@ -431,6 +431,12 @@ export interface AnchoredKeepClear {
   readonly for: "all" | "floats";
   /** The host's name for it: it comes back on its `DockLayout.keepClear` entry. */
   readonly id?: string;
+  /**
+   * The least region it applies in, px: while the region as solved is narrower than `width` or shorter than `height`
+   * (each optional), the entry is inactive: it keeps nothing clear and is absent from `DockLayout.keepClear`, so a host
+   * draws its overlay exactly when the entry is there. Read once the content is final, like the rest of the entry.
+   */
+  readonly minRegion?: { readonly width?: number; readonly height?: number };
 }
 
 /** An anchored keep-clear rect as laid out (`DockLayout.keepClear`). */

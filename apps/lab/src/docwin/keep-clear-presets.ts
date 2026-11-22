@@ -130,6 +130,41 @@ function columnOpened(): Preset {
   };
 }
 
+/** `rightOpen()` with the strip active only while the content is at least 100 px narrower than it is now. */
+function boundedStrip(): DockState {
+  const s = floating(defaultState(DEFAULT_SIZE), "findings", { x: 420, y: 180, width: 260, height: 300 });
+  const wide = solve(s).content.width;
+  return { ...s, keepClear: [{ ...STRIP, minRegion: { width: wide - 100 } }] };
+}
+
+function minRegion(): Preset {
+  return {
+    id: "keep-clear-anchored-min-region",
+    title: "A strip that applies only while the content is wide enough",
+    expected:
+      "With Findings floated (the right column empty), the strip declares `minRegion: { width }` at 100 px under the content's width now: it is drawn. Notes dropped into the right column opens it and takes the content under that width: in the drop's layout the strip is absent (not drawn, keeping nothing clear), and the landing a held frame shows is exactly where the commit draws Notes.",
+    setup: (c) => c.setState(boundedStrip()),
+    check(c): Verdict {
+      const bad: string[] = [];
+      const s = boundedStrip();
+      const previous = solve(s);
+      if (!stripOf(c.layout)) bad.push("the strip is not active at rest");
+      if (!c.win.querySelector('[data-keep-clear="strip"]')) bad.push("the strip is not drawn at rest");
+      const drag = dockDrag(s, "notes", { previous });
+      const lane = drag.regions.lanes.find((l) => l.id === "right" || l.id.startsWith("column:right"));
+      let now = "no right-column lane";
+      if (!lane?.spots[0]) bad.push(now);
+      else {
+        const a = drag.after({ kind: "spot", spot: lane.spots[0].id, point: { x: s.stage.width - 100, y: 200 } });
+        if (a.layout.keepClear?.length) bad.push(`the strip is still active at content width ${Math.round(a.layout.content.width)}`);
+        if (!same(a.landing ?? undefined, solve(a.state, { previous }).items.notes?.rect)) bad.push(`the landing ${show(a.landing ?? undefined)} is not the committed rect`);
+        now = `content ${Math.round(previous.content.width)} -> ${Math.round(a.layout.content.width)} px, strip after the drop ${a.layout.keepClear?.length ? "active" : "absent"}`;
+      }
+      return { pass: bad.length === 0, now: `${now}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
+    },
+  };
+}
+
 export function KEEP_CLEAR_PRESETS(): Preset[] {
-  return [referenceWindow(), lastPanelOut(), columnOpened()];
+  return [referenceWindow(), lastPanelOut(), columnOpened(), minRegion()];
 }

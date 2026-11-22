@@ -40,7 +40,10 @@ the layout on screen; a drop's fit (no landing on chrome) and its floats from th
 dropped as a column closes lands clear of the strip where the commit draws it, and its marker is that rect. A guide
 predicted in another layout (an empty lane drawn in the layout that creates it, a Near lane the screen doesn't draw)
 keeps the largest piece of each mark clear of the anchored rects of the layout on screen; `for: "floats"` rects never
-cut a lane's guide. Like `pushable`, the entry is a declaration: `readDockState` takes it from `base`, `storeDockState`
+cut a lane's guide. With `minRegion: { width?, height? }` the entry applies only while its region as solved is at
+least that size: under either bound it is inactive, keeps nothing clear and is absent from `DockLayout.keepClear`
+(absent, not flagged), so a host draws its overlay exactly when the entry is there; a drop that opens a column and
+takes the content under the bound has no entry in its `after`. Like `pushable`, the entry is a declaration: `readDockState` takes it from `base`, `storeDockState`
 never writes it.
 
 ```ts

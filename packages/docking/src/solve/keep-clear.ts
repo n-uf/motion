@@ -10,9 +10,19 @@ import type { AnchoredKeepClear, DockKeepClearLayout, DockState, KeepClearRegion
 /** The rect of `region` in a layout whose content is `content`. */
 const regionRect = (region: KeepClearRegion, content: Rect): Rect | null => (region === "content" ? content : null);
 
-/** One anchored entry in its region: `size` px deep at `side`, clamped to the region; null in an empty region or at no size. */
+/** Whether `region` is at least the entry's `minRegion` (a bound that isn't a finite number is no bound). */
+const roomFor = (c: AnchoredKeepClear, region: Rect): boolean => {
+  const w = c.minRegion?.width;
+  const h = c.minRegion?.height;
+  return !(Number.isFinite(w) && region.width < w!) && !(Number.isFinite(h) && region.height < h!);
+};
+
+/**
+ * One anchored entry in its region: `size` px deep at `side`, clamped to the region; null in an empty region, at no
+ * size, or in a region under its `minRegion` (inactive: absent from the layout, keeping nothing clear).
+ */
 function anchoredRect(c: AnchoredKeepClear, region: Rect): Rect | null {
-  if (!(region.width > 0) || !(region.height > 0) || !Number.isFinite(c.size) || c.size <= 0) return null;
+  if (!(region.width > 0) || !(region.height > 0) || !Number.isFinite(c.size) || c.size <= 0 || !roomFor(c, region)) return null;
   const w = Math.min(c.size, region.width);
   const h = Math.min(c.size, region.height);
   switch (c.side) {
