@@ -15,5 +15,6 @@
   is narrower or shorter than a given bound the entry is inactive: it keeps nothing clear and is absent from
   `DockLayout.keepClear` (absent, not flagged), so a host draws its overlay exactly when the entry is there. A drop
   that opens a column and takes the content under the bound has no entry in its `after` layout.
-- Types: `DockState.keepClear` is now `readonly (KeepClear | AnchoredKeepClear)[]`. A host that reads its entries as
-  rects narrows them first (`"region" in c` is an anchored one).
+- Breaking (type only): `DockState.keepClear` is now `readonly (KeepClear | AnchoredKeepClear)[]`; narrow an entry
+  with `"region" in c` (or the root's new `isAnchoredKeepClear(c)`) before reading it as a rect. No behavior changes
+  for a state with fixed rects only.

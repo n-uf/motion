@@ -40,11 +40,15 @@ the layout on screen; a drop's fit (no landing on chrome) and its floats from th
 dropped as a column closes lands clear of the strip where the commit draws it, and its marker is that rect. A guide
 predicted in another layout (an empty lane drawn in the layout that creates it, a Near lane the screen doesn't draw)
 keeps the largest piece of each mark clear of the anchored rects of the layout on screen; `for: "floats"` rects never
-cut a lane's guide. With `minRegion: { width?, height? }` the entry applies only while its region as solved is at
+cut a lane's guide. With `emptyLanes: "edge"` an empty lane's hatch is drawn as it is on screen, not predicted, so no
+strip trims it (as no fixed rect does). With `minRegion: { width?, height? }` the entry applies only while its region as solved is at
 least that size: under either bound it is inactive, keeps nothing clear and is absent from `DockLayout.keepClear`
 (absent, not flagged), so a host draws its overlay exactly when the entry is there; a drop that opens a column and
-takes the content under the bound has no entry in its `after`. Like `pushable`, the entry is a declaration: `readDockState` takes it from `base`, `storeDockState`
-never writes it.
+takes the content under the bound has no entry in its `after`. Like `pushable`, the entry is a declaration:
+`readDockState` takes it from `base`, `storeDockState` never writes it.
+
+Breaking (type only): `DockState.keepClear` is now `readonly (KeepClear | AnchoredKeepClear)[]`; narrow an entry with
+`"region" in c` (or `isAnchoredKeepClear(c)`, exported from the root) before reading it as a rect.
 
 ```ts
 import { readDockState, solve, storeDockState, targets, type DockItem, type DockState } from "@n-uf/docking";
