@@ -4,10 +4,10 @@
  * every drop's `after` layout has the strip where that layout's content puts it, and a float fits against it there.
  */
 import { describe, expect, it } from "vitest";
-import { overlaps, type Rect } from "@n-uf/placement";
-import { dockDrag, readDockState, solve, storeDockState, targets, type AnchoredKeepClear, type DockLayout, type DockState, type KeepClear } from "../src";
+import { overlaps, subtract, type Rect } from "@n-uf/placement";
+import { dockDrag, fitResize, isAnchoredKeepClear, readDockState, solve, storeDockState, targets, type AnchoredKeepClear, type DockLayout, type DockState, type KeepClear } from "../src";
 import { modelState } from "./model-window";
-import { windowState } from "./fixture";
+import { anchorState, windowState } from "./fixture";
 
 const STRIP = 24;
 const strip = (f: "all" | "floats" = "floats", side: AnchoredKeepClear["side"] = "right"): AnchoredKeepClear => ({ region: "content", side, size: STRIP, for: f, id: "strip" });
@@ -58,6 +58,9 @@ describe("the resolver", () => {
     const stored = storeDockState(s);
     expect(JSON.stringify(stored)).not.toContain("region");
     expect(readDockState(stored, s).state.keepClear).toEqual(s.keepClear);
+    // A host narrows an entry with the root's `isAnchoredKeepClear` (`"region" in c`).
+    expect((s.keepClear ?? []).map(isAnchoredKeepClear)).toEqual([true]);
+    expect(isAnchoredKeepClear({ x: 0, y: 0, width: 24, height: 24 })).toBe(false);
   });
 });
 
@@ -137,6 +140,8 @@ describe.each(ROWS)("$name", ({ state, dragged }) => {
 
   it("(1) solve(after().state) equals after().layout for every target", () => {
     expect(ts.length).toBeGreaterThan(3);
+    // Some drop really moves the content, so the strip checks below can't pass by the content standing still.
+    expect(ts.some((t) => JSON.stringify(t.after({ x: 600, y: 400 }).layout.content) !== JSON.stringify(previous.content))).toBe(true);
     for (const t of ts)
       for (const p of [{ x: 600, y: 400 }, { x: rightOf(stripOf(previous)) - 4, y: 300 }]) {
         const a = t.after(p);
@@ -185,8 +190,81 @@ describe("(3) a strip anchored where a fixed rect lies acts as that rect on scre
         const hits = (s: DockState): Map<string, string> => new Map(targets(s, id).map((t) => [t.id, JSON.stringify([t.hit, t.hits ?? null])]));
         const a = hits(anchored);
         const b = hits(fixed);
-        for (const [k, v] of a) if (b.has(k)) expect(v, `${f} ${id} ${k}`).toBe(b.get(k));
+        expect([...a.keys()].sort(), `${f} ${id}`).toEqual([...b.keys()].sort());
+        for (const [k, v] of a) expect(v, `${f} ${id} ${k}`).toBe(b.get(k));
       }
+    }
+  });
+
+  /** The window with an empty right edge: its drop strip and new-column hit lie inside the content, under the strip. */
+  const emptyRightEdge = (): DockState => {
+    const s = noRightColumn();
+    return { ...s, edges: [...s.edges, { id: "right", side: "right", ring: 0, accepts: ["panel", "group"], items: [], cross: { min: 160, max: 480, rail: 32 } }] };
+  };
+  /** `base` with the strip anchored, and with a fixed rect where the strip lies on screen. */
+  const pair = (base: DockState, f: "all" | "floats"): { anchored: DockState; fixed: DockState; r: Rect } => {
+    const anchored = withKeepClear(base, strip(f));
+    const r = stripOf(solve(anchored));
+    return { anchored, fixed: withKeepClear(base, { ...r, for: f }), r };
+  };
+  const hitsOf = (s: DockState, id: string): string => JSON.stringify(targets(s, id).map((t) => [t.id, t.hit, t.hits ?? null]));
+
+  it("targets whose hits grow into the strip (the edge's drop strip, a new column's least hit) are cut and kept from growing there, as by the fixed rect", () => {
+    for (const base of [emptyRightEdge(), noRightColumn()]) {
+      const { anchored, fixed, r } = pair(base, "all");
+      for (const id of ["notes", "zoom"]) {
+        const reaching = targets(base, id).filter((t) => !t.free && (t.hits ?? [t.hit]).some((h) => overlaps(h, r)));
+        expect(reaching.length, id).toBeGreaterThan(0);
+        for (const t of targets(anchored, id)) if (!t.free) for (const h of t.hits ?? [t.hit]) expect(overlaps(h, r), `${id} ${t.id}`).toBe(false);
+        // On screen the hits are the fixed rect's. A drop that opens the right edge moves the content and the strip with
+        // it, so its landing is clear of the strip in its own layout: the fixed rect, left where the strip was, refuses
+        // it (the stale input this fixes). Those are the only targets the two differ by.
+        const a = new Map(targets(anchored, id).map((t) => [t.id, t]));
+        const b = new Map(targets(fixed, id).map((t) => [t.id, t]));
+        const content = JSON.stringify(solve(anchored).content);
+        const extra = [...a.keys()].filter((k) => !b.has(k));
+        for (const k of extra) expect(JSON.stringify(a.get(k)!.after({ x: 1190, y: 300 }).layout.content), `${id} ${k}`).not.toBe(content);
+        // Every other target has the fixed rect's hits, less what those extra targets own (a neighbor gives them its corner).
+        const owned = extra.flatMap((k) => a.get(k)!.hits ?? [a.get(k)!.hit]);
+        const less = (hs: readonly Rect[]): string => JSON.stringify(owned.reduce<Rect[]>((ps, o) => ps.flatMap((p) => subtract(p, o)), [...hs]).filter((p) => p.width > 0.5 && p.height > 0.5));
+        for (const [k, t] of b) {
+          expect(a.has(k), `${id} ${k}`).toBe(true);
+          expect(less(a.get(k)!.hits ?? [a.get(k)!.hit]), `${id} ${k}`).toBe(less(t.hits ?? [t.hit]));
+        }
+      }
+    }
+  });
+
+  it("an anchor's side target is cut by the strip on screen, as by the fixed rect", () => {
+    const a = anchorState();
+    const base: DockState = { ...a, edges: a.edges.filter((e) => e.id !== "right").map((e) => (e.id === "anchor:thumbs" ? { ...e, moves: "side" as const } : e)) };
+    const { anchored, fixed, r } = pair(base, "all");
+    const bare = targets(base, "thumbs").find((t) => t.id === "side:right")!;
+    expect(overlaps(bare.hit, r)).toBe(true);
+    const side = targets(anchored, "thumbs").find((t) => t.id === "side:right")!;
+    expect(overlaps(side.hit, r)).toBe(false);
+    expect(side.hit.width).toBeLessThan(bare.hit.width);
+    expect(hitsOf(anchored, "thumbs")).toBe(hitsOf(fixed, "thumbs"));
+  });
+
+  it("a drag's blocked regions hold the strip as the fixed rect", () => {
+    const { anchored, fixed, r } = pair(emptyRightEdge(), "all");
+    const blocked = dockDrag(anchored, "notes", { previous: solve(anchored) }).regions.blocked;
+    expect(blocked).toContainEqual(r);
+    expect(blocked).toEqual(dockDrag(fixed, "notes", { previous: solve(fixed) }).regions.blocked);
+  });
+
+  it("a resize by hand that grows into the strip stops at it, as at the fixed rect", () => {
+    const base: DockState = { ...windowState(), floats: [{ id: "notes", rect: { x: 600, y: 200, width: 240, height: 320 } }] };
+    for (const f of ["all", "floats"] as const) {
+      const { anchored, fixed, r } = pair(base, f);
+      const at = solve(anchored).items.notes!.rect;
+      const asked = { ...at, width: 500 };
+      const bare = fitResize(base, "notes", asked, { right: true })!;
+      expect(rightOf(bare.rect), f).toBeGreaterThan(r.x);
+      const fit = fitResize(anchored, "notes", asked, { right: true })!;
+      expect(rightOf(fit.rect), f).toBeLessThanOrEqual(r.x + 0.5);
+      expect(fit, f).toEqual(fitResize(fixed, "notes", asked, { right: true }));
     }
   });
 });

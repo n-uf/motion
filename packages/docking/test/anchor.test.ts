@@ -3,26 +3,7 @@ import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
 import { center } from "@n-uf/placement";
 import { canFold, foldItem, markUsed, parseTargetId, readDockState, refusals, resizeEdge, setSide, solve, storeDockState, targetId, targets, type DockState } from "../src";
-import { byId, column, form, panel } from "./fixture";
-
-/** Thumbnails fixed on the left, a panel column beside them, a column on the right. */
-export function anchorState(): DockState {
-  return {
-    stage: { x: 0, y: 0, width: 1200, height: 800 },
-    edges: [
-      { id: "anchor:thumbs", side: "left", ring: 0, accepts: [], items: ["thumbs"], cross: { min: 80, max: 400, rail: 30 } },
-      column("left", "left", 1, ["notes"]),
-      column("right", "right", 0, ["findings"]),
-    ],
-    items: byId([
-      { id: "thumbs", kind: "thumbs", used: 1, fixed: true, forms: { column: [form("open", 120, 240, 160, { grows: true, crossMin: 80 }), form("rail", 28, 28, 30)] } },
-      panel("notes", 2),
-      panel("findings", 3),
-    ]),
-    floats: [],
-    floatKinds: ["panel"],
-  };
-}
+import { anchorState, byId, column, form, panel } from "./fixture";
 
 describe("an anchor dragged to the other side", () => {
   const movable = (): DockState => ({ ...anchorState(), edges: anchorState().edges.map((e) => (e.id === "anchor:thumbs" ? { ...e, moves: "side" as const } : e)) });

@@ -76,6 +76,25 @@ export const column = (id: string, side: "left" | "right", ring: number, items: 
 
 export const byId = (items: readonly DockItem[]): Record<string, DockItem> => Object.fromEntries(items.map((it) => [it.id, it]));
 
+/** Thumbnails fixed on the left (an anchor: a fixed item alone in a static edge that takes nothing), a panel column beside them, a column on the right. */
+export function anchorState(): DockState {
+  return {
+    stage: { x: 0, y: 0, width: 1200, height: 800 },
+    edges: [
+      { id: "anchor:thumbs", side: "left", ring: 0, accepts: [], items: ["thumbs"], cross: { min: 80, max: 400, rail: 30 } },
+      column("left", "left", 1, ["notes"]),
+      column("right", "right", 0, ["findings"]),
+    ],
+    items: byId([
+      { id: "thumbs", kind: "thumbs", used: 1, fixed: true, forms: { column: [form("open", 120, 240, 160, { grows: true, crossMin: 80 }), form("rail", 28, 28, 30)] } },
+      panel("notes", 2),
+      panel("findings", 3),
+    ]),
+    floats: [],
+    floatKinds: ["panel"],
+  };
+}
+
 export function windowState(width = 1200, height = 800): DockState {
   return {
     stage: { x: 0, y: 0, width, height },
