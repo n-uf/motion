@@ -211,6 +211,11 @@ function slotOverMoved(now: DockLayout, lifted: DockLayout, after: DockLayout, s
   });
 }
 
+/** What an edge's tiles cover as it tiles on its own: every tile a slot or home has, its overreach included, no refusal's. */
+function aloneRects(tiles: readonly Tile[]): Rect[] {
+  return tiles.filter((t) => t.kind !== "refuse" && !(t.kind === "reach" && t.of!.kind === "refuse")).map((t) => t.hit);
+}
+
 /** The stretches along an edge its slot tiles cover (home's and refusals' aside), merged where they meet. */
 function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
   const spans = tiles
@@ -289,7 +294,7 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   // along its surviving slots' tiles (a refused stretch owns nothing).
   const alone = new Map(live.map((s) => [s, tileEdge(c, s, { cuts: [], bodies: [] }, [])]));
   const along = new Map(live.map((s) => [s, alongOfSlots(s, alone.get(s)!)]));
-  const own = ownership(c, live, (s) => along.get(s)!);
+  const own = ownership(c, live, (s) => along.get(s)!, (s) => aloneRects(alone.get(s)!));
   const lost: string[] = [];
   const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
   // The item's own place is home's even where no edge tiles it: its » entry, or its column, which the lift deletes
