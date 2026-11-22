@@ -25,6 +25,24 @@ target, slot or landing lies on it (a title the host draws itself). With `for: "
 in every way they are placed (a drop, opening one, a window resize, a resize by hand), while the edges, give-way and
 every docked target ignore it: a spine the host draws over a column keeps the column's gaps, lines and rail.
 
+An entry can instead be anchored to a region of the layout (`AnchoredKeepClear`): `{ region: "content", side, size,
+for, id? }` is `size` px deep at that side of `DockLayout.content` (what the cut leaves for the pages, not `lanes()`'
+float content), along its whole length, clamped to it; an empty content gives no rect. Use it for what moves with the
+content, such as a 24 px overlay strip at the content's right edge: a drop that opens or closes a column moves the
+content, and the strip with it. A fixed rect stays right for what truly lies in stage px. The rule behind it: no input
+of a solve comes from that solve's own output. So `solve` resolves every anchored entry once, after the edges and the
+content are final and before the floats, and writes them to `DockLayout.keepClear` (`DockKeepClearLayout`: `rect`,
+`for`, `id`), in the state's order; a host draws the strip from there. A layout has `keepClear` only when its state
+declares an anchored entry, so a state with fixed rects only lays out exactly as before. Nothing that sizes the content
+(the cut, the edges, give-way) reads keep-clear rects. Each reader takes them from the layout it names: the hits a drag
+shows (targets, their least hits, an anchor's side target, the lanes' blocked regions) and a float resize by hand from
+the layout on screen; a drop's fit (no landing on chrome) and its floats from the drop's own `after` layout, so a float
+dropped as a column closes lands clear of the strip where the commit draws it, and its marker is that rect. A guide
+predicted in another layout (an empty lane drawn in the layout that creates it, a Near lane the screen doesn't draw)
+keeps the largest piece of each mark clear of the anchored rects of the layout on screen; `for: "floats"` rects never
+cut a lane's guide. Like `pushable`, the entry is a declaration: `readDockState` takes it from `base`, `storeDockState`
+never writes it.
+
 ```ts
 import { readDockState, solve, storeDockState, targets, type DockItem, type DockState } from "@n-uf/docking";
 import type { StackForm } from "@n-uf/placement/stack";
@@ -588,7 +606,7 @@ marked float's growing edge at the bars and the chrome only. The store keeps it 
 true`; anything else is dropped as `float:<id>:stays`).
 
 **Floats** lie above the content in stage px, last on top. Each is moved inside the stage and clear of every docked
-item, every bar and every `keepClear` rect (`@n-uf/placement/stack`'s `fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
+item, every bar and every `keepClear` rect, anchored ones as this layout resolves them (`@n-uf/placement/stack`'s `fitFloat`), with `float-clamped`, `float-moved` or `float-covers` notes. With
 `anchor` (such as `"content-top-right"`) it sits flush with that side or corner of the content and follows it until a
 drop gives it a real rect. `orient` picks the forms it uses; folded by hand (`from` over 0) it is its
 bar: that form's natural length along its orient, its other size kept.
