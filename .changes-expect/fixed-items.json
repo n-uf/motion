@@ -1,0 +1,26 @@
+[
+ {
+  "package": "docking",
+  "kind": "*",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: a growing title's growth is spare room: a drop on the title bar that only steps a neighbor to a compact variant (same stepGroup) while the title keeps its natural width now lands (a place, its lane marks, its frames and landings) where it was refused; D9 flags and Q1 stepping change nothing"
+ },
+ {
+  "package": "docking",
+  "kind": "*",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: a growing title's growth is spare room: a drop on the title bar that only steps a neighbor to a compact variant (same stepGroup) while the title keeps its natural width now lands (a place, its lane marks, its frames and landings) where it was refused; D9 flags and Q1 stepping change nothing"
+ },
+ {
+  "package": "docking",
+  "kind": "*",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: a growing title's growth is spare room: a drop on the title bar that only steps a neighbor to a compact variant (same stepGroup) while the title keeps its natural width now lands (a place, its lane marks, its frames and landings) where it was refused; D9 flags and Q1 stepping change nothing"
+ },
+ {
+  "package": "docking",
+  "kind": "*",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: a growing title's growth is spare room: a drop on the title bar that only steps a neighbor to a compact variant (same stepGroup) while the title keeps its natural width now lands (a place, its lane marks, its frames and landings) where it was refused; D9 flags and Q1 stepping change nothing"
+ }
+]
