@@ -12,7 +12,7 @@
     "build": "pnpm --filter @n-uf/motion build && pnpm --filter @n-uf/placement build && pnpm --filter @n-uf/docking build",
     "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck && pnpm --filter @n-uf/docking typecheck",
     "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test && pnpm --filter @n-uf/docking test && pnpm --filter @n-uf/docking test:sweep",
-    "bench": "pnpm --filter @n-uf/motion bench",
+    "bench": "pnpm --filter @n-uf/motion bench && pnpm --filter @n-uf/placement bench",
     "old-vs-new": "node scripts/old-vs-new.mjs",
     "check": "pnpm check:quick && pnpm --filter @n-uf/docking test:sweep",
     "check:quick": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check:quick && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm changes && pnpm public-words && pnpm terminology",

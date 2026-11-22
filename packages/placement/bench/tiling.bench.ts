@@ -77,6 +77,9 @@ for (const n of [10, 100, 1000]) {
     bench("layoutSplit (rects only)", () => {
       layoutSplit(plain, AREA, OPTIONS);
     });
+    bench("layoutSplit, every split named", () => {
+      layoutSplit(named, AREA, OPTIONS);
+    });
     bench("layoutSplitTree, no ids", () => {
       layoutSplitTree(plain, AREA, OPTIONS);
     });
