@@ -4,7 +4,7 @@
  */
 import { clampInto, type Point, type Rect, type Size } from "@n-uf/placement";
 import { formFolded, type StackForm } from "@n-uf/placement/stack";
-import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type ColumnTemplate, type DockEdge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type DockState, type DockItem, type Side, type Zone, type ZoneAccepts } from "./model";
+import { DEFAULT_FLOAT_SIZE, DEFAULT_HIT_BAND, DEFAULT_RAIL_MAGNET, RAIL_STRIP_MIN, ZONES, type AnchoredKeepClear, type DockLayout, type KeepClear, type ColumnTemplate, type DockEdge, type FloatAnchor, type FloatAnchorAt, type Kind, type Orient, type RailMode, type RailVisibility, type DockState, type DockItem, type Side, type Zone, type ZoneAccepts } from "./model";
 
 const insetPx = (v: number | undefined): number => (Number.isFinite(v) ? Math.max(0, v!) : 0);
 
@@ -102,12 +102,22 @@ export const railModeOf = (state: DockState, side: Side): RailMode => (side === 
 /** The axis an edge's stack runs along. */
 export const axisOf = (side: Side): Orient => (side === "left" || side === "right" ? "column" : "row");
 
+/** Whether a keep-clear entry is anchored to a region of the layout (`AnchoredKeepClear`), not a fixed rect. */
+export const isAnchoredKeepClear = (c: KeepClear | AnchoredKeepClear): c is AnchoredKeepClear => "region" in c;
+
 /**
- * The rects `who` keeps clear of (`DockState.keepClear`): floats keep clear of every entry; drop targets, slots and
- * landings only of those for `"all"` (the default), never of a floats-only one.
+ * The rects `who` keeps clear of in `layout`, the layout the reader names (the one on screen, or a drop's `after`):
+ * the state's fixed rects (`DockState.keepClear`), then the anchored ones as `layout` resolved them
+ * (`DockLayout.keepClear`). Floats keep clear of every entry; drop targets, slots and landings only of those for
+ * `"all"` (the default), never of a floats-only one. Only for readers after `solve`: nothing that sizes the content
+ * calls it.
  */
-export const keepClearFor = (state: DockState, who: "floats" | "targets"): Rect[] =>
-  (state.keepClear ?? []).filter((c) => who === "floats" || c.for !== "floats").map((c) => ({ x: c.x, y: c.y, width: c.width, height: c.height }));
+export const keepClearFor = (state: DockState, layout: Pick<DockLayout, "keepClear">, who: "floats" | "targets"): Rect[] => {
+  const takes = (f: "all" | "floats" | undefined): boolean => who === "floats" || f !== "floats";
+  const fixed = (state.keepClear ?? []).filter((c): c is KeepClear => !isAnchoredKeepClear(c) && takes(c.for)).map((c) => ({ x: c.x, y: c.y, width: c.width, height: c.height }));
+  const anchored = (layout.keepClear ?? []).filter((c) => takes(c.for)).map((c) => ({ ...c.rect }));
+  return anchored.length === 0 ? fixed : [...fixed, ...anchored];
+};
 
 /**
  * The side's rail where the state declares none (`DockState.rails[side]`): its outermost column that takes `kind` in its

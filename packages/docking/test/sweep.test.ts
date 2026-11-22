@@ -2,7 +2,7 @@
 import { targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import { markUsed, solve, targets, type DockEdge, type DockState, type DockItem, type DockLayout } from "../src";
-import { bar, byId, column, controls, group, panel, readout, seeded, title } from "./fixture";
+import { bar, byId, column, controls, fixedKeepClear, group, panel, readout, seeded, title } from "./fixture";
 
 type R = { x: number; y: number; width: number; height: number };
 const overlaps = (a: R, b: R) => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1e-3 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1e-3;
@@ -141,7 +141,7 @@ describe("state sweeps", () => {
     for (const seed of SEEDS) {
       const s = randomState(seed);
       const l = solve(s);
-      const avoid = [...Object.values(l.items).filter((it) => it.edge).map((it) => it.rect), ...Object.values(l.edges).filter((e) => e.side === "top" || e.side === "bottom").map((e) => e.rect), ...(s.keepClear ?? [])];
+      const avoid = [...Object.values(l.items).filter((it) => it.edge).map((it) => it.rect), ...Object.values(l.edges).filter((e) => e.side === "top" || e.side === "bottom").map((e) => e.rect), ...fixedKeepClear(s)];
       for (const id of l.floats) {
         const f = l.items[id]!.rect;
         if (f.width <= s.stage.width && f.height <= s.stage.height && !inside(f, s.stage)) throw new Error(`seed ${seed}: float ${id} outside the stage`);
@@ -204,14 +204,14 @@ describe("state sweeps", () => {
               const len = side === "left" || side === "right" ? g?.rect.height : g?.rect.width;
               if (!g || g.form !== f.form || len! < form!.main.min - 0.5) throw new Error(`seed ${seed}: ${t.id} squeezes ${fid}`);
             }
-            for (const c of s.keepClear ?? []) if (overlaps(a.layout.items[id]!.rect, c)) throw new Error(`seed ${seed}: ${t.id} lands on chrome`);
+            for (const c of fixedKeepClear(s)) if (overlaps(a.layout.items[id]!.rect, c)) throw new Error(`seed ${seed}: ${t.id} lands on chrome`);
           }
           if (t.place.kind !== "gap") continue;
           const me = a.layout.items[id]!;
           const edge = s.edges.find((e) => e.id === me.edge)!;
           expect(edge.accepts).toContain(s.items[id]!.kind);
           expect(me.inMenu).toBeUndefined();
-          for (const f of [...fixed, ...(s.keepClear ?? [])]) if (overlaps(t.hit, f)) throw new Error(`seed ${seed}: ${t.id} covers ${JSON.stringify(f)}`);
+          for (const f of [...fixed, ...fixedKeepClear(s)]) if (overlaps(t.hit, f)) throw new Error(`seed ${seed}: ${t.id} covers ${JSON.stringify(f)}`);
         }
       }
     }

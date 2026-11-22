@@ -54,7 +54,7 @@ function floatObstacles(state: DockState, l: DockLayout, id: string): { rects: R
     if (axisOf(e.side) === "row" && e.cross > 0) rects.push(e.rect);
     if (e.menu) rects.push(e.menu.rect);
   }
-  for (const c of keepClearFor(state, "floats")) rects.push(c);
+  for (const c of keepClearFor(state, l, "floats")) rects.push(c);
   return { rects: rects.filter(some), docked };
 }
 

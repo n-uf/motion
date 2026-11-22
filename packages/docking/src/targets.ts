@@ -304,7 +304,8 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   const homeHit = homeRectOf(c, null);
   if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0))
     tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(state, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: homeHit, keep: null });
-  const placed = clipTiles(tiles, own, keepClearFor(state, "targets"), lost);
+  // The hits lie on screen: clear of the keep-clear rects of the layout seen now.
+  const placed = clipTiles(tiles, own, keepClearFor(state, now, "targets"), lost);
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): DropResult => ({ state, layout: now });
 
