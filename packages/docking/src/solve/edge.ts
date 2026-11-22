@@ -3,7 +3,7 @@
  * user's size. A compact edge is icons only.
  */
 import { EPS } from "@n-uf/placement";
-import { fitStack, formCompact, formCrossMin, formMenu, formSetsCross, type StackFit, type StackForm, type StackInput, type StackItem } from "@n-uf/placement/stack";
+import { fitStack, formCompact, formCrossMin, formMenu, formSetsCross, itemSteps, type StackFit, type StackForm, type StackInput, type StackItem } from "@n-uf/placement/stack";
 import { axisOf, formsOf, pastWrap, railModeOf, startOf, zoneOf } from "../helpers";
 import type { DockEdge, DockState, DockEdgeLayout, DockItem } from "../model";
 import { finite, px, zoneSorted } from "./order";
@@ -16,6 +16,7 @@ const stackItemOf =(item: DockItem, forms: readonly StackForm[], edge: DockEdge,
   // Where its ladder starts: as asked, else its hand fold resolved on this axis (`startOf`: its folded form).
   ...(from !== undefined ? { from } : startOf(item, forms, edge) > 0 ? { from: startOf(item, forms, edge) } : {}),
   ...(item.fixed ? { fixed: true } : {}),
+  ...(item.fixed && item.stepping ? { stepping: true } : {}),
   ...(item.lengths ? { lengths: item.lengths } : {}),
 });
 
@@ -82,7 +83,7 @@ function compactEdge(f: EdgeFrame): EdgeSolve {
 function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => StackItem, starts: ReadonlyMap<string, number>): EdgeSolve | null {
   const { state, edge, formsById } = f;
   const railIndex = (item: DockItem, forms: readonly StackForm[]): number => {
-    if (item.fixed) return -1;
+    if (!itemSteps(item)) return -1;
     for (let j = startOf(item, forms, edge); j < forms.length; j++) if (forms[j]!.kind === "rail") return j;
     return -1;
   };
@@ -182,7 +183,7 @@ function solveEdgeStack(state: DockState, edge: DockEdge, ids: readonly string[]
     let moved = false;
     const items = input.items.map((it): StackItem => {
       const from = it.from ?? 0;
-      if (it.fixed || fits(it.forms[from]!)) return it;
+      if (!itemSteps(it) || fits(it.forms[from]!)) return it;
       const j = it.forms.findIndex((f, k) => k > from && !formMenu(f) && fits(f));
       if (j < 0) return it;
       moved = true;

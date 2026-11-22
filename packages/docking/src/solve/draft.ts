@@ -3,7 +3,7 @@
  * far. `emit` draws one solved edge into it: its items placed by zone, their shapes, its notes and its edge layout.
  */
 import { EPS, rect, type Rect } from "@n-uf/placement";
-import { formMain, wrapLines, type StackFit, type StackForm, type StackInput } from "@n-uf/placement/stack";
+import { formMain, itemSteps, wrapLines, type StackFit, type StackForm, type StackInput } from "@n-uf/placement/stack";
 import { axisOf, controlsOf, foldedByOf, formsOf, zoneOf } from "../helpers";
 import type { DockEdge, DockState, DockEdgeLayout, DockItemLayout, DockLayout, DockNote, DockRailLayout, SolveOptions, Zone } from "../model";
 import type { EdgeSolve } from "./edge";
@@ -134,7 +134,7 @@ function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { start
   const c = zone("center");
   const e = zone("end");
   /**
-   * A bar's title (a fixed item that grows, in the start zone): the zones are laid with it at its natural length, so
+   * A bar's title (a fixed item that takes no steps and grows, in the start zone): the zones are laid with it at its natural length, so
    * a toolbar right after it sits right after its natural rect (leading), and the title then takes the room up to the
    * next item only when nothing follows it in its zone.
    */
@@ -143,7 +143,7 @@ function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { start
     : s.find((p) => {
         const it = state.items[p.id]!;
         const f = formsOf(it, "row")[p.form];
-        return it.fixed && f?.main.grows && len(p) > formMain(f, "natural", fit.cross) + EPS;
+        return !itemSteps(it) && f?.main.grows && len(p) > formMain(f, "natural", fit.cross) + EPS;
       });
   if (title) lengths.set(title.id, formMain(formsOf(state.items[title.id]!, "row")[title.form]!, "natural", fit.cross));
   const used = drawn.reduce((sum, p) => sum + len(p), 0) + Math.max(0, drawn.length - 1) * gap;

@@ -38,6 +38,7 @@ export {
   formOwnCross,
   formSetsCross,
   formStepGroup,
+  itemSteps,
   withItem,
   wrapCross,
   wrapLines,

@@ -22,6 +22,7 @@
  * is `dockDrag`'s (./drag), built on these.
  */
 import { EPS, area, clamp, rect, subtract, type Point, type Rect, type Size } from "@n-uf/placement";
+import { itemSteps } from "@n-uf/placement/stack";
 import { liftItem, moveTo, type DockPlace } from "./changes";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
@@ -1237,7 +1238,13 @@ function landsAt(state: DockState, dragged: string, run: StretchEdge, place: Doc
   const landed = layout.items[dragged];
   const { axis } = run;
   if (!landed || landed.inMenu || landed.edge !== run.e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) return null;
-  if (run.fixed.some((f) => { const r = layout.items[f.id]?.rect; return !r || Math.abs(lo(r, axis) - lo(f.r, axis)) > 1; })) return null;
+  // A fixed item that takes steps (`stepping`) may step for the dock; one that goes into the » has no place to keep.
+  const kept = (f: StretchEdge["fixed"][number]): boolean => {
+    const it = layout.items[f.id];
+    if (it?.inMenu && itemSteps(state.items[f.id]!)) return true;
+    return !!it && Math.abs(lo(it.rect, axis) - lo(f.r, axis)) <= 1;
+  };
+  if (!run.fixed.every(kept)) return null;
   return { next, layout };
 }
 

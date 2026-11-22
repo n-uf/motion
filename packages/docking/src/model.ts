@@ -72,9 +72,19 @@ export interface DockItem {
   /**
    * Reserved room: a title, window controls, a page readout. It never changes form (it keeps `forms[from]`), is never
    * reordered, never dragged, and no hit or slot covers it. Its length may shrink to its form's `main.min` and grow
-   * with spare room when the form `grows`; window controls have `min` equal to `natural`.
+   * with spare room when the form `grows`; window controls have `min` equal to `natural`. With `stepping` it keeps only
+   * the reserved place and changes form like any item.
    */
   readonly fixed?: boolean;
+  /**
+   * A fixed item that still takes steps (read only with `fixed`; `StackItem.stepping`): it is never dragged, reordered
+   * or dropped before, and no hit or slot covers it, but it steps through its own forms (a `controlLadder`), folds and
+   * goes into its edge's » menu by the usual give-way order, and comes back in exact reverse, as a movable item with the
+   * same forms, `used`, `kept` and `priority` would. It never holds for the title rule; a drop beside it may step it,
+   * never squeeze it under its form's `main.min`, and never move it from its place in the order. A declaration of the
+   * state like `pushable`: `readDockState` takes it from `base`, `storeDockState` never writes it.
+   */
+  readonly stepping?: boolean;
   /**
    * A fixed item that yields: a movable item dropped after it in its zone may push it inward along the zone. Left out,
    * a fixed item at a zone's anchor (window controls at a bar's end) keeps its place, so no gap after it is offered; a

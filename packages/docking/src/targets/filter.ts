@@ -3,7 +3,7 @@
  * settles, when a drop puts the item back (home), and filter (ii), whether a drop's layout fits the window.
  */
 import { overlaps } from "@n-uf/placement";
-import { formMain } from "@n-uf/placement/stack";
+import { formMain, itemSteps } from "@n-uf/placement/stack";
 import { liftItem, prune } from "../changes";
 import { axisOf, keepClearFor, formsOf, isHandFolded, zoneOf } from "../helpers";
 import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
@@ -28,8 +28,8 @@ function placeKey(s: DockState, id: string): string {
 }
 
 /**
- * Filter (ii), fit: a drop may not add an `overflow` or `too-wide` note anywhere, change a fixed item's form or least
- * length, nor lie over chrome or a fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
+ * Filter (ii), fit: a drop may not add an `overflow` or `too-wide` note anywhere, change a fixed item's form (unless it
+ * is `stepping`) or squeeze it under its least length, nor lie over chrome or a drawn fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
  */
 function soundness(state: DockState, base: DockLayout, dragged: string): (after: DockLayout) => boolean {
   const chrome = keepClearFor(state, "targets");
@@ -41,14 +41,18 @@ function soundness(state: DockState, base: DockLayout, dragged: string): (after:
       if (!b.fixed) continue;
       const a = after.items[id];
       const e = a?.edge ? after.edges[a.edge] : undefined;
-      if (!a || !e || a.form !== b.form || a.formKind !== b.formKind) return false;
+      if (!a || !e) return false;
+      // A fixed item that takes steps (`stepping`) may step for a drop, into the » too; in a drawn form it keeps its least.
+      const steps = itemSteps(state.items[id]!);
+      if (!steps && (a.form !== b.form || a.formKind !== b.formKind)) return false;
+      if (a.inMenu) continue;
       const f = formsOf(state.items[id]!, axisOf(e.side))[a.form];
       const len = axisOf(e.side) === "column" ? a.rect.height : a.rect.width;
       if (f && len < formMain(f, "min", e.cross) - 0.5) return false;
     }
     const me = after.items[dragged];
     if (!me) return true;
-    const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && id !== dragged).map(([id]) => reservedRect(state, after, id));
+    const fixedAfter = Object.entries(after.items).filter(([id, it]) => it.fixed && !(it.inMenu && itemSteps(state.items[id]!)) && id !== dragged).map(([id]) => reservedRect(state, after, id));
     return !chrome.some((c) => overlaps(me.rect, c)) && !fixedAfter.some((f) => overlaps(me.rect, f));
   };
 }

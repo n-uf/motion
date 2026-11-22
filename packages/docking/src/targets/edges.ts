@@ -3,7 +3,7 @@
  * makes, settled), its reserved stretches and its band across, as the tiler reads them (`EdgeSpec`).
  */
 import { EPS, area, rect, type Rect } from "@n-uf/placement";
-import { formCrossMin, formMain, formMenu, formSetsCross, type StackForm } from "@n-uf/placement/stack";
+import { formCrossMin, formMain, formMenu, formSetsCross, itemSteps, type StackForm } from "@n-uf/placement/stack";
 import { markUsed, moveAmong, moveTo } from "../changes";
 import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type Zone } from "../model";
@@ -177,7 +177,7 @@ function edgeSlots(c: Ctx, edge: DockEdge, accepts: boolean): Slot[] {
   // first form's kind (the full row or one of its compact variants, read from the forms, not from their index), the
   // title at its natural width and nothing else changing form or going into the menu.
   const firstKind = formsOf(state.items[dragged]!, axisOf(edge.side))[0]?.kind;
-  const titles = edge.items.filter((id) => base.items[id]?.edge === edge.id && base.items[id]!.fixed && !!formsOf(state.items[id]!, axisOf(edge.side))[base.items[id]!.form]?.main.grows);
+  const titles = edge.items.filter((id) => base.items[id]?.edge === edge.id && base.items[id]!.fixed && !itemSteps(state.items[id]!) && !!formsOf(state.items[id]!, axisOf(edge.side))[base.items[id]!.form]?.main.grows);
   const lands = ({ layout: after }: DropResult): boolean => {
     const me = after.items[dragged]!;
     if (me.edge !== edge.id || me.inMenu) return false;
@@ -238,7 +238,14 @@ function edgeSlots(c: Ctx, edge: DockEdge, accepts: boolean): Slot[] {
         const a = s.result.layout.items[id];
         // (Pushed is not gone: a drop that would take any fixed item out of the layout is no slot either.)
         if (fixedHere(id) && !a) return true;
-        return isProtected(id) && (Math.abs(a!.rect.x - b!.rect.x) > 0.5 || Math.abs(a!.rect.y - b!.rect.y) > 0.5);
+        if (!isProtected(id)) return false;
+        // A fixed item that takes steps (`stepping`) in the » has no place along the edge: "nothing lands before it" is
+        // read from the order of ids, a drop between it and its zone's anchor.
+        if (itemSteps(state.items[id]!) && (a!.inMenu || b!.inMenu)) {
+          const i = members.indexOf(id);
+          return i >= 0 && anchored.has(id) && (zone === "end" ? k > i : k <= i);
+        }
+        return (Math.abs(a!.rect.x - b!.rect.x) > 0.5 || Math.abs(a!.rect.y - b!.rect.y) > 0.5);
       });
       if (!movesFixed) slots.push(s);
     }

@@ -26,7 +26,8 @@
  *    least a floor on the drawn size: a form whose share would be under its least is drawn at its least, the others share the rest.
  *
  * A `fixed` item takes part in none of steps 1 to 4: it keeps its first allowed form, counts toward the length, and the
- * others give way around it. In step 5 it shrinks and grows like any item.
+ * others give way around it. In step 5 it shrinks and grows like any item. A fixed item with `stepping` takes every step
+ * like an item that isn't fixed: the solver reads "takes no steps" (`itemSteps`), never `fixed` itself.
  *
  * With `ownCross`, an item in a form drawn at its own size (`StackForm.ownCross`; default the group kinds `row`, `stacked`,
  * `wrap`, `icons`, `fold`) is drawn at its own `cross.natural` (clamped to the stack's cross size) from the start edge
@@ -42,7 +43,7 @@
  * same input, same fit.
  */
 import { EPS, type Rect } from "../geometry";
-import { askedLength, formCrossMin, formFitsCross, formMain, formMenu, formOwnCross, formSetsCross, formStepGroup, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
+import { askedLength, formCrossMin, formFitsCross, formMain, formMenu, formOwnCross, formSetsCross, formStepGroup, itemSteps, limitsOf, menuMain, spacingOf, wrapCross, wrapRows, type FitOptions, type PlacedStackItem, type StackFit, type StackForm, type StackInput, type StackItem, type StackMenu, type StackNote, type StackStep } from "./model";
 const isMenu = formMenu;
 const finite = (x: number, fallback = 0): number => (Number.isFinite(x) ? x : fallback);
 /** A form's length along the stack; a `wrap` form's is its rows at cross size `cross` times the row height. */
@@ -61,7 +62,7 @@ const rankOf = (f: StackForm): number => finite(f.rank ?? 0);
 function victim(items: readonly StackItem[], to: readonly number[]): number {
   let best = -1;
   for (let i = 0; i < items.length; i++) {
-    if (to[i]! < 0 || items[i]!.fixed) continue;
+    if (to[i]! < 0 || !itemSteps(items[i]!)) continue;
     if (best < 0) {
       best = i;
       continue;
@@ -133,7 +134,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     for (const n of previous.notes) if (n.code === "form-down" && !began.has(n.id)) began.set(n.id, n.from);
     items.forEach((it, i) => {
       const p = had.get(it.id);
-      if (it.fixed || !p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
+      if (!itemSteps(it) || !p || p.form < start[i]! || p.form >= it.forms.length || start[i]! < (began.get(it.id) ?? p.form)) return;
       const f = it.forms[p.form]!;
       // The size isn't compared: a form re-measured (a badge gained a digit) is still the form it was. A smaller one
       // frees room, which the fresh fit takes (`need`), a larger one gives way from the kept forms.
@@ -201,7 +202,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
    * step that ranks after every such step and before every step that changes a form's kind (icons, fold, the menu).
    * `hold` is on while those steps come first.
    */
-  const holds = (i: number): boolean => items[i]!.fixed === true && form(i).main.grows === true;
+  const holds = (i: number): boolean => !itemSteps(items[i]!) && form(i).main.grows === true;
   let hold = idx.some(holds);
   /** The shortest the stack can be drawn now: the smallest sizes, the » entry, the gaps and the padding. */
   const minSumWith = (held: boolean): number => {
@@ -325,7 +326,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
       if (stuck) break;
       const c0 = crossOf();
       const fitsWith = (changed: readonly number[]): boolean => minSum() <= length + EPS && crossOf() === c0 && changed.every((j) => !tooWide(j, c0));
-      const queue = idx.filter((i) => !items[i]!.fixed && at[i]! > start[i]! && !withHistory.has(items[i]!.id)).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
+      const queue = idx.filter((i) => itemSteps(items[i]!) && at[i]! > start[i]! && !withHistory.has(items[i]!.id)).sort((a, b) => (comesBefore(a, b) ? -1 : 1));
       const next = queue[0];
       if (next === undefined) break;
       const cur = at[next]!;
@@ -375,7 +376,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     // Too wide for the stack: step down, but never into the menu (that is the length's call).
     let stepped = false;
     for (const i of idx) {
-      if (!items[i]!.fixed && tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[nextOffered(i)]!)) {
+      if (itemSteps(items[i]!) && tooWide(i, cross) && canStep(i) && !isMenu(items[i]!.forms[nextOffered(i)]!)) {
         step(i, nextOffered(i));
         stepped = true;
       }
@@ -383,8 +384,8 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     if (stepped) continue;
     const over = minSum() - length;
     if (over <= EPS) break;
-    // A fixed item never gives way: it has no step.
-    const to = idx.map((i) => (items[i]!.fixed ? -1 : stepTo(i)));
+    // A fixed item never gives way (it has no step), unless it is `stepping`.
+    const to = idx.map((i) => (itemSteps(items[i]!) ? stepTo(i) : -1));
     if (hold) {
       // First the steps that keep a form's kind (compact variants), the growing fixed items at their natural length;
       // with none left, they may shrink (`hold` off) and the other steps follow.
@@ -398,7 +399,7 @@ function solve(input: StackInput, previous?: StackFit, seed?: { need: number }, 
     }
     // Items that can't shorten the stack on their own but have the menu ahead: while the » entry doesn't exist, the
     // first one in costs the entry, so they go in together or not at all.
-    const pool = idx.map((i) => (to[i]! < 0 && !inMenu() && !items[i]!.fixed ? menuFormAfter(i) : -1));
+    const pool = idx.map((i) => (to[i]! < 0 && !inMenu() && itemSteps(items[i]!) ? menuFormAfter(i) : -1));
     const v = victim(
       items,
       idx.map((i) => (to[i]! >= 0 ? to[i]! : pool[i]!)),
