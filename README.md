@@ -24,7 +24,7 @@ npm i @n-uf/motion
 ```
 
 - [Design page](./docs/motion.md): the concept, the parts, the rules.
-- [Reference](./docs/motion-reference.md): every entry point's API.
+- [Reference](./docs/motion-reference.md): every entry point's behavior; the exported types are the contract.
 - [npm](https://www.npmjs.com/package/@n-uf/motion) and the [package README](./packages/motion/README.md).
 
 ## @n-uf/placement: where things fit
@@ -85,7 +85,13 @@ pnpm lab     # the motion lab on http://localhost:3060
 
 ## Contributing checks
 
-`pnpm check` runs, besides the typechecks, tests, builds and the lab's typecheck, two repository checks:
+Docking's heaviest test files (the sweeps, listed in `packages/docking/vitest.config.ts`) run apart from the rest:
+`pnpm --filter @n-uf/docking test` skips them and `pnpm --filter @n-uf/docking test:sweep` runs only them. `pnpm check`
+runs both; `pnpm check:quick` is the same without the sweeps (CI runs the two as parallel jobs).
+
+`pnpm check` runs, besides the typechecks, tests, builds and the lab's typecheck, repository checks:
+
+- `pnpm changes`: the changelog fragments (see "Changelog entries" below) are well formed, and `scripts/changelog.test.mjs` passes.
 
 - `pnpm dirt`: a ratchet over the code's dirt. It counts dependency-cruiser rule violations (import cycles; the
   packages importing each other against their layering; a package reaching into an app; an app reaching past a package's public entries; a
@@ -98,3 +104,30 @@ pnpm lab     # the motion lab on http://localhost:3060
   itself leaks nothing; a node test (`scripts/public-words.test.mjs`) covers it with made-up words. A hit names the line
   and the word; reword the line, or, for a quote of third-party text, add the whole phrase to the allowed list in
   `scripts/public-words.mjs` with a reason.
+
+## Changelog entries
+
+A change does not edit a CHANGELOG's `## Unreleased` section (parallel branches would always conflict there). It adds
+one small file per package it changes, `packages/<pkg>/changes/<yyyy-mm-dd>-<slug>.md`: the date the change was written,
+then a lower-case slug of words joined by `-` (for example `2026-11-21-asked-lengths.md`). The file holds exactly the
+markdown that would go under Unreleased: bullets, with an optional `### Heading` line first for a grouped entry; no
+`## ` heading. Fragments join in name order, so the date keeps them chronological (add a later date, or a slug that
+sorts after, to put an entry after another).
+
+- `node scripts/changelog.mjs check` (part of `pnpm check`) fails on an empty fragment, one that starts with neither a
+  bullet nor a `###` line, or a malformed name.
+- `node scripts/changelog.mjs preview [version]` prints what a release would write.
+- `pnpm version:bump` ends with `node scripts/changelog.mjs join`: per package, the existing `## Unreleased` body first,
+  then each fragment in order, go under a new `## <version>` heading where Unreleased was, and the fragments are
+  deleted. It refuses when `## <version>` already exists, and writes nothing if any package refuses.
+
+The `files` of each package list no `changes/` folder, so fragments are never published.
+
+## A library change proves what it left alone
+
+A change to a library runs `pnpm old-vs-new <base>` (the commit it started from) and commits its expect file under
+`.changes-expect/<slug>.json` (or names it in the PR body): the list of outputs it means to change. The command records
+the public outputs of the three packages at `<base>` and at the head over a fixed corpus and prints, per package and per
+output kind, how many cases are the same and how many changed, with the first differences. The review reads that
+printed summary; the change passes when it exits 0 with its expect file (`--expect .changes-expect/<slug>.json`).
+How it works, the expect file and what the corpus doesn't cover: [docs/old-vs-new.md](./docs/old-vs-new.md).

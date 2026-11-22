@@ -58,7 +58,7 @@ export {
   type LandingRegionName,
   type LandingRule,
 } from "./landing";
-export type { AssertLanding } from "./landing-check";
+export type { AssertGeometry, AssertLanding } from "./landing-check";
 export type { AsyncCaseHost, CaseGroup, CaseHost, CaseRequires, CaseResult, CaseRow, CaseSettings, Checkpoint, DomCheck, DomRoot, EdgeExpect, Gesture, GestureType, ItemExpect, LayoutExpect, PickCandidate, PickRule, StoredExpect } from "./types";
 
 /**

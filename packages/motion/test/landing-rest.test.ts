@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Rect } from "../src/shapes";
 import { createLandingModel, type LandingLane, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
 /**
@@ -17,7 +18,7 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
   };
   // Panels' grip at x 25, flicked at 3 px/ms straight up to (x, 301); the host updates every 16 ms with the same point.
   const flick = (x: number, restMs: number) => {
-    const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+    const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
     m.update({ x: 25, y: 614 }, 0);
     for (let i = 1; i <= 7; i++) m.update({ x: 25 + ((x - 25) * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);
     const at = m.frame;
@@ -40,7 +41,7 @@ describe("landing model: a flick that rests in an empty rail's band docks in it"
   for (const d of [0.3, 1.5, 3])
     it(`a flick then ${d} px of jitter: no entry before the hand reads slow for 60 ms, then the rail; let go at once it goes home`, () => {
       const make = () => {
-        const m = createLandingModel({ regions: regions(), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 }, grab: { x: 17, y: 15 } });
+        const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });
         m.update({ x: 25, y: 614 }, 0);
         // 3 px/ms up to (14, 301), the last fast sample at 112 ms.
         for (let i = 1; i <= 7; i++) m.update({ x: 25 - (11 * i) / 7, y: 614 - (313 * i) / 7 }, 16 * i);

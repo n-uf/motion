@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { solve, SPOT_PITCH, type DockEdge, type DockState } from "../src";
-import { lanes } from "./pitched-lanes";
+import { dockDrag, lanes } from "./pitched-lanes";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { bar, byId, group } from "./fixture";
 
@@ -68,7 +68,7 @@ describe("a free stretch's ends", () => {
             const press = { x: own.x + grab.x, y: own.y + grab.y };
             const to = ax === "x" ? { x: flushAt + grab.x, y: press.y } : { x: press.x, y: flushAt + grab.y };
             const drive = (path: { x: number; y: number }[]) => {
-              const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, held, { previous, grab, spot }), home });
+              const m = createLandingModel({ ...dockDrag(s, held, { previous, grab }), home });
               let t = 0;
               m.update(path[0]!, t);
               for (let k = 1; k < path.length; k++) {
@@ -80,9 +80,9 @@ describe("a free stretch's ends", () => {
               for (let i = 0; i < 30; i++) m.update(path.at(-1)!, (t += 8));
               return m.release(path.at(-1)!, t);
             };
-            expect(drive([press, to])).toEqual({ kind: "spot", lane: edge, spot: flush!.id, home: false });
+            expect(drive([press, to])).toEqual({ kind: "spot", lane: edge, spot: flush!.id, point: to, home: false });
             // Away and back to the press point is home.
-            expect(drive([press, to, press])).toEqual({ kind: "spot", lane: edge, spot: home.spot, home: true });
+            expect(drive([press, to, press])).toEqual({ kind: "spot", lane: edge, spot: home.spot, point: press, home: true });
           });
 
   // Home within half a pitch: a toolbar whose own place lies near the bar's middle, where a center dock lands beside
@@ -103,7 +103,7 @@ describe("a free stretch's ends", () => {
         for (const sp of lane.spots) if (!sp.home) expect(Math.abs(lo(sp.landing, ax) - lo(home.landing, ax)), sp.id).toBeGreaterThanOrEqual(SPOT_PITCH / 2);
         const press = { x: own.x + grab.x, y: own.y + grab.y };
         const away = ax === "x" ? { x: press.x - 220, y: press.y } : { x: press.x, y: press.y - 220 };
-        const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "c", { previous: seen, grab, spot }), home: { lane: edge, spot: home.id } });
+        const m = createLandingModel({ ...dockDrag(s, "c", { previous: seen, grab }), home: { lane: edge, spot: home.id } });
         let t = 0;
         m.update(press, t);
         for (const [a, b] of [
@@ -114,6 +114,6 @@ describe("a free stretch's ends", () => {
           for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
         }
         for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-        expect(m.release(press, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true });
+        expect(m.release(press, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, point: press, home: true });
       });
 });

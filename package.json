@@ -11,15 +11,18 @@
   "scripts": {
     "build": "pnpm --filter @n-uf/motion build && pnpm --filter @n-uf/placement build && pnpm --filter @n-uf/docking build",
     "typecheck": "pnpm --filter @n-uf/motion typecheck && pnpm --filter @n-uf/placement typecheck && pnpm --filter @n-uf/docking typecheck",
-    "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test && pnpm --filter @n-uf/docking test",
+    "test": "pnpm --filter @n-uf/motion test && pnpm --filter @n-uf/placement test && pnpm --filter @n-uf/docking test && pnpm --filter @n-uf/docking test:sweep",
     "bench": "pnpm --filter @n-uf/motion bench",
-    "check": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm public-words && pnpm terminology",
+    "old-vs-new": "node scripts/old-vs-new.mjs",
+    "check": "pnpm check:quick && pnpm --filter @n-uf/docking test:sweep",
+    "check:quick": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check:quick && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm changes && pnpm public-words && pnpm terminology",
+    "changes": "node scripts/changelog.mjs check && node --test scripts/changelog.test.mjs",
     "dirt": "node scripts/dirt.mjs",
     "public-words": "node scripts/public-words.mjs && node --test scripts/public-words.test.mjs",
     "terminology": "node scripts/terminology.mjs && node --test scripts/terminology.test.mjs",
     "lab": "pnpm --filter motion-lab dev",
     "release:next-version": "pnpm --filter @n-uf/motion release:next-version",
-    "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-versions.mjs"
+    "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-versions.mjs && node scripts/changelog.mjs join"
   },
   "devDependencies": {
     "dependency-cruiser": "18.7.2",

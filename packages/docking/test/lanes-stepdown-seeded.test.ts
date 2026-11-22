@@ -42,7 +42,7 @@ function gen(seed: number, rail = false, fixed = false): { state: DockState; hel
   };
 }
 
-const lanesOf = (seed: number, rail = false, more: { spot?: string; stretchPositions?: "free" | "pitched" } = {}, fixed = false) => {
+const lanesOf = (seed: number, rail = false, more: { stretchPositions?: "free" | "pitched" } = {}, fixed = false) => {
   const { state, held } = gen(seed, rail, fixed);
   const previous = solve(state);
   const own = previous.items[held]!.rect;

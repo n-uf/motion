@@ -6,7 +6,7 @@ import { EPS, clamp, rect, type Rect } from "@n-uf/placement";
 import { sideRings } from "../changes";
 import { formsOf, isHandFolded, isSideColumn, zoneOf } from "../helpers";
 import type { DockEdge } from "../model";
-import { slotAt, thickerThan } from "./edges";
+import { railColumnSpec, slotAt, thickerThan } from "./edges";
 import { targetId, virtualEdgeId } from "./ids";
 import { EDGE_KINDS, RAIL_EDGE } from "./kinds";
 import type { Ctx, EdgeSpec, DropResult, Slot, Span } from "./model";
@@ -158,6 +158,33 @@ function railEnd(c: Ctx, side: "left" | "right", segments: readonly { readonly e
     return !me.inMenu && (collapsed ? me.rail === side : me.edge === edge.id && !me.rail && !me.rides && !layout.edges[edge.id]?.folded);
   };
   return slotAt(c, "start", y, targetId(place), place, lands);
+}
+
+/**
+ * The held tile's own column in the side's declared rail, as the edge of its own that it is (`railColumnSpec`): the
+ * places a column drawn as a rail offers a tile of it (`gap:<edge>:<zone>:<at>`), over the column's own run of tiles
+ * only. A tile keeps its place among its own tiles; the rest of the rail (other columns' tiles) stays the rail's stops',
+ * which are home's for it. The gaps are real moves only where the tile stays a tile of this rail (a window too narrow
+ * for that opens the column instead): there they are refused places, as for any slot that doesn't land. Its home slots
+ * (the halves of the run's tiles beside the held one, which are home's as in any column) take the id of the rail's own
+ * home stop (`rail`): the one home of the tile in the rail. The held tile's own interval is home's tile (`home:<id>`)
+ * as everywhere, so the edge has no interval of its own (`own`, `holds`). Null where the tile is not in the side's rail,
+ * or its column offers nothing.
+ */
+export function ownColumnRun(c: Ctx, side: "left" | "right", rail: EdgeSpec): EdgeSpec | null {
+  const { state, now, dragged } = c;
+  const me = now.items[dragged];
+  const shown = now.rails[side];
+  const edge = me?.rail === side ? state.edges.find((e) => e.id === me.edge) : undefined;
+  const homeId = rail.slots.find((s) => s.home)?.id;
+  if (!shown || !edge || homeId === undefined) return null;
+  const tiles = shown.segments.filter((s) => s.edge === edge.id).map((s) => s.rect);
+  if (tiles.length === 0) return null;
+  const top = Math.min(...tiles.map((r) => r.y));
+  const spec = railColumnSpec(c, edge, rect(shown.rect.x, top, shown.rect.width, Math.max(...tiles.map((r) => r.y + r.height)) - top));
+  if (!spec) return null;
+  const stays = ({ layout }: DropResult): boolean => layout.items[dragged]?.rail === side && layout.items[dragged]?.edge === edge.id;
+  return { ...spec, own: null, holds: false, homePriority: EDGE_KINDS.railStop.priority, slots: spec.slots.map((s) => (s.home ? { ...s, id: homeId } : { ...s, ok: s.ok && stays(s.result) })) };
 }
 
 /**

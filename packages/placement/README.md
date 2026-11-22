@@ -20,7 +20,7 @@ npm i @n-uf/placement
 | Entry | What it gives |
 |---|---|
 | `@n-uf/placement/stack` | One edge: the cut of the stage into bands (`cutEdges`), the fit of its items (`fitStack`) in the form vocabulary every item declares its forms in (`StackForm`, with the flags `body`, `folded`, `compact`), its drop places (`stackGaps`) and the float fit (`fitFloat`). |
-| `@n-uf/placement/tiling` | Panes that divide an area. Order layouts (`masterStack`, `columns`, `grid`), the split tree (`layoutSplit`, `dropOnPane`) and their drop targets. |
+| `@n-uf/placement/tiling` | Panes that divide an area. Order layouts (`masterStack`, `columns`, `grid`), the split tree (`layoutSplit`, `layoutSplitTree`, with gaps, handles, floors and fixed lengths, `dropOnPane`, `canDropOnPane`), `neighbor` and the drop targets. |
 | `@n-uf/placement/popup` | A popup positioned as Wayland's xdg-positioner does (`positionPopup`). |
 | `@n-uf/placement` | The shared shapes (`Rect`, `Size`, `Point`), the geometry and the `Target` shape. |
 
@@ -56,6 +56,17 @@ const tree = splitFromOrder(["a", "b"]);
 const after = dropOnPane(tree, "c", "b", "top");
 console.log(layoutSplit(after, area).get("c")); // { x: 400, y: 0, width: 400, height: 200 }
 console.log(paneTargets(layoutSplit(tree, area)).map((t) => t.id)); // [ 'pane:a', 'pane:b' ]
+```
+
+A split puts the middle of its gutter (its gap plus its handle) at its ratio. `layoutSplitTree` also reports the box, ratio and divider of each split that has an `id`. The `floor`, `fixed` and `fixedAcross` options read a host's minimums and fixed lengths, `canDropOnPane` says whether a drop leaves room, and `neighbor` finds the nearest pane in a direction.
+
+```ts
+import { layoutSplitTree } from "@n-uf/placement/tiling";
+
+const split = { id: "main", a: { pane: "a" }, b: { pane: "b" }, axis: "x" as const, ratio: 0.3 };
+const { panes, splits } = layoutSplitTree(split, { x: 0, y: 0, width: 1000, height: 600 }, { gap: 6, handle: 4 });
+console.log(panes.get("a")?.width, panes.get("b")?.x); // 295 305
+console.log(splits.get("main")?.divider); // { x: 295, y: 0, width: 10, height: 600 }
 ```
 
 ## Documentation

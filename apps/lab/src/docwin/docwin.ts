@@ -215,16 +215,19 @@ const snapInput = $<HTMLInputElement>("dw-snap");
 const snapKey = `${KEY}:snapDistance`;
 try {
   const raw = localStorage.getItem(snapKey);
-  if (raw !== null && Number.isFinite(Number(raw))) c.setSnapDistance(Number(raw));
+  if (raw !== null && raw !== "" && Number.isFinite(Number(raw))) c.setSnapDistance(Number(raw));
 } catch {
   // No storage: the default snap distance.
 }
-snapInput.value = String(c.snapDistance);
+// Empty: docking's default snap distance (the field's placeholder says so).
+snapInput.placeholder = "default";
+snapInput.value = c.snapDistance === undefined ? "" : String(c.snapDistance);
 snapInput.addEventListener("change", () => {
-  c.setSnapDistance(Number(snapInput.value));
-  snapInput.value = String(c.snapDistance);
+  c.setSnapDistance(snapInput.value.trim() === "" ? undefined : Number(snapInput.value));
+  snapInput.value = c.snapDistance === undefined ? "" : String(c.snapDistance);
   try {
-    localStorage.setItem(snapKey, String(c.snapDistance));
+    if (c.snapDistance === undefined) localStorage.removeItem(snapKey);
+    else localStorage.setItem(snapKey, String(c.snapDistance));
   } catch {
     // No storage: the choice lasts this visit.
   }

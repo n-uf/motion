@@ -26,6 +26,11 @@ export interface DropResult {
 export interface DockDrop extends Target {
   /** The item dragged. */
   readonly item: string;
+  /**
+   * Where a release here puts the item. A host tells a home (nothing committed) by `place.kind === "home"`, never by the
+   * id: a home keeps the id of the first of its edge's places that puts the item back (`gap:<edge>:<zone>:<at>` on a
+   * real edge, `rail:<side>:<ring>` on its rail), and `home:<id>` alone covers the item's own rect.
+   */
   readonly place: DropPlace;
   /** Gaps and strips: the line where the item's leading edge lands, zero thick, across the edge after the drop. */
   readonly marker?: Rect;
@@ -220,6 +225,8 @@ export interface EdgeSpec {
    * at: tiles split at their midpoints, their leading half before them, their trailing half after them.
    */
   readonly cards: readonly Span[];
+  /** The priority of its home tiles where it is not its kind's (the held tile's column in a rail: its home is the rail stop's). */
+  readonly homePriority?: 1 | 2;
   /** The band across, `[from, to]`, as deep as the edge is seen or after `after`. */
   readonly across: (after?: DockLayout) => Span;
   /** The part of the band across it owns: its seen thickness, or an undrawn edge's thin band at its boundary. */

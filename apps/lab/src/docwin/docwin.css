@@ -194,6 +194,12 @@
 .dw-resize { z-index: 3; cursor: col-resize; }
 .dw-resize:hover { background: var(--accent-line); }
 
+/* The dividers between neighboring open panels: an 8 px grab zone over the line, styled like the edge resize. */
+.dw-dividers { position: absolute; inset: 0; z-index: 3; pointer-events: none; }
+.dw-divider { position: absolute; pointer-events: auto; cursor: row-resize; outline: none; }
+.dw-divider[data-across="false"] { cursor: col-resize; }
+.dw-divider:hover, .dw-divider:focus-visible { background: var(--accent-line); }
+
 /* A floating panel's resize handles: 6 px along its edges, 12 px corners on top, each with its resize cursor. */
 .dw-fh { position: absolute; z-index: 1; }
 .dw-fh[data-fh="top"], .dw-fh[data-fh="bottom"] { left: 8px; right: 8px; height: 6px; cursor: ns-resize; }

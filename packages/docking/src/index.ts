@@ -3,7 +3,8 @@
  * its sides, each a stack of items), the items, the floats above the content and the rects they keep clear of
  * (`keepClear`). `solve(state)` gives every rect a host draws; `targets(state, dragged)` gives every drop place for one
  * item (`DockDrop`), each with the state and layout a release there makes, so the preview is the result; `lanes`
- * arranges the same places for a landing model. The changes are pure and named with their object (`openItem`,
+ * arranges the same places for a landing model, and `dockDrag` gives the one layout of each held place of the drag
+ * (`after(held)`: what a held frame draws while its room is open, and its release commits). The changes are pure and named with their object (`openItem`,
  * `foldItem`, `resizeEdge`, ...), and `storeDockState` / `readDockState` keep a state across reloads. No time, no DOM,
  * nothing module-global.
  *
@@ -13,7 +14,7 @@
  * Constants: `DEFAULT_HIT_BAND` (a column's gap band, px), `DEFAULT_STRIP` (an empty edge's drop strip, px),
  * `DEFAULT_FLOAT_SIZE`; `SIDES` and `ZONES` list the sides and zones in order.
  *
- * See docs/docking.md: The dock state, Solving, Changes, Targets and refusals, Lanes and Storage, and Entry: docking.
+ * See docs/docking.md: The dock state, Solving, Changes, Targets and refusals, Lanes, One layout, Storage, and Entry: root.
  */
 export {
   DEFAULT_FLOAT_SIZE,
@@ -57,6 +58,7 @@ export { anchorName, declaresFloatSizes, floatOrientOf, floatSizeOf, heldRect, i
 /** Whether an edge takes a kind anywhere: its `accepts` lists it and some zone takes it (the test drop targets ask). */
 export { edgeTakes, namesZone, zoneIn } from "./helpers";
 export { solve } from "./solve";
+export { dividers, resetBetween, resetLengths, resizeBetween, type DockDivider } from "./dividers";
 export {
   canFold,
   closeItem,
@@ -81,4 +83,5 @@ export { fitResize, type FloatResize, type ResizeEdges, type ResizeLimit } from 
 export { readDockState, storeDockState, type DockStateRead, type StoredDockState, type StoredDockStateEdge, type StoredDockStateFloat, type StoredDockStateItem } from "./store";
 export { refusalTargets, refusals, reservedRect, stops, targets, type DropResult, type DropPlace, type DockRefusal, type DockRefusalTarget, type DockDrop, type DockDropOptions } from "./targets";
 export { HATCH_EDGE, HATCH_END, lanes, SPOT_PITCH, type DockLane, type DockMark, type DockLaneOptions, type EmptyLanes, type LaneRefusal, type LaneSlide, type DockSpot, type DockRegions } from "./lanes";
+export { dockDrag, type DockAfter, type DockDrag, type DockGuide, type DockGuideFrame, type DockGuideRef, type DockHeld, type DockLaneMark } from "./drag";
 export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets";

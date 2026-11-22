@@ -97,7 +97,7 @@ export function CODE_PRESETS(): CodePreset[] {
     preset(
       "code-last-move",
       "Code: Last move names the item and the spot a drag landed in",
-      "Before any drag, Last move says \"No move yet: drag an item in the window.\" After Zoom is let go over the bottom bar, it names Zoom, the bottom lane, the spot id the drop landed in and the commit call with the pointer and grab as released. After Notes is let go over the document it carries the float's commit call, not a spot.",
+      "Before any drag, Last move says \"No move yet: drag an item in the window.\" After Zoom is let go over the bottom bar, it names Zoom, the dockDrag call, the release's state (the bottom lane, the spot id the drop landed in, the pointer as released) and its commit, drag.after(release). After Notes is let go over the document it carries the float's state and commit, not a spot.",
       (c, bad, said) => {
         c.forgetDrop();
         if (codeOf(c).move !== NO_MOVE) bad.push("with no drag made, Last move isn't the \"No move yet\" line");
@@ -109,7 +109,7 @@ export function CODE_PRESETS(): CodePreset[] {
         const move = codeOf(c).move;
         if (!d?.committed || !d.call.lane || !d.call.spot) bad.push("the drop didn't land in a spot");
         else {
-          const wants = [`lanes(dragState, "zoom"`, `l.id === ${JSON.stringify(d.call.lane)}`, `s.id === ${JSON.stringify(d.call.spot)}`, `.after(${at(d.call.pointer)}, ${at(d.call.grab)})`, "// Last move: Zoom"];
+          const wants = [`dockDrag(dragState, "zoom"`, `lane: ${JSON.stringify(d.call.lane)}`, `spot: ${JSON.stringify(d.call.spot)}`, `point: ${at(d.call.pointer)}`, "drag.after(release)", "// Last move: Zoom"];
           const missing = wants.filter((w) => !move.includes(w));
           if (missing.length) bad.push(`Last move lacks ${missing.map((m) => `\`${m}\``).join(", ")}`);
           else if (d.call.lane !== c.layout.items.zoom?.edge) bad.push(`Last move says ${d.call.lane}, Zoom is in ${c.layout.items.zoom?.edge}`);
@@ -120,7 +120,7 @@ export function CODE_PRESETS(): CodePreset[] {
           return;
         }
         const f = codeOf(c).move;
-        if (!f.includes(`lanes(dragState, "notes"`) || !f.includes("regions.float!.after(") || f.includes("lane.spots")) bad.push("after Notes floated, Last move isn't the float's commit call");
+        if (!f.includes(`dockDrag(dragState, "notes"`) || !f.includes(`{ kind: "float", point: `) || !f.includes("drag.after(release)") || f.includes(`kind: "spot"`)) bad.push("after Notes floated, Last move isn't the float's commit call");
         else said.push("Notes: the float's commit call");
       },
     ),
@@ -133,8 +133,10 @@ export function CODE_PRESETS(): CodePreset[] {
         try {
           c.setStretchPositions("pitched");
           c.setPitch(25);
+          // (A snap distance the page sets is written out; left unset, docking's default, it isn't.)
+          c.setSnapDistance(8);
           const p = codeOf(c).state;
-          if (!p.includes(`  stretchPositions: "pitched",\n`) || !p.includes("  pitch: 25,\n") || !p.includes(`counts under "free" only`)) bad.push("Pitched at 25 px isn't what the code says");
+          if (!p.includes(`  stretchPositions: "pitched",\n`) || !p.includes("  pitch: 25,\n") || !p.includes(`counts under "free" only`) || !p.includes(`  emptyLanes: "`)) bad.push("Pitched at 25 px isn't what the code says");
           else said.push("Pitched, pitch 25");
           c.setStretchPositions("free");
           c.setSnapDistance(13);
@@ -175,7 +177,7 @@ export function CODE_PRESETS(): CodePreset[] {
           tab("move");
           if (pre.textContent !== NO_MOVE || !pre.hasAttribute("data-empty")) bad.push("Last move isn't the \"No move yet\" line before a drag");
           if (!zoomToBottom(c)) bad.push("Zoom never lifted");
-          else if (!pre.textContent?.includes(`lanes(dragState, "zoom"`)) bad.push("the pane didn't follow the drop");
+          else if (!pre.textContent?.includes(`dockDrag(dragState, "zoom"`)) bad.push("the pane didn't follow the drop");
           else said.push("Code shows the state and follows a drop");
           pick("window");
           if (stage.dataset.view !== "window" || !pane.hidden) bad.push("Window didn't bring the window back");

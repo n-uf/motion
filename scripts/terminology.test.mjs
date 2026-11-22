@@ -62,6 +62,7 @@ test("copy files: READMEs and source, not tests, styles or other READMEs", () =>
   assert.equal(isCopy("apps/web/src/pages/index.astro"), true);
   assert.equal(isCopy("apps/lab/src/pages/overview.html"), true);
   assert.equal(isCopy("packages/placement/src/stack/index.ts"), true);
+  assert.equal(isCopy("packages/placement/changes/2026-11-21-lengths.md"), true);
   assert.equal(isCopy("packages/placement/test/stack.test.ts"), false);
   assert.equal(isCopy("packages/motion/src/gestures/__tests__/recognizer.test.ts"), false);
   assert.equal(isCopy("apps/web/src/styles/chrome.css"), false);

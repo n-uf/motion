@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const STAGE = rect(0, 0, 1080, 640);
@@ -73,7 +74,7 @@ const path = (points: readonly Point[], speed: number): [number, number, number]
   return out;
 };
 const home = { lane: "rail-left", spot: "rail-left/start/tools|$" };
-const base = (more: Partial<LandingOptions> = {}): LandingOptions => ({ regions: railWindow(), floatLanding: FLOAT, home, ...more });
+const base = (more: Partial<LandingOptions> = {}): LandingOptions => ({ ...listed(more.regions ?? railWindow(), FLOAT), home, ...more });
 
 describe("landing model: an item dragged along its lane never leaves it (P1, the rail repro first)", () => {
   it("Zoom pulled straight up its rail, 6 px every 40 ms, to 10 px above the rail: always in the rail, docked above Tools", () => {
@@ -83,7 +84,7 @@ describe("landing model: an item dragged along its lane never leaves it (P1, the
     const grown = rect(-12, 20, 54, 600);
     for (const { t, p, f } of frames) if (p.y >= grown.y) expect([t, f.region, f.lane]).toEqual([t, "lane", "rail-left"]);
     const last = frames.at(-1)!;
-    expect(last.release).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/^|tools", home: false });
+    expect(last.release).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/^|tools", point: last.p, home: false });
     // Never a float on the way, never two spots at once.
     expect(frames.every((x) => x.f.region === "lane")).toBe(true);
   });
@@ -115,7 +116,7 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
       const { frames } = run(base(), keys);
       for (const { f, release } of frames) {
         if (f.region === "lane") expect(release && release.kind === "spot" ? release.spot : null).toBe(f.spot);
-        else if (f.region === "open") expect(release && release.kind === "float" ? release.rect : null).toEqual(f.landing);
+        else if (f.region === "open") expect(release && release.kind === "float" ? FLOAT(release.point) : null).toEqual(f.landing);
         else expect(release).toBeNull();
       }
     }
@@ -152,10 +153,9 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     }
   });
 
-  it("P5: the guides are the held lane's spots, the same set on every frame the lane is held, and none with Shift", () => {
+  it("P5: the guides are the held lane's, standing for the frame's held place on every frame the lane is held, and none with Shift", () => {
     const { frames } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
-    const sets = new Set(frames.filter((x) => x.f.lane === "rail-left").map((x) => x.f.guides.map((g) => g.id).join()));
-    expect(sets.size).toBe(1);
+    for (const x of frames.filter((y) => y.f.lane === "rail-left" && y.f.region === "lane")) expect(x.f.guides).toEqual([{ lane: "rail-left", held: x.f.held }]);
     const { frames: shifted } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
     expect(shifted.every((x) => x.f.guides.length === 0)).toBe(true);
   });
@@ -297,56 +297,56 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
     expect(m.frame.lane).toBe("top");
   });
 
-  it("guides: a lane's marks when it has them; over a refused place outside every lane, none", () => {
-    const r = railWindow();
-    const marks = [{ id: "rail-left/line/tools|zoom", kind: "line" as const, rect: rect(0, 190, 30, 0) }, { id: "rail-left/box/zoom|$", kind: "box" as const, rect: rect(0, 367, 30, 241) }];
-    const withMarks: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, marks }, r.lanes[1]!] };
-    const held = run(base({ regions: withMarks, placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
-    expect(held.f.guides.map((g) => [g.id, g.kind, g.rect])).toEqual(marks.map((m) => [m.id, m.kind, m.rect]));
+  it("guides: the held lane standing for the frame's held place; over a refused place outside every lane, none", () => {
+    const held = run(base({ placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
+    expect(held.f.held).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/tools|$", point: { x: 15, y: 300 } });
+    expect(held.f.guides).toEqual([{ lane: "rail-left", held: held.f.held }]);
     const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
     expect(over.f.region).toBe("refused");
     expect(over.f.guides).toEqual([]);
   });
 
-  it("the fixed point: a spot whose room moves its boundary away from the pointer isn't taken; regionsFor is called once per spot", () => {
+  it("the fixed point: a spot whose room moves its boundary away from the pointer isn't taken; spotsOf is called once per spot", () => {
     const r = railWindow();
     // With the spot above Tools held, the room pushes Tools down 62 px: its middle (the boundary) at 173.
-    const above: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, spots: [{ ...r.lanes[0]!.spots[0]!, along: [32, 173] }, { ...r.lanes[0]!.spots[1]!, along: [173, 608] }] }, r.lanes[1]!] };
+    const above = [{ ...r.lanes[0]!.spots[0]!, along: [32, 173] as const }, { ...r.lanes[0]!.spots[1]!, along: [173, 608] as const }];
     let calls = 0;
-    const regionsFor = (id: string): LandingRegions => {
+    const spotsOf = (id: string): LandingLane["spots"] => {
       calls++;
-      return id === "rail-left/start/^|tools" ? above : r;
+      return id === "rail-left/start/^|tools" ? above : r.lanes[0]!.spots;
     };
     const keys: [number, number, number][] = [[0, 15, 280], [300, 15, 104]];
     for (let k = 0; k < 30; k++) keys.push([320 + k * 24, 15, 104 + (k % 2 ? 8 : 0)]);
-    const { frames } = run(base({ regionsFor }), keys);
+    const { frames } = run(base({ spotsOf }), keys);
     const spots = frames.map((x) => x.f.spot);
     expect(spots.filter((s, i) => i > 0 && s !== spots[i - 1]).length).toBeLessThanOrEqual(1);
     expect(calls).toBeLessThanOrEqual(2);
   });
 
-  it("setRegions: a spot whose id is gone maps to its lane's spot under the pointer; a lane that is gone is let go", () => {
+  it("setGeometry: a spot whose id is gone maps to its lane's spot under the pointer; a lane that is gone is let go", () => {
     const m = createLandingModel(base());
     m.update({ x: 15, y: 300 }, 0);
     expect(m.frame.spot).toBe("rail-left/start/tools|$");
     const r = railWindow();
     const renamed: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, spots: r.lanes[0]!.spots.map((s) => ({ ...s, id: `${s.id}#2` })) }, r.lanes[1]!] };
-    m.setRegions(renamed);
+    m.setGeometry(listed(renamed, FLOAT));
     expect(m.update({ x: 15, y: 300 }, 8).spot).toBe("rail-left/start/tools|$#2");
-    m.setRegions({ ...r, lanes: [r.lanes[1]!] });
+    m.setGeometry(listed({ ...r, lanes: [r.lanes[1]!] }, FLOAT));
     expect(m.update({ x: 15, y: 300 }, 16).lane).toBeNull();
   });
 
-  it("setRegions with a new regionsFor: the held lane's stretches come from it, not the old one", () => {
+  it("setGeometry whole: the held lane's stretches and the landing come from the new geometry, not the old one", () => {
     const r = railWindow();
     const old: string[] = [];
-    const m = createLandingModel(base({ regionsFor: (id) => (old.push(id), r) }));
+    const m = createLandingModel(base({ spotsOf: (id) => (old.push(id), r.lanes[0]!.spots) }));
     m.update({ x: 15, y: 300 }, 0);
     const renamed: LandingRegions = { ...r, lanes: [{ ...r.lanes[0]!, spots: r.lanes[0]!.spots.map((s) => ({ ...s, id: `${s.id}#2` })) }, r.lanes[1]!] };
     const asked: string[] = [];
-    m.setRegions(renamed, (id) => (asked.push(id), renamed));
+    const moved = rect(0, 400, 30, 102);
+    m.setGeometry({ regions: renamed, landingOf: () => moved, spotsOf: (id) => (asked.push(id), renamed.lanes[0]!.spots) });
     const before = old.length;
-    expect(m.update({ x: 15, y: 300 }, 40).spot).toBe("rail-left/start/tools|$#2");
+    const f = m.update({ x: 15, y: 300 }, 40);
+    expect([f.spot, f.landing]).toEqual(["rail-left/start/tools|$#2", moved]);
     expect(asked).toContain("rail-left/start/tools|$#2");
     expect(old.length).toBe(before);
   });
@@ -608,7 +608,7 @@ describe("landing model: a lane that owns its rect (a rail drop strip) takes the
     const keys = path([{ x: 1064, y: 100 }, { x: 600, y: 300 }, { x: 1064, y: 100 }], 0.3);
     const t = keys.at(-1)![0];
     const back = run(base({ regions: withStrip(true), home }), [...keys, [t + 200, 1064, 100]]).frames.at(-1)!;
-    expect([back.f.lane, back.release]).toEqual(["right", { kind: "spot", lane: "right", spot: "right/start/^|$", home: true }]);
+    expect([back.f.lane, back.release]).toEqual(["right", { kind: "spot", lane: "right", spot: "right/start/^|$", point: back.p, home: true }]);
     // Below its own place in the same strip, the strip takes it.
     const keys2 = path([{ x: 1064, y: 100 }, { x: 600, y: 300 }, { x: 1064, y: 400 }], 0.3);
     const t2 = keys2.at(-1)![0];
@@ -626,13 +626,13 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
    * A toolbar at the top of a left rail (x 1–31 from y 29) and an empty top bar whose lane (y 29–60, the full width)
    * overlaps the rail's top corner. The toolbar is pressed at (15, 35), inside both lanes.
    */
-  function corner(sliding = false): LandingRegions {
+  function corner(): LandingRegions {
     const own = rect(1, 29, 30, 102);
     const rail: LandingLane = {
       id: "rail",
       rect: rect(1, 29, 30, 579),
       axis: "y",
-      spots: [{ id: "rail/start/^|$", along: [29, 608], landing: own, ...(sliding ? { slide: { from: 29, to: 506, snaps: [29, 506] } } : {}) }],
+      spots: [{ id: "rail/start/^|$", along: [29, 608], landing: own }],
       refused: [],
     };
     const bar: LandingLane = { id: "top", rect: rect(0, 29, 1080, 31), axis: "x", spots: [{ id: "top/start/^|$", along: [0, 1080], landing: rect(38, 33, 75, 24) }], refused: [] };
@@ -640,8 +640,8 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
   }
   const PRESS: Point = { x: 15, y: 35 };
   const HOME = { lane: "rail", spot: "rail/start/^|$" };
-  const homeRelease = { kind: "spot", lane: "rail", spot: "rail/start/^|$", home: true };
-  const opts = (regions: LandingRegions): LandingOptions => ({ regions, floatLanding: FLOAT, home: HOME, lift: PRESS });
+  const homeRelease = expect.objectContaining({ kind: "spot", lane: "rail", spot: "rail/start/^|$", home: true });
+  const opts = (regions: LandingRegions): LandingOptions => ({ ...listed(regions, FLOAT), home: HOME, lift: PRESS });
 
   for (const [speed, label] of [
     [0.15, "150 px/s"],
@@ -655,15 +655,18 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
       expect([last.f.lane, last.f.spot, last.release]).toEqual(["rail", "rail/start/^|$", homeRelease]);
     });
 
-  it("the same with free positions: the landing is the item's own place exactly, and a slide inside the home lane still follows the hand", () => {
+  it("the same on a sliding spot: home is the item's own place exactly, and a slide inside the home lane names the hand", () => {
+    // The sliding rule is the geometry's: here the start is the pointer less a 6 px grab, clamped to the rail's range.
+    const sliding = (r: LandingRegions): LandingOptions => ({ ...opts(r), landingOf: (s) => (s.kind === "spot" && s.lane === "rail" ? rect(1, Math.min(506, Math.max(29, s.point.y - 6)), 30, 102) : null) });
     const there = path([PRESS, { x: 400, y: 300 }, PRESS], 0.15);
     const t = there.at(-1)![0];
-    const home = run(opts(corner(true)), [...there, [t + 300, PRESS.x, PRESS.y]]).frames.at(-1)!;
-    expect(home.release).toEqual({ ...homeRelease, at: 29 });
+    const home = run(sliding(corner()), [...there, [t + 300, PRESS.x, PRESS.y]]).frames.at(-1)!;
+    expect(home.release).toEqual(homeRelease);
     expect(home.f.landing!.y).toBe(29);
-    // Slid down the rail 120 px (out of the lift zone, in the rail only), the landing follows it.
-    const slid = run(opts(corner(true)), [...path([PRESS, { x: 15, y: 160 }], 0.15), [1200, 15, 160]]).frames.at(-1)!;
+    // Slid down the rail 120 px (out of the lift zone, in the rail only): the held place names the hand, and it isn't home.
+    const slid = run(sliding(corner()), [...path([PRESS, { x: 15, y: 160 }], 0.15), [1200, 15, 160]]).frames.at(-1)!;
     expect(slid.f.lane).toBe("rail");
+    expect(slid.f.held).toMatchObject({ kind: "spot", lane: "rail", point: { x: 15, y: 160 } });
     expect(slid.release).toMatchObject({ kind: "spot", lane: "rail", home: false });
   });
 
@@ -684,7 +687,7 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
     expect(last.f.lane).toBe("top");
   });
 
-  it("the zone is a held state: wobbling at its edge with a cut about 10 px from the press keeps one spot", () => {
+  it("the zone is held: wobbling at its edge with a cut about 10 px from the press keeps one spot", () => {
     // A column of three spots, the cut between `^|A` and `A|B` at y 100; the item pressed at y 105 (home `A|B`), the pointer
     // flicked up to 88.5 (past the zone's 16 px) and wobbled 89.4 <-> 88.6 across the zone's edge.
     const col: LandingRegions = {
@@ -707,14 +710,14 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
       stage: rect(0, 0, 1000, 600),
       item: { width: 200, height: 100 },
     };
-    const m = createLandingModel({ regions: col, home: { lane: "col", spot: "col/A|B" }, lift: { x: 100, y: 105 } });
+    const m = createLandingModel({ ...listed(col), home: { lane: "col", spot: "col/A|B" }, lift: { x: 100, y: 105 } });
     let t = 0;
     m.update({ x: 100, y: 105 }, t);
     for (let y = 105; y >= 88.5; y -= 0.5) m.update({ x: 100, y }, (t += 16));
     const seq: (string | null)[] = [];
     for (let i = 0; i < 8; i++) seq.push(m.update({ x: 100, y: i % 2 ? 88.6 : 89.4 }, (t += 16)).spot);
     expect([...new Set(seq)]).toEqual(["col/^|A"]);
-    // Back inside `lift - spot` of the press, it is home again; the zone's edge is a held state both ways.
+    // Back inside `lift - spot` of the press, it is home again; the zone's edge is held both ways.
     m.update({ x: 100, y: 100 }, (t += 16));
     expect(m.update({ x: 100, y: 104 }, (t += 16)).spot).toBe("col/A|B");
   });

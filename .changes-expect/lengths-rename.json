@@ -1,0 +1,3 @@
+[
+  { "package": "*", "kind": "contract", "case": "asked-lengths name", "reason": "DockItem.length and StackItem.length are renamed lengths; no output of any layout changes" }
+]

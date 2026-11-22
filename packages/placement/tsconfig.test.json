@@ -4,5 +4,5 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["index.ts", "src", "test", "vitest.config.ts", "tsup.config.ts"]
+  "include": ["index.ts", "src", "test", "record", "vitest.config.ts", "tsup.config.ts"]
 }

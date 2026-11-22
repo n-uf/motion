@@ -226,6 +226,23 @@ export function defaultState(size: Size = DEFAULT_SIZE): DockState {
   };
 }
 
+/**
+ * The default layout with a rail declared on each side for panels (`DockState.rails`) and its two panel columns dynamic
+ * (`DockEdge.column`): a column folded whole is shown as that rail's tiles, not as the column drawn narrow. The window a
+ * host that declares `rails` has.
+ */
+export function railedState(size: Size = DEFAULT_SIZE): DockState {
+  const s = defaultState(size);
+  // What a new panel column is made from (the template a rail's stops and new-column lines read): the columns' own shape.
+  const template = { accepts: ["panel"], cross: { min: 120, max: COL_WIDE, rail: RAIL }, gap: 6, pad: { start: 6, end: 6 } };
+  return {
+    ...s,
+    edges: s.edges.map((e) => (e.id === "left" || e.id === "right" ? { ...e, column: true } : e)),
+    columns: { left: template, right: template },
+    rails: { left: { width: RAIL, accepts: ["panel"] }, right: { width: RAIL, accepts: ["panel"] } },
+  };
+}
+
 // --- plain edits for the presets (each returns a new state) -----------------------------------------------------------
 
 /** The edge's items set to `ids` (taken out of every other edge and the floats; the edge's fixed items kept around them). */

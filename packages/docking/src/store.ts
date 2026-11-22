@@ -7,7 +7,7 @@
  *   v: 1;
  *   edges: { id: string; side: Side; ring: number; items: string[]; size?: number; column?: true }[];
  *   floats: { id: string; x: number; y: number; width: number; height: number; orient?: "row" | "column"; anchor?: FloatAnchor | { at: FloatAnchor; dx?: number; dy?: number }; since?: number }[];
- *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; floatSizes?: { row?: { width: number; height: number }; column?: { width: number; height: number } } }>;
+ *   items: Record<string, { used: number; kept?: true; from?: number; closed?: true; align?: "center" | "end"; space?: number; lengths?: { column?: number; row?: number }; floatSizes?: { row?: { width: number; height: number }; column?: { width: number; height: number } } }>;
  *   railModes?: { left?: "titles" | "icons"; right?: "titles" | "icons" };
  * }
  * ```
@@ -34,6 +34,10 @@
  * lies by its anchor, so the clamp never turns it into a pixel position). An unusable anchor is dropped
  * (`float:<id>:anchor`), and so is a bad offset field (`float:<id>:anchor:dx`, `float:<id>:anchor:<field>`). A float's
  * `since` is kept as stored; one that isn't a number from 0 to `Number.MAX_SAFE_INTEGER` is dropped (`float:<id>:since`).
+ * An item's asked lengths (`DockItem.lengths`) are stored per axis; one entry that isn't a number over 0 (a 0 is no length, so it is not stored), or an axis that
+ * isn't `row` or `column`, is dropped (`item:<id>:lengths:<axis>`), a `lengths` that isn't an object too
+ * (`item:<id>:lengths`). A store from before has none, and an item then reads with none whatever `base` had: the store
+ * is the state's own.
  * A float's size is stored per orient (`floatSizes`); one entry that isn't a size, or an orient that isn't `row` or
  * `column`, is dropped (`item:<id>:floatSizes:<orient>`). A store from before that, with one `floatSize` on an item,
  * reads as `floatSizes` for the orient its float is in (the item's own orient where it floats nowhere), so the size
@@ -41,7 +45,7 @@
  * declares no `floatSizes` it is dropped (`item:<id>:floatSize`): such a float is framed at its stored rect, which the
  * size would replace.
  */
-import { rect, type Size } from "@n-uf/placement";
+import { EPS, rect, type Size } from "@n-uf/placement";
 import { clampFloat, closeRings, drawnFloatSize, prune, setSide, withFloatSizes } from "./changes";
 import { axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, isSince } from "./helpers";
 import { checkEdgeIds, isReservedEdgeId } from "./targets/ids";
@@ -78,6 +82,8 @@ export interface StoredDockStateItem {
   readonly align?: "center" | "end";
   /** `DockItem.space`, px. */
   readonly space?: number;
+  /** `DockItem.lengths`: the length asked for, per axis. */
+  readonly lengths?: { readonly column?: number; readonly row?: number };
   /** `DockItem.floatSizes`: its float size per orient. */
   readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
   /**
@@ -155,11 +161,22 @@ function floatSizesStored(it: DockItem): { row?: Size; column?: Size } | undefin
   return out.row || out.column ? out : undefined;
 }
 
+/** The usable `lengths` of `it` (an axis that is a number over 0: a 0 is no length), as plain data; undefined when it has none. */
+function lengthStored(it: DockItem): { column?: number; row?: number } | undefined {
+  const out: { column?: number; row?: number } = {};
+  for (const o of ["column", "row"] as const) {
+    const v = it.lengths?.[o];
+    if (isNum(v) && v > EPS) out[o] = v;
+  }
+  return out.column !== undefined || out.row !== undefined ? out : undefined;
+}
+
 export function storeDockState(state: DockState): StoredDockState {
   const items = record<StoredDockStateItem>();
   for (const [id, it] of Object.entries(state.items)) {
     if (id === "__proto__") continue;
     const sizes = floatSizesStored(it);
+    const asked = lengthStored(it);
     items[id] = {
       used: isNum(it.used) ? it.used : 0,
       ...(it.kept ? { kept: true as const } : {}),
@@ -167,6 +184,7 @@ export function storeDockState(state: DockState): StoredDockState {
       ...(it.closed ? { closed: true as const } : {}),
       ...(it.align === "center" || it.align === "end" ? { align: it.align } : {}),
       ...(isNum(it.space) && it.space > 0 ? { space: it.space } : {}),
+      ...(asked ? { lengths: asked } : {}),
       ...(sizes ? { floatSizes: sizes } : {}),
     };
   }
@@ -238,9 +256,9 @@ function read(data: unknown, base: DockState): DockStateRead {
         continue;
       }
       const b = base.items[id]!;
-      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, floatSizes: _ss, ...plain } = b;
+      const { kept: _k, from: _f, closed: _c, align: _a, space: _sp, lengths: _len, floatSizes: _ss, ...plain } = b;
       let it: DockItem = { ...plain, used: b.used };
-      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "floatSize", "floatSizes"].includes(k)) drop(`item:${id}:${k}`);
+      for (const k of Object.keys(s)) if (!["used", "kept", "from", "closed", "align", "space", "lengths", "floatSize", "floatSizes"].includes(k)) drop(`item:${id}:${k}`);
       if (isNum(s.used)) it = { ...it, used: s.used };
       else if (s.used !== undefined) drop(`item:${id}:used`);
       if (s.kept === true) it = { ...it, kept: true };
@@ -257,6 +275,15 @@ function read(data: unknown, base: DockState): DockStateRead {
       if (b.fixed && b.align) it = { ...it, align: b.align };
       if (isNum(s.space) && s.space > 0 && !b.fixed) it = { ...it, space: s.space };
       else if (s.space !== undefined) drop(`item:${id}:space`);
+      if (isObject(s.lengths)) {
+        const asked: { column?: number; row?: number } = {};
+        for (const k of Object.keys(s.lengths)) {
+          const v = s.lengths[k];
+          if ((k === "column" || k === "row") && isNum(v) && v > EPS) asked[k] = v;
+          else drop(`item:${id}:lengths:${k}`);
+        }
+        if (asked.column !== undefined || asked.row !== undefined) it = { ...it, lengths: asked };
+      } else if (s.lengths !== undefined) drop(`item:${id}:lengths`);
       const fs = s.floatSize;
       // The old single size moves into `floatSizes` once the floats are read (below): it belongs to the orient its float is
       // in.

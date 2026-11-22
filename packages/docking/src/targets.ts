@@ -50,7 +50,10 @@
  * - `rail:<side>:<ring>`: docking folded into a side's rail (its rail and its template take the kind), before each
  *   folded column's segments and after the last, or, with no rail shown, the outer `RAIL_EDGE` px from the side's
  *   outer edge (the window's, an inset's strip included; flush after the side's outside bars), landing where the rail
- *   lands (`DockLayout.railPlaces`). The outermost column line's zone starts where it ends. For a kind with a rail
+ *   lands (`DockLayout.railPlaces`). A tile of a column folded into the rail, held, also has that column's gaps (`gap:`),
+ *   to move among its own tiles (over its column's own run of tiles only), and its rail stops are home's, with the rest
+ *   of the rail. The outermost column line's zone
+ *   starts where it ends. For a kind with a rail
  *   drop policy (`DockState.railDrop`), the side's rail is a drop strip instead, spring-loaded, owning its rect
  *   (`./targets/rail-strip`); on a side with no declared rail, its rail is its outermost column that takes the kind,
  *   drawn as a rail once the item docks in it folded.
@@ -84,7 +87,7 @@ import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
 import { withRailStrips } from "./targets/rail-strip";
 import { withMinHit } from "./targets/min-hit";
-import { columnLines, railStops } from "./targets/virtual";
+import { columnLines, ownColumnRun, railStops } from "./targets/virtual";
 
 export { reservedRect, zoneExtents } from "./targets/edges";
 export { parseTargetId, placeTargetId, targetId, virtualEdgeId, type TargetIdParts } from "./targets/ids";
@@ -105,6 +108,8 @@ function specsOf(c: Ctx, kind: string): EdgeSpec[] {
     // The rail stop keeps its place at the side's boundary only when one of its slots lands (home's counts).
     specs.push(...columnLines(c, side, !!rail?.slots.some((s) => s.ok)));
     specs.push(rail);
+    // A tile of the rail held keeps its place among its own column's tiles: that column's run, tiled before the stops.
+    if (rail) specs.push(ownColumnRun(c, side, rail));
   }
   return specs.filter((s): s is EdgeSpec => s !== null);
 }

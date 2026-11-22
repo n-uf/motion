@@ -5,9 +5,10 @@
  *
  * - `stateCode(state, options)`: the state's stored form as a literal (`storeDockState`, one JSON-compatible literal, every
  *   key quoted, the items by id), read back over the window's declared items (`readDockState`), solved (`solve`), the
- *   rules a drag adds to it and the options a drag's `lanes()` runs with;
- * - `moveCode(drop, options)`: the calls the last drag made: `lanes(...)`, the lane and spot released on, the commit
- *   (`after(pointer, grab)` with the real numbers), or what else the release did (home, refused, cancelled).
+ *   rules a drag adds to it and the options a drag's `dockDrag()` runs with;
+ * - `moveCode(drop, options)`: the calls the last drag made: `dockDrag(...)`, the release's held place (the lane, spot
+ *   and pointer), its commit (`drag.after(release)`), or what else the release did (home, refused, cancelled); under the
+ *   published rules `targets(...)` and the target's `after(pointer, grab)`.
  */
 import { storeDockState, type DockState, type StoredDockState } from "@n-uf/docking";
 import type { Point } from "@n-uf/placement";
@@ -103,13 +104,14 @@ function rulesCode(state: DockState, dragState: DockState): { lines: string[]; e
   return { lines, edges };
 }
 
-/** The options of a drag's `lanes()` call as the page uses them, one per line, from `indent` spaces. */
+/** The options of a drag's `dockDrag()` call as the page uses them, one per line, from `indent` spaces. */
 const optionLines = (o: DragSettings, indent: string): string[] => [
   `${indent}previous: layout,`,
   `${indent}endReach: ${num(o.endReach)},`,
   `${indent}floatFromHeld: ${o.floatFromHeld},`,
+  `${indent}emptyLanes: ${JSON.stringify(o.emptyLanes)},`,
   `${indent}stretchPositions: ${JSON.stringify(o.stretchPositions)},`,
-  `${indent}snapDistance: ${num(o.snapDistance)},${o.stretchPositions === "free" ? "" : " // counts under \"free\" only"}`,
+  ...(o.snapDistance === undefined ? [] : [`${indent}snapDistance: ${num(o.snapDistance)},${o.stretchPositions === "free" ? "" : " // counts under \"free\" only"}`]),
   `${indent}pitch: ${num(o.pitch)},${o.stretchPositions === "pitched" ? "" : " // counts under \"pitched\" only"}`,
 ];
 
@@ -139,8 +141,8 @@ function stateCode(state: DockState, options: CodeOptions): string {
     "",
     ...rules.lines,
     "",
-    "// The options of every drag's lanes() call, as the page uses them now:",
-    "//   const regions = lanes(dragState, itemId, { ...laneOptions, grab });",
+    "// The options of every drag's dockDrag() call, as the page uses them now:",
+    "//   const drag = dockDrag(dragState, itemId, { ...laneOptions, grab });",
     "const laneOptions = {",
     ...optionLines(options, "  "),
     "} as const;",
@@ -158,7 +160,7 @@ export function codeOf(c: { readonly state: DockState; readonly dragState: DockS
 
 // --- the last move -------------------------------------------------------------------------------------------------
 
-/** The lines of a drop's `lanes()` / `targets()` call, and what the release did after it. */
+/** The lines of a drop's `dockDrag()` / `targets()` call, and what the release did after it. */
 function moveCode(drop: LastDrop | null, options: DragSettings): string {
   if (!drop) return NO_MOVE;
   const { call } = drop;
@@ -167,7 +169,7 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
   const held = titleOf(drop.id);
   const where = call.spot ?? call.target ?? call.refusal;
   out.push(
-    `import { ${call.via} } from "@n-uf/docking";`,
+    `import { ${call.via === "lanes" ? "dockDrag" : "targets"} } from "@n-uf/docking";`,
     "",
     `// Last move: ${held} lifted ${point(call.grab)} from its top-left corner and released at ${point(call.pointer)} (window px).`,
     "// dragState and layout are the State tab's, as the window stood when the item was lifted.",
@@ -177,34 +179,43 @@ function moveCode(drop: LastDrop | null, options: DragSettings): string {
   out.push("");
 
   if (call.via === "lanes") {
-    out.push(`const regions = lanes(dragState, ${id}, {`, ...optionLines(call.settings, "  "), `  grab: ${point(call.grab)}, // where the pointer held the item, from its top-left corner`, "});");
+    out.push(
+      `const drag = dockDrag(dragState, ${id}, {`,
+      ...optionLines(call.settings, "  "),
+      `  grab: ${point(call.grab)}, // where the pointer held the item, from its top-left corner`,
+      "});",
+      "// The landing model reads the drag as it is: createLandingModel({ ...drag, home, placeGuides }). Each frame the",
+      "// window draws drag.shown(frame), the landing drag.landingOf(frame.held) and the guides drag.guides(frame).",
+    );
   } else {
     const s = call.settings;
     out.push(`const found = targets(dragState, ${id}, { previous: layout, endReach: ${num(s.endReach)}, floatFromHeld: ${s.floatFromHeld} });`);
   }
 
   const commit = (from: string): string[] => [`const { state: next, layout: nextLayout } = ${from}.after(${point(call.pointer)}, ${point(call.grab)});`];
-  // A sliding spot says where it went by the release's `at` (the landing's start along the lane); its `place` is only the
-  // dock at the spot's listed landing. Any other target says its place.
-  const place = call.slides && call.at !== null ? `, its start at ${call.at} along the lane (the release's \`at\`)` : call.placeOf && call.placeOf.kind !== "float" ? ` at the place ${literal(call.placeOf, { quote: false })}` : "";
+  /** The release as the landing model gave it, and its commit: the held place's one layout (`after`). */
+  const commitState = (released: string): string[] => [`const release = ${released}; // model.release(...)`, "const { state: next, layout: nextLayout, landing } = drag.after(release);"];
+  // A sliding spot says where it went by its committed landing's start along the lane; its `place` is only the dock at
+  // the spot's listed landing. Any other target says its place.
+  const place = call.slides && call.at !== null ? `, its start at ${call.at} along the lane (landing)` : call.placeOf && call.placeOf.kind !== "float" ? ` at the place ${literal(call.placeOf, { quote: false })}` : "";
   const landed = (how: string): string => `// next: ${held}${how}${place}. nextLayout is the window drawn from it.`;
   out.push("");
   if (drop.cancelled) {
     out.push("// Cancelled (Escape): nothing is committed and the item goes back to where it was.");
   } else if (call.refusal) {
     out.push(
-      call.via === "lanes" ? `const refusal = regions.refusals.find((r) => r.id === ${JSON.stringify(call.refusal)})!;` : `// Released over the refused place ${JSON.stringify(call.refusal)}.`,
+      call.via === "lanes" ? `const refusal = drag.regions.refusals.find((r) => r.id === ${JSON.stringify(call.refusal)})!;` : `// Released over the refused place ${JSON.stringify(call.refusal)}.`,
       "// A release over a refusal commits nothing: the item goes back to where it was.",
     );
   } else if (call.via === "lanes" && call.lane && call.spot) {
-    out.push(`const lane = regions.lanes.find((l) => l.id === ${JSON.stringify(call.lane)})!;`, `const spot = lane.spots.find((s) => s.id === ${JSON.stringify(call.spot)})!;`);
-    if (call.home) out.push("// The spot is the item's own place: a release there commits nothing, `state` stays as it is.");
+    const state = `{ kind: "spot", lane: ${JSON.stringify(call.lane)}, spot: ${JSON.stringify(call.spot)}, point: ${point(call.pointer)}, home: ${call.home} }`;
+    if (call.home) out.push(`// The release: ${state}.`, "// The spot is the item's own place: a release there commits nothing, `state` stays as it is.");
     else {
-      out.push(call.slides ? `// A sliding spot: it lands where the hand holds the item (pointer less grab), snapped within ${num(call.settings.snapDistance)} px.` : "// A fixed spot: the pointer and the grab don't move it, the place is what commits.", ...commit("spot.target"));
+      out.push(call.slides ? `// A sliding spot: it lands where the hand holds the item (pointer less grab), snapped within ${call.settings.snapDistance === undefined ? "docking's default snap distance" : `${num(call.settings.snapDistance)} px`}.` : "// A fixed spot: the pointer and the grab don't move it, the place is what commits.", ...commitState(state));
       out.push(landed(" is docked"));
     }
   } else if (call.via === "lanes" && call.placeOf?.kind === "float") {
-    out.push("// No lane under the pointer, open room: the item floats where the hand holds it.", ...commit("regions.float!"));
+    out.push("// No lane under the pointer, open room: the item floats where the hand holds it.", ...commitState(`{ kind: "float", point: ${point(call.pointer)} }`));
     out.push(landed(" floats"));
   } else if (call.via === "targets" && call.target) {
     out.push(`const target = found.find((t) => t.id === ${JSON.stringify(call.target)})!;`);

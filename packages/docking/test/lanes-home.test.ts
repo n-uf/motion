@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { solve, SPOT_PITCH, type DockEdge, type DockState } from "../src";
-import { lanes } from "./pitched-lanes";
+import { dockDrag, lanes } from "./pitched-lanes";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { bar, byId, group } from "./fixture";
 
@@ -45,7 +45,7 @@ describe("home within half a pitch", () => {
         for (const sp of lane.spots) if (!sp.home) expect(Math.abs(lo(sp.landing, ax) - lo(home.landing, ax)), sp.id).toBeGreaterThanOrEqual(SPOT_PITCH / 2);
         const press = { x: own.x + grab.x, y: own.y + grab.y };
         const away = ax === "x" ? { x: press.x - 220, y: press.y } : { x: press.x, y: press.y - 220 };
-        const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "c", { previous: seen, grab, spot }), home: { lane: edge, spot: home.id } });
+        const m = createLandingModel({ ...dockDrag(s, "c", { previous: seen, grab }), home: { lane: edge, spot: home.id } });
         let t = 0;
         m.update(press, t);
         for (const [a, b] of [
@@ -56,6 +56,6 @@ describe("home within half a pitch", () => {
           for (let i = 1; i <= n; i++) m.update({ x: a.x + ((b.x - a.x) * i) / n, y: a.y + ((b.y - a.y) * i) / n }, (t += 8));
         }
         for (let i = 0; i < 30; i++) m.update(press, (t += 8));
-        expect(m.release(press, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, home: true });
+        expect(m.release(press, t)).toEqual({ kind: "spot", lane: edge, spot: home.id, point: press, home: true });
       });
 });

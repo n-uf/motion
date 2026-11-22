@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, type LandingFrame, type LandingLane, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const spot = (id: string, landing: Rect, along: readonly [number, number]) => ({ id, along, landing, others: "k" });
@@ -27,7 +28,7 @@ function window(): LandingRegions {
 
 /** Plays `keys` (time ms, x, y) one frame each, in 16 ms steps between them. */
 function play(keys: readonly (readonly [number, number, number])[]): { p: Point; f: LandingFrame }[] {
-  const m = createLandingModel({ regions: window(), grab: { x: 14, y: 7 } });
+  const m = createLandingModel(listed(window()));
   const out: { p: Point; f: LandingFrame }[] = [];
   for (let k = 0; k < keys.length; k++) {
     const to = keys[k]!;

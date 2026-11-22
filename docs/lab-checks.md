@@ -119,3 +119,14 @@ Each `*.json` dump (window px, origin at the window's top left):
 ## Groups declared by their controls
 
 `ladder-narrow` and `ladder-widen` (`apps/lab/src/docwin/ladder-presets.ts`, the wiring in `ladder.ts`) put three groups declared by their controls (`controlLadder`) in one bar. `ladder-narrow` narrows it 1 px at a time and asserts the order of steps: tier steps one control at a time, then partial folds levelled across the groups, the » list equal to the hidden controls on every frame, then whole-group folds, the growing title giving way after the groups' row steps. `ladder-widen` widens it back and asserts every frame equals the narrowing's frame at that width.
+
+## The panel split
+
+`split-drag-clamps`, `split-reset-pair`, `split-double-click-after-jitter`, `split-pointercancel-ends-drag`, `split-reset-column`, `split-collapsed-between` and `split-reopen-keeps-proportion` (`apps/lab/src/docwin/split-presets.ts`) play the panel split's gestures on the window's own divider elements, with real pointer, mouse and key events, and read what the layout draws. The wiring is the one a host mirrors (`drawDividers`, `resizeDivider` and the `dblclick` and `keydown` listeners in `apps/lab/src/docwin/dock-state.ts`):
+
+- **Draw**: one grab zone per `dividers(state, layout)` entry, 8 px across, centered on the strip the library gives (`rect`), with `data-before`, `data-after` and `data-edge`, kept in a map by pair: a redraw updates a zone's style and its separator values in place (`aria-valuenow` the length of the panel before it as drawn, `aria-valuemin` and `aria-valuemax` where `range` takes it) and never replaces a node, so a double-click and the focus survive a redraw; none while a drag holds an item.
+- **Drag**: on press the zone holds the pointer (`setPointerCapture`) and the state and layout are kept; each move is `resizeBetween(stateAtPress, before, after, pointerDistance, { layout: layoutAtPress })`, committed only when it isn't the state as it is; dragged back to the press, the state is the one before it. It ends on `pointerup`, `pointercancel` or `lostpointercapture`, whichever comes first, and drops its listeners.
+- **Double-click**: `resetBetween(state, before, after, { layout })`; with Shift, `resetLengths(state, edge)`; committed only when the state changes.
+- **Keys**: arrows move a step, Home and End go to the divider's `range`; the zone is kept, so the focus stays.
+
+The cases: the drag with both clamps at each end's least and the separator's values; the reset of the pair (and no change on an untouched one); a real pointer sequence with a 1 px jitter between the clicks of a double-click, which still resets; a cancelled pointer and a lost capture ending the drag; the reset of the column that leaves another column's length alone; a collapsed panel between two open ones (one divider, starting on its lower edge); and a panel collapsed through a resize, reopened in proportion.

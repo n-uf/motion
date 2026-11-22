@@ -227,7 +227,7 @@ export const GESTURE_ROWS: readonly CaseRow[] = [
   {
     id: "P9-rail-segment-on-its-own-rail",
     title: "A rail segment dropped on its own rail changes nothing",
-    expect: "In a narrow window, a rail segment dropped on its own side's rail (even below the last segment) never splits or reorders it.",
+    expect: "In a narrow window, a rail segment dropped on a rail stop (`rail:<side>:<ring>`) of its own side, even below the last segment, is home: it never splits the rail, reorders it or opens a column. It moves among its own column's tiles only through that column's gaps (`gap:<edge>:<zone>:<at>`).",
     group: "gestures",
     state: win({ width: 700 }),
     gestures: g.drag("annotations", g.rail("left")),

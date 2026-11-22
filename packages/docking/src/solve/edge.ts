@@ -16,7 +16,13 @@ const stackItemOf =(item: DockItem, forms: readonly StackForm[], edge: DockEdge,
   // Where its ladder starts: as asked, else its hand fold resolved on this axis (`startOf`: its folded form).
   ...(from !== undefined ? { from } : startOf(item, forms, edge) > 0 ? { from: startOf(item, forms, edge) } : {}),
   ...(item.fixed ? { fixed: true } : {}),
+  ...(item.lengths ? { lengths: item.lengths } : {}),
 });
+
+/** The input each edge stack `solveEdge` made was solved from: what a divider verb re-solves to move a length. */
+const inputs = new WeakMap<StackFit, StackInput>();
+/** The input `stack` (an edge's drawn stack from `solve`) was solved from, or undefined for a fit `solve` didn't make. */
+export const inputOf = (stack: StackFit): StackInput | undefined => inputs.get(stack);
 
 /** Whether anything drawn in the fit sets its cross size. */
 function hasSetter(fit: StackFit, forms: (id: string) => readonly StackForm[]): boolean {
@@ -110,6 +116,12 @@ function railEdge(f: EdgeFrame, free: StackFit, asStackItem: (id: string) => Sta
 
 /** One edge's stack along `length`: the free fit, then the rail or the user's size. */
 export function solveEdge(state: DockState, edge: DockEdge, ids: readonly string[], length: number, room: number, previous: DockEdgeLayout | undefined): EdgeSolve {
+  const solved = solveEdgeStack(state, edge, ids, length, room, previous);
+  inputs.set(solved.stack, solved.input);
+  return solved;
+}
+
+function solveEdgeStack(state: DockState, edge: DockEdge, ids: readonly string[], length: number, room: number, previous: DockEdgeLayout | undefined): EdgeSolve {
   const axis = axisOf(edge.side);
   const column = axis === "column";
   const ordered = zoneSorted(state, ids);

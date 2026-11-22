@@ -6,7 +6,18 @@
  * items it stops at the bar's edge. The rail's predicted entry runs its full length, inset or not.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, refusals, targets, type DockEdge, type DockState, type DockItem } from "../src";
+import { dockDrag, lanes, refusals, targets, type DockEdge, type DockState, type DockItem } from "../src";
+
+/**
+ * The rail's guide at rest as a drag draws it (`guides`): where the screen doesn't draw the rail, its marks in the layout
+ * that creates it (its entry); else its marks as seen. `created`: only the former, else undefined.
+ */
+function railGuide(s: DockState, o: Parameters<typeof lanes>[2], created = false): readonly { rect: Rect }[] | undefined {
+  const d = dockDrag(s, "tools", o);
+  const g = d.guides({ held: null, room: false, guides: [{ lane: RAIL, held: null }] });
+  const drawnAsSeen = (d.after(null).layout.edges[RAIL]?.cross ?? 0) > 1e-6;
+  return created && drawnAsSeen ? undefined : g;
+}
 
 type Rect = { x: number; y: number; width: number; height: number };
 type Side = "left" | "right";
@@ -133,8 +144,7 @@ describe("endReach on a compact rail with a bar at its foot", () => {
         // A point in the rail's end third, above the bar's band.
         expect(piecesOf(end!).some((p) => inside(p, 14, 480)), `endReach ${r}: ${JSON.stringify(piecesOf(end!))}`).toBe(true);
         expect(refusals(s, "tools", ask(r)).some((q) => piecesOf(q).some((p) => inside(p, 14, 480))), `endReach ${r}`).toBe(false);
-        const lane = lanes(s, "tools", ask(r)).lanes.find((l) => l.id === RAIL)!;
-        const entry = lane.entry ?? lane.marks;
+        const entry = railGuide(s, ask(r))!;
         expect(entry.length, `endReach ${r}`).toBeGreaterThan(0);
         const top = Math.min(...entry.map((m) => m.rect.y));
         const foot = Math.max(...entry.map((m) => m.rect.y + m.rect.height));
@@ -170,7 +180,7 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
     for (const c of cases) {
       const s = stateOf(c);
       const base = sample(s, c, 0);
-      const entry0 = lanes(s, "tools", ask(0)).lanes.find((l) => l.id === RAIL)?.entry;
+      const entry0 = railGuide(s, ask(0), true);
       // A reach past the bar's thickness too, where a bar holds items: the strip must stop at it, not pass it.
       for (const r of c.bar === "holding" ? [0, 12, 24, 60] : [0, 12, 24]) {
         const tag = `${JSON.stringify(c)} endReach ${r}`;
@@ -189,7 +199,7 @@ describe("property: reach only adds, over a sweep of rails and bars", () => {
         });
         // The predicted entry runs as far as it does without reach.
         if (entry0) {
-          const entry = lanes(s, "tools", ask(r)).lanes.find((l) => l.id === RAIL)?.entry;
+          const entry = railGuide(s, ask(r), true);
           expect(entry, tag).toBeDefined();
           const span = (ms: readonly { rect: Rect }[]) => [Math.min(...ms.map((m) => m.rect.y)), Math.max(...ms.map((m) => m.rect.y + m.rect.height))];
           expect(span(entry!), tag).toEqual(span(entry0));

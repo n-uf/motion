@@ -1,0 +1,8 @@
+[
+  { "package": "*", "kind": "dividers", "case": "*asked*", "reason": "a divider's range follows the pair rule (an ask is a weight, the least a floor on the drawn size); only stacks with asked lengths" },
+  { "package": "*", "kind": "dividers", "case": "*+asks*", "reason": "the same, in the random cases that carry asked lengths" },
+  { "package": "docking", "kind": "resize", "case": "*", "all": true, "reason": "a divider drag or reset writes the dragged pair's lengths only, in ask units, and a bystander gets none: every window with a divider changes" },
+  { "package": "placement", "kind": "resize", "case": "*", "all": true, "reason": "the same, for every stack with a divider" },
+  { "package": "*", "kind": "fit|fit-previous|gaps|solve|targets|drops|lanes|stops|refusals|after|release-after|guides", "case": "*asked*", "reason": "an item with an asked length is laid out by the new rule" },
+  { "package": "*", "kind": "fit|fit-previous|gaps|solve|targets|drops|lanes|stops|refusals|after|release-after|guides", "case": "*+asks*", "reason": "a random case with an asked length is laid out by the new rule" }
+]

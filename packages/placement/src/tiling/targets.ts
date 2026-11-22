@@ -5,7 +5,7 @@
  */
 import type { Rect } from "../geometry";
 import type { Target } from "../target";
-import type { OrderLayout, TileOptions } from "./order";
+import type { OrderLayout, OrderOptions } from "./order";
 
 /** A split tree's target: drop on pane `pane` (the region under the pointer says how). */
 export interface PaneTarget<K> extends Target {
@@ -42,7 +42,7 @@ export function paneTargets<K>(layout: ReadonlyMap<K, Rect>, options: PaneTarget
  * `area`. Each target's hit and slot is `dragged`'s rect with it there, so the targets cover the area as the layout
  * does. Ids are `at:<index>`, unique whatever the panes are.
  */
-export function orderTargets<K>(arrange: OrderLayout, panes: readonly K[], dragged: K, area: Rect, options?: TileOptions): OrderTarget<K>[] {
+export function orderTargets<K>(arrange: OrderLayout, panes: readonly K[], dragged: K, area: Rect, options?: OrderOptions): OrderTarget<K>[] {
   return Array.from({ length: panes.length + 1 }, (_, index) => {
     const layout = arrange([...panes.slice(0, index), dragged, ...panes.slice(index)], area, options);
     const slot = layout.get(dragged)!;

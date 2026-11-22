@@ -4,7 +4,7 @@
  * pages, is over open space and a release floats; anything docked stays out of the open space.
  */
 import { describe, expect, it } from "vitest";
-import { lanes, solve, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockState } from "../src";
 import { createLandingModel } from "@n-uf/motion/drag";
 import { INSET, kitState } from "./kit-window";
 
@@ -41,7 +41,7 @@ describe("lanes(): the gutter between a column and the pages is open", () => {
       const grab = { x: 10, y: 12 };
       const rs = lanes(s, held, { previous, grab });
       const home = rs.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
-      const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, held, { previous, grab, spot }), floatLanding: (p) => ({ x: p.x - grab.x, y: p.y - grab.y, width: 280, height: 360 }), ...(home ? { home } : {}) });
+      const m = createLandingModel({ ...dockDrag(s, held, { previous, grab }), ...(home ? { home } : {}) });
       const mid = { x: page.x + page.width / 2, y: page.y + page.height / 2 };
       let t = 0;
       m.update(press, t);

@@ -7,6 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, LANDING_APPROACH, LANDING_MARGINS, LANDING_TOUCH_MARGINS, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
+import { listed } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -21,7 +22,6 @@ function window(): LandingRegions {
     axis: "y",
     spots: [{ id: "rail/end", along: [32, 608], landing: rect(0, 32, 30, 102) }],
     refused: [],
-    marks: [{ id: "rail/box", kind: "box", rect: rect(0, 32, 30, 576) }],
   };
   const bottom: LandingLane = {
     id: "bottom",
@@ -29,7 +29,6 @@ function window(): LandingRegions {
     axis: "x",
     spots: [{ id: "bottom/start", along: [0, 1080], landing: rect(8, 604, 102, 36) }],
     refused: [],
-    marks: [{ id: "bottom/box", kind: "box", rect: rect(8, 604, 1064, 36) }],
   };
   const column = rect(0, 32, 250, 572);
   return {
@@ -42,7 +41,7 @@ function window(): LandingRegions {
   };
 }
 const FLOAT = (p: Point): Rect => rect(p.x - 51, p.y - 15, 102, 30);
-const options = (more: Partial<LandingOptions> = {}): LandingOptions => ({ regions: window(), floatLanding: FLOAT, placeGuides: "near", ...more });
+const options = (more: Partial<LandingOptions> = {}): LandingOptions => ({ ...listed(window(), FLOAT), placeGuides: "near", ...more });
 
 /** Keys [ms, x, y] linearly between, a frame every 8 ms; the last frame. */
 function last(o: LandingOptions, keys: readonly (readonly [number, number, number])[]): { f: LandingFrame; p: Point } {

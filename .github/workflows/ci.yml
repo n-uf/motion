@@ -1,14 +1,17 @@
 name: CI
 
-# Type checks, tests and the build (with its dist check) on every PR.
-# Pushes to main run the same checks in release.yml before publishing.
+# Type checks, tests and the build (with its dist check) on every PR, and docking's heavy sweep tests as their own
+# job beside it (they take the longest, so run in parallel: the wall time is the longer of the two, not the sum).
+# Pushes to main run the full `pnpm check` (both) in release.yml before publishing.
 
 on:
   pull_request:
     # Draft PRs are not checked; marking one ready starts the run.
     types: [opened, synchronize, reopened, ready_for_review]
-    # A change to docs alone runs nothing: docs travel with a release, whose code changes run the checks.
-    paths-ignore: ["docs/**", "**/*.md"]
+    # A change to docs alone runs nothing: docs travel with a release, whose code changes run the checks. A changelog
+    # fragment (packages/*/changes/*.md) does run them, for `pnpm changes`. (paths-ignore takes no `!` negation, so
+    # this is `paths`: everything, minus docs, minus markdown, plus the fragments; the last matching pattern wins.)
+    paths: ["**", "!docs/**", "!**/*.md", "packages/*/changes/**"]
   workflow_dispatch:
 
 concurrency:
@@ -37,7 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck, test, build
-        run: pnpm check
+        run: pnpm check:quick
 
       - name: Web test
         run: pnpm --filter motion-web test
@@ -47,3 +50,24 @@ jobs:
 
       - name: Web build (with the link check)
         run: pnpm --filter motion-web build
+
+  # Docking's heavy sweep tests (the files listed in packages/docking/vitest.config.ts), in parallel with `verify`.
+  sweep:
+    name: docking sweep tests
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Docking sweep tests
+        run: pnpm --filter @n-uf/docking test:sweep

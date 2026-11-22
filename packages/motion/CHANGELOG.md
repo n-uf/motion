@@ -3,6 +3,52 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter
 within the month), the same scheme as `@n-uf/hypr-tiling`.
 
+Unreleased entries live in `changes/` until a release joins them.
+
+## 26.11.55
+
+- Fixed: **a float pressed inside an empty lane's band no longer takes that lane when the drag starts.** A lift is a
+  float's when it has no `home` option and no lane has a spot marked home (new optional `LandingSpot.home`; docking marks a
+  docked item's, so a docked item lifted without `home` stays docked). A float lift now has the lift zone a docked item has, `margins.lift` (16 px)
+  around the press: within it no lane takes the pointer, and the frame is judged as if the regions had no lanes, so a nudge
+  moves the float, a float over a blocked or refused place is refused as on any frame, and no lane's path counts. The zone is
+  left once, past `lift` from the press, and never re-entered, so sliding back through the press point while a lane is held
+  changes nothing. After the zone the lanes act by their gates as before.
+
+### One layout: the landing model takes a held place (breaking; with `@n-uf/docking`'s `dockDrag`)
+
+The landing model picks a held place and does no layout: every rect of a held place is the host's geometry's, so a held frame draws
+exactly what its release commits. `@n-uf/docking`'s `dockDrag(...)` is that geometry as it is.
+
+- **Options.** `createLandingModel({ regions, landingOf, spotsOf?, home?, lift?, margins?, gates?, approach?, placeGuides? })`
+  (`LandingOptions` extends the new `LandingGeometry`: `regions` for hit-testing, `landingOf(held)`, the one rect the
+  model reads of a held place, and `spotsOf(spot)`, a held lane's stretches in that spot's layout). Removed: `regionsFor`
+  (use `spotsOf`), `floatLanding` (`landingOf({ kind: "float", point })`), `grab` (the geometry's: `dockDrag`'s option).
+  `setRegions(regions, regionsFor?)` → `setGeometry(geometry)`, whole.
+- **Held places.** New `LandingHeld`: `{ kind: "spot", lane, spot, point }` or `{ kind: "float", point }`. `LandingFrame`
+  gains `held` (the held place a release lands now, or null); its `landing` is `landingOf(held)`; its `guides` are now
+  `{ lane, held }[]`, each lane shown with the held place its guide stands for (the geometry draws them: docking's
+  `guides(frame)`). `LandingRelease` is `{ kind: "spot", lane, spot, point, home }`, `{ kind: "float", point }` or null:
+  `at` and `rect` are gone; commit `after(release).state`.
+- **Removed types and fields.** `LandingGuide`, `LandingMark`, `LandingSlide`, `SNAP_DISTANCE`; `LandingLane.marks`,
+  `entry` and `corners`; `LandingSpot.slide`. `LandingLane.owns` stays (a hit-testing rule). The model's own sliding
+  arithmetic (`landingAt`), its guide geometry and corner owner, and its `guideRects` call are gone: the geometry draws.
+- **Behavior.** Under `"all"` with no Near lane, the lane nearest the pointer within `reach` names its would-land held place,
+  for the corner only, switching exactly at `reach`. The trail gate reads `landingOf` the spot held (a sliding spot's
+  landing where the hand holds it, not its listed one). `release().home` holds where the geometry lands the item
+  home. Hit-testing reads the stage, the lanes' rects, refused, blocked and content as seen (`regions`) on every frame;
+  only the held lane's spot stretches come from `spotsOf` (before, all of it came from the held spot's regions,
+  `regionsFor`). `LandingRegions.item` is optional: the model doesn't read it. New type: `LandingGuideRef`.
+
+### Docs only
+
+- **The design page and the reference catch up with the code.** No behavior, type or export change. Docking's marks (a
+  panel drag's lines, boxes and empty columns) are written up on docking's design page, not here; the draw rule for a
+  held frame (the state's layout while its room is open, else the window at rest) is stated once there. The unit rule
+  names its three exceptions (`DOUBLE_CLICK` and `multiClick`, `longPress.ms`, `WheelPanOptions.speed`). The
+  reference covers behavior, with the exported types as the contract, and adds entries for `DragFrame`, `DragTuning`,
+  `LandingFrame`, `LandingRelease`, `LandingGates` and the other landing option types.
+
 ## 26.11.54
 
 **The breaking release of the SDK: structure and names, and the few behavior changes they bring.** The drag intent goes

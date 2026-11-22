@@ -68,7 +68,7 @@ console.log(intent.release({ x: 100, y: 50 }, 300, [slot])?.id); // "slot"
 ## Documentation
 
 - [Design page](https://github.com/n-uf/motion/blob/main/docs/motion.md): the concept, the parts, the rules a consumer relies on.
-- [Reference](https://github.com/n-uf/motion/blob/main/docs/motion-reference.md): every entry point's API, rules and longer examples.
+- [Reference](https://github.com/n-uf/motion/blob/main/docs/motion-reference.md): every entry point's behavior, rules and longer examples; the exported types are the contract.
 - [CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/motion/CHANGELOG.md)
 - Site and live demos: [motion.n-uf.com](https://motion.n-uf.com)
 

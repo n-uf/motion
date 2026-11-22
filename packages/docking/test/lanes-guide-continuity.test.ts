@@ -9,22 +9,18 @@
  * (`fixtures/kit-windows-lift.json`). Each empty lane is entered from each of its sides that lies inside the stage, under
  * "near" and "all", in `emptyLanes: "real"`.
  */
-import { createLandingModel, guideRects, type LandingFrame } from "@n-uf/motion/drag";
+import { guideRects } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
-import { lanes, solve, type DockRegions } from "../src";
+import { dockDrag, solve, type DockLayout, type DockRegions } from "../src";
+import { modelOver, type DrawnFrame } from "./landing-model";
 import { dragOf, windows, type Drag } from "./lift-windows";
+
+type LandingFrame = DrawnFrame;
 
 /** The frames of a drag along `legs` (each a point and the speed to it, px/ms), a frame every 8 ms, then a rest. */
 function play(d: Drag, mode: "near" | "all", legs: readonly [Point, number][], rest = 200): { point: Point; frame: LandingFrame }[] {
-  const model = createLandingModel({
-    regions: d.regions,
-    regionsFor: d.regionsFor,
-    grab: d.grab,
-    floatLanding: (p) => d.regions.float?.after(p, d.grab).layout.items[d.w.dragged]?.rect ?? null,
-    ...(d.home ? { home: d.home } : {}),
-    placeGuides: mode,
-  });
+  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
   const out: { point: Point; frame: LandingFrame }[] = [];
   let t = 0;
   let at = d.press;
@@ -97,10 +93,50 @@ interface Sweep {
   readonly compared: number;
   readonly noNear: number;
   readonly notEntered: number;
+  /** Other-lane entries compared under "all" (the lane's guides before and at entry, less the entered lane's). */
+  readonly otherCompared: number;
+  /** Other-lane entries not compared, each with its reason: an edge or rail at the lane's band changed between the two frames' windows. */
+  readonly skipped: string[];
+}
+
+/**
+ * The first edge or rail across the lane (a side's for a bar, a bar's for a side lane) that touches the lane's band in
+ * either layout and whose extent along the lane differs between the two: what the lane's guide gave way to (or ran
+ * under) in one window and not in the other, such as a side rail closing at the bar's end. Edges along the lane, the
+ * entered lane's edge and the lane's own are not across it; a shift across the lane changes nothing along it. Null where
+ * nothing at the band changed.
+ */
+function changedAt(a: DockLayout, b: DockLayout, entered: string, lane: { id: string; axis: "x" | "y"; rect: Rect }, sideOf: (id: string) => string | undefined): string | null {
+  // (Across the lane, and not on the entered lane's own side: entering a side changes that side's edges and rail by design.)
+  const enteredSide = sideOf(entered);
+  const across = (side: string | undefined): boolean => side !== enteredSide && (lane.axis === "x" ? side === "left" || side === "right" : side === "top" || side === "bottom");
+  const band = lane.rect;
+  const along = (r: Rect): [number, number] => (lane.axis === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]);
+  const same = (p: Rect | undefined, q: Rect | undefined): boolean => {
+    if (!p || !q) return !p && !q;
+    const [p0, p1] = along(p);
+    const [q0, q1] = along(q);
+    return Math.abs(p0 - q0) + Math.abs(p1 - q1) < 1e-6;
+  };
+  const touches = (r: Rect | undefined): boolean => !!r && r.x <= band.x + band.width + 1 && band.x <= r.x + r.width + 1 && r.y <= band.y + band.height + 1 && band.y <= r.y + r.height + 1;
+  const show = (r: Rect | undefined): string => (r ? fmt(r) : "none");
+  for (const id of new Set([...Object.keys(a.edges), ...Object.keys(b.edges)])) {
+    const p = a.edges[id]?.rect;
+    const q = b.edges[id]?.rect;
+    if (id !== entered && id !== lane.id && across(sideOf(id)) && !same(p, q) && (touches(p) || touches(q))) return `edge ${id} ${show(p)} -> ${show(q)}`;
+  }
+  for (const side of new Set([...Object.keys(a.rails), ...Object.keys(b.rails)])) {
+    if (!across(side)) continue;
+    const p = a.rails[side as keyof typeof a.rails]?.rect;
+    const q = b.rails[side as keyof typeof b.rails]?.rect;
+    if (!same(p, q) && (touches(p) || touches(q))) return `rail ${side} ${show(p)} -> ${show(q)}`;
+  }
+  return null;
 }
 
 function sweep(): Record<"near" | "all", Sweep> {
-  const out = { near: { bad: [], overlaps: [], compared: 0, noNear: 0, notEntered: 0 }, all: { bad: [], overlaps: [], compared: 0, noNear: 0, notEntered: 0 } } as Record<"near" | "all", { bad: string[]; overlaps: string[]; compared: number; noNear: number; notEntered: number }>;
+  const mk = (): { bad: string[]; overlaps: string[]; compared: number; noNear: number; notEntered: number; otherCompared: number; skipped: string[] } => ({ bad: [], overlaps: [], compared: 0, noNear: 0, notEntered: 0, otherCompared: 0, skipped: [] });
+  const out = { near: mk(), all: mk() } as Record<"near" | "all", ReturnType<typeof mk>>;
   for (const w of windows()) {
     const d = dragOf(w);
     if (!d) continue;
@@ -158,11 +194,22 @@ function sweep(): Record<"near" | "all", Sweep> {
                 s.bad.push(`${where} (${mode})${k === n ? " before entry" : " at entry"}: ${g.id} ${fmt(g.rect)} under the landing ${fmt(landing)}`);
           // Under "all", every other lane empty as seen keeps its marks at entry, but where the corner goes to the lane
           // entered: its guides before and at entry, both less the entered lane's guides, are the same.
+          // (Skipped, with its reason, where an edge or rail at the lane's band differs between the windows `shown` gives the
+          // two frames: a float frame draws the window at rest, and the room opening at entry may close a rail the rest
+          // draws, which the lane's guide gave way to.)
           if (mode === "all") {
             const enteredRects = after.map((g) => ({ rect: g.rect, clearance: 0 }));
             const less = (gs: readonly Guide[]): Guide[] => guideRects(gs, { inside: w.state.stage, inset: 0, clear: enteredRects, minLength: 0, minThickness: 0 });
+            const before = d.drag.shown(frames[e - 1]!.frame);
+            const atEntry = d.drag.shown(frames[e]!.frame);
             for (const o of emptyLanes(d))
               if (o.id !== l.id) {
+                const why = changedAt(before, atEntry, l.id, o, (id) => w.state.edges.find((x) => x.id === id)?.side);
+                if (why) {
+                  s.skipped.push(`${where}, the other empty lane ${o.id}: ${why}`);
+                  continue;
+                }
+                s.otherCompared++;
                 const other = sameGuides(less(frames[e - 1]!.frame.guides.filter((g) => g.lane === o.id)), less(frames[e]!.frame.guides.filter((g) => g.lane === o.id)));
                 if (other) s.bad.push(`${where} (${mode}), the other empty lane ${o.id} at entry: ${other}`);
               }
@@ -190,6 +237,12 @@ describe("guide continuity: an empty lane's guide before entry is its mark after
       const r = result[mode];
       // The sweep is not vacuous: empty lanes are entered with a Near guide before.
       expect(r.compared).toBeGreaterThan(60);
+      if (mode === "all") {
+        process.stderr.write(`guide continuity, "all": other empty lanes at entry, ${r.otherCompared} compared, ${r.skipped.length} skipped:\n${r.skipped.map((x) => `  ${x}\n`).join("")}`);
+        // A floor, so coverage can't drop silently (86 compared and 4 skipped today: the bottom bar entering top, and the top
+        // bar entering bottom, where the side rail at that end closes).
+        expect(r.otherCompared).toBeGreaterThan(80);
+      }
       expect(r.bad).toEqual([]);
     });
   it('no two lanes\' guides overlap on any frame, under "all" and "near"', () => {
@@ -210,8 +263,7 @@ describe("the corner under \"all\" goes to the lane nearest the pointer within r
     [{ x: rail.rect.x + rail.rect.width / 2, y: 250 }, 0.1],
   ];
 
-  it("within reach of the rail, over the column, the rail's predicted box owns the corner: no jump at entry", () => {
-    expect(rail.entry && rail.corners).toBeTruthy();
+  it("within reach of the rail, over the column, the rail's would-land guide owns the corner: no jump at entry", () => {
     const fs = play(d, "all", legs);
     const e = fs.findIndex((f) => f.frame.lane === "bar:left" && f.frame.region === "lane");
     expect(e).toBeGreaterThan(0);
@@ -234,37 +286,50 @@ describe("the corner under \"all\" goes to the lane nearest the pointer within r
   });
 });
 
-describe("lanes(): an empty lane's marks in its spot's after-entry layout", () => {
+describe("guides(): a lane the screen doesn't draw is drawn in the layout that creates it (rule B)", () => {
   // The lab's window with every panel on the left: the top bar and the right rail empty, the right rail beside nothing.
   const w = windows().find((x) => x.name === "lab: every panel on the left, tools")!;
   const d = dragOf(w)!;
   const lane = (id: string) => d.regions.lanes.find((l) => l.id === id)!;
+  /** A lane's one spot held at its listed landing (the layout that creates it): its marks there, and the landing. */
+  const entryOf = (id: string) => {
+    const sp = lane(id).spots[0]!;
+    const a = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } });
+    return [...a.marks.filter((m) => m.lane === id).map((m) => m.rect), ...(a.landing ? [a.landing] : [])];
+  };
+  const atRest = (...ids: string[]) => d.drag.guides({ held: null, room: false, guides: ids.map((id) => ({ lane: id, held: null })) });
+  const spanOf = (rs: readonly Rect[], axis: "x" | "y"): [number, number] => [Math.min(...rs.map((r) => r[axis])), Math.max(...rs.map((r) => r[axis] + (axis === "x" ? r.width : r.height)))];
 
-  it("the empty top bar's box lies over the left column, as its mark does once entered (one box, not cut at the column)", () => {
-    const top = lane("top");
-    const entered = d.regionsFor(top.spots[0]!.id).lanes.find((l) => l.id === "top")!;
-    expect(top.marks).toEqual(entered.marks);
-    expect(top.marks.map((m) => [m.id, m.rect.x, m.rect.width])).toEqual([["top/box/^|$", 30, 1050]]);
+  it("at rest the empty top bar's guide is its room whole once entered (its marks there and the landing), over the left column, giving way only to the drawn rail", () => {
+    const [a, b] = spanOf(atRest("top").map((m) => m.rect), "x");
+    const [ea, eb] = spanOf(entryOf("top"), "x");
+    // The drawn left rail (it holds tools) stays put when the bar opens: the guide gives way to it, and to nothing else.
+    const rail = d.drag.after(null).layout.edges["rail-left"]!;
+    expect([a, b]).toEqual([rail.cross > 0 ? Math.max(ea, rail.rect.x + rail.rect.width) : ea, eb]);
+    expect(atRest("top").every((m) => m.kind === "box")).toBe(true);
+    expect(a).toBeLessThan(lane("top").rect.x + 1);
   });
 
-  it("the empty right rail gives the corner to the bar in its marks, keeps it in `entry`, and names the bar in `corners`", () => {
-    const rail = lane("rail-right");
-    const entered = d.regionsFor(rail.spots[0]!.id).lanes.find((l) => l.id === "rail-right")!;
-    expect(rail.entry).toEqual(entered.marks);
-    expect(rail.corners).toEqual(["top"]);
-    expect(rail.marks.map((m) => [m.id, m.rect.y])).toEqual([["rail-right/box/^|$", 64]]);
-    expect(rail.entry!.map((m) => [m.id, m.rect.y])).toEqual([["rail-right/box/^|$", 32]]);
+  it("between the two empty lanes the bar keeps the corner; the rail, Near, takes it", () => {
+    const both = atRest("top", "rail-right");
+    const rail = both.filter((m) => m.lane === "rail-right");
+    const top = both.filter((m) => m.lane === "top");
+    for (const r of rail) for (const t of top) expect(r.rect.y >= t.rect.y + t.rect.height - 1e-6 || r.rect.x >= t.rect.x + t.rect.width - 1e-6).toBe(true);
+    const sp = lane("rail-right").spots[0]!;
+    const near = d.drag.guides({ held: null, room: false, guides: [{ lane: "top", held: null }, { lane: "rail-right", held: { kind: "spot", spot: sp.id, point: { x: sp.landing.x + 1, y: sp.landing.y + 1 } } }] });
+    // Near, its guide and the landing it would take there run up into the corner the bar kept at rest.
+    const would = d.drag.after({ kind: "spot", spot: sp.id, point: { x: sp.landing.x + 1, y: sp.landing.y + 1 } }).landing!;
+    const railNear = [...near.filter((m) => m.lane === "rail-right").map((m) => m.rect), would];
+    expect(Math.min(...railNear.map((r) => r.y))).toBeLessThan(Math.min(...rail.map((m) => m.rect.y)) - 1);
   });
 
-  it("a lane that holds items has no prediction; with a spot held no lane has one", () => {
-    expect(lane("rail-left").entry).toBeUndefined();
-    expect(lane("bottom").entry).toBeUndefined();
-    for (const l of d.regionsFor(lane("rail-right").spots[0]!.id).lanes) expect([l.id, l.entry, l.corners]).toEqual([l.id, undefined, undefined]);
+  it("a lane the screen draws keeps the screen's marks", () => {
+    for (const id of ["rail-left", "bottom"]) expect(atRest(id)).toEqual(lane(id).marks.map((m) => ({ ...m, lane: id })));
   });
 
-  it('`emptyLanes: "edge"` predicts nothing: the thin strips as seen', () => {
-    const edge = lanes(w.state, w.dragged, { ...d.options, emptyLanes: "edge" });
-    for (const l of edge.lanes) expect(l.entry).toBeUndefined();
-    expect(edge.lanes.find((l) => l.id === "top")!.marks.every((m) => m.kind === "hatch")).toBe(true);
+  it('`emptyLanes: "edge"` creates nothing: the thin strips as seen', () => {
+    const edge = dockDrag(w.state, w.dragged, { ...d.options, emptyLanes: "edge" });
+    const g = edge.guides({ held: null, room: false, guides: [{ lane: "top", held: null }] });
+    expect(g.length > 0 && g.every((m) => m.kind === "hatch")).toBe(true);
   });
 });

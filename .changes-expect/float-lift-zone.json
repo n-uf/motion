@@ -1,0 +1,3 @@
+[
+  { "package": "motion", "kind": "landing-frames", "case": "landing-lift-over-a-band*", "reason": "the landing row's float lies over an empty top bar's band; its first two frames (the press and 4 px from it, inside the 16 px lift zone of a float's lift) no longer report that bar as pending, since no lane takes a float's pointer there; in this row nothing after them changes (the path leaves the band), but in general a float's frames can differ from the old model's up to lift + path (16 + 40 px) from the press: no lane's path counts inside the zone, and a lane still pending past it keeps the region the zone judged" }
+]

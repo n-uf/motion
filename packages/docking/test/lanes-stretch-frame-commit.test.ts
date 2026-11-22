@@ -1,12 +1,12 @@
 /**
- * A sliding spot's frame is its commit. Over a free stretch the landing model's frame, its release's `at` and the spot's
- * `target.after(point, grab)` all read one rule (`LaneSlide`): the start at the pointer less the grab, clamped to the
- * stretch, the nearest snap point within the snap distance, else a whole pixel. So for any pointer and any grab, fractional
- * or not, the rect the frame drew is the rect the drop commits, and `at` is where both start.
+ * A sliding spot's frame is its commit. Over a free stretch the landing model's frame (`landingOf` its state), its
+ * release's `after` and the spot's `target.after(point, grab)` are one computation (`LaneSlide`): the start at the
+ * pointer less the grab, clamped to the stretch, the nearest snap point within the snap distance, else a whole pixel. So
+ * for any pointer and any grab, fractional or not, the rect the frame drew is the rect the drop commits.
  */
 import { describe, expect, it } from "vitest";
 import { createLandingModel } from "@n-uf/motion/drag";
-import { lanes, solve, type DockEdge, type DockLane, type DockSpot, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockEdge, type DockLane, type DockSpot, type DockState } from "../src";
 import { bar, byId, group } from "./fixture";
 
 type Host = "bar" | "rail";
@@ -59,7 +59,9 @@ describe("a sliding spot: the frame is the commit", () => {
         [0.77, 0.9],
       ] as const) {
         const grab = { x: own.width * fx + 0.37, y: own.height * fy + 0.21 };
-        const regions = lanes(s, held, { previous: seen, grab, stretchPositions: "free" });
+        const drag = dockDrag(s, held, { previous: seen, grab, stretchPositions: "free" });
+        const regions = drag.regions;
+        expect(regions.lanes).toEqual(lanes(s, held, { previous: seen, grab, stretchPositions: "free" }).lanes);
         for (const lane of regions.lanes as readonly DockLane[]) {
           const ax = lane.axis;
           for (const spot of lane.spots as readonly DockSpot[]) {
@@ -67,7 +69,7 @@ describe("a sliding spot: the frame is the commit", () => {
             if (!slide) continue;
             // The listed slide carries the grain the landing model rounds by.
             expect(slide.step, spot.id).toBe(1);
-            const m = createLandingModel({ regions, home: { lane: lane.id, spot: spot.id }, grab });
+            const m = createLandingModel({ ...drag, home: { lane: lane.id, spot: spot.id } });
             const across = ax === "x" ? lane.rect.y + lane.rect.height / 2 : lane.rect.x + lane.rect.width / 2;
             const at = (a: number) => (ax === "x" ? { x: a, y: across } : { x: across, y: a });
             let t = 0;
@@ -85,8 +87,8 @@ describe("a sliding spot: the frame is the commit", () => {
               expect(start, label).toBeGreaterThanOrEqual(Math.min(slide.from, slide.to) - 1e-9);
               expect(start, label).toBeLessThanOrEqual(Math.max(slide.from, slide.to) + 1e-9);
               const r = m.release(p, t);
-              expect(r, label).toMatchObject({ kind: "spot", lane: lane.id, spot: spot.id });
-              expect((r as { at: number }).at, label).toBe(start);
+              expect(r, label).toMatchObject({ kind: "spot", lane: lane.id, spot: spot.id, point: p });
+              expect(drag.after(r).landing![ax], label).toBe(start);
               compared++;
             }
           }

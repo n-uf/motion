@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { lanes, solve, type DockEdge, type DockItem, type DockState } from "../src";
+import { heldLanes } from "./held-lanes";
 import { bar, byId, form, seeded } from "./fixture";
 import { modelState } from "./model-window";
 
@@ -24,6 +25,7 @@ interface Frame {
   readonly heldLayout?: ReturnType<typeof solve>;
   /** The layout as seen. */
   readonly seen: ReturnType<typeof solve>;
+  readonly stage: DockState["stage"];
 }
 
 /**
@@ -38,21 +40,12 @@ function broken(frame: Frame, edgeIds: ReadonlySet<string>): string[] {
   const bad: string[] = [];
   const edge = ls.filter((l) => edgeIds.has(l.id));
   for (const l of edge) {
-    const own = l.id !== frame.heldLane && (frame.seen.edges[l.id]?.cross ?? 0) <= 1e-6 && l.spots.length === 1 ? l.spots[0]!.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout : undefined;
-    const predicted = own && (own.edges[l.id]?.cross ?? 0) > 1e-6 ? own : undefined;
-    const moved = (predicted ?? heldLayout)?.edges[l.id];
-    const r = moved && moved.cross > 1e-6 ? moved.rect : l.rect;
+    // One layout (decision 0002): a lane drawn in the frame's layout holds its marks inside its edge as drawn there; a
+    // lane it doesn't draw, as seen inside its rect, held inside the stage (its band clipped where that layout draws).
+    const layout = heldLayout ?? frame.seen;
+    const moved = layout.edges[l.id];
+    const r = moved && moved.cross > 1e-6 ? moved.rect : heldLayout ? frame.stage : l.rect;
     for (const m of l.marks) if (!within(m.rect, r)) bad.push(`${where}: ${m.id} outside its lane ${l.id}`);
-    // The corner clip is one rule for the hit rect and the marks: along its axis an empty lane's marks stay inside its
-    // `rect` (the layout as seen decides where it gives way), with a spot held in it too, whatever edge that drop draws.
-    if ((frame.seen.edges[l.id]?.cross ?? 0) > 1e-6) continue;
-    const a0 = l.axis === "x" ? l.rect.x : l.rect.y;
-    const a1 = a0 + (l.axis === "x" ? l.rect.width : l.rect.height);
-    for (const m of l.marks) {
-      const m0 = l.axis === "x" ? m.rect.x : m.rect.y;
-      const m1 = m0 + (l.axis === "x" ? m.rect.width : m.rect.height);
-      if (m0 < a0 - 1e-6 || m1 > a1 + 1e-6) bad.push(`${where}: ${m.id} past its lane ${l.id}'s clip`);
-    }
   }
   const all = edge.flatMap((l) => l.marks.map((m) => ({ lane: l.id, m })));
   for (let i = 0; i < all.length; i++)
@@ -66,8 +59,8 @@ function frames(s: DockState, id: string, extra: { grab?: { x: number; y: number
   const out: Frame[] = [];
   for (const emptyLanes of ["real", "edge"] as const) {
     const base = lanes(s, id, { previous, emptyLanes, ...extra });
-    out.push({ where: `${label} ${id} ${emptyLanes} seen`, lanes: base.lanes, seen: previous });
-    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: lanes(s, id, { previous, emptyLanes, spot: sp.id, ...extra }).lanes, heldLane: l.id, heldLayout: sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, seen: previous });
+    out.push({ where: `${label} ${id} ${emptyLanes} seen`, lanes: base.lanes, seen: previous, stage: s.stage });
+    for (const l of base.lanes) for (const sp of l.spots) out.push({ where: `${label} ${id} ${emptyLanes} ${sp.id}`, lanes: heldLanes(s, id, { previous, emptyLanes, ...extra }, sp.id).lanes, heldLane: l.id, heldLayout: sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout, seen: previous, stage: s.stage });
   }
   return out;
 }
@@ -87,7 +80,7 @@ describe("lanes(): a lane's marks lie inside its lane's rect", () => {
     expect(bad.slice(0, 6)).toEqual([]);
   });
 
-  it("a spot held on an empty top bar between two drawn rails that take the item: its marks stop at the rails' inner sides, as its lane does", () => {
+  it("a spot held on an empty top bar between two drawn rails that take the item: its hit rect stops at the rails' inner sides, its marks follow the bar as drawn", () => {
     const g = (id: string, main: number) => ({ id, kind: "group", used: 1, forms: { row: [form("row", main, main, 28), form("menu", 0, 0, 0)], column: [form("icons", main, main, 30), form("menu", 0, 0, 0)] } }) as DockItem;
     const s: DockState = {
       stage: { x: 0, y: 0, width: 800, height: 600 },
@@ -104,10 +97,12 @@ describe("lanes(): a lane's marks lie inside its lane's rect", () => {
     const previous = solve(s);
     const seen = lanes(s, "d", { previous }).lanes.find((l) => l.id === "bar:top")!;
     expect([seen.rect.x, seen.rect.x + seen.rect.width]).toEqual([30, 770]);
+    // Held, its marks follow the bar as its drop draws it (decision 0002): inside that edge, its corners included.
     for (const sp of seen.spots) {
-      const top = lanes(s, "d", { previous, spot: sp.id }).lanes.find((l) => l.id === "bar:top")!;
+      const top = heldLanes(s, "d", { previous }, sp.id).lanes.find((l) => l.id === "bar:top")!;
+      const edge = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout.edges["bar:top"]!.rect;
       expect(top.marks.length).toBeGreaterThan(0);
-      for (const m of top.marks) expect([m.id, m.rect.x >= 30 - 1e-6 && m.rect.x + m.rect.width <= 770 + 1e-6]).toEqual([m.id, true]);
+      for (const m of top.marks) expect([m.id, m.rect.x >= edge.x - 1e-6 && m.rect.x + m.rect.width <= edge.x + edge.width + 1e-6]).toEqual([m.id, true]);
     }
   });
 
@@ -150,7 +145,7 @@ describe("lanes(): a lane's marks lie inside its lane's rect", () => {
     const sp = lanes(s, "g0", { previous }).lanes.find((l) => l.id === "left-bar")!.spots[0]!;
     const after = sp.target.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout;
     expect(after.edges["left-col"]!.rect.x).toBeGreaterThan(previous.edges["left-col"]!.rect.x);
-    const col = lanes(s, "g0", { previous, spot: sp.id }).lanes.find((l) => l.id === "left-col")!;
+    const col = heldLanes(s, "g0", { previous }, sp.id).lanes.find((l) => l.id === "left-col")!;
     expect(col.marks.map((m) => m.id).sort()).toEqual(["left-col/line/^|left-p", "left-col/line/left-p|$"]);
     for (const m of col.marks) expect(within(m.rect, after.edges["left-col"]!.rect)).toBe(true);
   });

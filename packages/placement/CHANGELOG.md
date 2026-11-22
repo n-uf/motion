@@ -3,6 +3,80 @@
 Versions are calendar versions, `YY.M.R` (year, month of the release, counter within the month), shared with
 `@n-uf/motion` and `@n-uf/docking`: the packages carry the same version, and a release bumps them all.
 
+Unreleased entries live in `changes/` until a release joins them.
+
+## 26.11.55
+
+- `./tiling`, **added: canSplitPane, dropFits, paneRegion's paneCenter option, master clamps, Rect**, for a host with its own
+  projected layout. `canSplitPane(target, side, { min, gap?, handle? })` is the room rule (along the split `2 * min`
+  plus the gutter, across it `min`, for the rect of a pane) and `dropFits(projected, dragged, at, area, { min, side })`
+  the fit rule (both panes at least `min` in a layout the host already projected) (`SplitRoomOptions`,
+  `DropFitsOptions`); `canDropOnPane` is now exactly the two in turn, with the same verdicts and reasons.
+  `paneRegion` takes a center the host measured as `options.paneCenter` (a `PaneCenter`), the same region for the same
+  center. `masterRatio` and `masterCount`, the clamps `masterStack` applies, and the `Rect` type (the root's) are
+  exported.
+- `./tiling`, **behavior change: the gap rule**. A split of extent `W` at ratio `r` with a gutter `g` now puts the
+  middle of the gutter at `W * r`: the first side is `max(0, W * r - g / 2)` long, the second starts at
+  `start + W * r + g / 2` and is `max(0, W * (1 - r) - g / 2)` long. It replaces `(W - g) * r`. At ratio 0.5 both rules
+  agree (to the last bits), at any other ratio a split with a gap lays out differently. The promise that the second
+  side never starts past the rect's end goes: no size is ever negative, and a split with no room may start its second
+  side up to half a gutter past the end. Order layouts (`columns`, `grid`) keep their rule.
+- `./tiling`, **fixed: a ratio or gap that is not finite**. A NaN or infinite `ratio` gave NaN rects; it is now 0.5.
+  A NaN `gap` did too; `layoutSplit` now treats a negative or non-finite `gap` (and `handle`) as 0.
+- `./tiling`, **`masterStack` count and side**: `count` (rounded, within 1 to n, default 1) and `side` (`"left"` by
+  default, `"right"`, `"top"`, `"bottom"`). Left and right make the areas columns of stacked panes, top and bottom
+  rows of panes side by side, right and bottom put the stack first in space, and with no stack the panes fill the area
+  along the side's cross axis. Its `ratio` is now clamped to 0.05..0.95 (not finite: 0.5), and a negative or non-finite
+  `gap` is 0. With the defaults the rects are the earlier ones, to the last bits of the stack's width. The two live in
+  `MasterOptions`; the order layouts and `orderTargets` take `OrderOptions` (`TileOptions` and `MasterOptions`), and a
+  split tree's options do not accept them.
+- `./tiling`, **gutters, split ids and `layoutSplitTree`**: `TileOptions.handle` (px, default 0) is the extra room a
+  split's divider takes beside the gap, so a split's gutter is its gap plus the handle. A split may carry its own
+  `gap` (the handle stays global) and an `id`. `layoutSplitTree(tree, area, options)` gives `{ panes, splits }`, and for
+  each split with an `id` its `rect`, `axis`, `ratio` in effect and `divider` (`SplitLayout`, `SplitGeometry`);
+  `layoutSplit` is its `panes`.
+- `./tiling`, **master splits**: a split with `master: { count?, side? }` lays its subtree out flat, its panes in
+  order through `masterStack` by its ratio and gap (never the handle). The splits under it are not laid out or
+  reported.
+- `./tiling`, **floors and fixed lengths**: the layout options `floor(child, axis, split)` (`{ min, net? }`, the least
+  length along the split; the ratio is clamped to keep it within 0.05..0.95 unless a side says `net: false`, and is
+  0.5 where both floors cannot fit), `fixed(child, axis)` (`{ length, keep? }`, a length along the split: the first
+  that fits takes it and the other side fills the rest; with `keep` on both, each keeps its own) and
+  `fixedAcross(child, axis)` (a length across the split) (`SplitOptions`, `MinLength`, `FixedLength`). With none of
+  them a layout is as before.
+- `./tiling`, **`canDropOnPane(tree, dragged, at, region, area, options)`**: `{ ok, reason? }` whether a drop leaves
+  room: a side needs `2 * min` plus the gutter along the split and `min` across, in the layout without the dragged
+  pane, and both panes at least `min` wide and high in the layout the drop makes (`DropOptions`, `DropVerdict`).
+- `./tiling`, **`neighbor(rects, from, direction)`**: the nearest pane in a direction from a map of rects, by the
+  distance between centers (a candidate's center strictly on that side; the lowest score wins, ties to the first)
+  (`Direction`).
+- `./stack`, **asked lengths and dividers**: `StackItem.lengths` (`{ column?, row? }`, px along the stack, per axis) is read
+  in place of the `main.natural` of a growing form, the least staying its `main.min`, and `dividers(input, fit)`,
+  `resizeBetween`, `resetBetween` and `resetLengths` trade length between the nearest open growing items (a collapsed
+  item between two open ones gives one divider, on its far edge; `StackDivider`, `StackLengths`). Additive: a stack that
+  declares no length is laid out exactly as before.
+- `./stack`, **a divider drag writes the pair's lengths only, in ask units**: `resizeBetween` writes `lengths` for the
+  two items of the dragged pair and for no other item, so a bystander moved to another stack is laid out as an item nobody
+  resized. A length in `lengths` is in ask units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or
+  its least when that is more, so the pair's ask is its drawn size over that scale (short of room,
+  `least + (drawn - least) / share`), which leaves the scale and every other drawn size as they were. A collapsed item no
+  longer gets a length from a drag of its neighbors: reopened, it keeps its proportion unless an end of the pair is held
+  at its least (its ask under the least and its share of the column too); then it gives up that end's excess in
+  proportion. An item nobody sized asks its natural, so when that changes it re-shares the column with the sized ones,
+  which keep their proportion to one another, not their px. `resetBetween` writes the pair only, too. An end dragged to its
+  least asks `least / scale`, under its least, and is still drawn at it.
+- `./stack`, **behavior change: a length under its least now reads as a weight with room**. The least is a floor on the
+  drawn size, not on the ask: with room to spare, an item whose share of the length (its ask times the scale) would be
+  under its least is drawn at its least and the others share the rest in proportion to their asks. Before, a length under
+  the least was read as the least. Short of room an ask under the least still reads as the least. A length of 0 (or under
+  `EPS`) is no length: the item asks its natural, so an item a stored state holds at 0 (dragged fully shut when its least
+  is 0) opens at its natural when that state is read again. A stack that declares no length, or none under its least, is laid out
+  exactly as before.
+- Docs only: **the design page names the three places the solver reads a form's `kind`** (`menu`, the group kinds for
+  `ownCross`, and kind equality under `previous`), says the root's `Target` carries the docking model's drag fields as
+  plain data, and says `fitFloat` finds a clear place unless its search is capped (`FloatFit.searchCapped`). No
+  behavior, type or export change.
+
 ## 26.11.54
 
 Breaking. Placement is the general layer: one edge, one area, one popup. The window's docking model leaves for its own

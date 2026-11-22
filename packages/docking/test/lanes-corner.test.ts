@@ -8,7 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { createLandingModel } from "@n-uf/motion/drag";
-import { lanes, solve, type DockEdge, type DockItem, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockEdge, type DockItem, type DockState } from "../src";
 
 const form = (kind: string, main: number, cross: number) => ({ kind, main: { min: main, natural: main }, cross: { natural: cross } });
 const group = (id: string, main: number) => ({
@@ -61,8 +61,7 @@ describe("lanes(): at a corner an empty bar's lane gives way to a drawn rail", (
     const s = state();
     const previous = solve(s);
     const grab = { x: 15, y: 8 };
-    const rs = lanes(s, "z", { previous, grab, endReach: 24 });
-    const m = createLandingModel({ regions: rs, regionsFor: (spot) => lanes(s, "z", { previous, grab, endReach: 24, spot }), grab });
+    const m = createLandingModel({ ...dockDrag(s, "z", { previous, grab, endReach: 24 }) });
     const rail = previous.edges["bar:left"]!.rect;
     let t = 0;
     let p = { x: 400, y: 15 };
@@ -160,15 +159,10 @@ function drag(c: Case) {
   const own = seen.items[c.held]!.rect;
   const grab = own.width >= own.height ? { x: own.width * c.share, y: own.height / 2 } : { x: own.width / 2, y: own.height * c.share };
   const opts = { previous: seen, grab, stretchPositions: c.mode };
-  const regions = lanes(c.state, c.held, opts);
-  const cache = new Map<string, ReturnType<typeof lanes>>();
-  const regionsFor = (spot: string) => {
-    let x = cache.get(spot);
-    if (!x) cache.set(spot, (x = lanes(c.state, c.held, { ...opts, spot })));
-    return x;
-  };
+  const d = dockDrag(c.state, c.held, opts);
+  const regions = d.regions;
   const home = regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
-  const model = () => createLandingModel({ regions, regionsFor, grab, ...(home ? { home } : {}) } as never);
+  const model = () => createLandingModel({ ...d, ...(home ? { home } : {}) });
   return { seen, regions, model };
 }
 

@@ -1,6 +1,6 @@
 # 0001 · Cluster drag
 
-**Status:** Parked (2026-11-19). **Package:** `@n-uf/placement`, with the held-preview drawing in hosts. **Depends on:** the stretch model with room consumption, and stretch positions (planned for 26.11.49).
+**Status:** Parked (2026-11-19). **Package:** `@n-uf/docking`, with the held-preview drawing in hosts. **Depends on:** the stretch model with room consumption, and stretch positions (planned for 26.11.49).
 
 ## Summary
 
@@ -50,7 +50,7 @@ A user who builds a tidy set of toolbars side by side may want to move the whole
 ## Contract impact (if revived)
 
 - `dragUnit` in the preview plan.
-- `Regions.held = { items: [{ id, offset }] }`: the host's preview must draw every held member at its offset. A host drawing only the pressed group would show half a cluster.
+- `DockRegions.held = { items: [{ id, offset }] }` (docking's regions): the host's preview must draw every held member at its offset. A host drawing only the pressed group would show half a cluster.
 - Hosts commit as for any spot.
 
 ## Decision and status

@@ -7,7 +7,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { type Point } from "@n-uf/placement";
-import { lanes, solve, type DockLaneOptions, type DockRegions, type DockState } from "../src";
+import { dockDrag, lanes, solve, type DockDrag, type DockLaneOptions, type DockRegions, type DockState } from "../src";
+import { heldLanes } from "./held-lanes";
 import { libraryState, realState } from "./rail-entry-windows";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -59,6 +60,8 @@ export function windows(): Window[] {
 /** One drag of a window: its regions, the regions per spot, the grab and the item's size. */
 export interface Drag {
   readonly w: Window;
+  /** The drag: its regions as seen and the one layout of each held place. */
+  readonly drag: DockDrag;
   readonly regions: DockRegions;
   readonly regionsFor: (spot: string) => DockRegions;
   readonly grab: Point;
@@ -76,7 +79,8 @@ export function dragOf(w: Window): Drag | null {
   const grab = given && given.x < own.rect.width && given.y < own.rect.height ? given : { x: own.rect.width / 2, y: own.rect.height / 2 };
   const options: DockLaneOptions = { ...w.options, previous, grab };
   const regions = lanes(w.state, w.dragged, options);
-  const regionsFor = (spot: string): DockRegions => lanes(w.state, w.dragged, { ...options, spot });
+  // A held frame's lanes, through the one-layout API (`after({ spot })`'s marks, `spotsOf`'s stretches).
+  const regionsFor = (spot: string): DockRegions => heldLanes(w.state, w.dragged, options, spot);
   const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-  return { w, regions, regionsFor, grab, size: { width: own.rect.width, height: own.rect.height }, press: { x: own.rect.x + grab.x, y: own.rect.y + grab.y }, ...(home ? { home } : {}), options };
+  return { w, drag: dockDrag(w.state, w.dragged, options), regions, regionsFor, grab, size: { width: own.rect.width, height: own.rect.height }, press: { x: own.rect.x + grab.x, y: own.rect.y + grab.y }, ...(home ? { home } : {}), options };
 }

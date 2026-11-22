@@ -5,6 +5,82 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`; their history is in
 [placement's CHANGELOG](https://github.com/n-uf/motion/blob/main/packages/placement/CHANGELOG.md).
 
+Unreleased entries live in `changes/` until a release joins them.
+
+## 26.11.55
+
+- Added: **`DockItem.lengths`** (`{ column?, row? }`, px along the edge, per axis), the length a person asked an item to
+  have, read by the edge's stack in place of a growing form's natural, and the verbs on it: **`dividers(state, layout?)`**
+  (`DockDivider`), **`resizeBetween`**, **`resetBetween`** and **`resetLengths(state, edgeId)`**. `storeDockState` keeps
+  the length and `readDockState` reads it back (a bad entry is dropped as `item:<id>:lengths:<axis>`; a store without it
+  reads with none). Additive: a state that declares no length lays out exactly as before. A layout passed to a verb is used
+  only when it was solved from that very state object; otherwise the verb solves the state again.
+- Fixed: **`resizeBetween` and `resetBetween` write `DockItem.lengths` for the pair only, in ask units** (not drawn px; with
+  room to spare a drawn size is the ask times the shared scale, or its least when that is more), as placement's do. A
+  bystander of a drag gets no length, so an item moved to another edge after a drag next to it is laid out as an item
+  nobody resized, not at a length inflated by the column's scale.
+- Behavior change (from `@n-uf/placement`): **a length under its least now reads as a weight with room**: the item is drawn
+  at its least and the others share the rest by their asks. Short of room an ask under the least still reads as the least.
+  A length of 0 is no length: the item asks its natural, `storeDockState` does not write one (and drops the `lengths`
+  object when nothing is left), and `readDockState` drops a stored one like any bad entry (`item:<id>:lengths:<axis>`).
+- Fixed: **a tile keeps its place among its own rail's tiles.** With `rails` declared, a column folded whole into its
+  side's rail drew its members as the rail's tiles, but the rail's stops lay only between folded columns, so a tile held
+  from it had no place among its own column's tiles (without `rails`, the same column drawn as a rail offered its gaps,
+  and `foldedColumnDrop`'s documented contract said it would). A held tile now also has that column's gaps
+  (`gap:<edge>:<zone>:<at>`, before each other tile and after the last, wherever it would stay a tile in the rail), over
+  its own column's run of tiles only: over the tiles of the rail's other columns, and past the last tile, the place is
+  the rail's, home for it, as before. A tile of another column, or the only tile of its column, gets the places it had.
+  A host tells a home by `place.kind === "home"`, never by its id (`rail:<side>:<ring>` stays a home's id). The lanes
+  agree: a column folded into a declared rail is a lane drawn where its run of tiles lies (the hull of its rail
+  segments), so its hit rect, its spots' stretches and its marks stop at the run, where they took the whole rail (a spot
+  over another column's tiles that reordered the held tile, a stretch past the rail's last tile); a column created folded
+  draws no mark beyond its own tile. `lanes()` and `targets()` decide the same at every point of a rail, except the pending new-column-line cases
+  (a new-column line over a rail where the lanes stay, in a narrow window and in one with a tray of toolbars, and with a
+  second column holding the held tile the lanes' new-column lane over the rail's first pixels where `targets()` floats),
+  which the sweep lists by name.
+- Fixed: **a float pressed inside an empty lane's band no longer takes that lane when the drag starts** (the landing
+  model gives a float's lift, one with no `home` and no spot marked home, the lift zone a docked item has; `@n-uf/motion`'s change of the
+  same name). `dockDrag` has nothing new to pass: a float's drag has no home spot, and a host passes `home` only for a
+  docked item.
+
+### One layout for the held frame and the commit (breaking; with `@n-uf/motion`'s held place)
+
+- **New: `dockDrag(state, dragged, options)`** (`DockDrag`): `regions` (hit-testing, as seen), `after(held)`
+  (`DockAfter`: the `state` a release commits, its `layout` solved with the drag's one `previous`, the `landing`, every
+  lane's `marks` in that one layout as `DockLaneMark`s, and for a spot its lane's `spots`), `landingOf(held)`,
+  `spotsOf(spot)` and `guides(frame)` (`DockGuideFrame`, whose `guides` are `DockGuideRef`s `{ lane, held }`, →
+  `DockGuide[]`, rule B: a lane on screen less the would-land
+  landing; a lane the screen doesn't draw in the layout that creates it, giving way to whatever the screen draws: another
+  lane's marks, a drawn bar or rail, the landing; the Near lane's marks win). `DockHeld` (a held place) is
+  `{ kind: "spot", spot, point }` or `{ kind: "float", point }`. It fits `@n-uf/motion/drag`'s
+  `LandingGeometry` as it is; `./testing` adds `AssertGeometry`.
+- **Removed (breaking): the held-frame path of `lanes()`.** `DockLaneOptions.spot` and `lanes(…, { spot })`,
+  `DockLane.entry` and `corners` (the prediction of an empty lane's marks): a held frame is `after(held)`, and a
+  frame's guides `guides(frame)`. `lanes()` gives the regions and each lane's marks as seen.
+- **Changed.** A held lane's marks follow its edge as drawn in that held place's layout, corners included (decision 0002:
+  with both side rails holding a toolbar, a toolbar held in the empty top bar draws the bar full width, as the
+  commit does). A neighbor's giving way (a striped end) is judged in the layout drawn, not the lifted one. Held on a
+  sliding spot, the item is drawn where it lands and the room beside it is a box from 8 px; the bar keeps the corner
+  between two empty lanes in a held frame. `./testing`'s `LandingRule` takes `{ regions, landingOf, spotsOf, home?,
+  placeGuides? }`, and its host draws guides with `guides(frame)` and commits `after(release).state`.
+- Added: **`DockDrag.shown(frame)`**, the layout a landing frame draws (`after(frame.held).layout` while the frame's room
+  is open, else the window at rest), and **`DockGuideFrame.room`** (required; the landing model's `LandingFrame.room`, so a
+  landing frame still fits; a host that builds its own frame passes it, and passes false where it draws no room for a spot).
+- Fixed: **a float frame's guides are cut in the window as drawn.** `guides(frame)` took the screen from
+  `after(frame.held)`, so on a float frame (whose room is not open: the gap closes on release) the marks were cut in
+  the float's commit layout, the column closed up, while the host drew the window at rest. `guides(frame)` now cuts in
+  `shown(frame)`. A frame whose room is open (every spot frame the landing model gives) gives the guides it gave before.
+
+### Docs only
+
+- **The design page and the reference catch up with the code.** No behavior, type or export change. The draw rule is
+  stated once: a held frame draws `after(held).layout` while its room is open, and a float frame whose room is not
+  open, and the Outline mode, draw the window at rest (the gap closes on release). `dockDrag` is in the page's
+  paragraph, diagram, contents and SDK table, the landing model is named as the docking drag with `targets()` as the
+  list of places for menus, keys and the conformance pick, and a panel drag's marks are written up here. The
+  reference covers behavior, with the exported types as the contract, and adds entries for `Place` and its four kinds,
+  `SolveOptions`, `DockLaneOptions`, `EmptyLanes` and the stored types.
+
 ## 26.11.54
 
 The first release. The window's docking model moves here from `@n-uf/placement/scene`, and its conformance rows from

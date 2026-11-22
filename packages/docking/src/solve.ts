@@ -57,7 +57,18 @@ import { laySides } from "./solve/sides";
 
 export { layKeys, pushes, type LayKey } from "./solve/order";
 
+/** The state each layout `solve` returned was solved from (kept off the layout, so a layout is exactly what it was). */
+const solvedFrom = new WeakMap<DockLayout, DockState>();
+/** The state `layout` was solved from, or undefined for a layout `solve` didn't return (one stored and read back, say). */
+export const stateOf = (layout: DockLayout): DockState | undefined => solvedFrom.get(layout);
+
 export function solve(given: DockState, options: SolveOptions = {}): DockLayout {
+  const layout = solveState(given, options);
+  solvedFrom.set(layout, given);
+  return layout;
+}
+
+function solveState(given: DockState, options: SolveOptions): DockLayout {
   checkEdgeIds(given);
   // A hidden edge is not part of the window: the layout is the shown state's, its items placed nowhere, or in the edge
   // its `showIn` names.

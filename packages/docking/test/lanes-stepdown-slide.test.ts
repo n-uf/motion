@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HATCH_END, lanes, solve, type DockState } from "../src";
+import { heldLanes } from "./held-lanes";
 import { LANDING_CASES } from "../src/testing";
 import { bar, byId, form, group } from "./fixture";
 
@@ -58,17 +59,21 @@ describe("a stretch is the room the drop makes (a neighbor steps down)", () => {
     }
   });
 
-  it("with the sliding spot held, the guide still has its striped end facing wide, naming it (compared with the layout as seen, not the spot's)", () => {
+  it("with the sliding spot held, the striped ends are judged in the layout drawn: each names the neighbor a drop in that room moves, inside its box at the side facing it", () => {
     const id = "bar:bottom/start/wide|ends@slide";
-    const l = lanes(state, "held", { previous: solve(state), grab: { x: 5, y: 15 }, spot: id }).lanes.find((x) => x.id === "bar:bottom")!;
+    const l = heldLanes(state, "held", { previous: solve(state), grab: { x: 5, y: 15 } }, id).lanes.find((x) => x.id === "bar:bottom")!;
     const all = l.marks.map((m) => `${m.kind} ${m.id} ${m.givesWay ?? ""}`.trim());
     const hatches = l.marks.filter((m) => m.kind === "hatch");
-    expect(hatches.map((m) => m.givesWay), all.join("; ")).toEqual(["wide"]);
-    // Inside the box of its room, at the side facing wide (wide is drawn in its short form there: the box starts at 156).
-    const box = l.marks.find((m) => m.kind === "box" && m.rect.x <= hatches[0]!.rect.x + 1e-6 && m.rect.x + m.rect.width >= hatches[0]!.rect.x + hatches[0]!.rect.width - 1e-6);
-    expect(box, all.join("; ")).toBeDefined();
-    expect(hatches[0]!.rect.x).toBeCloseTo(box!.rect.x, 6);
-    expect(hatches[0]!.rect.width).toBeLessThanOrEqual(HATCH_END);
+    // One layout (the held one, where wide is drawn in its short form): a drop before wide or after ends moves them.
+    expect(hatches.map((m) => m.givesWay), all.join("; ")).toEqual(["wide", "ends"]);
+    for (const h of hatches) {
+      const box = l.marks.find((m) => m.kind === "box" && m.rect.x <= h.rect.x + 1e-6 && m.rect.x + m.rect.width >= h.rect.x + h.rect.width - 1e-6);
+      expect(box, all.join("; ")).toBeDefined();
+      // At the box's end facing the neighbor: wide lies after the room `^|wide`, ends before the room `ends|$`.
+      if (h.givesWay === "wide") expect(h.rect.x + h.rect.width).toBeCloseTo(box!.rect.x + box!.rect.width, 6);
+      else expect(h.rect.x).toBeCloseTo(box!.rect.x, 6);
+      expect(h.rect.width).toBeLessThanOrEqual(HATCH_END);
+    }
   });
 
   it("a plain box where nothing moves, leaves or steps down: the same bar with room for the item beside wide as it is", () => {

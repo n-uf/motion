@@ -1,7 +1,8 @@
 # @n-uf/placement: reference
 
-The detailed behavior of every entry of `@n-uf/placement`, with examples. The design, the rules a consumer relies on and
-the export tables are on [placement.md](./placement.md); the API contract is the exported TypeScript types. A whole
+The detailed behavior of every entry of `@n-uf/placement`, with examples. The reference covers behavior; the exported
+types are the contract. The design, the rules a consumer relies on and the export tables are on
+[placement.md](./placement.md). A whole
 window's docking model, built on this layer, is `@n-uf/docking` ([docking-reference.md](./docking-reference.md)).
 
 - [Edge bands (`cutEdges`)](#edge-bands-cutedges)
@@ -81,8 +82,9 @@ places them; nothing in it is a word.
 - `gap` is the space between neighboring drawn items (the » entry is a neighbor) and `pad` (`{ start, end }`) the
   space before the first item and after the last (or the » entry). Both count toward the length and every rect
   includes them, so an app draws at the solver's rects and the preview is exact. A non-number or a negative one is 0.
-- Spare length goes to the forms that `grows`, shared by their natural sizes. With none, the items keep their
-  natural sizes from the start of the stack.
+- Spare length goes to the forms that `grows`, shared by their natural sizes (or by their asked lengths, see
+  [Dividers](#dividers-asked-lengths-and-resizing-between-items)). With none, the items keep their natural sizes from
+  the start of the stack.
 - The stack's cross size is the widest `cross.natural` among the forms that set it (a form with `body`, by default
   a panel's `open`; `setsCross` overrides), clamped to `cross.min` and `max`. With none it is the rail, `cross.rail`
   (default 30 px).
@@ -169,6 +171,74 @@ menu has the entry's rect; `menu.items` are exactly the items whose kind is `men
 (`id`, `from`, `to`: the item took a smaller form than the one it started in, by length or by cross size, as indexes
 into its forms), `to-menu` (`id`), `too-wide` (`id`), `no-forms` (`id`) and `overflow` (`over` px: no item can give
 more way and the stack is still too long; forms that don't end in a `menu` form can't give more).
+
+## Dividers: asked lengths and resizing between items
+
+Stacked panels can share a draggable divider: one neighbor gets longer, the other shorter by the same amount, the
+stack's total stays and nothing else in it moves. The state is one optional number per item and per axis.
+
+```ts
+interface StackLengths { readonly column?: number; readonly row?: number }
+StackItem.lengths?: StackLengths;           // px along the stack, the length asked for
+
+dividers(input: StackInput, fit: StackFit): StackDivider[];
+interface StackDivider {
+  before: string; after: string;            // ids of the nearest open growing items on each side
+  rect: Rect;                               // the strip the divider sits on, stack-local
+  range: { min: number; max: number };      // min <= 0 <= max: the delta allowed each way
+}
+resizeBetween(input: StackInput, before: string, after: string, delta: number, options?: FitOptions): StackInput;
+resetBetween(input: StackInput, before: string, after: string, options?: FitOptions): StackInput;
+resetLengths(input: StackInput): StackInput;
+```
+
+- **`StackItem.lengths`** is read, for the stack's axis, in place of the `main.natural` of the form the item is in, while
+  that form grows (`main.grows`, not the menu; a `wrap` form that grows shares spare length, so it reads it too). The least stays the form's `main.min`, a floor on
+  the drawn size, not on the ask; a length that isn't a finite number over 0 is no length (a 0 asks nothing: the item reads its natural). There is no new formula. With
+  spare length the sized items share it in proportion to their lengths, as a splitter does, and one whose share would be
+  under its least is drawn at its least while the others share the rest; short of length they interpolate between
+  their least (an ask under it reads as the least) and their length, so a divider still trades room in a tight column. A form that doesn't grow (a header, a
+  rail icon, a group, a folded item) ignores the length: it is kept for when the item grows again. A stack whose items
+  declare none is laid out exactly as before, and what gives way, in which order, never reads a length. `lengths` is
+  plain data: store it, read it back, and an older state without it lays out as it always did. A length in it is in ask
+  units, not drawn px; with room to spare a drawn size is the ask times the shared scale, or its least when that is more.
+- **A re-measured natural moves nothing** of a sized item. An item nobody sized asks its natural, so when its natural
+  changes it re-shares the column with the sized ones: they keep their proportion to one another, not their px (content
+  that grows takes room). Closing an item shares its room among the others in
+  proportion; reopened with its length at the same stack length, it comes back as it was. A longer or shorter stack scales the
+  lengths together (they are relative), so shrinking and growing back gives the same layout. An item that moves to
+  another stack keeps its length; it is per axis, so a bar never reads a column length.
+- **`resizeBetween(input, before, after, delta)`** moves `delta` px from `after` to `before` (a negative `delta` the other
+  way) and returns the new state. `before` and `after` must be neighboring growing items, both ends, in that order;
+  a header, a rail icon, a group or a folded item between them doesn't matter. A resize writes the lengths of the two
+  items of the pair, and no other item gets one: a bystander keeps whatever it had, none when nobody sized it, so it goes
+  to another stack as the item it is. The lengths are asks, not drawn sizes: with room to spare the pair's ask is its drawn
+  size over `scale` (`scale` = how much longer than it asks a growing form is drawn); short of length it is
+  `least + (drawn - least) / share`, `share` being the share of the way from least to ask the stack was drawn at. The
+  pair's drawn sizes add up to what they did and every other item draws as it did, so the scale is unchanged and nothing
+  else shifts; the pair lays out exactly as drawn, whatever the items that don't grow do. An end dragged to its least with
+  room to spare asks `least / scale`, under its least, and is drawn at its least. A collapsed item gets no length from a
+  drag: reopened, it asks its natural beside the pair's asks, which add up to what they did, so it keeps its proportion
+  unless an end of the pair is held at its least (its ask under the least and its share of the column too); then it gives
+  up that end's excess in proportion. Neither goes under its least: `delta` is clamped to
+  the divider's `range`, so nothing collapses and nothing is pushed. It returns the same object when nothing changes
+  (not neighbors, an unknown id, a `delta` that isn't a number, or one clamped to 0). A drag computes each frame from the state
+  at the press and the pointer's distance from it. `options.previous` is the fit the stack had, as for `fitStack`.
+- **`dividers(input, fit)`** gives one divider per pair of neighboring growing items that are both ends. A collapsed item
+  (a header, a rail icon, a group, an item in the » menu) has no divider of its own; where collapsed items sit between two
+  open ones there is one divider between the open ones, its `rect` on the far edge of the last collapsed one (the lower edge
+  in a column). The `rect` starts there and is as thick as the gap to the next item (0 with no `gap`), as wide as `before`
+  across. `range` is how far it may move each way, down to each end's least; a host clamps with it and draws from it. A
+  divider spans only items drawn but not growing. A growing item that is not an end (a `fixed` one, a `wrap` form that
+  grows) ends the chain: it has no divider, is never resized and nothing is dragged across it, though it shares spare
+  length like any growing item (its length is written so it doesn't shift).
+- **`resetBetween(input, before, after)`** gives the two items the split they would be drawn at if both asked for their
+  natural, their combined drawn length kept and nothing else moving: in proportion to their naturals (`main.natural`) with
+  room for both, and `least + (natural - least) * s` with one shared `s` when short. The double-click action. The same
+  object when the two are at that split already, which a pair nobody resized always is, in every regime. Like a drag it
+  writes the lengths of the two items only, in ask units.
+- **`resetLengths(input)`** deletes every length of the stack's axis, back to the split a stack with none has. An item's
+  length for the other axis stays; the same object when no item had a length for this axis.
 
 ## A toolbar's rows
 
@@ -401,19 +471,71 @@ phase that leaves its forms' sizes alone moves no other item.
 layout when panes only reorder, and the split tree when a drop splits a pane on a side.**
 
 - **Order layouts**: `masterStack`, `columns` and `grid` take panes in order and an area (`{ gap, ratio }`), and give a
-  rect per pane. A drop inserts the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one
-  target per index (`at:<index>`), its slot the dragged pane's rect there and `layout` every pane's rect with it there.
-- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio? }`. `layoutSplit(tree, area, { gap })` lays it
-  out, the ratio clamped to 0..1 and no size below 0 however wide the gap; a split with no axis divides along the
-  longer side in halves, so `splitFromOrder(panes)` is dwindle (split along the longer
-  side). `splitPane`, `removePane` and `swapPanes` change it. A drop on a pane goes by the pane's drop region:
+  rect per pane. `masterStack` also takes `count` (how many panes are masters: rounded, within 1 to n, default 1) and
+  `side` (`"left"` by default, `"right"`, `"top"` or `"bottom"`). Left and right make the master area a column with its
+  panes stacked vertically; top and bottom make it a row with its panes side by side; right and bottom put the stack
+  first in space. The master area takes `ratio` of the room the gap leaves, clamped to 0.05..0.95 (not finite: 0.5).
+  With no stack (n at most `count`), all the panes fill the area, stacked along the side's cross axis. A drop inserts
+  the dragged pane at an index: `orderTargets(arrange, panes, dragged, area)` gives one target per index
+  (`at:<index>`), its slot the dragged pane's rect there and `layout` every pane's rect with it there.
+- **The split tree**: a `Split` is a pane or `{ a, b, axis?, ratio?, gap?, id?, master? }`. `layoutSplit(tree, area,
+  { gap, handle })` lays it out. A split's gutter is its gap (its own `gap`, else the layout's) plus the layout's
+  `handle`, and the middle of the gutter sits at the extent times the ratio: the first side is that less half the
+  gutter, the second starts half a gutter past it. The ratio is clamped to 0..1 (not finite: 0.5), and no size is
+  below 0 however wide the gutter. A split with no axis divides along the longer side in halves, so
+  `splitFromOrder(panes)` is dwindle (split along the longer side). `splitPane`, `removePane` and `swapPanes` change
+  it. `layoutSplitTree` is `layoutSplit` and, for each split with an `id`, its box, axis, ratio in effect and
+  `divider` (the gutter strip; null where a fixed length decided the split, or a master split has no stack).
+  A drop on a pane goes by the pane's drop region:
   `paneRegion(rect, point, previous)` is the center (34 % of each axis, at least 24 px) or one of four side trapezoids,
   and holds the previous region for 6 px past its boundary. `dropOnPane(tree, dragged, at, region)` swaps for the
   center and splits `at` on a side, writing that side's axis and ratio 0.5, so a side means the same on any pane.
   `paneTargets(layout, { except?, key? })` gives one target per pane, its id `pane:<key>` (`key` defaults to `String`;
   keys must be unique, since a drag intent follows targets by id). A drop on a pane that isn't in the tree, or on the
   dragged pane itself, changes nothing.
-- `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum.
+- **Floors, fixed lengths and master splits**, all options or fields the host fills per split (see Entry: tiling in
+  the design page for the table). `floor(child, axis, split)` gives `{ min, net? }`: the ratio is clamped so each side
+  keeps its minimum of the room less the gutter, within 0.05..0.95 unless a side says `net: false`, and is 0.5 where
+  the minimums cannot both fit. `fixed(child, axis)` gives `{ length, keep? }`: the first child that gives one takes
+  its length when it fits with the gutter, and the other side fills the rest; with `keep` on both, each keeps its own
+  length and the leftover stays empty (when they do not fit, the second runs past the end). `fixedAcross(child, axis)`
+  gives a length across the split, not checked against the cross extent. A negative or non-finite `gap` or `handle` is
+  0, and the area is taken as given, so pass one with no negative side. A repeated split `id` keeps the split laid out
+  last. Inside a master split a drop's side is one more slot next to `at` in the flat list. A split with
+  `master: { count?, side? }` lays its panes out flat through `masterStack` by its ratio and its gap; the splits under
+  it are not laid out. The callbacks are asked about the nodes of the tree being laid out, and `dropOnPane` copies the
+  split nodes it changes, so answer by pane key and by split `id`.
+- `canDropOnPane(tree, dragged, at, region, area, { ...layoutOptions, min })` says `{ ok, reason? }` whether a drop
+  leaves room. The center is fine unless `dragged` is `at`. A side needs, in the layout of the tree without `dragged`,
+  a span of `at` along the split of at least `2 * min` plus the gutter and across it of at least `min`; and in the
+  layout the drop makes, both panes at least `min` wide and high. It is exactly the two rules in turn, which a host
+  with its own projected layout (one that re-pins collapsed panes, say) asks itself:
+  `canSplitPane(target, side, { min, gap?, handle? })` is the room rule for the rect of the target (as the host
+  measures it with `dragged` lifted out): along the split (width for left and right, height for top and bottom) at
+  least `2 * min` plus the gutter (`gap` plus `handle`), across it at least `min`. `dropFits(projected, dragged, at,
+  area, { min, side })` is the fit rule for `projected`, a map of pane to rect for the layout the drop makes: both
+  panes are in it and at least `min` wide and high (fine, with nothing to measure, when `area` has no width or no
+  height; `side` only words the reason). Both give `{ ok, reason? }` with the reasons `canDropOnPane` gives, and a
+  `min`, `gap` or `handle` that is negative or not finite is 0.
+- `paneRegion(rect, point, previous, { paneCenter })` takes the pane's center rectangle as the host already has it
+  (a `PaneCenter`, pane-local px, what `paneCenter(size, options)` gives) and uses it in place of measuring, so
+  `center`, `centerX`, `centerY`, `centerMin` and `pixelRatio` are not read; hysteresis still applies. The same center
+  gives the same region. It is an option of the one function, not a second name: the point, the previous region and
+  the hysteresis are the same inputs either way.
+- `masterRatio(ratio)` and `masterCount(count, n)` are the clamps `masterStack` and a master split apply: the ratio
+  within 0.05..0.95 (0.5 when left out or not finite), the count rounded and within 1..n (1 when left out or NaN, and
+  never 0). A host that lays out its own master and stack calls them instead of repeating the numbers.
+- `Rect` is re-exported from `./tiling`: the root's type itself.
+- `neighbor(rects, from, direction)` gives the nearest pane that way, or null: a candidate's center must be strictly on
+  that side of the center of `from`; its score is the center distance along the direction plus a quarter of the one
+  across it, plus 100 when it does not overlap `from` across the direction; the lowest score wins, ties to the first in
+  the map's order. The host chooses the rects. One option: lay the tree out in a unit square with px floors. Every
+  split then goes to 0.5 (a floor of tens of px cannot fit) and fixed lengths along a split do not fit either, so the
+  choice follows the tree's shape and not its ratios. Fixed lengths across a split are not checked against the cross
+  extent and still apply there, so leave `fixedAcross` out of that layout.
+- `giveWay(panes, layout, min, age)` floats the newest pane while any pane is laid out below its minimum. It is the
+  other policy of the same minimum: a floor moves the ratio while both sides can keep theirs, `giveWay` floats a pane
+  when a minimum is still broken.
 
 Both kinds of target are the root `Target`, so a drag intent from `@n-uf/motion/drag` takes them as they are; for the
 split tree its `placeOf` is the pane's region:
@@ -455,4 +577,8 @@ the same shape as `@n-uf/motion`'s) and the geometry every entry shares: `rect`,
 
 The `Target` type (a drop target's shape, as `@n-uf/motion/drag` takes it) is exported here too, with its optional
 `hits` (every piece of a zone that isn't one rect; `hit` is the largest), and `pickRank` with `REFUSAL_RANK`: a refusal
-ranks after every priority 1 and 2 target and before priority 3; lower wins.
+ranks after every priority 1 and 2 target and before priority 3; lower wins. Beside `id`, `priority`, `hit`, `hits`,
+`slot`, `label` and `free`, a `Target` carries the fields the docking model sets as plain data: `refuse` (a refusal;
+`pickRank` reads it), `bounds` (the drawn space a zone belongs to), `arm: "dwell"` with `armedHit` (a spring-loaded
+target and its zone once armed), and `opensRoom` with `roomHold` (ms) and `roomHit` (a target whose room opens as it
+shows). This package reads none of them but `refuse`; `stackGaps` and the tiling targets set none.

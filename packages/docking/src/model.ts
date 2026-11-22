@@ -109,6 +109,17 @@ export interface DockItem {
    */
   readonly priority?: number;
   /**
+   * The length a person asked it to have along its edge, px, per axis: `column` for an item in a side column, `row` for
+   * one in a bar (default none; `StackLengths` in `@n-uf/placement/stack`). While it is in a form that grows, `solve`
+   * hands it to the edge's stack, which reads it in place of the form's natural: spare length goes in proportion to the
+   * asked lengths, a short edge interpolates toward the least. It is per axis, so an item moved to an edge of the other
+   * axis never reads it, and it travels with the item when it moves, closes and reopens. It is in ask units, not drawn
+   * px: with room to spare a drawn size is the ask times the shared scale, or its least when that is more (a 0 is no length). `resizeBetween` and `resetBetween` set it for
+   * the pair only; `resetLengths` clears it; `storeDockState` keeps it. A state that declares none lays
+   * out exactly as before.
+   */
+  readonly lengths?: { readonly column?: number; readonly row?: number };
+  /**
    * Its size as a float, per orient: `floatAt` with no rect uses the one for the orient it floats in, and a float drop or
    * a hand resize sets it for the orient the float is in, so a float turned to the other orient (`orientFloat`) takes that
    * orient's size and, turned back, its own again. Without one for an orient, a float takes its first form's natural size

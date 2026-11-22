@@ -1,0 +1,3 @@
+[
+  { "package": "docking", "kind": "contract", "case": "landing frame held name", "reason": "a landing frame's and a guide ref's held place is named held, not state (LandingFrame.held, DockGuideRef.held); the recorder reads either name and records every frame with held, so no frame, guide or layout changes" }
+]

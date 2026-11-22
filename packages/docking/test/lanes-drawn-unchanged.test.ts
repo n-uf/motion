@@ -1,19 +1,24 @@
 /**
- * The prediction of an empty lane's guide (its marks in its spot's after-entry layout) touches only the empty lanes. A
- * lane that already holds items (drawn as seen) keeps the marks it had, and with a spot held every lane but the empty
- * ones takes its marks in that spot's layout, as before; an empty lane keeps its prediction there, less the held lane's
- * marks. Pinned (`fixtures/lanes-drawn-marks.txt`) over the windows of the guide-continuity sweep.
+ * What a held frame draws, pinned (`fixtures/lanes-drawn-marks.txt`) over the windows of the guide-continuity sweep:
+ * the guides `guides(frame)` gives under "all" (every lane named with the frame's held place), as seen (at rest) for the
+ * lanes drawn there, and with each empty lane's one spot held for every lane. These are the marks a host draws: a lane
+ * the screen doesn't draw appears in the layout that creates it, and nothing that no host draws is pinned.
  */
 import { describe, expect, it } from "vitest";
 import type { Rect } from "@n-uf/placement";
-import { solve, type DockRegions } from "../src";
+import { solve, type DockDrag, type DockHeld } from "../src";
 import { dragOf, windows } from "./lift-windows";
 
 const r = (v: number): string => (Math.round(v * 100) / 100).toString();
 const fmt = (x: Rect): string => `${r(x.x)},${r(x.y)} ${r(x.width)}x${r(x.height)}`;
-const marksOf = (regions: DockRegions, keep: (id: string) => boolean): string[] => regions.lanes.filter((l) => keep(l.id)).flatMap((l) => l.marks.map((m) => `  ${l.id} ${m.id} ${m.kind} ${fmt(m.rect)}`));
+/** The guides a frame holding `held` draws under "all", of the lanes `keep` names. */
+const guidesOf = (drag: DockDrag, held: DockHeld | null, keep: (id: string) => boolean): string[] =>
+  drag
+    .guides({ held, room: held !== null, guides: drag.regions.lanes.map((l) => ({ lane: l.id, held })) })
+    .filter((g) => keep(g.lane))
+    .map((g) => `  ${g.lane} ${g.id} ${g.kind} ${fmt(g.rect)}`);
 
-describe("lanes that hold items keep their marks; a held spot's marks are unchanged", () => {
+describe("the guides a held frame draws, pinned", () => {
   it("as seen, every lane drawn; with each empty lane's spot held, every lane", async () => {
     const out: string[] = [];
     for (const w of windows()) {
@@ -22,9 +27,13 @@ describe("lanes that hold items keep their marks; a held spot's marks are unchan
       const seen = solve(w.state, { previous: d.options.previous! });
       const isEdge = (id: string): boolean => w.state.edges.some((e) => e.id === id);
       const drawn = (id: string): boolean => isEdge(id) && (seen.edges[id]?.cross ?? 0) > 1e-6;
-      out.push(`${w.name}: as seen`, ...marksOf(d.regions, drawn));
+      out.push(`${w.name}: as seen`, ...guidesOf(d.drag, null, drawn));
       for (const l of d.regions.lanes)
-        if (isEdge(l.id) && !drawn(l.id) && l.spots.length === 1) out.push(`${w.name}: ${l.spots[0]!.id} held`, ...marksOf(d.regionsFor(l.spots[0]!.id), () => true));
+        if (isEdge(l.id) && !drawn(l.id) && l.spots.length === 1) {
+          const sp = l.spots[0]!;
+          const held: DockHeld = { kind: "spot", spot: sp.id, point: { x: sp.landing.x + d.grab.x, y: sp.landing.y + d.grab.y } };
+          out.push(`${w.name}: ${sp.id} held`, ...guidesOf(d.drag, held, () => true));
+        }
     }
     expect(out.length).toBeGreaterThan(500);
     await expect(out.join("\n") + "\n").toMatchFileSnapshot("./fixtures/lanes-drawn-marks.txt");

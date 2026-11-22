@@ -109,6 +109,10 @@
       <tr><th scope="row">pane</th><td>One item of a tiling: panes divide an area between them, with no overlap and no hole. Not a "tile", which is a rail's icon form.</td><td><code>./tiling</code>, <code>PaneTarget.pane</code></td></tr>
       <tr><th scope="row">order layout</th><td>Panes laid out by their order alone: master and stack, columns, a grid. A drop on one inserts the dragged pane at an index.</td><td><code>masterStack</code>, <code>columns</code>, <code>grid</code>, <code>orderTargets</code></td></tr>
       <tr><th scope="row">split tree</th><td>How panes divide an area: each node is a pane, or a split of its rect in two along an axis at a ratio. With no axis it splits along the longer side: dwindle.</td><td><code>Split</code>, <code>layoutSplit</code>, <code>splitFromOrder</code></td></tr>
+      <tr><th scope="row">gutter, handle, divider</th><td>The room between a split's two sides: the gap plus the handle (the extra room a divider takes). The divider is the strip the gutter makes, as a rect.</td><td><code>TileOptions.handle</code>, <code>SplitGeometry.divider</code></td></tr>
+      <tr><th scope="row">floor</th><td>The least length a pane keeps along a split; the ratio moves to hold it where both floors fit.</td><td><code>SplitOptions.floor</code></td></tr>
+      <tr><th scope="row">fixed length</th><td>A length a pane keeps along or across a split whatever the ratio.</td><td><code>SplitOptions.fixed</code>, <code>SplitOptions.fixedAcross</code></td></tr>
+      <tr><th scope="row">master, stack</th><td>A layout of panes in two areas: the first few (the master) on one side, the rest (the stack) on the other.</td><td><code>masterStack</code>, <code>Split.master</code></td></tr>
       <tr><th scope="row">pane drop region</th><td>The part of a pane under the pointer during a drag: its center (a drop swaps with the pane) or one of its four sides (a drop splits the pane on that side). Not a "zone", which stays a toolbar area's third.</td><td><code>PaneRegion</code>, <code>paneRegion</code>, <code>dropOnPane</code></td></tr>
     </tbody>
   </table>

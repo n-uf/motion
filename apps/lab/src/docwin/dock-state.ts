@@ -24,7 +24,6 @@ import {
   guideRects,
   PLACE_GUIDES_DEFAULT,
   previewPlan,
-  SNAP_DISTANCE,
   type DragIntent,
   type DragKeys,
   type DragPreview,
@@ -37,11 +36,12 @@ import {
 import { anchoredMorph, type AnchoredMorph } from "@n-uf/motion/layout";
 import {
   closeItem,
+  dividers,
+  dockDrag,
   fitResize,
   type EmptyLanes,
   foldItem,
   heldRect,
-  lanes,
   markUsed,
   mergeSideColumns,
   openItem,
@@ -50,6 +50,9 @@ import {
   refusals as stateRefusals,
   stops as stateStops,
   railModeOf,
+  resetBetween,
+  resetLengths,
+  resizeBetween,
   resizeEdge as resizeEdgeOf,
   resizeFloat as resizeFloatOf,
   setRailMode as setRailModeOf,
@@ -65,7 +68,12 @@ import {
   type DockRefusal,
   type DockRefusalTarget,
   type DockDrop,
+  type DockDrag,
+  type DockGuide,
 } from "@n-uf/docking";
+
+/** A landing frame as the window draws it: the model's answer, its guides drawn by the drag. */
+export type DrawnLandingFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockGuide[] };
 
 /** What the drag intent picks among: the DockState's targets and its refusals (`refuse: true`, never held or shown). */
 type Pick = DockDrop | DockRefusalTarget;
@@ -201,8 +209,12 @@ interface Held {
   armedSaid: string | null;
   /** The float key won this frame: the item floats even over docked content. */
   keyFloats: boolean;
-  /** Under the landing model (`"landing"`): the model and the regions it reads (`lanes()`); else null. */
-  landing: { model: LandingModel; regions: DockRegions; regionsFor: (spot: string) => DockRegions } | null;
+  /** Under the landing model (`"landing"`): the model and the drag it reads (`dockDrag()`); else null. */
+  landing: { model: LandingModel; drag: DockDrag } | null;
+  /** Under the landing model: the layout the room is drawn from now (`shown` of the drawn frame), or null. */
+  roomLayout: DockLayout | null;
+  /** Under the landing model: the frame as the window draws it (the model's, with the room the window makes), or null. */
+  drawnFrame: (LandingFrame & { readonly room: boolean }) | null;
   /** The last frame's facts (`ProbeFrame`), or null before the first frame. */
   probed: ProbeFrame | null;
 }
@@ -320,8 +332,8 @@ export function createDocwin(o: DocwinOptions) {
    * default), where the hand holds it, snapped within `snapDistance`; `"pitched"`, a spot every `pitch` px.
    */
   let stretchPositions: "free" | "pitched" = "free";
-  /** Under `"free"`, how near a stretch's end or the item's own place a landing snaps there, px. */
-  let snapDistance = SNAP_DISTANCE;
+  /** Under `"free"`, how near a stretch's end or the item's own place a landing snaps there, px; unset, docking's default. */
+  let snapDistance: number | undefined;
   /**
    * The preview `previewPlan` reads: under the window's own rules a mode and the viewer's guides for it; under the
    * published rules, and for the libraries' glide, no guides.
@@ -342,6 +354,7 @@ export function createDocwin(o: DocwinOptions) {
     <div class="dw-edges"></div>
     <div class="dw-scroll" tabindex="0" aria-label="Pages"><div class="dw-sheets"></div></div>
     <div class="dw-items"></div>
+    <div class="dw-dividers"></div>
     <div class="dw-resize" data-resize="left" title="Drag to change the column's width"></div>
     <div class="dw-resize" data-resize="right" title="Drag to change the column's width"></div>
     <div class="dw-strips" aria-hidden="true"></div>
@@ -353,6 +366,7 @@ export function createDocwin(o: DocwinOptions) {
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
   const edgeLayer = q<HTMLDivElement>(".dw-edges");
   const layer = q<HTMLDivElement>(".dw-items");
+  const dividerLayer = q<HTMLDivElement>(".dw-dividers");
   const scroll = q<HTMLDivElement>(".dw-scroll");
   const sheets = q<HTMLDivElement>(".dw-sheets");
   const slot = q<HTMLDivElement>(".dw-slot");
@@ -532,7 +546,59 @@ export function createDocwin(o: DocwinOptions) {
       return m ? [`<button type="button" class="dw-menu" data-edge="${e}" title="${esc(m.items.map((id) => titleOf(id)).join(", "))}" style="left:${px(m.rect.x)};top:${px(m.rect.y)};width:${px(m.rect.width)};height:${px(m.rect.height)}">» ${m.items.length}</button>`] : [];
     });
     layer.innerHTML = docked.join("") + menus.join("") + floats.join("");
+    drawDividers(s, l);
   }
+
+  /** The grab zone over a divider, px across its line. */
+  const DIVIDER_HIT = 8;
+  /**
+   * The dividers between neighboring open panels (`dividers(state, layout)`), each a thin strip centered on the line the
+   * library gives, a grab zone over it. None while a drag holds an item (the layout drawn is then the room's).
+   */
+  function drawDividers(s: DockState, l: DockLayout): void {
+    const keep = new Set<string>();
+    for (const d of drag ? [] : dividers(s, l)) {
+      const key = JSON.stringify([d.before, d.after]);
+      keep.add(key);
+      let el = dividerEls.get(key);
+      if (!el) {
+        el = document.createElement("div");
+        el.className = "dw-divider";
+        el.setAttribute("data-divider", "");
+        el.setAttribute("role", "separator");
+        el.tabIndex = 0;
+        el.title = "Drag to trade length between the two panels; double-click for their natural split, Shift+double-click for the column's";
+        dividerEls.set(key, el);
+        dividerLayer.append(el);
+      }
+      const side = l.edges[d.edge]?.side;
+      const across = side === "left" || side === "right";
+      el.dataset.edge = d.edge;
+      el.dataset.before = d.before;
+      el.dataset.after = d.after;
+      el.dataset.across = String(across);
+      el.setAttribute("aria-orientation", across ? "horizontal" : "vertical");
+      place(
+        el,
+        across
+          ? { x: d.rect.x, y: d.rect.y + d.rect.height / 2 - DIVIDER_HIT / 2, width: d.rect.width, height: DIVIDER_HIT }
+          : { x: d.rect.x + d.rect.width / 2 - DIVIDER_HIT / 2, y: d.rect.y, width: DIVIDER_HIT, height: d.rect.height },
+      );
+      // The value is how long the panel before it is drawn; the limits are where the divider's `range` takes it.
+      const r = l.items[d.before]?.rect;
+      const now = r ? (across ? r.height : r.width) : 0;
+      el.setAttribute("aria-valuenow", String(Math.round(now)));
+      el.setAttribute("aria-valuemin", String(Math.round(now + d.range.min)));
+      el.setAttribute("aria-valuemax", String(Math.round(now + d.range.max)));
+    }
+    for (const [key, el] of dividerEls) {
+      if (keep.has(key)) continue;
+      el.remove();
+      dividerEls.delete(key);
+    }
+  }
+  /** The divider elements by pair, kept between draws: a redraw updates one in place and never replaces a node. */
+  const dividerEls = new Map<string, HTMLElement>();
 
   // --- committing ------------------------------------------------------------------------------------------------
 
@@ -568,10 +634,11 @@ export function createDocwin(o: DocwinOptions) {
       // Under the landing model its regions again (spots map by id, the new state answers for a held spot), and the
       // targets from them: one generation; under the published rules, the targets again.
       if (drag.landing) {
-        const next = regionsOf(drag.id, drag.grab);
-        drag.landing.regions = next.regions;
-        drag.landing.regionsFor = next.regionsFor;
-        drag.landing.model.setRegions(next.regions, next.regionsFor);
+        // The new state's geometry, handed over whole: one drag, one previous (the layout committed now).
+        const next = dragOf(drag.id, drag.grab);
+        drag.landing.drag = next;
+        drag.landing.model.setGeometry(next);
+        drag.roomLayout = null;
         drag.targets = targetsFrom(next.regions);
       } else drag.targets = targetsOf(drag.id);
     }
@@ -648,7 +715,7 @@ export function createDocwin(o: DocwinOptions) {
   };
   const reachOf = (): { previous: DockLayout; endReach: number; floatFromHeld: boolean } => ({ previous: layout, endReach: rowRules?.endReach ?? END_REACH, floatFromHeld: approved() });
   /** The settings a drag's `lanes()` / `targets()` calls run with now (what the Code view writes out). */
-  const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance });
+  const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
   const targetsOf = (id: ItemId): DockDrop[] => stateTargets(ruled(), id, reachOf());
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
@@ -658,15 +725,13 @@ export function createDocwin(o: DocwinOptions) {
     return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
   };
   /**
-   * The landing model's regions of a drag of `id` (`lanes()` over the window's own rules, the layout as drawn) and its
-   * `regionsFor`: one ruled state per call, so `lanes()` remembers its work for every spot of the drag. With the
+   * The drag of `id` (`dockDrag()` over the window's own rules, the layout committed now as its one `previous`): its
+   * regions for hit-testing and the one layout of each held place, which the window draws and a release commits. With the
    * press's `grab`, so a toolbar brought back to where it was pressed lands on its own place, and the viewer's stretch
    * positions (free: a sliding spot per free stretch; pitched: spots at the pitch).
    */
-  function regionsOf(id: ItemId, grab: Point): { regions: DockRegions; regionsFor: (spot: string) => DockRegions } {
-    const s = ruled();
-    const o = { ...reachOf(), grab, emptyLanes, pitch, stretchPositions, snapDistance };
-    return { regions: lanes(s, id, o), regionsFor: (spot) => lanes(s, id, { ...o, spot }) };
+  function dragOf(id: ItemId, grab: Point): DockDrag {
+    return dockDrag(ruled(), id, { ...reachOf(), grab, emptyLanes, pitch, stretchPositions, snapDistance });
   }
   /** The drag's targets from its lanes (one generation): every spot's drop, once by id, and the float. */
   function targetsFrom(regions: DockRegions): DockDrop[] {
@@ -677,30 +742,11 @@ export function createDocwin(o: DocwinOptions) {
   }
   /** A landing model for a drag of `id` grabbed at `grab`, starting at the item's own place. */
   function landingFor(id: ItemId, grab: Point): NonNullable<Held["landing"]> {
-    const { regions, regionsFor } = regionsOf(id, grab);
-    const home = regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
-    // The float lands from the regions now (a resize replaces them).
-    let now = regions;
-    const model = createLandingModel({
-      regions,
-      regionsFor,
-      floatLanding: (p) => now.float?.after(p, grab).layout.items[id]?.rect ?? null,
-      ...(home ? { home } : {}),
-      // Over a sliding spot the landing starts at the pointer less the grab, as the spot's `after(point, grab)` commits.
-      grab,
-      placeGuides: guideLevel(),
-    });
-    const out = {
-      model,
-      get regions(): DockRegions {
-        return now;
-      },
-      set regions(r: DockRegions) {
-        now = r;
-      },
-      regionsFor,
-    };
-    return out;
+    const drag = dragOf(id, grab);
+    const home = drag.regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
+    // The drag is the model's geometry as it is: its regions, `landingOf`, `spotsOf`.
+    const model = createLandingModel({ ...drag, ...(home ? { home } : {}), placeGuides: guideLevel() });
+    return { model, drag };
   }
 
   /**
@@ -777,59 +823,13 @@ export function createDocwin(o: DocwinOptions) {
     }
   }
 
-  /** `r` less `cuts` along `axis`: the pieces left, each at least `min` long. */
-  function cutAlong(r: Rect, cuts: readonly Rect[], axis: "x" | "y", min: number): Rect[] {
-    let pieces: [number, number][] = [axis === "x" ? [r.x, r.x + r.width] : [r.y, r.y + r.height]];
-    for (const c of cuts) {
-      const crossing = axis === "x" ? c.y < r.y + r.height && r.y < c.y + c.height : c.x < r.x + r.width && r.x < c.x + c.width;
-      if (!crossing) continue;
-      const [a, b] = axis === "x" ? [c.x, c.x + c.width] : [c.y, c.y + c.height];
-      pieces = pieces.flatMap(([p, q]): [number, number][] => [[p, Math.min(q, a)], [Math.max(p, b), q]]).filter(([p, q]) => q - p >= min);
-    }
-    return pieces.map(([p, q]) => (axis === "x" ? { ...r, x: p, width: q - p } : { ...r, y: p, height: q - p }));
-  }
-
   /**
-   * The guides to draw this frame, from the drawn layout: the model's lanes (held, approached or behind a refusal), their
-   * marks from the layout drawn now (the held spot's, its room open, else the window as committed), as drawn: a line
-   * 2 px across the lane, a box inset 2 px. None under the held item, its landing or a docked item, and 2 px clear of
-   * the held item's outline: a line there goes, a box is cut back to what is left (if a piece is still half the item).
+   * The guides to draw this frame: the drag's (`guides(frame)`: each lane's marks in the layout of the held place it names,
+   * which already leave out every item drawn there and the landing), with only the host's cosmetics added: inside the
+   * window, a box inset 2 px, a line 2 px across the lane, the thin kinds kept clear of the panels' content.
    */
-  function guidesNow(d: Held, L: NonNullable<Held["landing"]>, lanesShown: readonly string[], room: boolean, spot: string | null): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
-    if (lanesShown.length === 0) return [];
-    const source = room && spot ? L.regionsFor(spot) : L.regions;
-    const drawnLayout = room && d.room ? d.room.after(d.pointer, d.grab).layout : layout;
-    const grow = (r: Rect, by: number): Rect => ({ x: r.x - by, y: r.y - by, width: r.width + 2 * by, height: r.height + 2 * by });
-    // 2 px clear of the held item's accent outline, which lies 1 px outside its rect (`.dw-held[data-placed]`).
-    const held: Rect[] = [grow(d.drawn.value, 3)];
-    if (d.preview) held.push(grow(d.preview, 2));
-    // A growing item on a bar or a toolbar rail (the title filling its bar) at its natural length: past it is free
-    // stretch, marked like one. (A panel filling its column is drawn there.)
-    const natural = (id: string, r: Rect): Rect => {
-      const e = state.edges.find((x) => x.id === drawnLayout.items[id]?.edge);
-      if (!e || !(e.side === "top" || e.side === "bottom" || e.compact)) return r;
-      const row = r.width >= r.height;
-      const main = state.items[id]?.forms[row ? "row" : "column"]?.[0]?.main;
-      if (!main?.grows || main.natural >= (row ? r.width : r.height)) return r;
-      return row ? { ...r, width: main.natural } : { ...r, height: main.natural };
-    };
-    const docked = Object.entries(drawnLayout.items).filter(([id, it]) => id !== d.id && !it.floating && !it.inMenu && it.rect.width > 0).map(([id, it]) => natural(id, it.rect));
-    // Of those, the ones in a bar or a toolbar rail: they stay where they are when an empty lane opens (a column's panels
-    // move aside).
-    const staying = Object.entries(drawnLayout.items)
-      .filter(([id, it]) => {
-        const e = state.edges.find((x) => x.id === it.edge);
-        return id !== d.id && !it.floating && !it.inMenu && it.rect.width > 0 && !!e && (e.side === "top" || e.side === "bottom" || !!e.compact);
-      })
-      .map(([id, it]) => natural(id, it.rect));
-    // Floats are drawn items too: no guide over one either.
-    const floated = Object.entries(drawnLayout.items).filter(([id, it]) => id !== d.id && it.floating && it.rect.width > 0).map(([, it]) => it.rect);
-    // A line on the joint of two items that touch shares 1 px with each: that is no line over them.
-    // The 2 px clearance holds in the held item's own lane; in another lane (a bar beside it) a guide gives way only
-    // where the held copy lies over it, so the clearance never cuts the next lane's guide.
-    const heldLane = spot ? (source.lanes.find((l) => l.spots.some((s) => s.id === spot))?.id ?? null) : null;
-    const heldBare: Rect[] = [d.drawn.value, ...(d.preview ? [d.preview] : [])];
-    const hits = (a: Rect, b: Rect): boolean => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  function guidesNow(drawn: readonly DockGuide[], held: Held | null = null, heldLane: string | null = null): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
+    if (drawn.length === 0) return [];
     // 2 px clear of the window's edges and corners, measured from the window's inside (its 1 px border takes the
     // stage's last px each side), and a thin strip clear of the panels' content (`guideRects`, below).
     const stage = state.stage;
@@ -847,58 +847,21 @@ export function createDocwin(o: DocwinOptions) {
       const h = r.height - t - (parseFloat(cs.paddingBottom) || 0);
       return w > 0 && h > 0 ? [{ x: r.left - origin.left + l, y: r.top - origin.top + t, width: w, height: h }] : [];
     });
-    const all: { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] = [];
-    const out = { push: (g: { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }): void => void all.push(g) };
-    for (const lane of source.lanes) {
-      if (!lanesShown.includes(lane.id)) continue;
-      const near = lane.id === heldLane ? held : heldBare;
-      const clearOfLines = [...near, ...docked.map((r) => grow(r, -1)), ...floated];
-      // An empty lane at its real size lies over what moves aside (the page, a column's panels): its box is cut only by
-      // what stays (toolbars in bars and rails), the held item and floats.
-      const emptyLane = !state.edges.some((e) => e.id === lane.id) || (drawnLayout.edges[lane.id]?.cross ?? 0) <= 0;
-      const clear = emptyLane && emptyLanes === "real" ? [...near, ...staying, ...floated] : [...near, ...docked, ...floated];
-      const along = (r: Rect): number => (lane.axis === "x" ? r.width : r.height);
-      for (const m of lane.marks) {
-        if (m.kind === "line") {
-          // A joint is as thin as the gap it lies in, zero between panels with none: `guideRects` draws it 2 px, centered.
-          if (!clearOfLines.some((c) => hits(m.rect, c))) out.push({ id: m.id, r: m.rect, kind: "line", lane: lane.id });
-          continue;
-        }
-        if (m.kind === "hatch") {
-          const end = /:(before|after)$/.test(m.id);
-          let r: Rect;
-          if (end) {
-            // A striped end inside its box: inset as the box is (2 px), so it sits inside the dashed outline.
-            const box = lane.marks.find((b) => b.kind === "box" && (lane.axis === "x" ? b.rect.x <= m.rect.x + 0.5 && b.rect.x + b.rect.width >= m.rect.x + m.rect.width - 0.5 : b.rect.y <= m.rect.y + 0.5 && b.rect.y + b.rect.height >= m.rect.y + m.rect.height - 0.5));
-            const lo0 = box ? (lane.axis === "x" ? box.rect.x : box.rect.y) + 2 : -Infinity;
-            const hi0 = box ? (lane.axis === "x" ? box.rect.x + box.rect.width : box.rect.y + box.rect.height) - 2 : Infinity;
-            const a0 = Math.max(lane.axis === "x" ? m.rect.x : m.rect.y, lo0);
-            const a1 = Math.min(lane.axis === "x" ? m.rect.x + m.rect.width : m.rect.y + m.rect.height, hi0);
-            if (a1 - a0 < 2) continue;
-            r = lane.axis === "x" ? { x: a0, y: m.rect.y + 2, width: a1 - a0, height: m.rect.height - 4 } : { x: m.rect.x + 2, y: a0, width: m.rect.width - 4, height: a1 - a0 };
-          } else {
-            // A thin striped column edge (an empty lane's band over items that move aside): as thick as given, inset 2 px
-            // along.
-            r = lane.axis === "x" ? { ...m.rect, x: m.rect.x + 2, width: m.rect.width - 4 } : { ...m.rect, y: m.rect.y + 2, height: m.rect.height - 4 };
-          }
-          // Never under the held item, its landing or a float.
-          cutAlong(r, [...near, ...floated], lane.axis, 2).forEach((p, i) => out.push({ id: i ? `${m.id}~cut${i}` : m.id, r: p, kind: "hatch", lane: lane.id }));
-          continue;
-        }
-        const inset = { x: m.rect.x + 2, y: m.rect.y + 2, width: m.rect.width - 4, height: m.rect.height - 4 };
-        // A piece left is still a box from half the item, or from a pitch less the inset and the clearance (the room
-        // beside the held item is a place from a pitch), whichever is less.
-        const piece = Math.max(8, Math.min(along(d.drawn.value) / 2, along(inset) / 2, SPOT_PITCH - 5));
-        cutAlong(inset, clear, lane.axis, piece).forEach((r, i) => out.push({ id: i ? `${m.id}~cut${i}` : m.id, r, kind: "box", lane: lane.id }));
-      }
-    }
     // Inside the window: boxes clipped, thin guides moved in whole and kept clear of the panels' content (a boundary a
     // thin edge may run flush against: `clearance: 0`, for the thin kinds only). A box keeps no clear of it: an empty
     // lane's real-size box lies over the content it moves aside.
-    return guideRects(
-      all.map((g) => ({ ...g, rect: g.r })),
-      { inside, inset: 2, clear: content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] as const })) },
-    ).map(({ rect, ...g }) => ({ ...g, r: rect }));
+    // The held copy's accent outline (1 px outside its rect, `.dw-held[data-placed]`) is this host's chrome: a guide keeps
+    // 2 px clear of it in the held lane, and gives way only where the copy lies over it elsewhere. A cosmetic clear: the
+    // drag's marks already leave out every item and the landing.
+    const textClear = content.map((rect) => ({ rect, clearance: 0, kinds: ["line", "hatch"] as const }));
+    const copy = held ? [{ rect: held.drawn.value, clearance: heldLane ? 3 : 0 }, ...(held.preview ? [{ rect: held.preview, clearance: 2 }] : [])] : [];
+    const place = (gs: readonly DockGuide[], clear: readonly { rect: Rect; clearance: number }[]) =>
+      guideRects(
+        gs.map((g) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })),
+        { inside, inset: 2, clear: [...textClear, ...clear] },
+      ).map(({ rect, ...g }) => ({ ...g, r: rect }));
+    const bare = copy.map((c) => ({ ...c, clearance: 0 }));
+    return [...place(drawn.filter((g) => g.lane === heldLane), copy), ...place(drawn.filter((g) => g.lane !== heldLane), bare)];
   }
 
   /** At rest, with `always`: the strips a docked panel's drag would offer, one per side. */
@@ -1054,7 +1017,7 @@ export function createDocwin(o: DocwinOptions) {
     const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
     // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
     const landing0 = approved() ? landingFor(id, grab) : null;
-    const targets = landing0 ? targetsFrom(landing0.regions) : targetsOf(id);
+    const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id);
     // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
     const el = document.createElement("div");
     el.className = `dw-held dw-morph dw-${was.kind}`;
@@ -1073,7 +1036,7 @@ export function createDocwin(o: DocwinOptions) {
     // Home is the item's own rect. A side rail's drop strip may overlap it (an item alone in its column reaches the rail
     // at its window edge): the drag intent arms a spring-loaded strip by dwell even over home.
     const home: Rect = docked ? was.rect : { x: start.x, y: start.y, width: 0, height: 0 };
-    const refused0 = landing0 ? landing0.regions.refusals : refusalsOf(id);
+    const refused0 = landing0 ? landing0.drag.regions.refusals : refusalsOf(id);
     drag = {
       id,
       kind: was.kind,
@@ -1113,6 +1076,8 @@ export function createDocwin(o: DocwinOptions) {
       armedSaid: null,
       keyFloats: false,
       landing: landing0,
+      roomLayout: null,
+      drawnFrame: null,
       probed: null,
     };
     liftKeys = {};
@@ -1203,6 +1168,8 @@ export function createDocwin(o: DocwinOptions) {
     readonly refused: DockRefusal | null;
     readonly cantGo: string | null;
     readonly outline: { readonly target: DockDrop; readonly rect: Rect | null } | null;
+    /** Under the landing model: the layout the room is drawn from (`shown` of the drawn frame), else absent. */
+    readonly roomLayout?: DockLayout | null;
     /** The place guides, worked out last (from the item, its room and its landing as drawn this frame). */
     readonly guides: () => readonly { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane?: string }[];
   }
@@ -1226,7 +1193,7 @@ export function createDocwin(o: DocwinOptions) {
     followForm(d, k.over, onlyItem);
     drawHeld(d, now, k.sits, d.intent.state.speed, onlyItem ? k.free : null);
     d.el.toggleAttribute("data-placed", k.placed);
-    drawRoom(d, k.room, k.homing);
+    drawRoom(d, k.room, k.homing, k.roomLayout ?? null);
     d.shown = k.shown;
     d.refused = k.refused;
     sayCantGo(k.refused?.id ?? k.cantGo, d.pointer);
@@ -1335,27 +1302,31 @@ export function createDocwin(o: DocwinOptions) {
    * with the held item's place left empty and nothing else moving (a release there commits nothing). Drawn again only
    * when the room or the homing changes.
    */
-  function drawRoom(d: Held, room: DockDrop | null, homing: boolean): void {
-    if (room?.id === d.room?.id && homing === d.homing) return;
+  function drawRoom(d: Held, room: DockDrop | null, homing: boolean, roomLayout: DockLayout | null = null): void {
+    // Under the landing model the room is the layout the drag says the frame draws (`shown`), drawn again whenever it changes.
+    if (room?.id === d.room?.id && homing === d.homing && roomLayout === d.roomLayout) return;
     d.room = room;
     d.homing = homing;
+    d.roomLayout = roomLayout;
     if (room) {
-      const after = room.after(d.pointer, d.grab);
-      draw(after.state, after.layout, d.id);
+      if (roomLayout) draw(state, roomLayout, d.id);
+      else {
+        const after = room.after(d.pointer, d.grab);
+        draw(after.state, after.layout, d.id);
+      }
     } else draw(state, layout, d.id);
   }
 
-  /** A spot of the drag's lanes by id: in the regions as seen, else in that spot's own. */
+  /** A spot of the drag's lanes by id (hit-testing data, as seen). */
   function spotOf(L: NonNullable<Held["landing"]>, id: string): DockRegions["lanes"][number]["spots"][number] | null {
-    for (const l of L.regions.lanes) for (const s of l.spots) if (s.id === id) return s;
-    for (const l of L.regionsFor(id).lanes) for (const s of l.spots) if (s.id === id) return s;
+    for (const l of L.drag.regions.lanes) for (const s of l.spots) if (s.id === id) return s;
     return null;
   }
 
   /** The target a landing frame or release lands on: the held spot's drop, the float, or none. */
   function landingTarget(L: NonNullable<Held["landing"]>, region: string, spot: string | null): DockDrop | null {
     if (region === "lane" && spot) return spotOf(L, spot)?.target ?? null;
-    if (region === "open") return L.regions.float;
+    if (region === "open") return L.drag.regions.float;
     return null;
   }
 
@@ -1371,9 +1342,12 @@ export function createDocwin(o: DocwinOptions) {
     const mf = L.model.update(d.pointer, now, d.keys);
     const spot = mf.region === "lane" && mf.spot ? spotOf(L, mf.spot) : null;
     const target = landingTarget(L, mf.region, mf.spot);
-    // A sliding spot lands where the frame says (the hand, snapped), and is home only at the item's own place.
-    const spotLanding = spot?.slide ? mf.landing : (spot?.landing ?? null);
-    const homing = !!spot?.home && (!spot.slide || (!!spotLanding && Math.round(spotLanding.x) === Math.round(spot.landing.x) && Math.round(spotLanding.y) === Math.round(spot.landing.y)));
+    // Every spot lands where the frame says (`landingOf` its held place: a sliding one at the hand), and is home where the
+    // model's release says so (the item's own spot, landing where it lies). (At the frame's own point a release
+    // samples nothing: it reads the frame.)
+    const spotLanding = spot ? mf.landing : null;
+    const rel = spot ? L.model.release(d.pointer, now, d.keys) : null;
+    const homing = !!rel && rel.kind === "spot" && rel.home;
     const shown = target && !homing ? target : null;
     const plan = previewPlan({ shown, room: mf.room && !homing }, previewOf());
     const onlyItem = dropPreview === "item";
@@ -1381,8 +1355,13 @@ export function createDocwin(o: DocwinOptions) {
     drawStrips([], null, null);
     const docking = docks(shown);
     const snapTo = plan.snapItem && docking ? shown : null;
+    const floats = mf.region === "open" ? L.drag.regions.float : null;
+    // The room the window draws: a docked state's one layout. (Over the document, the one-preview model keeps the window
+    // as committed until the release.)
     const room = plan.makeRoom && docking ? shown : null;
-    const floats = mf.region === "open" ? L.regions.float : null;
+    // The frame as the window draws it: the room open where the window makes one (not for a float, nor in Outline).
+    const drawn = { ...mf, room: room !== null };
+    d.drawnFrame = drawn;
     const floatAt = floats ? mf.landing : null;
     const sits = snapTo && spot ? spotLanding : onlyItem && homing ? (layout.items[d.id]?.rect ?? null) : null;
     // A refused place: the refusal under the pointer, if any, else nothing lands there; past the window, nothing lands.
@@ -1409,8 +1388,10 @@ export function createDocwin(o: DocwinOptions) {
       // Never inside a lane not yet entered (`pending`: an empty rail's strip before its slow step): that is no refused place.
       cantGo: nothing && !passing && !mf.pending ? NOTHING_LANDS : null,
       outline,
-      // Worked out once the held item, its room and its landing are drawn this frame (`guidesNow` reads them).
-      guides: () => guidesNow(d, L, [...new Set(mf.guides.map((g) => g.lane))], !!room, mf.spot),
+      // The room, when the window makes one: the layout the drag says the frame draws (else the window stays as committed).
+      roomLayout: room ? L.drag.shown(drawn) : null,
+      // Each lane's marks in the layout the frame draws (`shown(drawn)`), with the host's cosmetics.
+      guides: () => guidesNow(L.drag.guides(drawn), d, mf.lane),
     };
   }
 
@@ -1450,18 +1431,20 @@ export function createDocwin(o: DocwinOptions) {
     // A release over a refusal commits nothing: the item goes home.
     const refused = cancel ? null : d.refused;
     const r = d.landing && !cancel ? d.landing.model.release(d.pointer, now, d.keys) : null;
+    const slid = !!r && r.kind === "spot" && !!d.landing && !!spotOf(d.landing, r.spot)?.slide;
+    // Under the landing model the release commits its held place's one layout (`after`): what the frame drew.
+    const landedAfter = !cancel && !refused && d.landing && r ? d.landing.drag.after(r) : null;
     const t =
       cancel || refused
         ? null
         : d.landing
           ? r?.kind === "spot"
-            ? // On a sliding spot at the item's own place nothing changes; elsewhere on it, `after(pointer, grab)` below
-              // commits where the hand holds it.
-              r.home && r.at !== undefined
+            ? // On a sliding spot at the item's own place nothing changes.
+              r.home && slid
               ? null
               : landingTarget(d.landing, "lane", r.spot)
             : r?.kind === "float"
-              ? d.landing.regions.float
+              ? d.landing.drag.regions.float
               : null
           : (d.intent.release(d.pointer, now, [...d.targets, ...d.refusalTargets], d.keys) as DockDrop | null);
     drag = null;
@@ -1476,7 +1459,7 @@ export function createDocwin(o: DocwinOptions) {
     let preview = d.preview;
     const go = commits(t);
     if (go) {
-      const after = t!.after(d.pointer, d.grab);
+      const after = landedAfter ?? t!.after(d.pointer, d.grab);
       if (!preview) preview = after.layout.items[id]?.rect ?? null;
       commit(after.state);
     } else draw(state, layout);
@@ -1490,12 +1473,13 @@ export function createDocwin(o: DocwinOptions) {
       grab: { ...d.grab },
       lane: onSpot?.lane ?? null,
       spot: onSpot?.spot ?? null,
-      slides: !!onSpot && !!d.landing && !!spotOf(d.landing, onSpot.spot)?.slide,
-      at: onSpot?.at ?? null,
+      slides: slid,
+      // On a sliding spot, where the committed landing starts along its lane.
+      at: slid && landedAfter?.landing ? (d.landing!.drag.regions.lanes.find((l) => l.id === onSpot!.lane)?.axis === "y" ? landedAfter.landing.y : landedAfter.landing.x) : null,
       target: t?.id ?? null,
       placeOf: t?.place ?? null,
       refusal: refused?.id ?? null,
-      home: !cancel && !refused && (d.homing || t?.place.kind === "home" || (!!onSpot && onSpot.home && onSpot.at !== undefined)),
+      home: !cancel && !refused && (d.homing || t?.place.kind === "home" || (!!onSpot && onSpot.home && slid)),
     };
     lastDrop = { id, target: t?.id ?? refused?.id ?? null, place: t?.place.kind ?? null, preview: go ? preview : t?.place.kind === "home" || d.homing ? d.preview : null, landed, committed: go, cancelled: cancel, call };
     if (go && preview && landed && !sameRect(preview, landed)) say(`${titleOf(id)} ${outcomeOf(t!)}, but not where it was shown.`);
@@ -1518,6 +1502,8 @@ export function createDocwin(o: DocwinOptions) {
   win.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || drag) return;
     const t = e.target as HTMLElement;
+    const dv = t.closest<HTMLElement>("[data-divider]");
+    if (dv) return resizeDivider(e, dv);
     const rz = t.closest<HTMLElement>("[data-resize]");
     if (rz) return resizeEdge(e, rz.dataset.resize as "left" | "right");
     const fh = t.closest<HTMLElement>("[data-fh]");
@@ -1554,10 +1540,11 @@ export function createDocwin(o: DocwinOptions) {
       keys: setKeys,
       ended: (how) => {
         if (how === "doubleActivate") {
-          // A double-click on a grip folds it, or unfolds it; frozen without Alt it does nothing (it isn't a click either).
+          // A double-click on a grip folds it, or unfolds it, frozen or not: a fold is the person's own press, like
+          // minimising, and frozen only stops things moving (it isn't a click either).
           swallowClick();
           // On a rail item the first click has unfolded it already (a click opens it): the double only makes sure.
-          if (!frozen() && (!t.closest("[data-open]") || (state.items[id]?.from ?? 0) >= 1)) toggleFold(id);
+          if (!t.closest("[data-open]") || (state.items[id]?.from ?? 0) >= 1) toggleFold(id);
         } else if (t.closest("[data-open]")) open(id);
         // A press that never lifted is a click: a rail icon opens its panel, a header press is a use.
         else if (t.closest(".dw-head")) press(id);
@@ -1799,6 +1786,58 @@ export function createDocwin(o: DocwinOptions) {
     e.preventDefault();
     const r = (e.target as Element).getBoundingClientRect();
     openRailMenu(side, { x: r.left, y: r.top, width: r.width, height: r.height }, true);
+  });
+
+  /**
+   * A divider, the canonical wiring (what a kit mirrors). A drag: each frame is the state at the press moved by the pointer's
+   * distance from the press, `resizeBetween(pressState, before, after, delta, { layout: pressLayout })`, committed. Double-click:
+   * `resetBetween` (Shift: `resetLengths` of its edge). Arrow keys: a step (Shift: more), Home and End: the divider's `range`
+   * (`dividers(state, layout)`). A change that leaves the state as it is commits nothing, and a redraw updates the divider's
+   * element in place (never replaces it), so a jitter between the clicks of a double-click keeps its target and the focus
+   * stays. The drag holds the pointer (`setPointerCapture`) and ends on `pointerup`, `pointercancel` or
+   * `lostpointercapture`, whichever comes first.
+   */
+  function resizeDivider(e: PointerEvent, el: HTMLElement): void {
+    const { before, after } = el.dataset;
+    if (frozen() || !before || !after) return;
+    e.preventDefault();
+    const along = (p: { clientX: number; clientY: number }): number => (el.dataset.across === "true" ? p.clientY : p.clientX);
+    const press = { state, layout, at: along(e) };
+    const mv = (ev: PointerEvent): void => change(resizeBetween(press.state, before, after, along(ev) - press.at, { layout: press.layout }));
+    const ends = ["pointerup", "pointercancel", "lostpointercapture"] as const;
+    const end = (): void => {
+      el.removeEventListener("pointermove", mv);
+      for (const t of ends) el.removeEventListener(t, end);
+      if (el.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
+    };
+    el.addEventListener("pointermove", mv);
+    for (const t of ends) el.addEventListener(t, end);
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch {
+      // A pointer that isn't active (a synthetic event): the events are dispatched at the divider all the same.
+    }
+  }
+  /** Commit `next` unless it is the state as it is: nothing changed, nothing redrawn. */
+  function change(next: DockState): void {
+    if (next !== state) commit(next);
+  }
+  win.addEventListener("dblclick", (e) => {
+    const dv = (e.target as HTMLElement).closest<HTMLElement>("[data-divider]");
+    if (!dv || frozen()) return;
+    change(e.shiftKey ? resetLengths(state, dv.dataset.edge!) : resetBetween(state, dv.dataset.before!, dv.dataset.after!, { layout }));
+  });
+  win.addEventListener("keydown", (e) => {
+    const dv = (e.target as HTMLElement | null)?.closest<HTMLElement>("[data-divider]");
+    if (!dv || frozen()) return;
+    const { before, after } = dv.dataset;
+    const d = dividers(state, layout).find((x) => x.before === before && x.after === after);
+    const [less, more] = dv.dataset.across === "true" ? ["ArrowUp", "ArrowDown"] : ["ArrowLeft", "ArrowRight"];
+    const step = e.shiftKey ? 48 : 16;
+    const delta = !d ? null : e.key === less ? -step : e.key === more ? step : e.key === "Home" ? d.range.min : e.key === "End" ? d.range.max : null;
+    if (delta === null) return;
+    e.preventDefault();
+    change(resizeBetween(state, before!, after!, delta, { layout }));
   });
 
   /** The column's resize edge: a plain pointer drag that sets the user's size across (`resizeEdge`). */
@@ -2045,9 +2084,17 @@ export function createDocwin(o: DocwinOptions) {
     keyFrame(note: string): void {
       keyFrames?.(note);
     },
-    /** The landing model's frame now (under `"landing"`, during a drag), or null. */
-    get landingFrame(): LandingFrame | null {
-      return drag?.landing?.model.frame ?? null;
+    /** The landing model's own frame now (its guides naming lanes and states), and the drag it reads, or null. */
+    get landingModel(): { readonly id: ItemId; readonly pointer: Point; readonly frame: LandingFrame; readonly drag: DockDrag; readonly previous: DockLayout } | null {
+      const d = drag;
+      const L = d?.landing;
+      return d && L ? { id: d.id, pointer: d.pointer, frame: d.drawnFrame ?? L.model.frame, drag: L.drag, previous: layout } : null;
+    },
+    /** The landing model's frame now (under `"landing"`, during a drag), its guides drawn by the drag, or null. */
+    get landingFrame(): DrawnLandingFrame | null {
+      const L = drag?.landing;
+      const f = drag?.drawnFrame ?? L?.model.frame;
+      return L && f ? { ...f, guides: L.drag.guides(f) } : null;
     },
     get shown(): DockDrop | null {
       return drag?.shown ?? null;
@@ -2184,12 +2231,12 @@ export function createDocwin(o: DocwinOptions) {
     setStretchPositions(v: "free" | "pitched"): void {
       stretchPositions = v === "pitched" ? "pitched" : "free";
     },
-    /** Under `"free"`, the snap distance, px (`SNAP_DISTANCE` by default). */
-    get snapDistance(): number {
+    /** Under `"free"`, the snap distance, px, or undefined: docking's default. */
+    get snapDistance(): number | undefined {
       return snapDistance;
     },
-    setSnapDistance(v: number): void {
-      snapDistance = Number.isFinite(v) ? Math.min(40, Math.max(0, Math.round(v))) : SNAP_DISTANCE;
+    setSnapDistance(v: number | undefined): void {
+      snapDistance = v !== undefined && Number.isFinite(v) ? Math.min(40, Math.max(0, Math.round(v))) : undefined;
     },
     /** Where things land (`Behavior`): the window's own rules (the default) or, for a case, the published ones. */
     get behavior(): Behavior {
