@@ -30,7 +30,7 @@ import type { Point, Rect } from "@n-uf/placement";
 import { dockDrag, readDockState, refusals, refusalTargets, solve, storeDockState, targets, type DockAfter, type DockDrag, type DockLayout, type DockRegions, type DockState } from "../src";
 import { marksLess } from "../src/lanes";
 import { referencePick } from "../src/testing/host";
-import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
+import { guided, modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { sweepWindows, type SweepWindow } from "./one-layout-windows";
 import { railTrayWindow, railWindow } from "./rail-windows";
 
@@ -101,7 +101,7 @@ interface Drawn {
 
 /** The frames of a drag along `legs` (each a point and the speed to it, px/ms), a frame every 8 ms, then a rest. */
 function play(d: Drag, mode: Mode, legs: readonly (readonly [Point, number])[], rest = 200): Drawn[] {
-  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
+  const model = modelOver(d.drag, { preview: guided(mode) });
   const out: Drawn[] = [];
   let t = 0;
   let at = d.press;

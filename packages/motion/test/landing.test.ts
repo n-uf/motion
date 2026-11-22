@@ -5,7 +5,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
-import { listed } from "./listed-geometry";
+import { listed, NEAR } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 const STAGE = rect(0, 0, 1080, 640);
@@ -41,7 +41,6 @@ function railWindow(): LandingRegions {
     content: rect(30, 32, 810, 576),
     blocked: [rect(0, 32, 30, 576), rect(30, 0, 810, 32), rect(840, 32, 240, 576)],
     stage: STAGE,
-    item: { width: 30, height: 102 },
   };
 }
 const FLOAT = (p: Point): Rect => rect(p.x - 15, p.y - 15, 102, 30);
@@ -154,14 +153,14 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
   });
 
   it("P5: the guides are the held lane's, standing for the frame's held place on every frame the lane is held, and none with Shift", () => {
-    const { frames } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
+    const { frames } = run(base({ preview: NEAR }), path([{ x: 15, y: 300 }, { x: 15, y: 40 }], 0.1));
     for (const x of frames.filter((y) => y.f.lane === "rail-left" && y.f.region === "lane")) expect(x.f.guides).toEqual([{ lane: "rail-left", held: x.f.held }]);
-    const { frames: shifted } = run(base({ placeGuides: "near" }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
+    const { frames: shifted } = run(base({ preview: NEAR }), path([{ x: 15, y: 300 }, { x: 15, y: 200 }], 0.1), 0);
     expect(shifted.every((x) => x.f.guides.length === 0)).toBe(true);
   });
 
   it("P5: the approached lane's guides don't flip at a corner", () => {
-    const o = base({ placeGuides: "near", home: undefined });
+    const o = base({ preview: NEAR, home: undefined });
     const keys: [number, number, number][] = [];
     for (let k = 0; k < 40; k++) keys.push([k * 20, 70 + (k % 2 ? 6 : -6), 70 + (k % 2 ? -6 : 6)]);
     const { frames } = run(o, keys);
@@ -298,10 +297,10 @@ describe("landing model: drawn = landed, hysteresis, guides, float, room (P2–P
   });
 
   it("guides: the held lane standing for the frame's held place; over a refused place outside every lane, none", () => {
-    const held = run(base({ placeGuides: "near" }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
+    const held = run(base({ preview: NEAR }), [[0, 15, 300], [40, 15, 300]]).frames.at(-1)!;
     expect(held.f.held).toEqual({ kind: "spot", lane: "rail-left", spot: "rail-left/start/tools|$", point: { x: 15, y: 300 } });
     expect(held.f.guides).toEqual([{ lane: "rail-left", held: held.f.held }]);
-    const over = run(base({ placeGuides: "near", home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
+    const over = run(base({ preview: NEAR, home: undefined }), [[0, 1000, 300], [40, 1000, 300]]).frames.at(-1)!;
     expect(over.f.region).toBe("refused");
     expect(over.f.guides).toEqual([]);
   });
@@ -636,7 +635,7 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
       refused: [],
     };
     const bar: LandingLane = { id: "top", rect: rect(0, 29, 1080, 31), axis: "x", spots: [{ id: "top/start/^|$", along: [0, 1080], landing: rect(38, 33, 75, 24) }], refused: [] };
-    return { lanes: [rail, bar], refused: [], content: rect(31, 60, 1049, 548), blocked: [rect(1, 29, 30, 579), rect(0, 29, 1080, 31)], stage: STAGE, item: { width: 30, height: 102 } };
+    return { lanes: [rail, bar], refused: [], content: rect(31, 60, 1049, 548), blocked: [rect(1, 29, 30, 579), rect(0, 29, 1080, 31)], stage: STAGE };
   }
   const PRESS: Point = { x: 15, y: 35 };
   const HOME = { lane: "rail", spot: "rail/start/^|$" };
@@ -708,7 +707,6 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
       content: rect(200, 0, 800, 600),
       blocked: [],
       stage: rect(0, 0, 1000, 600),
-      item: { width: 200, height: 100 },
     };
     const m = createLandingModel({ ...listed(col), home: { lane: "col", spot: "col/A|B" }, lift: { x: 100, y: 105 } });
     let t = 0;

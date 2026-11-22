@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, type LandingFrame, type LandingRegions } from "../src/drag";
-import { listed } from "./listed-geometry";
+import { listed, NEAR } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -20,12 +20,11 @@ const regions = (): LandingRegions => ({
   content: rect(30, 36, 770, 564),
   blocked: [],
   stage: rect(0, 0, 800, 600),
-  item: { width: 100, height: 30 },
 });
 
 /** The frames along `path`, 6 px each 8 ms (0.75 px/ms: never slow, never still, so neither lane is entered). */
 function frames(path: readonly Point[]): LandingFrame[] {
-  const m = createLandingModel({ ...listed(regions()), placeGuides: "near" });
+  const m = createLandingModel({ ...listed(regions()), preview: NEAR });
   const out: LandingFrame[] = [m.update(path[0]!, 0)];
   let t = 0;
   for (let i = 1; i < path.length; i++) {

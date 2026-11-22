@@ -18,7 +18,8 @@ export interface Target {
   readonly free?: boolean;
   /**
    * A refusal, not a target: it takes part in the pick under the pointer, ranked after every target of priority 1 and 2
-   * and before priority 3 (`REFUSAL_RANK`, whatever its `priority`), but nothing lands on it (`refusalTargets`).
+   * and before priority 3 (`@n-uf/motion/drag`'s `REFUSAL_RANK`, whatever its `priority`: the one pick rule's), but
+   * nothing lands on it (`refusalTargets`).
    */
   readonly refuse?: true;
   /**
@@ -30,14 +31,3 @@ export interface Target {
    */
   readonly bounds?: Rect;
 }
-
-/**
- * Where a refusal ranks in the pick (the drag intent's `REFUSAL_RANK`, the same value): an ordering rank, not a
- * priority. Priorities stay the integers 1, 2 and 3; a refusal's tier is `refuse: true`, ordered by this rank on the
- * same scale: after every target of priority 1 and 2, so a real target wins wherever the two meet or overlap, and
- * before priority 3 (the float).
- */
-export const REFUSAL_RANK = 2.5;
-
-/** A target's rank in the pick: its `priority`, a refusal's {@link REFUSAL_RANK}. Lower wins. */
-export const pickRank = (t: { readonly priority: number; readonly refuse?: true }): number => (t.refuse === true ? REFUSAL_RANK : t.priority);

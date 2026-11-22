@@ -1,7 +1,6 @@
 /** The window's edge belongs only to the targets drawn against it, and a target beats a refusal where they meet. */
 import { REFUSAL_RANK as MOTION_REFUSAL_RANK, pickRank as motionPickRank, targetAt } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
-import { REFUSAL_RANK, pickRank } from "@n-uf/placement";
 import { CASES } from "../src/testing";
 import { referencePick } from "../src/testing/host";
 import { refusalTargets, refusals, solve, targets, type DockState } from "../src";
@@ -27,12 +26,23 @@ describe("refusals and the window's edge", () => {
     }
   });
 
-  it("a refusal ranks after every target of priority 1 and 2, before the float: one rank in both packages", () => {
-    expect(REFUSAL_RANK).toBe(2.5);
-    expect(REFUSAL_RANK).toBe(MOTION_REFUSAL_RANK);
-    for (const t of [{ priority: 1 as const, refuse: true as const }, { priority: 2 as const }, { priority: 3 as const }, { priority: 2 as const, refuse: true as const }]) expect(pickRank(t)).toBe(motionPickRank(t));
-    expect(pickRank({ priority: 1, refuse: true })).toBe(REFUSAL_RANK);
-    expect(pickRank({ priority: 2 })).toBe(2);
+  it("a refusal ranks after every target of priority 1 and 2, before the float: the reference pick orders as motion's rank (the one owner)", () => {
+    expect(MOTION_REFUSAL_RANK).toBe(2.5);
+    expect(motionPickRank({ priority: 1, refuse: true })).toBe(MOTION_REFUSAL_RANK);
+    expect(motionPickRank({ priority: 2 })).toBe(2);
+    const zone = { x: 0, y: 0, width: 10, height: 10 };
+    const at = { x: 5, y: 5 };
+    const t = (id: string, priority: 1 | 2 | 3, refuse?: true) => ({ id, priority, hit: zone, ...(refuse ? { refuse } : {}) });
+    const float = t("float", 3);
+    const gap1 = t("gap1", 1);
+    const gap2 = t("gap2", 2);
+    const refusal1 = t("refusal1", 1, true);
+    const refusal2 = t("refusal2", 2, true);
+    for (const list of [[float, refusal1], [refusal1, float], [refusal2, float], [gap1, refusal1], [refusal1, gap2], [refusal2, gap2], [refusal1, refusal2, float, gap2], [float, refusal2, refusal1]]) {
+      expect(referencePick(list, at)?.id).toBe(targetAt(list, at)?.id);
+    }
+    expect(referencePick([float, refusal1], at)?.id).toBe("refusal1");
+    expect(referencePick([refusal2, gap2], at)?.id).toBe("gap2");
   });
 
   it("a point on the window's edge picks a gap that reaches it, else nothing: never a refusal, never the float", () => {

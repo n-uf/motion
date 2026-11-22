@@ -31,6 +31,7 @@ export {
   LANDING_APPROACH,
   LANDING_GATES,
   LANDING_MARGINS,
+  LANDING_MODIFIERS,
   LANDING_TOUCH_MARGINS,
   type LandingApproach,
   type LandingFrame,
@@ -41,13 +42,14 @@ export {
   type LandingLane,
   type LandingMargins,
   type LandingModel,
+  type LandingModifiers,
   type LandingOptions,
   type LandingRegion,
   type LandingRegions,
   type LandingRelease,
   type LandingSpot,
 } from "./landing";
-export { DRAG_PREVIEW_DEFAULT, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type PlaceGuides, type PreviewFrame, type PreviewMode, type PreviewPlan } from "./preview";
+export { DRAG_PREVIEW_DEFAULT, guidesOf, PLACE_GUIDES_DEFAULT, previewPlan, type DragPreview, type PlaceGuides, type PreviewFrame, type PreviewMode, type PreviewPlan } from "./preview";
 export { createGripPress, type GripPress, type GripRelease } from "./grip";
 export { guideRects, MIN_BOX_LENGTH, type ClearRect, type GuideRectsOptions, type PlacedGuide } from "./guide-rects";
 export type { Point, Rect } from "../shapes";

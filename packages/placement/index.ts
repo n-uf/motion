@@ -24,4 +24,4 @@ export {
   type Rect,
   type Size,
 } from "./src/geometry";
-export { pickRank, REFUSAL_RANK, type Target } from "./src/target";
+export type { Target } from "./src/target";

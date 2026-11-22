@@ -10,7 +10,6 @@
  * needs to turn a gesture's `place` into a pointer.
  */
 import { center, contains as inside, type Point, type Rect } from "@n-uf/placement";
-import { pickRank } from "@n-uf/placement";
 import { closeItem, dockHome, foldItem, floatAt, homeFor, markUsed, openItem, placeTargetId, raiseFloat, readDockState, refusalTargets, refusals, resizeEdge, solve, stops, storeDockState, targets, type DockState, type DockLayout, type DockRefusal, type DockRefusalTarget, type DockDrop, type DropPlace, type StoredDockState } from "../index";
 import type { CaseHost, CaseSettings, Gesture, PickCandidate, PickRule } from "./types";
 
@@ -19,6 +18,12 @@ export const LIFT_THRESHOLD = 4;
 /** How far past an edge's ends its first and last gaps reach (px); toolbars use 24. */
 export const END_REACH = 24;
 
+/**
+ * Where a refusal ranks in the reference pick: the same 2.5 as `@n-uf/motion/drag`'s `REFUSAL_RANK` (which owns it;
+ * docking doesn't import motion, and a test holds the two equal), after every target of priority 1 and 2 and before 3.
+ */
+const REFUSAL_RANK = 2.5;
+const pickRank = (t: { readonly priority: number; readonly refuse?: true }): number => (t.refuse === true ? REFUSAL_RANK : t.priority);
 
 /**
  * The most precise target under `point`: the lowest rank (`pickRank`: the priority, a refusal's `REFUSAL_RANK`), then

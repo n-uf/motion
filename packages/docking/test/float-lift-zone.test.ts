@@ -1,7 +1,7 @@
 /**
  * A floating item has no home: its lift has the lift zone a docked item has (`margins.lift` around the press), where no
  * lane takes the pointer. The window is the landing rows' lift over a band: an empty top bar (y 0-36) with a float lying
- * inside its band. The model is wired as a host does: `createLandingModel({ ...drag, home?, placeGuides })`, a `home` only
+ * inside its band. The model is wired as a host does: `createLandingModel({ ...drag, preview })`, the drag's `home` only
  * for a docked item (a float has none).
  */
 import { createLandingModel } from "@n-uf/motion/drag";
@@ -9,6 +9,7 @@ import { describe, expect, it } from "vitest";
 import type { Point } from "@n-uf/placement";
 import { dockDrag, solve } from "../src";
 import { LANDING_CASES } from "../src/testing";
+import { guided } from "./landing-model";
 
 const state = LANDING_CASES.find((r) => r.id === "landing-lift-over-a-band")!.state;
 const previous = solve(state);
@@ -18,7 +19,7 @@ const grab = { x: PRESS.x - own.x, y: PRESS.y - own.y };
 
 function wired() {
   const drag = dockDrag(state, "a", { previous, grab });
-  return { drag, model: createLandingModel({ ...drag, placeGuides: "near" }) };
+  return { drag, model: createLandingModel({ ...drag, preview: guided("near") }) };
 }
 function slide(model: ReturnType<typeof wired>["model"], from: Point, to: Point, speed: number, t0 = 0) {
   const out: { p: Point; f: ReturnType<typeof model.update> }[] = [];

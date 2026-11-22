@@ -1,7 +1,8 @@
 import type { Point, Rect } from "../shapes";
+import { isHeld } from "../keys";
 import { createHandSpeed, HAND_SPEED } from "./hand-speed";
-import type { DragKeys } from "./intent";
-import type { PlaceGuides } from "./preview";
+import { DRAG_DEFAULTS, type DragKeys, type DragModifiers } from "./intent";
+import { DRAG_PREVIEW_DEFAULT, guidesOf, type DragPreview, type PlaceGuides, type PreviewMode } from "./preview";
 import type { LandingRegion } from "./region";
 
 /**
@@ -131,8 +132,6 @@ export interface LandingRegions {
   readonly content: Rect;
   readonly blocked: readonly Rect[];
   readonly stage: Rect;
-  /** The held item's size: the model doesn't read it (the geometry lands the item); docking's regions carry it. */
-  readonly item?: { readonly width: number; readonly height: number };
 }
 
 /** One lane a frame shows place guides for, with the held place its guide stands for (`LandingFrame.guides`). */
@@ -214,6 +213,15 @@ export const LANDING_GATES: LandingGates = { path: 40, depth: 8, stillSpeed: 0.1
 export const LANDING_APPROACH: LandingApproach = { reach: LANDING_MARGINS.exit, keep: LANDING_MARGINS.exit, nearer: 16 };
 
 /**
+ * The keys the landing model reads: the drag intent's {@link DragModifiers} less the arm key (the model has no
+ * spring-loaded targets). While `floatKey` is held a lane or open space is open space and the guides hide; `on: false`
+ * turns the key off. A host hands the model the same `modifiers` as its drag intent's tuning.
+ */
+export type LandingModifiers = Pick<DragModifiers, "on" | "floatKey">;
+/** The default keys: the drag intent's (`DRAG_DEFAULTS.modifiers`), Shift floats. */
+export const LANDING_MODIFIERS: LandingModifiers = { on: DRAG_DEFAULTS.modifiers.on, floatKey: DRAG_DEFAULTS.modifiers.floatKey };
+
+/**
  * A held place of the drag: where a release now lands. A spot of a lane with the pointer (a sliding spot lands where the hand
  * holds it: the geometry says where), or the float at the pointer. A frame with none is at rest (it lands nowhere).
  */
@@ -249,7 +257,18 @@ export interface LandingOptions extends LandingGeometry {
   readonly margins?: Partial<LandingMargins>;
   readonly gates?: Partial<LandingGates>;
   readonly approach?: Partial<LandingApproach>;
-  readonly placeGuides?: PlaceGuides;
+  /**
+   * The keys that win over the lanes (see {@link LandingModifiers}): the same `modifiers` shape as the drag intent's
+   * tuning, the float key only. Default Shift floats ({@link LANDING_MODIFIERS}).
+   */
+  readonly modifiers?: Partial<LandingModifiers>;
+  /**
+   * The drag's preview, the one `previewPlan` reads: its guide level (`placeGuides`, else the mode's default,
+   * `PLACE_GUIDES_DEFAULT`) is how many lanes' guides the frame names. A mode alone is `{ mode }`. Default
+   * `DRAG_PREVIEW_DEFAULT` (Glide: none). The guide level has no other home: a host passes the preview here and to
+   * `previewPlan`.
+   */
+  readonly preview?: DragPreview | PreviewMode;
 }
 
 export type { LandingRegion };
@@ -341,7 +360,8 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   const margins = { ...LANDING_MARGINS, ...options.margins };
   const gates = { ...LANDING_GATES, ...options.gates };
   const approach = { ...LANDING_APPROACH, ...options.approach };
-  const guidesLevel: PlaceGuides = options.placeGuides ?? "off";
+  const modifiers = { ...LANDING_MODIFIERS, ...options.modifiers };
+  const guidesLevel: PlaceGuides = guidesOf(options.preview ?? DRAG_PREVIEW_DEFAULT);
   let base = options.regions;
   let landingOf = options.landingOf;
   let spotsOf = options.spotsOf;
@@ -579,7 +599,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     // The pointer as it moved: a fling off the stage's edge moves across a lane there though its clamped point doesn't.
     const fromRaw = last?.raw ?? null;
     last = { p, raw, t };
-    const shift = !!keys?.shift;
+    const shift = modifiers.on && isHeld(keys, modifiers.floatKey);
     // A float lift (`floatLift`): within `lift` of the press no lane takes the pointer (the frame is judged as if the regions
     // had no lanes: blocked and refused places as on any frame), until the pointer first lies farther than `lift`; once
     // left it is never re-entered, so a slide back through the press point changes nothing (a held lane stays held).

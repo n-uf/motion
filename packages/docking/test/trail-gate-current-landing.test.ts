@@ -11,7 +11,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { dockDrag, solve } from "../src";
-import { modelOver } from "./landing-model";
+import { guided, modelOver } from "./landing-model";
 import { windows } from "./lift-windows";
 
 describe("the trail gate reads the landing the frame draws", () => {
@@ -25,8 +25,7 @@ describe("the trail gate reads the landing the frame draws", () => {
     const slide = lane.spots.find((s) => s.id === "bar:bottom/start/^|status@slide")!;
     const fixed = lane.spots.find((s) => s.id === "bar:bottom/end/status|$")!;
     expect(slide.along[1]).toBeCloseTo(fixed.along[0], 6);
-    const home = drag.regions.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
-    const m = modelOver(drag, { ...(home ? { home } : {}), placeGuides: "near" });
+    const m = modelOver(drag, { preview: guided("near") });
     const to = { x: (fixed.along[0] + fixed.along[1]) / 2, y: lane.rect.y + lane.rect.height / 2 };
     let t = 0;
     let at = { x: own.rect.x + grab.x, y: own.rect.y + grab.y };

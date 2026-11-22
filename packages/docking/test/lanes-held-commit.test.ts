@@ -12,7 +12,7 @@
  * windows at a toolbar's lift, the rail-entry and corner fixtures), side rails holding items and empty, for a held
  * frame's lanes and for the guides a landing model shows held at each spot under "near" and "all".
  */
-import { modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
+import { guided, modelOver, type DrawnFrame as LandingFrame } from "./landing-model";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { lanes, solve, type DockRegions, type DockState, type DockLayout } from "../src";
@@ -172,7 +172,7 @@ function sweepLanes(): Tally {
 
 /** The landing model's frame held at `sp`: the pointer led there from the press and rested. */
 function heldFrame(d: Drag, mode: "near" | "all", sp: Spot, lane: Lane): LandingFrame {
-  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
+  const model = modelOver(d.drag, { preview: guided(mode) });
   const a = lane.axis;
   // Along the lane at the middle of the spot's stretch, across it at the lane's middle line.
   const along = (sp.along[0] + sp.along[1]) / 2;

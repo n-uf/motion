@@ -75,13 +75,16 @@ export interface LandingModelLike {
   /** What a release at `point` and `time` lands (the last update's point: what its frame showed): a held place, or null. */
   release(point: Point, time: number): (DockHeld & { readonly home?: boolean }) | null;
 }
-/** What makes a landing model: `createLandingModel`, as an input. */
+/**
+ * What makes a landing model: `createLandingModel`, as an input. It is handed the drag as it is (`{ ...drag, preview }`:
+ * `regions`, `home`, `landingOf`, `spotsOf`) and the preview that names its guide level.
+ */
 export type LandingRule = (options: {
   readonly regions: DockRegions;
   readonly landingOf: (held: DockHeld) => Rect | null;
   readonly spotsOf: (spot: string) => readonly DockSpot[] | null;
   readonly home?: { readonly lane: string; readonly spot: string };
-  readonly placeGuides?: "off" | "near" | "all";
+  readonly preview?: { readonly mode: "outline" | "placeholder" | "glide" | "snap"; readonly placeGuides?: "off" | "near" | "all" };
 }) => LandingModelLike;
 
 /** A place guide a frame shows: its lane, line, box or hatch, and where. */
@@ -463,9 +466,7 @@ export function createLandingHost(o: { readonly landing: LandingRule; readonly s
       // `stretchPositions` left out, the library's default.
       const laneOptions: DockLaneOptions = { previous, grab, ...(o.stretchPositions ? { stretchPositions: o.stretchPositions } : {}) };
       const drag = dockDrag(s, row.item, laneOptions);
-      const regions = drag.regions;
-      const home = regions.lanes.flatMap((l) => l.spots.filter((x) => x.home).map((x) => ({ lane: l.id, spot: x.id })))[0];
-      const model = o.landing({ regions, landingOf: drag.landingOf, spotsOf: drag.spotsOf, ...(home ? { home } : {}), placeGuides: "near" });
+      const model = o.landing({ ...drag, preview: { mode: "placeholder", placeGuides: "near" } });
       const frames: LandingCaseFrame[] = [];
       const play = (p: Point, t: number, moving: boolean): void => {
         const f = model.update(p, t);

@@ -7,7 +7,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, LANDING_APPROACH, LANDING_MARGINS, LANDING_TOUCH_MARGINS, type LandingFrame, type LandingLane, type LandingOptions, type LandingRegions } from "../src/drag";
-import { listed } from "./listed-geometry";
+import { listed, NEAR } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -37,11 +37,10 @@ function window(): LandingRegions {
     content: rect(250, 32, 830, 572),
     blocked: [column],
     stage: rect(0, 0, 1080, 640),
-    item: { width: 102, height: 30 },
   };
 }
 const FLOAT = (p: Point): Rect => rect(p.x - 51, p.y - 15, 102, 30);
-const options = (more: Partial<LandingOptions> = {}): LandingOptions => ({ ...listed(window(), FLOAT), placeGuides: "near", ...more });
+const options = (more: Partial<LandingOptions> = {}): LandingOptions => ({ ...listed(window(), FLOAT), preview: NEAR, ...more });
 
 /** Keys [ms, x, y] linearly between, a frame every 8 ms; the last frame. */
 function last(o: LandingOptions, keys: readonly (readonly [number, number, number])[]): { f: LandingFrame; p: Point } {
