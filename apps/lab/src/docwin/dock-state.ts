@@ -6,7 +6,7 @@
  * - one drag session for panels and groups: `@n-uf/motion/drag`'s intent and `previewPlan` over the DockState's
  *   `targets(state, dragged)`; by default the held item is the only preview (`"item"`: it sits in a place once the room
  *   is open, else follows the pointer inside the window, and shows what a release lands on). Under the other previews
- *   the held item follows the pointer, the dashed slot and the marker come from the shown target only (a gap's `slot` and `marker`, a float's `after(point, grab)` rect, home's own rect), the other items are
+ *   the held item follows the pointer, the dashed slot comes from the shown target only (a gap's `slot`, a float's `after(point, grab)` rect, home's own rect), the other items are
  *   drawn from the shown target's `after(...).layout` once the room opens (with no target shown: the committed layout, the
  *   held item's place left empty, nothing else moving), and the drop commits `after(...).state` as is;
  * - the host contract, through the lab's one session wiring (../shared/session): while a drag is on, the root carries
@@ -360,7 +360,6 @@ export function createDocwin(o: DocwinOptions) {
     <div class="dw-strips" aria-hidden="true"></div>
     <div class="dw-guides" aria-hidden="true"></div>
     <div class="dw-slot" hidden><span class="dw-slot-label"></span></div>
-    <div class="dw-marker" hidden></div>
     <div class="dw-cant-go" hidden>Can't go here</div>
     <div class="dw-menu-list" role="menu" hidden></div>`;
   const q = <T extends HTMLElement>(sel: string): T => win.querySelector(sel) as T;
@@ -373,7 +372,6 @@ export function createDocwin(o: DocwinOptions) {
   const stripLayer = q<HTMLDivElement>(".dw-strips");
   const guideLayer = q<HTMLDivElement>(".dw-guides");
   const slotLabel = q<HTMLSpanElement>(".dw-slot-label");
-  const marker = q<HTMLDivElement>(".dw-marker");
   const cantGo = q<HTMLDivElement>(".dw-cant-go");
   const menuList = q<HTMLDivElement>(".dw-menu-list");
 
@@ -1083,19 +1081,16 @@ export function createDocwin(o: DocwinOptions) {
   }
 
   /**
-   * The dashed slot (and the marker's insertion line) at `r`. The host contract's marks: a slot where a drop commits
-   * carries `data-drag-slot` and `data-drag-target="<target id>"` (`target`), its line `data-drag-marker`; the "Back to
-   * its place" slot over home carries neither (a drop there commits nothing).
+   * The dashed slot at `r`: a landing's one mark, under every rule set, never an insertion line beside it. The host
+   * contract's marks: a slot where a drop commits carries `data-drag-slot` and `data-drag-target="<target id>"`
+   * (`target`); the "Back to its place" slot over home carries neither (a drop there commits nothing).
    */
-  function showSlot(r: Rect | null, text = "", marked?: Rect, target?: string): void {
-    // Under the window's own rules one landing has one mark: the outline, never an insertion line beside it.
-    const line = approved() ? undefined : marked;
+  function showSlot(r: Rect | null, text = "", target?: string): void {
     slot.toggleAttribute("data-drag-slot", !!r && target !== undefined);
     if (r && target !== undefined) slot.dataset.dragTarget = target;
     else delete slot.dataset.dragTarget;
-    marker.toggleAttribute("data-drag-marker", !!r && !!line);
     if (!r) {
-      slot.hidden = marker.hidden = true;
+      slot.hidden = true;
       return;
     }
     place(slot, r);
@@ -1106,10 +1101,6 @@ export function createDocwin(o: DocwinOptions) {
     slotLabel.textContent = thin ? "" : words;
     slot.title = words;
     slot.hidden = false;
-    if (line) {
-      place(marker, line.height === 0 ? { x: line.x, y: line.y - 1.5, width: line.width, height: 3 } : { x: line.x - 1.5, y: line.y, width: 3, height: line.height });
-      marker.hidden = false;
-    } else marker.hidden = true;
   }
 
   const labelOf = (t: DockDrop): string => {
@@ -1207,10 +1198,10 @@ export function createDocwin(o: DocwinOptions) {
       showSlot(null);
     } else if (s.place.kind === "float") {
       d.preview = k.outline!.rect;
-      showSlot(d.preview, "Float", undefined, s.id);
+      showSlot(d.preview, "Float", s.id);
     } else {
       d.preview = k.outline!.rect;
-      showSlot(d.preview, labelOf(s), s.marker, s.id);
+      showSlot(d.preview, labelOf(s), s.id);
     }
     const guides = k.guides();
     drawGuides(guides);

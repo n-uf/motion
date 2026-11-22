@@ -243,13 +243,13 @@ describe("the runner", () => {
         dragging = inner.drag()?.lifted === true;
       },
       layout: () => inner.layout(),
-      root: () => (dragging ? mk({ "data-drag-session": "panel" }, { "[data-drag-slot][data-drag-target]": [mk({ "data-drag-target": "gap:column:start:0" })], "[data-drag-marker]": [mk({})], "[data-drag-held]": [mk({})] }) : mk({}, {})),
+      root: () => (dragging ? mk({ "data-drag-session": "panel" }, { "[data-drag-slot][data-drag-target]": [mk({ "data-drag-target": "gap:column:start:0" })], "[data-drag-held]": [mk({})] }) : mk({}, {})),
     };
     const r = runCase(dom, host);
     expect(r.skipped).toEqual([]);
     expect(r.failures).toEqual([]);
     // The same root fails when the slot names another target.
-    const wrongHost: CaseHost = { ...host, root: () => mk({ "data-drag-session": "panel" }, { "[data-drag-slot][data-drag-target]": [mk({ "data-drag-target": "gap:column:start:1" })], "[data-drag-marker]": [mk({})], "[data-drag-held]": [mk({})] }) };
+    const wrongHost: CaseHost = { ...host, root: () => mk({ "data-drag-session": "panel" }, { "[data-drag-slot][data-drag-target]": [mk({ "data-drag-target": "gap:column:start:1" })], "[data-drag-held]": [mk({})] }) };
     expect(runCase(dom, wrongHost).failures.join()).toMatch(/data-drag-target="gap:column:start:1", expected "gap:column:start:0"/);
   });
 });
