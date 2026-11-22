@@ -144,6 +144,9 @@ export interface StackForm {
   readonly stepGroup?: string;
 }
 
+/** Whether an item takes give-way steps: a movable one, or a fixed one with `stepping`. */
+export const itemSteps = (item: { readonly fixed?: boolean; readonly stepping?: boolean }): boolean => item.fixed !== true || item.stepping === true;
+
 /** Whether a form has no room of its own, the » entry standing for it (`menu`, default: the kind `menu`). */
 export const formMenu = (f: StackForm): boolean => f.menu ?? f.kind === "menu";
 /** Whether a form is drawn at its own size across under `ownCross` (`ownCross`, default: the group kinds). */
@@ -297,9 +300,19 @@ export interface StackItem {
    * unless that is the form it starts in, and it doesn't take part in `previous`'s growing back. It counts toward the
    * length like any item (the others give way around it, and a stack too short for it overflows). It is never dropped:
    * `stackGaps` refuses every gap for it, and a drop beside it never squeezes it. Whether it may sit among others (or
-   * first, or last) is the host's; placement lays out the items it is given.
+   * first, or last) is the host's; placement lays out the items it is given. With `stepping` it keeps only the reserved
+   * place and takes its steps like any item.
    */
   readonly fixed?: boolean;
+  /**
+   * A fixed item that still takes steps (default false; read only with `fixed`): it keeps its reserved place (never
+   * dropped: `stackGaps` refuses every gap for it) but steps through its forms, into the » menu too, gives way by the
+   * usual order and grows back in exact reverse: its fit is a movable item's with the same forms, `used` and `kept`. It
+   * never holds for the title rule (that is a growing item that takes no steps); to have it shorten last, make it `kept`
+   * or rank its forms. A drop beside it may step it, as it may a movable item, but never squeezes it under its form's
+   * `main.min`.
+   */
+  readonly stepping?: boolean;
   /**
    * The length asked for along the stack (default none). While the item is in a form that grows (`main.grows`; a `wrap`
    * form that grows shares spare length too), the solver reads it, for the stack's axis, in place of that form's `main.natural`; the form's

@@ -9,7 +9,7 @@
  * one laid first wins. Home's tile is owned before all. A virtual edge owns nothing and yields to every owner.
  */
 import { EPS, area, overlaps, rect, subtract, type Rect } from "@n-uf/placement";
-import { formBody, type StackForm } from "@n-uf/placement/stack";
+import { formBody, itemSteps, type StackForm } from "@n-uf/placement/stack";
 import { axisOf, formsOf, hitBandOf } from "../helpers";
 import { DEFAULT_HIT_BAND, type DockEdge } from "../model";
 import { pushes, type LayKey } from "../solve";
@@ -293,7 +293,8 @@ export function ownership(c: Ctx, live: readonly EdgeSpec[], alongOf: (s: EdgeSp
     const e = it.edge ? now.edges[it.edge] : undefined;
     return !!e && !!formsOf(state.items[id]!, axisOf(e.side))[it.form]?.main.grows;
   };
-  const solid = Object.entries(now.items).filter(([id, it]) => it.fixed && !grows(id)).map(([, it]) => it.rect);
+  // (A fixed item that takes steps, in the » entry, has no rect of its own there.)
+  const solid = Object.entries(now.items).filter(([id, it]) => it.fixed && !grows(id) && !(it.inMenu && itemSteps(state.items[id]!))).map(([, it]) => it.rect);
   // Panel bodies (an open item's), but for `hitBand / 2` at each end, aren't drop places of their edge.
   // Nor are its fixed items' reserved rects (a growing title's natural rect): each cut across the edge's whole band.
   const bodies = (s: EdgeSpec): Rect[] => {

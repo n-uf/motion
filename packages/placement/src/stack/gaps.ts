@@ -8,7 +8,8 @@
  * The item counts as just used: it is newer than every item in the stack, so the others give way before it. It fits a
  * gap when the drop's fit doesn't put it in the » menu, has no `overflow`, makes no item `too-wide` that wasn't before,
  * and squeezes no `fixed` item (it keeps its form, is drawn at least its form's `main.min` along the stack and at least
- * as wide across as before). A fixed item may shrink down to its `main.min` to make room.
+ * as wide across as before). A fixed item may shrink down to its `main.min` to make room; one with `stepping` may also
+ * step to a later form, as a movable item may.
  *
  * Reasons: `no-forms` (the item has none), `fixed` (a fixed item is never dropped), `not-accepted` (`input.accepts`
  * refuses it), `not-allowed` (`options.allows` refuses the gap), `to-menu`, `overflow`, `too-wide` and `squeezes-fixed`.
@@ -18,7 +19,7 @@
  */
 import type { Rect } from "../geometry";
 import { fitStack } from "./layout";
-import { formMain, withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
+import { formMain, itemSteps, withItem, type FitOptions, type PlacedStackItem, type StackFit, type StackInput, type StackItem } from "./model";
 
 /** Why a gap doesn't take the item. */
 export type StackGapRefusal = "no-forms" | "fixed" | "not-accepted" | "not-allowed" | "to-menu" | "overflow" | "too-wide" | "squeezes-fixed";
@@ -60,9 +61,11 @@ function refusalOf(base: StackFit, fit: StackFit, dragged: PlacedStackItem, fixe
     const item = fixed.get(p.id);
     const q = was.get(p.id);
     if (!item || !q || inMenu.has(p.id) || wasInMenu.has(q.id)) continue;
-    if (p.form !== q.form) return "squeezes-fixed";
+    // A fixed item that takes steps (`stepping`) may step for a drop, as a movable item may; in the form it takes it is
+    // still never squeezed.
+    if (p.form !== q.form && !itemSteps(item)) return "squeezes-fixed";
     if (main(p.rect) < formMain(item.forms[p.form]!, "min", fit.cross) - 1e-6) return "squeezes-fixed";
-    if (across(p.rect) < across(q.rect) - 1e-6) return "squeezes-fixed";
+    if (p.form === q.form && across(p.rect) < across(q.rect) - 1e-6) return "squeezes-fixed";
   }
   return null;
 }
