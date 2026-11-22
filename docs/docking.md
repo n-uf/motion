@@ -156,7 +156,7 @@ One model makes every docked target and refusal: **edge, zones, slots, tiles, th
 - *Zones.* Each edge has start, center and end extents along it: thirds where items keep their length and zones only align them (bars, compact rails), or the span the solver gives each zone where items fill the edge (columns). `DockState.barZones: "nearest"` meets bar zones halfway between landing rects.
 - *Slots.* A zone's insertion lines. The item's own place is an interval, home.
 - *Tiles.* A zone's extent split halfway between its slots' lines.
-- *Filter.* (i) the edge and zone take the kind; (ii) the drop fits: no » entry, no new overflow, every fixed item keeps its form (a `stepping` one may step), place and least length, a title bar's title keeps its natural width, and the slot covers no kept-clear rect; (iii) space ownership and clipping, so that every point belongs to one place (owned beats virtual beats overreach); (iv) `blocked` rects become `none` targets. A slot that (i) or (ii) removes becomes a **refusal** over its own tile.
+- *Filter.* (i) the edge and zone take the kind; (ii) the drop fits: no » entry, no new overflow, every fixed item keeps its form (a `stepping` one may step), place and least length (a growing title's least is its natural width: its growth is spare room, so a drop beside it lands as beside a title of that width that doesn't grow), and the slot covers no kept-clear rect; (iii) space ownership and clipping, so that every point belongs to one place (owned beats virtual beats overreach); (iv) `blocked` rects become `none` targets. A slot that (i) or (ii) removes becomes a **refusal** over its own tile.
 
 | Id | Names | Priority |
 | --- | --- | --- |

@@ -29,7 +29,8 @@ function placeKey(s: DockState, id: string): string {
 
 /**
  * Filter (ii), fit: a drop may not add an `overflow` or `too-wide` note anywhere, change a fixed item's form (unless it
- * is `stepping`) or squeeze it under its least length, nor lie over chrome or a drawn fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
+ * is `stepping`) or squeeze it under its least length (a growing one that takes no steps: its natural length; for target
+ * room its `grows` caps there, so a drop beside it lands as beside a fixed item of that length), nor lie over chrome or a drawn fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
  */
 function soundness(state: DockState, base: DockLayout, dragged: string): (after: DockLayout) => boolean {
   const chrome = keepClearFor(state, "targets");
@@ -48,7 +49,10 @@ function soundness(state: DockState, base: DockLayout, dragged: string): (after:
       if (a.inMenu) continue;
       const f = formsOf(state.items[id]!, axisOf(e.side))[a.form];
       const len = axisOf(e.side) === "column" ? a.rect.height : a.rect.width;
-      if (f && len < formMain(f, "min", e.cross) - 0.5) return false;
+      // The target room a fixed item takes: its least, or for one that grows and takes no steps (a title) its natural
+      // length. Its growth is spare room, not owned room: it yields that to a landing, never its natural length.
+      const holds = !steps && f?.main.grows === true;
+      if (f && len < formMain(f, holds ? "natural" : "min", e.cross) - 0.5) return false;
     }
     const me = after.items[dragged];
     if (!me) return true;

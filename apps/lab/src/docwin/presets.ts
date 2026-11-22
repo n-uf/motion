@@ -67,6 +67,16 @@ const say = (r: Rect): string => `${r0(r.x)},${r0(r.y)} ${r0(r.width)}×${r0(r.h
 
 /** The default window, changed by `edit`, at `size`. */
 const stateWith = (edit: (s: DockState) => DockState, size = DEFAULT_SIZE): DockState => edit(defaultState(size));
+/**
+ * Review, Views and Zoom in the title bar at the widest width (from the default, by 20 px) where it takes Tools nowhere.
+ * At the default width it is not full: a growing title's growth is spare room, so Tools fits with the title at exactly
+ * its natural width and Zoom on its minimal row variant, as it would beside a title of that width that doesn't grow.
+ */
+function fullTitle(): DockState {
+  const at = (width: number): DockState => stateWith((x) => put(x, "title", ["review", "views", "zoom"]), { ...DEFAULT_SIZE, width });
+  for (let w = DEFAULT_SIZE.width; w >= 600; w -= 20) if (!targets(at(w), "tools").some((t) => (t.place as { edge?: string }).edge === "title")) return at(w);
+  return at(600);
+}
 
 /** The window px of the grip's center. */
 const gripOf = (c: Docwin, id: ItemId): Point | null => c.gripOf(id);
@@ -1060,10 +1070,10 @@ function PUBLISHED_PRESETS(): Preset[] {
     id: "title-bar-too-full",
     title: "A title bar too full takes no toolbar",
     expected:
-      "With Review, Views and Zoom in the title bar, Tools has no room without pushing the title under its natural width: no zone of the title bar offers a target or a slot, a drop over any third lands elsewhere (or goes home), and nothing overlaps the title or the controls.",
-    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+      "With Review, Views and Zoom in the title bar, at the widest width where it is full (see `fullTitle`), Tools has no room without pushing the title under its natural width: no zone of the title bar offers a target or a slot, a drop over any third lands elsewhere (or goes home), and nothing overlaps the title or the controls.",
+    setup: (c) => c.setState(fullTitle()),
     check(c) {
-      const base = stateWith((s) => put(s, "title", ["review", "views", "zoom"]));
+      const base = fullTitle();
       c.setState(base);
       const bad: string[] = [];
       const titleGaps = c.targets("tools").filter((t) => (t.place as { edge?: string }).edge === "title");
@@ -1235,12 +1245,12 @@ function PUBLISHED_PRESETS(): Preset[] {
   {
     id: "full-title-no-room",
     title: "A full title bar: \"Can't go here\" at the pointer, nothing drawn on the bar",
-    expected: "With Review, Views and Zoom in the title bar, Tools held over each third of it shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
-    setup: (c) => c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"]))),
+    expected: "With Review, Views and Zoom in the title bar, at the widest width where it is full (see `fullTitle`), Tools held over each third of it shows \"Can't go here\" at the pointer, with no tint, outline or label over the refused place and no slot anywhere; let go there, Tools goes back home.",
+    setup: (c) => c.setState(fullTitle()),
     check(c) {
       const bad: string[] = [];
       for (const k of [0, 1, 2]) {
-        c.setState(stateWith((s) => put(s, "title", ["review", "views", "zoom"])));
+        c.setState(fullTitle());
         const before = rectOf(c, "tools");
         const bar = c.layout.edges.title!.rect;
         const at = { x: bar.x + ((k + 0.5) * bar.width) / 3, y: bar.y + bar.height / 2 };

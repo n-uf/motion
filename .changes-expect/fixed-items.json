@@ -1,0 +1,212 @@
+[
+ {
+  "package": "docking",
+  "kind": "targets",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: title-bar gaps refused at base are drop targets now: for target room the growing title counts at its natural width, so the drop lands as beside a title of that width that does not grow"
+ },
+ {
+  "package": "docking",
+  "kind": "targets",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: title-bar gaps refused at base are drop targets now: for target room the growing title counts at its natural width, so the drop lands as beside a title of that width that does not grow"
+ },
+ {
+  "package": "docking",
+  "kind": "targets",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: title-bar gaps refused at base are drop targets now: for target room the growing title counts at its natural width, so the drop lands as beside a title of that width that does not grow"
+ },
+ {
+  "package": "docking",
+  "kind": "targets",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: title-bar gaps refused at base are drop targets now: for target room the growing title counts at its natural width, so the drop lands as beside a title of that width that does not grow"
+ },
+ {
+  "package": "docking",
+  "kind": "stops",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the same title-bar gaps are stops now (the title counts at its natural width for target room)"
+ },
+ {
+  "package": "docking",
+  "kind": "stops",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the same title-bar gaps are stops now (the title counts at its natural width for target room)"
+ },
+ {
+  "package": "docking",
+  "kind": "stops",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the same title-bar gaps are stops now (the title counts at its natural width for target room)"
+ },
+ {
+  "package": "docking",
+  "kind": "stops",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: the same title-bar gaps are stops now (the title counts at its natural width for target room)"
+ },
+ {
+  "package": "docking",
+  "kind": "refusals",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the title-bar refusals at those gaps are gone (they were refused only by the old title-bar clauses: first-form kind, nothing else changing form)"
+ },
+ {
+  "package": "docking",
+  "kind": "refusals",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the title-bar refusals at those gaps are gone (they were refused only by the old title-bar clauses: first-form kind, nothing else changing form)"
+ },
+ {
+  "package": "docking",
+  "kind": "refusals",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the title-bar refusals at those gaps are gone (they were refused only by the old title-bar clauses: first-form kind, nothing else changing form)"
+ },
+ {
+  "package": "docking",
+  "kind": "refusals",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: the title-bar refusals at those gaps are gone (they were refused only by the old title-bar clauses: first-form kind, nothing else changing form)"
+ },
+ {
+  "package": "docking",
+  "kind": "drops",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the drops at those title-bar gaps are now offered, landing with the title at its natural width or more"
+ },
+ {
+  "package": "docking",
+  "kind": "drops",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the drops at those title-bar gaps are now offered, landing with the title at its natural width or more"
+ },
+ {
+  "package": "docking",
+  "kind": "drops",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the drops at those title-bar gaps are now offered, landing with the title at its natural width or more"
+ },
+ {
+  "package": "docking",
+  "kind": "drops",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: the drops at those title-bar gaps are now offered, landing with the title at its natural width or more"
+ },
+ {
+  "package": "docking",
+  "kind": "lanes",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the title bar is now a lane for the held item (marks at the new places) instead of a refused stretch"
+ },
+ {
+  "package": "docking",
+  "kind": "lanes",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the title bar is now a lane for the held item (marks at the new places) instead of a refused stretch"
+ },
+ {
+  "package": "docking",
+  "kind": "lanes",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the title bar is now a lane for the held item (marks at the new places) instead of a refused stretch"
+ },
+ {
+  "package": "docking",
+  "kind": "lanes",
+  "case": "empty-corners.json, views*",
+  "reason": "Q7: the title bar is now a lane for the held item (marks at the new places) instead of a refused stretch"
+ },
+ {
+  "package": "docking",
+  "kind": "drag",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the drag regions carry the title-bar lane and no refusal there"
+ },
+ {
+  "package": "docking",
+  "kind": "drag",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the drag regions carry the title-bar lane and no refusal there"
+ },
+ {
+  "package": "docking",
+  "kind": "drag",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the drag regions carry the title-bar lane and no refusal there"
+ },
+ {
+  "package": "docking",
+  "kind": "guides",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: frames over the title bar draw the new places' guides"
+ },
+ {
+  "package": "docking",
+  "kind": "guides",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: frames over the title bar draw the new places' guides"
+ },
+ {
+  "package": "docking",
+  "kind": "guides",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: frames over the title bar draw the new places' guides"
+ },
+ {
+  "package": "docking",
+  "kind": "landing-frames",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: the landing model now lands on the title-bar places on frames that were refused before"
+ },
+ {
+  "package": "docking",
+  "kind": "landing-frames",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: the landing model now lands on the title-bar places on frames that were refused before"
+ },
+ {
+  "package": "docking",
+  "kind": "landing-frames",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: the landing model now lands on the title-bar places on frames that were refused before"
+ },
+ {
+  "package": "docking",
+  "kind": "after",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: a held frame over the title bar now has a landing there (its after layout), not none"
+ },
+ {
+  "package": "docking",
+  "kind": "after",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: a held frame over the title bar now has a landing there (its after layout), not none"
+ },
+ {
+  "package": "docking",
+  "kind": "after",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: a held frame over the title bar now has a landing there (its after layout), not none"
+ },
+ {
+  "package": "docking",
+  "kind": "release-after",
+  "case": "lab: the title bar full, tools*",
+  "reason": "Q7: a release over the title bar now commits there, not none"
+ },
+ {
+  "package": "docking",
+  "kind": "release-after",
+  "case": "real window, empty side rails*",
+  "reason": "Q7: a release over the title bar now commits there, not none"
+ },
+ {
+  "package": "docking",
+  "kind": "release-after",
+  "case": "columns-corner.json, g2*",
+  "reason": "Q7: a release over the title bar now commits there, not none"
+ }
+]
