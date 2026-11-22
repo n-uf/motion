@@ -3,7 +3,7 @@
  * makes, settled), its reserved stretches and its band across, as the tiler reads them (`EdgeSpec`).
  */
 import { EPS, area, rect, type Rect } from "@n-uf/placement";
-import { formCrossMin, formMenu, formSetsCross, itemSteps, type StackForm } from "@n-uf/placement/stack";
+import { formCrossMin, formMain, formMenu, formSetsCross, itemSteps, type StackForm } from "@n-uf/placement/stack";
 import { markUsed, moveAmong, moveTo } from "../changes";
 import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
 import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type Zone } from "../model";
@@ -173,11 +173,24 @@ function edgeSlots(c: Ctx, edge: DockEdge, accepts: boolean): Slot[] {
   // `strip:<edge>:<zone>` names a slot only on an edge with no members at all (a zone there has one slot); every other
   // slot, beside closed members or the item's own place too, is named by its gap, so no two slots share an id.
   const slotId = (zone: Zone, k: number): string => targetId(members0.length === 0 ? { kind: "strip", edge: edge.id, zone } : { kind: "gap", edge: edge.id, zone, at: k });
-  // Where a drop lands on this edge: in it, shown (no » entry). A growing fixed item beside it (a title) takes its natural
-  // length of the target room, not its grown length (filter (ii), `soundness`): nothing else is asked of a title bar.
+  // Where a drop lands on this edge: in it, shown (no » entry); on a title bar (a fixed item that grows), in a form of its
+  // first form's kind (the full row or one of its compact variants, read from the forms, not from their index), the
+  // title at its natural width and nothing else changing form or going into the menu.
+  const firstKind = formsOf(state.items[dragged]!, axisOf(edge.side))[0]?.kind;
+  const titles = edge.items.filter((id) => base.items[id]?.edge === edge.id && base.items[id]!.fixed && !itemSteps(state.items[id]!) && !!formsOf(state.items[id]!, axisOf(edge.side))[base.items[id]!.form]?.main.grows);
   const lands = ({ layout: after }: DropResult): boolean => {
     const me = after.items[dragged]!;
-    return me.edge === edge.id && !me.inMenu;
+    if (me.edge !== edge.id || me.inMenu) return false;
+    if (titles.length === 0) return true;
+    if (formsOf(state.items[dragged]!, axisOf(edge.side))[me.form]?.kind !== firstKind) return false;
+    return edge.items.every((id) => {
+      const a = after.items[id];
+      const b = base.items[id];
+      if (!a || !b || b.edge !== edge.id || id === dragged) return true;
+      if (!titles.includes(id)) return a.form === b.form && !!a.inMenu === !!b.inMenu;
+      const f = formsOf(state.items[id]!, axisOf(edge.side))[a.form];
+      return !f || (column ? a.rect.height : a.rect.width) >= formMain(f, "natural", after.edges[edge.id]!.cross) - 0.5;
+    });
   };
   const pad = { start: Math.max(0, edge.pad?.start ?? 0), end: Math.max(0, edge.pad?.end ?? 0) };
   const menuLen = el.menu ? len(el.menu.rect) : 0;

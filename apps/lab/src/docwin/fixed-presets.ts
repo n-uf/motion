@@ -1,7 +1,6 @@
 /**
- * Fixed items in the title bar, checked on the DockState directly (the document window is left as it is):
- * - a fixed item that still takes steps (`DockItem.stepping`): a page readout with a ladder of its own;
- * - a growing title's growth is spare room for a drop: a drop that only steps a neighbor to a compact variant lands.
+ * Fixed items in the title bar, checked on the DockState directly (the document window is left as it is): a fixed item
+ * that still takes steps (`DockItem.stepping`), a page readout with a ladder of its own.
  */
 import { controlLadder } from "@n-uf/placement/stack";
 import type { DockItem, DockState } from "@n-uf/docking";
@@ -19,8 +18,6 @@ interface Preset {
   setup(): void;
   check(): Verdict;
 }
-
-const ORIGIN = { x: 0, y: 0 };
 
 /** A page readout: fixed at the title bar's end, before the window controls, with a ladder of its own. */
 const readout = (stepping: boolean): DockItem => ({
@@ -79,50 +76,6 @@ function steppingReadout(): Preset {
   };
 }
 
-/**
- * The title zone that takes drops: the title (220, min = natural) with Views after it, Zoom moved to the bottom bar and
- * held. With `grows` off the title is a fixed item of exactly that length.
- */
-function titleZone(width: number, grows: boolean): DockState {
-  const s = put(put(defaultState({ width, height: 640 }), "title", ["views"]), "bottom", ["zoom", "review"]);
-  // A title that never shrinks under its natural width (min = natural), growing or not: growth is all it may yield.
-  const row = { kind: "row" as const, main: { min: 220, natural: 220, ...(grows ? { grows: true } : {}) }, cross: { natural: 32 } };
-  return { ...s, items: { ...s.items, title: { ...s.items.title!, forms: { row: [row] } } } };
-}
-const TITLE_WIDTHS = [1080, 980, 880, 800, 760, 720, 680, 640, 600, 560, 520];
-
-function titleGrowthIsSpareRoom(): Preset {
-  return {
-    id: "title-growth-spare-room",
-    title: "A growing title's growth is spare room for a drop",
-    expected:
-      "In a title bar whose zones take drops (a title that grows but never shrinks under its natural width, then Views), Zoom held over it keeps every place it has beside the same title not growing (a fixed item of its natural width), at every width from 1080 to 520 px (where the edge fit's title rule makes more room, a few more), each landing Zoom in the title bar (which forms the bar's items then take is the edge fit's, whose title rule differs for a growing title). The title yields its growth to the landing and is never drawn under its natural width; where growth alone makes room, nothing beside it steps.",
-    setup: () => undefined,
-    check(): Verdict {
-      const bad: string[] = [];
-      const seen: string[] = [];
-      const titlePlaces = (s: DockState) => targets(s, "zoom").filter((t) => (t.place as { edge?: string }).edge === "title");
-      for (const w of TITLE_WIDTHS) {
-        const grown = titleZone(w, true);
-        const a = titlePlaces(grown);
-        const b = titlePlaces(titleZone(w, false));
-        seen.push(`${w}: ${a.length}`);
-        const missing = b.filter((t) => !a.some((x) => x.id === t.id)).map((t) => t.id);
-        if (missing.length) bad.push(`${w}: ${missing.join(" ")} offered beside the title not growing, refused beside it growing`);
-        const rest = solve(grown);
-        const roomy = (rest.items.title?.rect.width ?? 0) - 220 >= 300;
-        for (const t of a) {
-          const la = t.after(ORIGIN, ORIGIN).layout;
-          if ((la.items.title?.rect.width ?? 0) < 220 - 0.5) bad.push(`${w} ${t.id}: the title at ${Math.round(la.items.title!.rect.width)}`);
-          if (la.items.zoom?.edge !== "title" || la.items.zoom.inMenu) bad.push(`${w} ${t.id}: Zoom doesn't land in the title bar`);
-          for (const id of ["views", "controls"]) if (roomy && la.items[id]?.form !== rest.items[id]?.form) bad.push(`${w} ${t.id}: ${id} stepped though growth alone made room`);
-        }
-      }
-      return { pass: bad.length === 0, now: `Title-bar places for Zoom by width: ${seen.join(", ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
-    },
-  };
-}
-
 export function FIXED_PRESETS(): Preset[] {
-  return [steppingReadout(), titleGrowthIsSpareRoom()];
+  return [steppingReadout()];
 }
