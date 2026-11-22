@@ -167,9 +167,13 @@ per third. Every empty edge does the same along its own axis: a side edge or a c
 they disagree: a pointer over an item's half aims before or after that item, in its zone (see Aim order under
 Targets); the thirds decide only between and beyond the items, and on empty zones and empty edges.
 
-A **title bar**, a bar with a fixed item that grows (the window title), is a constrained host: a toolbar dropped there
-must land in its first form, nothing else in the bar may change form for it, and the title keeps its natural width (it may
-never shrink to its `min` to make room). A zone where that can't hold has no target and no slot, so a bar too full
+A **title bar**, a bar with a fixed item that grows and takes no steps (the window title), is a constrained host: a
+toolbar dropped there must land in a form of its first form's step group (its row or a compact variant), every other
+item of the bar keeps its step group (it may take a compact variant, never its icons, its fold or the »), and the title
+keeps its natural width (it may never shrink to its `min` to make room). The title's growth is spare room, not owned
+room: it yields that to the landing, as the title rule lets the toolbars take their compact variants while it holds its
+natural width, so a drop that only makes a neighbor step to a variant lands. A zone where that can't hold has no target
+and no slot, so a bar too full
 takes no drop in that zone. The zones are then laid with the title at its natural width, not at the width it grew to:
 
 - a leading toolbar sits right after the title's natural rect;
@@ -218,8 +222,8 @@ control ids it leaves out (`StackForm.hides`, against the item's first form; any
 like any other: taken in declared order, giving way by priority then age, coming back in the exact reverse. The layout
 reports the chosen form's ids as `hidden` on every item (empty when it hides none or sits in a » menu), and `form`
 names the variant; a host draws the kept controls and a "+N" control that lists exactly `hidden`. A drop's `after()`
-previews the variant the drop lands in. A drop onto a title bar lands in a form of its first form's kind (the full row
-or a variant), read from the forms.
+previews the variant the drop lands in. A drop onto a title bar lands in a form of its first form's step group
+(`StackForm.stepGroup`, default the kind: the full row or a variant), read from the forms.
 
 ```ts
 const zoom: DockItem = {
@@ -727,7 +731,12 @@ facing halves is home's, and is no target of its own. The slot is where the item
   anchor's side, may push it inward): the gap **before** a run of `pushable` items at the edge's start (a title at a title
   bar's start, `gap:<edge>:start:0`) is a stop, and a drop there pushes them inward. Left out, a fixed item at the anchor keeps its place as before (window controls stay at the end).
   `pushable` is a declaration like `DockEdge.zoneAccepts`: `readDockState` takes it from `base`, `storeDockState` never writes it, and
-  a stored one is dropped (`item:<id>:pushable`). Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
+  a stored one is dropped (`item:<id>:pushable`). A fixed item with **`DockItem.stepping: true`** (a page readout with a
+  ladder of its own; also a declaration, never stored) steps through its forms, folds and goes into the edge's » like a
+  movable item with the same forms (`StackItem.stepping`), and a drop may step it but never squeeze it under its form's
+  least. It is still never dragged, and protected as any fixed item; while it is in the » (before or after the drop) it
+  has no place along the edge, so "nothing lands between it and its zone's anchor" is read from the order of ids. It
+  never holds for the title rule. Along the edge the gaps tile it: neighboring gaps meet at the midpoint of the
   item between them (see Aim order), else halfway between their lines, so an edge of a few short items (a bar, a rail,
   a column's footer) is covered from end to end. Only over an
   open item's body (a panel) the hit narrows to `DockEdge.hitBand` px around its line (default 24), so the middle of a

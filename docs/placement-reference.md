@@ -71,10 +71,11 @@ places them; nothing in it is a word.
   can't go in alone: the items stuck that way go in together, in give-way order, as few as shorten the stack (two
   icons, 48 px, for one entry, 28 px); each item after that saves its whole size. If all of them together don't beat
   the entry, they stay.
-- A growing fixed item (a title: `fixed`, with a form that `grows`) holds its natural length first. While the other
-  items can still step to a form of the kind they are in (a toolbar's compact variants, a row to a smaller row) or shrink
-  toward their least, they do so before the title gives up any of its natural length; then the title shrinks toward its
-  `main.min`, and after it come the steps that change a form's kind (icons, fold, the » menu), by rank, then age. Room
+- A growing fixed item that takes no steps (a title: `fixed`, not `stepping`, with a form that `grows`) holds its
+  natural length first. While the other items can still step to a form of the step group they are in (`stepGroup`,
+  default the kind: a toolbar's compact variants, a row to a smaller row) or shrink toward their least, they do so
+  before the title gives up any of its natural length; then the title shrinks toward its `main.min`, and after it come
+  the steps that change a form's step group (icons, fold, the » menu), by rank, then age. Room
   coming back is the exact reverse. `StackFit.need` is the forms' least with every growing fixed item at its minimum.
 - `StackForm.rank` (default 0) orders the steps: the lowest rank of the form an item would step into goes first, then
   unkept before kept, then the oldest, then the later in the stack. Give a pinned primary's last forms a higher rank
@@ -340,11 +341,17 @@ fit it always gave. Item kinds are the host's; placement only calls the predicat
   too short for it `overflow`s. It counts toward the length and takes no part in `previous`'s growing back. It is never
   dropped (`stackGaps` refuses every gap with `fixed`). A fixed form that `grows` still takes spare length like any
   form.
-- **`StackInput.ownCross`** (default off): an item whose current form is a group kind (`row`, `stacked`, `wrap`, `icons`,
-  `fold`) is drawn at its own `cross.natural` (a `wrap` form: as wide as its rows need), clamped to the stack's cross
-  size and from its start edge (the left of a column, the top of a bar), not across the whole stack. Panel kinds
-  (`open`, `header`, `rail`) and the » entry still span it, so every open panel and header fills the column, as wide as
-  the widest open panel. The kind decides, not `setsCross`, which decides the stack's cross size. `cross`, the forms,
+- **`StackItem.stepping`** (read only with `fixed`): a fixed item that still takes steps, such as a page readout with a
+  ladder of its own. It keeps only the reserved place (never dropped), and the solver treats it as an ordinary item: it
+  steps through its forms and into the » menu, gives way by rank, `kept` and age, and grows back in exact reverse, so its
+  fit equals a movable item's with the same forms, `used` and `kept`. It never holds for the title rule; to have it
+  shorten last, make it `kept` or rank its forms. `itemSteps(item)` is the one reading: not `fixed`, or `stepping`.
+- **`StackInput.ownCross`** (default off): an item whose current form is drawn at its own size (`StackForm.ownCross`,
+  default the group kinds `row`, `stacked`, `wrap`, `icons`, `fold`) is drawn at its own `cross.natural` (a `wrap` form:
+  as wide as its rows need), clamped to the stack's cross size and from its start edge (the left of a column, the top of
+  a bar), not across the whole stack. Other forms (by default the panel kinds `open`, `header`, `rail`) and the » entry
+  still span it, so every open panel and header fills the column, as wide as the widest open panel. That flag decides,
+  not `setsCross`, which decides the stack's cross size. `cross`, the forms,
   the notes and the lengths are as without it.
 - **Recommended column forms for a group.** In a side column give a group `stacked` (one word per line, `setsCross:
   true`, so a column of groups is as wide as its widest), then `icons` (28 across, sets nothing: with every group in
@@ -398,7 +405,8 @@ without it.
 The item counts as just used: it is newer than every item in the stack, so the others give way before it. It fits a gap
 when the drop's fit doesn't put it in the » menu (`to-menu`), has no `overflow`, makes no item `too-wide` that wasn't
 before (`too-wide`), and squeezes no `fixed` item (`squeezes-fixed`: it keeps its form, is drawn at least its form's
-`main.min` along the stack and at least as wide across as before). A fixed item may shrink down to its `main.min` to
+`main.min` along the stack and at least as wide across as before; one with `stepping` may step to a later form, as a
+movable item may, and is then only kept at its new form's `main.min`). A fixed item may shrink down to its `main.min` to
 make room (a title that `grows` gives back the spare length it took), so the room for the others is the length less the
 fixed items' minimum sizes. Position is not a size: dropping before a fixed item moves it along, as a drop anywhere
 moves what follows.
