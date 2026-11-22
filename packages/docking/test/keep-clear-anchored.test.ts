@@ -9,6 +9,7 @@ import { dockDrag, fitResize, isAnchoredKeepClear, readDockState, solve, storeDo
 import { modelState } from "./model-window";
 import { anchorState, windowState } from "./fixture";
 import { trimmedBy } from "../src/drag";
+import type { DockGuideFrame } from "../src";
 import type { DockMark } from "../src/lanes";
 
 describe("trimming a predicted mark by the strip on screen", () => {
@@ -348,8 +349,19 @@ describe("guides: a lane predicted in another layout gives way to the strip on s
     expect(overlaps(hatch.rect, onScreen)).toBe(true);
     const bare = dockDrag(emptyRight(), "notes", { previous: solve(emptyRight()), emptyLanes: "edge" });
     expect(hatch.rect).toEqual(bare.guides({ ...rest, guides: bare.regions.lanes.map((l) => ({ lane: l.id, held: null })) }).find((g) => g.lane === "right" && g.kind === "hatch")!.rect);
-    // The Near lane (named with its would-land spot, not drawn on screen): its predicted marks, of any kind, are trimmed.
-    const near = { ...rest, guides: rest.guides.map((g) => (g.lane === "right" ? { ...g, held: { kind: "spot" as const, spot: lane.spots[0]!.id, point: { x: 1190, y: 300 } } } : g)) };
-    for (const g of drag.guides(near).filter((x) => x.lane === "right")) expect(overlaps(g.rect, onScreen), g.id).toBe(false);
+    expect(lane.spots.length).toBeGreaterThan(0);
+    // The Near lane's path: Zoom held, the empty right edge named with its start spot (not drawn on screen). Its
+    // would-land layout opens the edge, and the box predicted there is trimmed by the strip on screen, not dropped.
+    const zs = withKeepClear(emptyRight(), strip("all"));
+    const zoom = dockDrag(zs, "zoom", { previous: solve(zs), emptyLanes: "edge" });
+    const zBare = dockDrag(emptyRight(), "zoom", { previous: solve(emptyRight()), emptyLanes: "edge" });
+    const nearOf = (d: typeof zoom): DockGuideFrame => ({ held: null, room: false, guides: d.regions.lanes.map((l) => ({ lane: l.id, held: l.id === "right" ? { kind: "spot" as const, spot: "right/start", point: { x: 1190, y: 300 } } : null })) });
+    const predicted = zoom.guides(nearOf(zoom)).filter((g) => g.lane === "right");
+    expect(predicted.length).toBeGreaterThan(0);
+    const zScreen = stripOf(zoom.shown(nearOf(zoom)));
+    for (const g of predicted) expect(overlaps(g.rect, zScreen), g.id).toBe(false);
+    // Without the strip the same box reaches over where the strip lies on screen: the trim is what keeps it clear.
+    const unTrimmed = zBare.guides(nearOf(zBare)).filter((g) => g.lane === "right");
+    expect(unTrimmed.some((g) => overlaps(g.rect, zScreen))).toBe(true);
   });
 });
