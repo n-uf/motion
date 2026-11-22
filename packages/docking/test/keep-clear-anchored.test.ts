@@ -61,6 +61,58 @@ describe("the resolver", () => {
   });
 });
 
+describe("minRegion: an anchored entry applies only while its region is at least that size", () => {
+  const base = windowState();
+  const content = solve(base).content;
+  const at = (minRegion: AnchoredKeepClear["minRegion"]): DockLayout => solve(withKeepClear(base, { ...strip("all"), minRegion }));
+
+  it("just under the bound it is inactive (absent, keeps nothing clear); at the bound it is active", () => {
+    for (const [under, bound] of [
+      [{ width: content.width + 1 }, { width: content.width }],
+      [{ height: content.height + 1 }, { height: content.height }],
+      [{ width: content.width, height: content.height + 1 }, { width: content.width, height: content.height }],
+    ] as const) {
+      expect(at(under).keepClear, JSON.stringify(under)).toEqual([]);
+      expect(at(bound).keepClear!.map((c) => c.rect), JSON.stringify(bound)).toEqual([{ x: rightOf(content) - STRIP, y: content.y, width: STRIP, height: content.height }]);
+    }
+    // Inactive, it keeps nothing clear: the targets and floats are the window's without it. Active, the float that lies
+    // over it moves aside.
+    const over: DockState = { ...base, floats: [{ id: "notes", rect: { x: rightOf(content) - 120, y: 200, width: 110, height: 320 } }] };
+    const off = withKeepClear(over, { ...strip("all"), minRegion: { width: content.width + 1 } });
+    const shape = (s: DockState): string => JSON.stringify([solve(s).items, targets(s, "findings").map((t) => [t.id, t.hit, t.hits ?? null])]);
+    expect(shape(off)).toBe(shape(over));
+    const on = withKeepClear(over, { ...strip("all"), minRegion: { width: content.width } });
+    expect(overlaps(solve(over).items.notes!.rect, stripOf(solve(on)))).toBe(true);
+    expect(overlaps(solve(on).items.notes!.rect, stripOf(solve(on)))).toBe(false);
+  });
+
+  it("a drop that opens a column and takes the content under the bound: its after() has no entry, and its landing is the commit's", () => {
+    const s0 = noRightColumn();
+    const wide = solve(s0).content.width;
+    const s = withKeepClear(s0, { ...strip("all"), minRegion: { width: wide - 100 } });
+    const previous = solve(s);
+    expect(previous.keepClear).toHaveLength(1);
+    const opening = targets(s, "notes", { previous }).filter((t) => t.place.kind === "column" && t.place.side === "right");
+    expect(opening.length).toBeGreaterThan(0);
+    for (const t of opening) {
+      const a = t.after({ x: 1100, y: 300 });
+      expect(a.layout.content.width, t.id).toBeLessThan(wide - 100);
+      expect(a.layout.keepClear, t.id).toEqual([]);
+      expect(solve(a.state, { previous }), t.id).toEqual(a.layout);
+    }
+    // The drag's marker for that drop is its landing, as the commit draws it.
+    const drag = dockDrag(s, "notes", { previous });
+    const lane = drag.regions.lanes.find((l) => l.id.startsWith("column:right"))!;
+    const held = drag.after({ kind: "spot", spot: lane.spots[0]!.id, point: { x: 1100, y: 300 } });
+    expect(held.layout.keepClear).toEqual([]);
+    expect(held.landing).toEqual(solve(held.state, { previous }).items.notes!.rect);
+    // A float dropped while the column stays closed keeps the strip: the region is still wide enough.
+    const float = drag.after({ kind: "float", point: { x: 1150, y: 300 } });
+    expect(float.layout.keepClear).toHaveLength(1);
+    expect(float.landing).toEqual(solve(float.state, { previous }).items.notes!.rect);
+  });
+});
+
 describe("pin: nothing that sizes the content reads keep-clear rects", () => {
   it("over the model windows: the content, edges, rails and docked items are those without any keep-clear rect", () => {
     const bad: string[] = [];
