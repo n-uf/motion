@@ -42,10 +42,11 @@ predicted in another layout (an empty lane drawn in the layout that creates it, 
 keeps the largest piece of each mark clear of the anchored rects of the layout on screen; `for: "floats"` rects never
 cut a lane's guide. With `emptyLanes: "edge"` an empty lane whose hatch the screen draws keeps it as drawn: it is the
 screen's own mark, so no strip trims it (as no fixed rect does). Only the Near lane's path, where a lane the screen
-doesn't draw takes the marks of its would-land layout, trims those marks by the strips on screen, a hatch included.
-With `minRegion: { width?, height? }` the entry applies only while its region as solved is at least that size: under either bound it is inactive, keeps nothing clear and is absent from `DockLayout.keepClear`
-(absent, not flagged), so a host draws its overlay exactly when the entry is there; a drop that opens a column and
-takes the content under the bound has no entry in its `after`. Like `pushable`, the entry is a declaration:
+doesn't draw takes the marks of its would-land layout, trims those marks (its boxes and lines) by the strips on screen.
+With `minRegion: { width?, height? }` the entry applies only while its region as solved is at least that size: under
+either bound it is inactive, keeps nothing clear and is absent from `DockLayout.keepClear` (absent, not flagged), so a
+host draws its overlay exactly when the entry is there; a drop that opens a column and takes the content under the
+bound has no entry in its `after`. Like `pushable`, the entry is a declaration:
 `readDockState` takes it from `base`, `storeDockState` never writes it.
 
 Breaking (type only): `DockState.keepClear` is now `readonly (KeepClear | AnchoredKeepClear)[]`; narrow an entry with
