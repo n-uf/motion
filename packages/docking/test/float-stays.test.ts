@@ -141,6 +141,32 @@ describe("a fitting float keeps clear while the pointer is on it", () => {
   });
 });
 
+describe("bars and chrome only clamp it, as the stage's edge does", () => {
+  // N1 is exempt at the stage edge, bars and chrome, where the float takes the least shift that clears them.
+  it("over a bar: pushed just clear of it along y, its x at the hand", () => {
+    const item = { width: 300, height: 160 };
+    const s = withNotes({ x: 500, y: 300, ...item });
+    const a = floatFrame(s, { x: 600, y: 50 }, { x: 150, y: 10 });
+    expect(a.landing).toEqual({ x: 450, y: 68, ...item });
+    // Wider than the open room: over the columns too, so marked, still pushed only below the bars.
+    const wide = { width: 760, height: 120 };
+    const w = withNotes({ x: 300, y: 300, ...wide });
+    const b = floatFrame(w, { x: 600, y: 50 }, { x: 380, y: 10 });
+    expect(b.landing).toEqual({ x: 220, y: 68, ...wide });
+    expect(stays(b.state)).toBe(true);
+  });
+
+  it("over a chrome rect, the pointer deep inside it: the least push along one axis, the other kept at the hand", () => {
+    const item = { width: 300, height: 160 };
+    const g = withNotes({ x: 600, y: 80, ...item }, { keepClear: [{ x: 540, y: 300, width: 400, height: 472, for: "floats" }] });
+    const a = floatFrame(g, { x: 660, y: 400 }, { x: 150, y: 80 });
+    // Up by 180 (left would be 270): x stays where the hand puts it.
+    expect(a.landing).toEqual({ x: 510, y: 140, ...item });
+    expect(stays(a.state)).toBe(false);
+    expect(solve(a.state).items[KEY]!.rect).toEqual(a.landing);
+  });
+});
+
 describe("N3: no flip-flop along a path", () => {
   for (const [name, size] of [
     ["half the open width", { width: 340, height: 160 }],

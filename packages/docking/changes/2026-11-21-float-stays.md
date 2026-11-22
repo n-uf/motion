@@ -14,3 +14,6 @@
   anchored float, is dropped and listed (`float:<id>:stays`).
 - The conformance row `P5-neighbour-half-facing-it` now expects the float at the hand, over the neighbor's body
   (`140,190`), not beside it.
+- A float at the hand, and a marked float at rest, is pushed the least it takes clear of the bars and the chrome, along
+  the axis that needs it (as the stage's edge clamps it), and stays at the hand otherwise; it is never moved to a clear
+  place elsewhere.
