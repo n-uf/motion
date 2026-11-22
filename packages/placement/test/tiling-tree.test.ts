@@ -72,6 +72,24 @@ describe("split ids and layoutSplitTree", () => {
     const { splits } = layoutSplitTree({ id: "s", a: leaf(1), b: leaf(2), axis: "x", ratio: 0 }, { x: 10, y: 0, width: 100, height: 50 }, { gap: 20 });
     expect(splits.get("s")!.divider).toEqual({ x: 10, y: 0, width: 10, height: 50 });
   });
+
+  it("every rect is its own object: the caller's area, each pane's and each split's, whether or not the layout reports splits", () => {
+    const rnd = seeded(77);
+    for (let i = 0; i < 100; i++) {
+      const tree = randomTree(rnd, 1 + Math.floor(rnd() * 9), { id: 0.8, master: 0.2 });
+      const area: Rect = { x: 3, y: 4, width: 500, height: 300 };
+      const { panes, splits } = layoutSplitTree(tree, area, { gap: 4 });
+      const rects = [...panes.values(), ...[...splits.values()].map((s) => s.rect)];
+      expect(new Set(rects).size).toBe(rects.length);
+      expect(rects).not.toContain(area);
+      expect(layoutSplit(tree, area, { gap: 4 })).toEqual(panes);
+      expect(new Set(layoutSplit(tree, area, { gap: 4 }).values())).not.toContain(area);
+    }
+    // A lone pane is a copy of the area, not the area.
+    const lone = layoutSplit(leaf(1), AREA).get(1)!;
+    expect(lone).toEqual(AREA);
+    expect(lone).not.toBe(AREA);
+  });
 });
 
 describe("split geometry, seeded sweeps", () => {
