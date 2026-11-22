@@ -27,6 +27,32 @@ export interface DockDrop extends Target {
   /** The item dragged. */
   readonly item: string;
   /**
+   * Spring-loaded (a rail drop strip's targets): no target until the pointer dwells in it. Read only by
+   * `@n-uf/motion/drag`'s drag intent (`DragTarget.arm`); the landing model and `dockDrag` don't read it.
+   */
+  readonly arm?: "dwell";
+  /** With `arm`, its zone once armed (the strip grown by its magnet). */
+  readonly armedHit?: Rect;
+  /**
+   * Its room opens as it shows: set on a target whose slot overlaps an item its drop moves (a rail pushing a column, a
+   * new-column line, a bar's strip over the columns), and on a rail drop strip's targets, whose room opens once armed.
+   * The drag intent then shows it and makes its room in one frame. Until it shows, a release still lands on it. Read
+   * only by the drag intent (`DragTarget.opensRoom`).
+   */
+  readonly opensRoom?: true;
+  /**
+   * With `opensRoom`, how long it holds before it shows with its room, ms, in place of the drag intent's `roomAfter`: set
+   * to `EDGE_ROOM_HOLD` on a rail target or a new-column line against the window's left or right edge.
+   */
+  readonly roomHold?: number;
+  /**
+   * With `opensRoom`, the zone it holds once its room is open: while the target shows with its room open, a drag intent
+   * holds it wherever the pointer is in this rect. Set to the smallest rect holding `hit` and the slot (the landing
+   * rect) on every target whose drop changes an edge's thickness (a side's width or a bar's height): strips,
+   * new-column lines, rails and gaps. A rail drop strip (`armedHit`) doesn't carry it.
+   */
+  readonly roomHit?: Rect;
+  /**
    * Where a release here puts the item. A host tells a home (nothing committed) by `place.kind === "home"`, never by the
    * id: a home keeps the id of the first of its edge's places that puts the item back (`gap:<edge>:<zone>:<at>` on a
    * real edge, `rail:<side>:<ring>` on its rail), and `home:<id>` alone covers the item's own rect.
