@@ -26,7 +26,7 @@ import { liftItem, moveTo, type DockPlace } from "./changes";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
-import { targetsAndRefusals } from "./targets";
+import { parseTargetId, targetsAndRefusals } from "./targets";
 import type { DropResult, DockRefusal, DockDrop, DockDropOptions } from "./targets/model";
 
 /** The pitch of the spots over a bar's free stretches, px: a quarter of a typical toolbar's length (158 px in the lab). */
@@ -535,7 +535,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     ...rails,
     // A held tile's own rail: every stop is home's in `targets()`, with the new-column lines about its folded column
     // joined to it (the strip beside the rail). A home place takes no float, so it is blocked as `targets()` has it.
-    ...(own?.rail ? ts.filter((t) => t.place.kind === "home" && t.id.startsWith("rail:")).flatMap((t) => t.hits ?? [t.hit]) : []),
+    ...(own?.rail ? ts.filter((t) => t.place.kind === "home" && parseTargetId(t.id)?.kind === "rail").flatMap((t) => t.hits ?? [t.hit]) : []),
     // Spots where a release cancels (`DockState.blocked`): no float lands there.
     ...(state.blocked ?? []),
   ];
