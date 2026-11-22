@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, type LandingFrame, type LandingLane, type LandingRegions } from "../src/drag";
-import { listed } from "./listed-geometry";
+import { listed, NEAR } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -35,11 +35,10 @@ describe("landing model: a float's lift zone", () => {
     content: rect(0, 32, 800, 568),
     blocked: [column.rect],
     stage: rect(0, 0, 800, 600),
-    item: { width: 200, height: 28 },
     ...more,
   });
   const FLOAT = (p: Point): Rect => rect(p.x - 50, p.y - 14, 200, 28);
-  const make = (more: Partial<LandingRegions> = {}) => createLandingModel({ ...listed(regions(more), FLOAT), placeGuides: "near" });
+  const make = (more: Partial<LandingRegions> = {}) => createLandingModel({ ...listed(regions(more), FLOAT), preview: NEAR });
   const PRESS: Point = { x: 150, y: 46 };
 
   /** Frames along a straight slow slide from `from` to `to` at `speed` px/ms, a sample every 8 ms; each with its pointer. */
@@ -160,7 +159,7 @@ describe("landing model: a float's lift zone", () => {
   it("the zone's lane-less verdict is not carried past it: over a blocked rail band, refused in the zone, open (lane pending) after, and the release floats", () => {
     const rail: LandingLane = { id: "rail", rect: rect(0, 0, 40, 600), axis: "y", spots: [{ id: "rail/s", along: [0, 600], landing: rect(0, 100, 32, 200) }], refused: [] };
     const rg: LandingRegions = { lanes: [rail], refused: [], content: rect(0, 0, 800, 600), blocked: [rect(0, 0, 32, 600)], stage: rect(0, 0, 800, 600) };
-    const m = createLandingModel({ ...listed(rg, (p) => rect(p.x - 10, p.y - 10, 120, 28)), lift: { x: 20, y: 300 }, placeGuides: "near" });
+    const m = createLandingModel({ ...listed(rg, (p) => rect(p.x - 10, p.y - 10, 120, 28)), lift: { x: 20, y: 300 }, preview: NEAR });
     let t = 0;
     m.update({ x: 20, y: 300 }, 0);
     for (let y = 300; y <= 330; y += 2) {

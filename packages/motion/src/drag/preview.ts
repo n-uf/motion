@@ -36,6 +36,15 @@ export const DRAG_PREVIEW_DEFAULT: DragPreview = { mode: "glide" };
 /** Each mode's place guides when it names none: Snap and Placeholder near, Outline and Glide none. */
 export const PLACE_GUIDES_DEFAULT: Readonly<Record<PreviewMode, PlaceGuides>> = { outline: "off", placeholder: "near", glide: "off", snap: "near" };
 
+/**
+ * The place guides a preview asks for: its `placeGuides`, else its mode's default. The one reading of the level:
+ * `previewPlan` draws it, and the landing model (`createLandingModel({ preview })`) names its lanes by it.
+ */
+export function guidesOf(preview: DragPreview | PreviewMode): PlaceGuides {
+  const p: DragPreview = typeof preview === "string" ? { mode: preview } : preview;
+  return p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode];
+}
+
 /** What to draw for one frame of a drag. */
 export interface PreviewPlan {
   /** Draw the indicator on the shown landing. */
@@ -78,7 +87,7 @@ export function previewPlan<T extends DragTarget>(frame: PreviewFrame<T>, previe
   const slots = slotted ?? (landing ? frame.region === "lane" : !!frame.shown && !frame.shown.free);
   const plan = planOf(p.mode, shown, frame.room, slots);
   const drawn = plan.showIndicator || plan.makeRoom || plan.snapItem;
-  return { ...plan, guides: drawn ? "off" : (p.placeGuides ?? PLACE_GUIDES_DEFAULT[p.mode]) };
+  return { ...plan, guides: drawn ? "off" : guidesOf(p) };
 }
 
 function planOf(mode: PreviewMode, shown: boolean, room: boolean, slotted: boolean): Omit<PreviewPlan, "guides"> {

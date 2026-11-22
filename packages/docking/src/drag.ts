@@ -20,8 +20,9 @@
  *   spot's for any other), and gives up where it meets a lane drawn on screen (between two such, the bar keeps the
  *   corner). Under "all", the Near lane's marks win where they meet another lane's: the others are cut there.
  *
- * The shapes fit `@n-uf/motion/drag`'s landing model as they are (`regions`, `landingOf`, `spotsOf`; the frame's
- * `held` and `guides`), though neither package imports the other.
+ * The shapes fit `@n-uf/motion/drag`'s landing model as they are (`regions`, `home`, `landingOf`, `spotsOf`; the frame's
+ * `held` and `guides`), though neither package imports the other: `createLandingModel({ ...drag, preview })` is the whole
+ * wiring.
  */
 import { EPS, type Point, type Rect } from "@n-uf/placement";
 import type { DockLayout, DockState } from "./model";
@@ -82,6 +83,12 @@ export interface DockGuideFrame {
 export interface DockDrag {
   /** Hit-testing only: lanes (hit rect, spots' stretches, refused stretches), refused places, blocked, content, as seen. */
   readonly regions: DockRegions;
+  /**
+   * The item's own place at the lift: the lane and spot `lanes()` marks `home` (a docked item's). Absent for a float (a
+   * lift with no home place). Fits the landing model's `home` option, so `createLandingModel({ ...drag, preview })` is the
+   * whole wiring; a host that wants another home passes its own after the spread.
+   */
+  readonly home?: { readonly lane: string; readonly spot: string };
   /** THE layout of `held` (rest for null): the dock state it commits, its layout, landing, marks and, for a spot, its lane's spots. */
   after(held: DockHeld | null): DockAfter;
   /** `after(held).landing`: the one rect a landing model reads (its trail gate, its frame's landing). */
@@ -247,5 +254,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     return shown.flatMap((s) => (s === near ? s.marks : marksLess(s.marks, axis(s.lane), cut)));
   };
 
-  return { regions, after, landingOf, spotsOf, shown: shownLayout, guides };
+  // The item's own place: the first spot `lanes()` marks home (absent for a float).
+  const home = base.lanes.flatMap((l) => l.spots.filter((s) => s.home).map((s) => ({ lane: l.id, spot: s.id })))[0];
+  return { regions, ...(home ? { home } : {}), after, landingOf, spotsOf, shown: shownLayout, guides };
 }

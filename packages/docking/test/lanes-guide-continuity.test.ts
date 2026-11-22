@@ -13,14 +13,14 @@ import { guideRects } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "@n-uf/placement";
 import { dockDrag, solve, type DockLayout, type DockRegions } from "../src";
-import { modelOver, type DrawnFrame } from "./landing-model";
+import { guided, modelOver, type DrawnFrame } from "./landing-model";
 import { dragOf, windows, type Drag } from "./lift-windows";
 
 type LandingFrame = DrawnFrame;
 
 /** The frames of a drag along `legs` (each a point and the speed to it, px/ms), a frame every 8 ms, then a rest. */
 function play(d: Drag, mode: "near" | "all", legs: readonly [Point, number][], rest = 200): { point: Point; frame: LandingFrame }[] {
-  const model = modelOver(d.drag, { ...(d.home ? { home: d.home } : {}), placeGuides: mode });
+  const model = modelOver(d.drag, { preview: guided(mode) });
   const out: { point: Point; frame: LandingFrame }[] = [];
   let t = 0;
   let at = d.press;

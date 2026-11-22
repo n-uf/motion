@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import type { Point, Rect } from "../src/shapes";
 import { createLandingModel, LANDING_APPROACH, type LandingFrame, type LandingOptions, type LandingHeld, type LandingRegions } from "../src/drag";
+import { guided, NEAR } from "./listed-geometry";
 
 const rect = (x: number, y: number, width: number, height: number): Rect => ({ x, y, width, height });
 
@@ -32,7 +33,6 @@ function regions(): LandingRegions {
     content: rect(0, 0, 1000, 600),
     blocked: [rect(600, 520, 400, 80)],
     stage: rect(0, 0, 1000, 640),
-    item: { width: 100, height: 32 },
   };
 }
 /** `A` lands at the hand (its start at the pointer less 50, clamped to 0–400); `B` at its listed landing. */
@@ -66,7 +66,7 @@ describe("landing model: the held places it names", () => {
       [550, "bottom/B"],
     ] as const) {
       const p = { x, y: 596 };
-      const last = play(opts({ placeGuides: "near" }), [{ x, y: 300 }, p], 0.2, 40).at(-1)!.f;
+      const last = play(opts({ preview: NEAR }), [{ x, y: 300 }, p], 0.2, 40).at(-1)!.f;
       expect([last.region, last.lane]).toEqual(["open", null]);
       expect(last.guides).toEqual([{ lane: "bottom", held: { kind: "spot", lane: "bottom", spot, point: p } }]);
     }
@@ -76,7 +76,7 @@ describe("landing model: the held places it names", () => {
     const reach = LANDING_APPROACH.reach;
     const ownerAt = (d: number): string | undefined => {
       const p = { x: 800, y: 600 - d };
-      const f = play(opts({ placeGuides: "all" }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
+      const f = play(opts({ preview: guided("all") }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
       expect([d, f.region, f.lane]).toEqual([d, "refused", null]);
       return f.guides.find((g) => g.held !== f.held)?.lane;
     };
@@ -85,7 +85,7 @@ describe("landing model: the held places it names", () => {
     expect(ownerAt(reach + 1)).toBeUndefined();
     // The owner stands for its would-land held place: the spot the pointer picks along it.
     const p = { x: 800, y: 600 - reach };
-    const f = play(opts({ placeGuides: "all" }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
+    const f = play(opts({ preview: guided("all") }), [{ x: 800, y: 530 }, p], 0.2, 40).at(-1)!.f;
     expect(f.guides.find((g) => g.lane === "bottom")!.held).toEqual({ kind: "spot", lane: "bottom", spot: "bottom/B", point: p });
   });
 

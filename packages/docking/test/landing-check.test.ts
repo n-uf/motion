@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import { dockDrag, solve, type DockDrag, type DockGuideFrame, type DockGuideRef, type DockHeld, type DockLane, type DockRegions, type DockSpot } from "../src";
 import type { AssertGeometry, AssertLanding } from "../src/testing";
 import { windowState } from "./fixture";
+import { guided } from "./landing-model";
 
 /** Compiles only when `A` is assignable to `B`. */
 type Assignable<A extends B, B> = A;
@@ -32,7 +33,7 @@ describe("a drag is what the landing model reads", () => {
     const s = windowState();
     const previous = solve(s);
     const drag = dockDrag(s, "tools", { previous });
-    const model = createLandingModel({ ...drag, placeGuides: "all" });
+    const model = createLandingModel({ ...drag, preview: guided("all") });
     const f = model.update({ x: 1, y: 1 }, 0);
     expect(drag.regions.lanes.length).toBeGreaterThan(0);
     expect(Array.isArray(drag.guides(f))).toBe(true);

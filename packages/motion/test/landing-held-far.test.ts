@@ -14,7 +14,7 @@ describe("landing model: far beyond the held lane, the frame is held but refused
   const regions = (): LandingRegions => {
     const bottom: LandingLane = { id: "bottom", rect: rect(0, 599, 868, 31), axis: "x", spots: [{ id: "bottom/home", along: [0, 868], landing: rect(8, 599, 362, 31) }], refused: [] };
     const rail: LandingLane = { id: "rail-left", rect: rect(0, 0, 30, 599), axis: "y", spots: [{ id: "rail-left/start", along: [0, 599], landing: rect(0, 242, 30, 121) }], refused: [] };
-    return { lanes: [bottom, rail], refused: [], content: rect(0, 0, 868, 599), blocked: [rect(12, 12, 220, 575)], stage: rect(0, 0, 868, 630), item: { width: 362, height: 31 } };
+    return { lanes: [bottom, rail], refused: [], content: rect(0, 0, 868, 599), blocked: [rect(12, 12, 220, 575)], stage: rect(0, 0, 868, 630) };
   };
   it("a flick up the rail, held 288 px from its bar, shows the refused place and releases home", () => {
     const m = createLandingModel({ ...listed(regions()), home: { lane: "bottom", spot: "bottom/home" }, lift: { x: 25, y: 614 } });

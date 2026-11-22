@@ -2,7 +2,7 @@
  * A landing model over a drag, as a host plays it: `createLandingModel({ ...dockDrag(...) })`, each frame with its
  * guides drawn by the drag (`DockDrag.guides`), and a release's commit (`DockDrag.after`).
  */
-import { createLandingModel, type LandingFrame, type LandingModel, type LandingOptions } from "@n-uf/motion/drag";
+import { createLandingModel, type DragPreview, type LandingFrame, type LandingModel, type LandingOptions, type PlaceGuides } from "@n-uf/motion/drag";
 import type { Point } from "@n-uf/placement";
 import type { DockAfter, DockDrag, DockGuide } from "../src";
 
@@ -18,6 +18,10 @@ export interface HostModel {
   commit(point: Point, time: number): DockAfter | null;
 }
 
+/** A preview that names `level` as its guide level (the mode is beside the point: the model reads only the level). */
+export const guided = (level: PlaceGuides): DragPreview => ({ mode: "placeholder", placeGuides: level });
+
+/** The model over `drag` as a host wires it: the drag as it is (its `home` too), and the preview. */
 export function modelOver(drag: DockDrag, more: Omit<LandingOptions, "regions" | "landingOf" | "spotsOf"> = {}): HostModel {
   const model = createLandingModel({ ...drag, ...more });
   const drawn = (f: LandingFrame): DrawnFrame => ({ ...f, guides: drag.guides(f), named: f.guides });

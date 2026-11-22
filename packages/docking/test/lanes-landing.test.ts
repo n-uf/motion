@@ -7,7 +7,7 @@ import { createLandingModel } from "@n-uf/motion/drag";
 import { describe, expect, it } from "vitest";
 import type { Point } from "@n-uf/placement";
 import { solve, SPOT_PITCH, type DockState, type DockItem } from "../src";
-import { modelOver, type DrawnFrame as LandingFrame, type HostModel } from "./landing-model";
+import { guided, modelOver, type DrawnFrame as LandingFrame, type HostModel } from "./landing-model";
 import { dockDrag, heldLanes, lanes } from "./pitched-lanes";
 import { bar, byId, column, controls, group, panel, title } from "./fixture";
 
@@ -27,8 +27,7 @@ function optionsFor(id: string, sc: DockState = state, press?: Point): HostModel
   const r = previous.items[id]!.rect;
   const grab = press ? { x: press.x - r.x, y: press.y - r.y } : GRAB;
   const drag = dockDrag(sc, id, { previous, grab });
-  const home = drag.regions.lanes.flatMap((l) => l.spots.filter((sp) => sp.home).map((sp) => ({ lane: l.id, spot: sp.id })))[0];
-  return modelOver(drag, { ...(home ? { home } : {}), placeGuides: "near" });
+  return modelOver(drag, { preview: guided("near") });
 }
 
 /** Drive keys [ms, x, y] (linear between) every 8 ms; every frame with its point. */

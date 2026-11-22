@@ -244,7 +244,8 @@ describe("record docking", () => {
         let recorded = 0;
         for (const path of spread(paths, WINDOW_SAMPLES))
           for (const mode of ["near", "all"] as const) {
-            const host = model(drag, { ...(home ? { home } : {}), placeGuides: mode });
+            // The guide level is the model's `placeGuides` at an old base and its `preview`'s now: both are given, each side reads its own.
+            const host = model(drag, { ...(home ? { home } : {}), placeGuides: mode, preview: { mode: "placeholder", placeGuides: mode } });
             const played: { p: Any; f: Any; r: Any }[] = [];
             let t = 0;
             let at = press;

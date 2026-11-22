@@ -33,7 +33,6 @@ function regions(): LandingRegions {
     content: rect(0, 32, 1000, 568),
     blocked: [lane],
     stage: rect(0, 0, 1000, 600),
-    item: { width: 100, height: 28 },
   };
 }
 const RANGES: Record<string, { from: number; to: number; snaps: number[] }> = {
