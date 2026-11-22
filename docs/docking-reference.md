@@ -753,7 +753,8 @@ facing halves is home's, and is no target of its own. The slot is where the item
   is the item's rect after the drop and `marker` the insertion line across the edge (data only; a page draws the slot
   as the landing's one mark).
 - `endReach` only adds: it never shrinks or replaces a zone's own span along the edge, nor takes another edge's own
-  span. An empty bar's band that cuts the strip off from its zone leaves the strip to the zone's outermost slot; past a
+  span, nor what a column line or a rail stop tiles as its own (every target's pieces with `endReach` cover its pieces
+  without it). An empty bar's band that cuts the strip off from its zone leaves the strip to the zone's outermost slot; past a
   bar holding items the strip stops at the bar.
 - `strip:<edge>:<zone>` (2; three per empty edge, `:start`, `:center` and `:end`, one per third along the edge: a bar's
   width, a side edge's height, see Bar alignment zones): an accepting edge with no members at all (one that holds only
