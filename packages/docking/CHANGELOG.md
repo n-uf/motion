@@ -7,6 +7,10 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.61
+
+No changes in `@n-uf/docking`. Released in step with `@n-uf/motion` and `@n-uf/placement`, which share the version.
+
 ## 26.11.60
 
 - **The grab is a function of the laid form** ([decision 0013](https://github.com/n-uf/motion/blob/main/docs/decisions/0013-grab-as-a-function-of-the-form.md)).

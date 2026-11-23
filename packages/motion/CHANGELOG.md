@@ -5,6 +5,17 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.61
+
+- **A dropped frame no longer loses a slide.** The landing model's hand speed tells a rest from frames the host lost:
+  a gap of 40 ms or more is a rest when the pointer was seen standing still in it (a repeated sample 20 ms or more after
+  its last move) or moved across it at under half the hand's speed; else the hand carries on through it, the lost
+  frames filled in, so a slide round a corner with one late frame still docks. The step across any gap is still never a
+  slow step, so a fling out of a rest docks nowhere on its first frame. A touching lane's slide counts from where the
+  pointer crossed into it, so a slide at a corner that turns inside the new lane takes it a frame or three later than
+  before. Hosts: call `update` again `rest` ms or more after the pointer stops (every frame does), so a rest reads as one.
+  Decision record 0014.
+
 ## 26.11.60
 
 - **A held item takes the caller's grab on a resize.** `HeldDrag.resize(size, grab?)`: with `grab` (px from the
