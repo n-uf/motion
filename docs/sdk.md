@@ -625,7 +625,8 @@ interface HeldDrag {
   snapTo(slot: Rect | null): "snapped" | "left" | null;
   follow(): boolean;
   preview(plan: { snapItem: boolean; }, slot: Rect | null): "snapped" | "left" | null;
-  resize(size: { width: number; height: number; }): boolean;
+  resize(size: { width: number; height: number; }, grab?: Point): boolean;
+  grab: Point;
   land(slot: Rect): Rect;
   cancel(home: Rect): Rect;
 }
@@ -1116,7 +1117,7 @@ interface ColumnTemplate {
   zoneAccepts?: Readonly<Partial<Record<Zone, string[]>>>;
   hitBand?: number | "middle";
 }
-interface DockAfter extends DropResult { landing: Rect | null; marks: DockLaneMark[]; spots?: DockSpot[] }
+interface DockAfter extends DropResult { landing: Rect | null; grab: Point; marks: DockLaneMark[]; spots?: DockSpot[] }
 interface DockDivider { edge: string; before: string; after: string; rect: Rect; range: { min: number; max: number; } }
 interface DockDrag {
   regions: DockRegions;
@@ -1137,9 +1138,9 @@ interface DockDrop extends Target {
   place: DropPlace;
   marker?: Rect;
   strip?: Rect;
-  after(point: Point, grab?: Point): DropResult;
+  after(point: Point, grab?: DockGrab): DropResult;
 }
-interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[]; grab?: Point; pitch?: number }
+interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[]; grab?: DockGrab; pitch?: number }
 interface DockEdge {
   id: string;
   side: Side;
@@ -1183,6 +1184,9 @@ interface DockEdgeLayout {
   rides?: string;
 }
 interface DockFloat { id: string; rect: Rect; anchor?: FloatAnchorAt; orient?: Orient; since?: number; stays?: true }
+type DockGrab = Point | ((form: DockGrabForm, size: Size) => Point | undefined)
+interface DockGrabForm extends DockItemLayout { place: DockGrabPlace }
+type DockGrabPlace = { kind: "float"; } | { kind: "spot"; edge: string; } | { kind: "rail"; side: "left" | "right"; orient: Orient; }
 interface DockGuideFrame { held: DockHeld | null; room: boolean; guides: DockGuideRef[] }
 interface DockGuideRef { lane: string; held: DockHeld | null }
 type DockHeld = { kind: "spot"; spot: string; point: Point; } | { kind: "float"; point: Point; }
@@ -1233,7 +1237,7 @@ interface DockItemLayout {
 interface DockKeepClearLayout { rect: Rect; for: "all" | "floats"; id?: string }
 interface DockLane { id: string; rect: Rect; axis: Axis; spots: DockSpot[]; refused: LaneRefusal[]; marks: DockMark[]; owns?: true }
 interface DockLaneMark extends DockMark { lane: string }
-interface DockLaneOptions extends DockDropOptions { pitch?: number; stretchPositions?: "free" | "pitched"; snapDistance?: number; grab?: { x: number; y: number; }; emptyLanes?: EmptyLanes }
+interface DockLaneOptions extends DockDropOptions { pitch?: number; stretchPositions?: "free" | "pitched"; snapDistance?: number; grab?: DockGrab; emptyLanes?: EmptyLanes }
 interface DockLayout {
   items: Readonly<Record<string, DockItemLayout>>;
   edges: Readonly<Record<string, DockEdgeLayout>>;
@@ -1292,7 +1296,7 @@ interface DockState {
 }
 interface DockStateRead { state: DockState; dropped: string[]; error?: string }
 type DropPlace = { kind: "gap"; edge: string; zone: Zone; at: number; } | ColumnPlace | RailPlace | { kind: "side"; edge: string; side: Side; } | { kind: "float"; } | { kind: "home"; } | { kind: "none"; }
-interface DropResult { state: DockState; layout: DockLayout }
+interface DropResult { state: DockState; layout: DockLayout; grab?: Point }
 type EmptyLanes = "real" | "edge"
 type FloatAnchor = "content-top-left" | "content-top" | "content-top-right" | "content-right" | "content-bottom-right" | "content-bottom" | "content-bottom-left" | "content-left"
 type FloatAnchorAt = FloatAnchor | FloatAnchorOffset
