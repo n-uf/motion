@@ -165,6 +165,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const t = h.kind === "swap" ? ops.swap(drag.lift.tree, subject, h.at) : ops.beside(ops.release(drag.lift.tree, subject), subject, h.at, h.side, { kind: "half" });
       return ops.normalize ? ops.normalize(t) : t;
     };
+    const masterIn = (n: Split<K> | null): boolean => !!n && !("pane" in n) && (!!n.master || masterIn(n.a) || masterIn(n.b));
+    const hasMaster = masterIn(ops.split(drag.lift.tree));
     /** Whether the smallest split holding both `x` and `y` in the lift tree lays its panes out as master and stack. */
     const meetInMaster = (x: K, y: K): boolean => {
       let node = ops.split(drag.lift.tree);
@@ -343,8 +345,9 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
           const own = drawnAs(a.tree, subjectKey);
           const others = [...a.layout].some(([k, rect]) => k !== at && k !== own && drag.base.layout.has(k) && !sameRect(rect, drag.base.layout.get(k)));
           const under = !!a.landing && inside(a.landing, p);
-          // A fixed length keeps the subject's size wherever it lands: its landing need not reach the pointer.
-          if (others || options.fixed || options.fixedAcross) {
+          // A fixed length keeps the subject's size wherever it lands, and a master split lays its stack out anew: the
+          // landing need not reach the pointer (counted).
+          if (others || options.fixed || options.fixedAcross || hasMaster) {
             reported.insertsMoveOthers++;
             if (!under) reported.insertsMoveOthersBeside++;
           } else check("shown-under-pointer", under, () => `${show(r.held)}: landing ${JSON.stringify(a.landing)} does not contain ${p.x.toFixed(1)},${p.y.toFixed(1)}`);

@@ -253,6 +253,16 @@ describe("tilingHitConformance: the seven properties", () => {
     expect(r.ok).toBe(true);
   });
 
+  it("hold on master splits: a master split is no run, so panes across it keep their sides", () => {
+    const rnd = seeded(31);
+    const map = (s: Split<number>): Split<string> => ("pane" in s ? { pane: `p${s.pane}` } : { ...s, a: map(s.a), b: map(s.b) });
+    const masters: StackedSplit<string>[] = Array.from({ length: 8 }, () => ({ split: map(randomTree(rnd, 3 + Math.floor(rnd() * 3), { master: 0.6 })) }));
+    const hand: StackedSplit<string> = { split: { master: { count: 1, side: "left" }, a: { pane: "s" }, b: { axis: "y", ratio: 0.5, a: { pane: "n" }, b: { pane: "m" } } } };
+    const r = tilingHitConformance([hand, ...masters], opts());
+    expect(r.failures).toEqual([]);
+    expect(r.ok).toBe(true);
+  });
+
   it("hold with a run neighbor narrower than its run (a fixed length across): it keeps its sides", () => {
     const column: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "s" }, b: { pane: "n" } } };
     const fixedAcross = (child: Split<string>): number | undefined => ("pane" in child && child.pane === "n" ? 300 : undefined);
