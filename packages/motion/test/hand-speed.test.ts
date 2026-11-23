@@ -134,6 +134,31 @@ describe("the hand's speed", () => {
     expect(bad).toEqual([]);
   });
 
+  it("keeps the previous step over an interval under 1 ms: the same sample, not a slow one", () => {
+    for (const v of [0.6, 1.5, 2.4]) {
+      for (const gap of [0, 0.05, 0.3, 0.5, 0.99]) {
+        const h = createHandSpeed();
+        h.push({ x: 0, y: 0 }, 0);
+        const at = feed(h, v, 8, 12);
+        const [step, speed] = [h.step, h.speed];
+        // A sample a fraction of a millisecond after the last, a little further on: neither the step nor the speed drops.
+        h.push({ x: 0, y: at.y + v * gap }, at.t + gap);
+        expect(h.step, `v ${v}, gap ${gap}`).toBe(step);
+        expect(h.speed, `v ${v}, gap ${gap}`).toBeGreaterThanOrEqual(speed - 1e-9);
+      }
+    }
+  });
+
+  it("reads an interval of 1 ms or more as its own step", () => {
+    const h = createHandSpeed();
+    h.push({ x: 0, y: 0 }, 0);
+    const at = feed(h, 0.6, 8, 12);
+    h.push({ x: 0, y: at.y + 0.6 }, at.t + 1);
+    expect(h.step).toBeCloseTo(0.6, 9);
+    h.push({ x: 0, y: at.y + 0.6 + 0.3 }, at.t + 3);
+    expect(h.step).toBeCloseTo(0.15, 9);
+  });
+
   it("is steady only once it has read alike for half a span: a hand gathering speed out of a hesitation is not", () => {
     const h = createHandSpeed();
     h.push({ x: 0, y: 0 }, 0);

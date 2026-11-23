@@ -570,7 +570,6 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     let step = 0;
     if (moved && (raw.x !== moved.raw.x || raw.y !== moved.raw.y)) {
       const before = moved.t;
-      step = Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) / Math.max(1, t - moved.t);
       moved = { raw, t };
       hand.push(raw, t);
       // The step across a gap (40 ms or `pause`, the smaller) may end a rest, so it says nothing about how the hand moves
