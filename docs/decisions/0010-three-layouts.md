@@ -41,6 +41,10 @@ The rule that toolbars take the nearest place and panel columns take halves is n
   stop; never the item's own place. Both paths cut through the one helper (`crossFreeCuts`).
 - The used count: every landing, and the room a drop over free room makes, is read with the dropped item counted as just
   used (`markUsed`), as its commit counts it, on both paths.
+- One sliding range: a place over free room is read by both paths from one model (`slideRange`), and a landing counts
+  for a place only where its own commit is that place. Every lane slide is a tile range but on an empty edge: there
+  `targets()` offers the edge as its drop strips by zone (no slots, so no landing cuts), while `lanes()` slides one spot
+  along its whole length.
 - In progress, the marks part: a growing fixed title's slack is still free room for the marks, so a box is drawn over
   the grown part of the title instead of at most a line.
 - Guarded by docking's target-model and sweep tests (the aim-order property) and the lab's aim-order sweeps by the tiles
