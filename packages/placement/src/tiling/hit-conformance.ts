@@ -1,5 +1,5 @@
 /**
- * The seven properties of a tiling drag's hit half, run on any `TilingTree` adapter: the library's tests on the reference
+ * The properties of a tiling drag's hit half (`TILING_HIT_PROPERTIES`), run on any `TilingTree` adapter: the library's tests on the reference
  * one, a host on its own (its `parts` included). Pure: no test runner, no DOM. The zone rule is checked against a second
  * copy of it written here (the center by its formula, the side regions as trapezoids), never the library's own call.
  * See docs/placement.md, Entry: tiling.
@@ -78,7 +78,7 @@ function inQuad(q: readonly Point[], p: Point): boolean {
 }
 
 /**
- * Runs the seven properties on every subject of every tree (`tilingSubjects`), on both bases, over seeded points,
+ * Runs every property on every subject of every tree (`tilingSubjects`), on both bases, over seeded points,
  * walks and sweeps. Gives the first `limit` failures (default 20) in words.
  */
 export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDragOptions<T, K>, hitOptions: TilingHitOptions<K> = {}, limit = 20): TilingHitConformance {

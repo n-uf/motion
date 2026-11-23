@@ -15,7 +15,7 @@
  * the base (the tree with the subject released), home (the gap the release leaves) and `after(held)`, what a release
  * there commits and a frame holding it draws. `tilingConformance` runs its properties on a host's own adapter. Its hit
  * half, `hit("lift" | "base")`, is built once at the lift on that one layout: targets in `@n-uf/motion/drag`'s shape,
- * the one hold rule, and a reader of the intent's frame; `tilingHitConformance` runs its seven properties.
+ * the one hold rule, and a reader of the intent's frame; `tilingHitConformance` runs its properties.
  *
  * `neighbor` finds the nearest pane in a direction from a map of rects. Both models give root `Target`s, for
  * `@n-uf/motion/drag`. `masterRatio` and `masterCount` are the master area's clamps, for a host that lays out its own.
