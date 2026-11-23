@@ -339,14 +339,14 @@ drag of `id`:
   a sliding spot's landing taken at the end of its range that faces the next spot, and 0 over a landing or over free
   room inside a sliding range. A spot changes 6 px past the cut, hence the 6. Over a docked item much longer than the
   held one no landing lies inside it: the nearest are flush before and after it, and `g` is about its length less the
-  held item's, plus a gutter; [decision 0001](decisions/0001-the-hand-rule.md)). Pass `options.grab`, where the pointer holds the item (its offset from the item's top left, as a
-  target's `after(point, grab)` takes it; the press's, constant for the drag):
-  on a bar or a toolbar rail along the item's own length, two landings that overlap (spots a pitch apart) are then cut
-  at the grab, halfway between the points the pointer would hold in each (with landings of one length, kept within half
-  a pitch of their overlap), so a pointer brought back to its press point picks the item's own place however far from
+  held item's, plus a gutter; [decision 0001](decisions/0001-the-hand-rule.md)). Pass `options.grab`, where the pointer holds the item (a point, its offset from the item's top left,
+  the press's, or a function of the laid form: "The grab", below; constant for the drag):
+  on a bar or a toolbar rail, two landings that overlap (spots a pitch apart) are then cut halfway between the points
+  the pointer would hold in each, the grab read in each landing's own form (kept within half a pitch of their overlap),
+  so a pointer brought back to its press point picks the item's own place however far from
   its middle it was pressed; landings with a gap between them (either side of a long neighbor) are cut halfway across
-  it whatever the grab, so the pointer is at the landing it picks. Across the item, and in a lane across
-  its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
+  it whatever the grab, so the pointer is at the landing it picks. For a plain point, across the item, and in a lane
+  across its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
   grab, and a toolbar pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut
   by halves whatever the grab. Three layouts, one job each (as `targets()`' tiles): which places exist and fit is
   read in the room, growth off; where a cut lies is halfway between landings, each in the layout its own drop commits
@@ -431,7 +431,8 @@ over and commits as it is. No snap point lies within twice the snap distance of 
 within the snap distance of it is home; a taken-over dock (a center dock, say) that lies within twice the snap distance
 of the item's own place therefore has no snap of its own there (as pitched spots do): intended, the
 item's own place wins near it. Its `target.after(point, grab)` puts the item's start at the pointer less the
-grab (along the item's own length; across it, the middle), clamped to the range and snapped, else on a whole pixel
+grab along the lane (the grab in the form the item takes in the stretch; a plain point's twin: along the item's own
+length its share, across it the middle; aimed once more where the landing lies in another form), clamped to the range and snapped, else on a whole pixel
 (`slide.step`; a drag's `after` of the sliding spot is this one computation, so the frame and the commit agree), and commits a dock keeping the `space` that puts it there: a dock consumes its placed neighbor's room, and the neighbor
 stays put while the room suffices. Its `landing` is the one at the stretch's point nearest the item's own place (that
 place itself on its own stretch), else at its start; a host draws a landing model's frame (`@n-uf/motion/drag`, which
@@ -478,7 +479,7 @@ item's own place at the lift, `{ lane, spot }`: the first spot `lanes()` marks `
 `{ kind: "float", point }` or null (rest). `after(held)` is a `DockAfter`: `state` (the dock state a release commits; a host stores
 it), `layout` (that dock state solved with `options.previous`, as the commit solves it, except a movable grower on a
 bar: its held layout draws it, and its bar's neighbors, at natural length; solving the state grows it), `landing` (the held item's rect
-there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
+there, or null), `grab` (where the pointer holds the item in the form it shows there: "The grab", below; never absent), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
 spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
 remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
 a float's for the last pointer. Rest is the window as seen with `lanes()`' marks. **Which layout a held frame draws** is
@@ -494,6 +495,39 @@ drag fits `@n-uf/motion/drag`'s `LandingGeometry` as it is (`AssertGeometry<Dock
 `home` is the landing model's `home` option, so `createLandingModel({ ...drag, preview })` is the whole wiring (a host's own
 `home` after the spread wins; `preview` is the `DragPreview` the host also gives `previewPlan`, which holds the guide
 level). A landing frame and release fit `DockGuideFrame` and `DockHeld`.
+
+**The grab** ([decision 0013](decisions/0013-grab-as-a-function-of-the-form.md)). `options.grab` (`DockGrab`) is a point
+or a function `(form: DockGrabForm, size: Size) => Point | undefined`, constant for the drag.
+- **Its arguments.** `form` is the laid item's layout entry (`DockItemLayout`: `axis`, `form`, `formKind`, `rect` and the
+  rest) with `place` (`DockGrabPlace`): `{ kind: "float" }`, `{ kind: "spot", edge }` (a bar, a panel column or a
+  toolbar rail), or `{ kind: "rail", side, orient }` (a side's rail: a folded column's tile or a rail stop). It is the
+  place the item lies in, at the lift too: there is no home place. `size` is the laid rect's size; on a sliding spot
+  the size the item takes in its stretch (the range's length along the lane, its landing's across). The point it gives
+  is in that rect's own coordinates, kept inside `[0, size]`.
+- **Its rules.** At the item's own form and size it gives the press point (`after(null).grab`, what a host seeds
+  `holdItem` with). It is pure for the drag: no pointer, time or page reads; one closure per drag, keyed by identity in
+  the lift's memo (a new closure re-solves the lift: correct, but slow). The library keeps no memo of its answers, and
+  asks it once per candidate landing per solve: per lift for every fixed spot and cut, per pointer move for a float and
+  a sliding spot (twice where a landing is aimed again).
+- **`undefined` and plain points.** A form the function gives `undefined` for is answered by the twin, the function a
+  plain point becomes at the lift: at the item's own form and size the press; in a float the press in px, except a
+  movable grower pressed on its grown rect, whose float keeps the press's share of the grown rect, and without a press
+  the float's middle; on a spot or a rail, along the item's own length (its longer side as a drop counts it) the press's
+  share and across it the middle (`grabShare`). No grab is the twin of no press: the middle of every form.
+- **Each landing.** A float's raw rect is the pointer less the grab in the float's form (the form of the float laid at
+  its size), then fitted as before: keep-clear, the stage, the "doesn't fit" hand rect (`heldRect` with that grab), and
+  the rail strips' push, which aims again with the grab it landed with. A sliding spot's start is the pointer less the
+  grab along the lane (in the form the item takes in the stretch), clamped and snapped as before; across the lane the
+  lane decides. Either, where its landing lies in another form than the grab was read in, is aimed once more with the
+  grab in that form, never again. A fixed spot (a dock, a column line, a rail tile or stop) lands at its slot whatever
+  the grab. The aim cut between two overlapping landings is halfway between the points the pointer would hold in each,
+  the grab read in each landing's own form (`aimCut(a, b, axis, heldA, heldB, slack)`); a panel column cuts by halves.
+- **What comes back.** `DockAfter.grab` is a point on every held place: a float's and a sliding spot's the grab they
+  landed with (`DropResult.grab`, which their targets' `after(point, grab)` also give), a fixed spot's the grab in its
+  landing's form, rest's the press point. The held copy is drawn at the pointer less it, at its form's size: home and
+  refused places too. A host whose held copy changes size calls `HeldDrag.resize(size, after.grab)`. Shown equals landed
+  only when nothing is clamped (a keep-clear push excepted) and on settled frames; a release into a fixed slot glides.
+  With the pointer still, the frame after next equals the next frame.
 
 A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an item that is not a tile of it. A tile of a
 column folded into it moves among that column's tiles through the column's own lane, drawn where the column's run of tiles
@@ -752,8 +786,9 @@ the hit regions split at the midpoints of the remaining panels. A toolbar tray a
 like its column. On a bar or a toolbar rail a toolbar takes the nearest landing (`options.pitch`, as `lanes()`', sets how
 far past an overlap the cut may move: half of it): the hit regions of the places right before and right after a neighbor split halfway across the gap between
 their two landings, or, where the two overlap (the neighbor shorter than the item), where the item is held
-(`options.grab`, the press's offset from the item's top left as it is now, px, constant for the drag: its share along
-the item's own length counts; default the item's middle). Over a neighbor as long as the item, the
+(`options.grab`, a point or a function of the laid form, constant for the drag, read in each landing's own form: halfway
+between the points the pointer would hold in each; for a plain point its share along the item's own length counts;
+default the item's middle; "The grab", above). Over a neighbor as long as the item, the
 item takes its place. Each landing lies in the layout its own drop commits (a movable grower as that commit draws it,
 given way), and a place over free room cuts from its range's ends, the room its drop makes; the places follow one
 another in the order of their landings, whatever their zones. Which places exist is read in the room, growth off; no
@@ -1102,7 +1137,8 @@ gives `base` back with an `error`.
 | `ColumnPlace` | `{ kind: "column", side, ring }`: a new dynamic column on a left or right `side` at `ring` (`Infinity` is the side's inner end). |
 | `RailPlace` | `{ kind: "rail", side, ring }`: a new column holding the item folded by hand, so it shows in the side's rail. |
 | `FloatPlace` | `{ kind: "float", rect?, anchor? }`: floating at `rect`, or, with none, at its last size anchored to the content; `anchor` is a name or `{ at, dx?, dy? }`. |
-| `DockDropOptions` | The options of `targets`, `refusals` and `stops`: `previous`, `endReach` (default 0), `floatSize`, `floatFromHeld`, `floatOrient`, `fresh`, `grab` (where the pointer holds the item, from its top left corner as it is now, px: the press's, constant for the drag; default the item's middle) and `pitch` (default `SPOT_PITCH`, 40 px). On a bar or a toolbar rail `grab` and `pitch` set where two overlapping landings are cut: at the grab, within half a pitch of their overlap (`aimCut`, the "Aim order" above). |
+| `DockDropOptions` | The options of `targets`, `refusals` and `stops`: `previous`, `endReach` (default 0), `floatSize`, `floatFromHeld`, `floatOrient`, `fresh`, `grab` (`DockGrab`: where the pointer holds the item, a point from its top left corner as it is now, px, the press's, or a function of the laid form and size; constant for the drag; default the item's middle; "The grab" above) and `pitch` (default `SPOT_PITCH`, 40 px). On a bar or a toolbar rail `grab` and `pitch` set where two overlapping landings are cut: at the grab, within half a pitch of their overlap (`aimCut`, the "Aim order" above). |
+| `DockGrab`, `DockGrabForm`, `DockGrabPlace` | `DockGrab` is `Point \| ((form: DockGrabForm, size: Size) => Point \| undefined)`. `DockGrabForm` is a `DockItemLayout` with `place: DockGrabPlace`, one of `{ kind: "float" }`, `{ kind: "spot", edge }` and `{ kind: "rail", side, orient }`. See "The grab". |
 | `DockLaneOptions` | The options of `lanes` and `dockDrag`: every `DockDropOptions` field (`grab` and `pitch` included, as documented there), plus `stretchPositions` (`"free"`, the default, or `"pitched"`), `snapDistance` (8 px) and `emptyLanes`. Under `"pitched"`, `pitch` also spaces the pitched spots (0 or less turns them off); under `"free"` it spaces no spots and sets the sampling step, the aim slack and the home window. |
 | `EmptyLanes` | `"real"` (the default) or `"edge"`: how an empty lane's marks draw it, a box at the size it will take or a thin striped strip (`HATCH_EDGE`) on its window side. Where it lands is the same either way. |
 | `StoredDockState` | The stored form: `{ v: 1, edges, floats, items, railModes? }`, plain JSON-safe data. `railModes` says per side how its rails show their items. |
