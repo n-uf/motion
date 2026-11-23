@@ -87,7 +87,7 @@ import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./targets/kinds";
 import { meet } from "./targets/meet";
-import type { Ctx, EdgeSpec, Generated, DropResult, DockRefusal, DockDrop, DockDropOptions, Span, Tile } from "./targets/model";
+import type { Ctx, EdgeSpec, Generated, DropResult, DockRefusal, DockDrop, DockDropOptions, Span, Tile, TileRange } from "./targets/model";
 import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
 import { withRailStrips } from "./targets/rail-strip";
@@ -315,7 +315,8 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   const along = new Map(live.map((s) => [s, alongOfSlots(s, alone.get(s)!)]));
   const own = ownership(c, live, (s) => along.get(s)!, (s) => aloneRects(alone.get(s)!));
   const lost: string[] = [];
-  const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost));
+  const slides: (TileRange & { readonly edge: string })[] = [];
+  const tiles: Tile[] = live.flatMap((spec) => tileEdge(c, spec, own.cutsOf(spec), lost, slides));
   // The item's own place is home's even where no edge tiles it: its » entry, or its column, which the lift deletes
   // (the whole column collapses into home).
   const ownRect = now.items[dragged];
@@ -427,7 +428,7 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
         }),
     )
     .filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i);
-  return { targets: held, refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones, ...(places.length ? { places } : {}) };
+  return { targets: held, refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones, slides, ...(places.length ? { places } : {}) };
 }
 
 /** The stage as a plain rect (a target's or a refusal's `bounds`). */
@@ -482,11 +483,20 @@ export function targetZones(state: DockState, dragged: string, options: DockDrop
 }
 
 /**
- * `lostSlots(state, dragged, options?)`: the ids of slots the filter kept, with room in their zone, that clipping left
- * with no hit. None: the property check holds it at zero.
+ * `lostSlots(state, dragged, options?)`: the ids of slots the filter kept, with room in their zone, that end with no hit.
+ * Expected on a bar or a toolbar rail: a gap whose landing is never the nearest to any pointer has no hit, and stays a
+ * place and a stop (`stops`). Elsewhere none: the property check holds it at zero.
  */
 export function lostSlots(state: DockState, dragged: string, options: DockDropOptions = {}): string[] {
   return generate(state, dragged, options).lost;
+}
+
+/**
+ * `tileSlides(state, dragged, options?)`: the sliding ranges the tiles cut places over free room from, per edge and
+ * neighbors (`slideRange`, the one `lanes()` slides its spots over). For the property check.
+ */
+export function tileSlides(state: DockState, dragged: string, options: DockDropOptions = {}): readonly (TileRange & { readonly edge: string })[] {
+  return generate(state, dragged, options).slides ?? [];
 }
 
 const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3 };

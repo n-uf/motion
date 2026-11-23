@@ -3,16 +3,15 @@
  * each clear of the tiles before it, of what outranks its edge, of the fixed items that don't grow and of the chrome.
  */
 import { EPS, area, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
-import { itemSteps } from "@n-uf/placement/stack";
-import { SPOT_PITCH, aimCut, crossFreeCuts, cutsByHalves, rangeTries } from "../aim";
-import { markUsed, moveTo } from "../changes";
+import { SPOT_PITCH, aimCut, crossFreeCuts, cutsByHalves, zoneIn } from "../aim";
 import { axisOf, zoneOf } from "../helpers";
 import { ZONES, type DockLayout, type Zone } from "../model";
-import { distinctSlots, landedLayout, roomReason, solveLanded } from "./edges";
+import { onEdge, slideRange, slideRoom, type SlideEdge } from "../slide";
+import { distinctSlots, landedLayout, roomReason } from "./edges";
 import { targetId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
 import { meet } from "./meet";
-import { less, type Ctx, type EdgeSpec, type Room, type DockRefusal, type Slot, type Span, type Tile } from "./model";
+import { less, type Ctx, type EdgeSpec, type Room, type DockRefusal, type Slot, type Span, type Tile, type TileRange } from "./model";
 import type { Ownership } from "./ownership";
 
 /** How one edge makes its tiles: its band, the point a tile keeps, and a tile's split into owned part and overreach. */
@@ -143,7 +142,7 @@ function reachStrips(c: Ctx, spec: EdgeSpec, room: readonly Span[], ends: Span |
  * (across, the edge's band and the own rect), named after the home slot when there is one. Where the item has no rect
  * on the edge, home's tile is its slot's.
  */
-export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: string[]): Tile[] {
+export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: string[], slides?: (TileRange & { readonly edge: string })[]): Tile[] {
   const whole = wholeRefusal(c, spec);
   if (whole) return [whole];
   const data = EDGE_KINDS[spec.kind];
@@ -207,11 +206,6 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     return !!l && Math.abs((v ? l.y : l.x) - (v ? ownRect.y : ownRect.x)) < c.slack && movesOthers(s) && orderIn(s.result.layout) !== homeOrder;
   };
   const landingOf = (s: Slot): Rect | undefined => (s.home || nearHome(s) ? ownRect : s.result.layout.items[c.dragged]?.rect);
-  // A growing item's length past its natural one: spare room, which a landing beside it may take (it gives way).
-  const slackOf = (id: string, s: Span): number => {
-    const main = c.state.items[id]?.forms[v ? "column" : "row"]?.[0]?.main;
-    return main?.grows ? Math.max(0, s[1] - s[0] - main.natural) : 0;
-  };
   // The order a slot's drop leaves the edge's shown items in: home's is the order seen.
   const orders = new Map<Slot, string>();
   const orderOf = (s: Slot): string => {
@@ -219,7 +213,6 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     if (k === undefined) orders.set(s, (k = s.home || nearHome(s) ? homeOrder : orderIn(s.result.layout)));
     return k;
   };
-  const gapPx = Math.max(0, spec.edge?.gap ?? 0) || 0;
   // Each slot's stretch of its zone's piece, in the order the zones and pieces are tiled, made into tiles once the aim
   // cuts across zones are known (below).
   const stretchesOf: { s: Slot; a: number; b: number; make: (a: number, b: number) => void }[] = [];
@@ -343,94 +336,33 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     const ownStretch: typeof stretchesOf = own && homeSlot ? [{ s: homeSlot, a: own[0], b: own[1], make: (): void => undefined }] : [];
     const all = [...stretchesOf, ...ownStretch];
     type Stretch = (typeof all)[number];
-    const padStart = Math.max(0, spec.edge?.pad?.start ?? 0) || 0;
-    const padEnd = Math.max(0, spec.edge?.pad?.end ?? 0) || 0;
-    const zoneIn = (id: string): Zone => (c.base.items[id]?.zone ?? "start") as Zone;
     const neighborsIn = (order: string): { before?: string; after?: string } | null => {
       const ids = order.split(" ");
       const k = ids.indexOf(c.dragged);
       return k < 0 ? null : { ...(k > 0 ? { before: ids[k - 1] } : {}), ...(k + 1 < ids.length ? { after: ids[k + 1] } : {}) };
     };
+    // The edge as its sliding ranges read it: the one model `lanes()` slides its spots over (`../slide`).
+    const edgeRect = c.base.edges[spec.id]?.rect ?? drawn;
+    const slideEdge: SlideEdge | null =
+      spec.edge && edgeRect
+        ? { state: c.state, dragged: c.dragged, e: spec.edge, axis, base: c.base, drawn: edgeRect, middle: (span(edgeRect)[0] + span(edgeRect)[1]) / 2, fixed: onEdge(c.base, spec.id, c.dragged, axis).filter((o) => c.state.items[o.id]?.fixed), prev: c.prev }
+        : null;
     /**
-     * A place's range over free room, as `lanes()` slides a spot over a free stretch: the room its drop makes, from flush
-     * after the neighbor before it (a growing one at its natural length: its slack is spare room, it gives way) to
-     * flush before the neighbor after it, read in the layout of the dock with no space in the zone a dock there takes
-     * first (start after a start item or the edge's start, else end); where that dock pushes a neighbor on a side with
-     * no zone of its own, that end as the lift leaves it. Its first and last landings, the item at either end. Null
-     * where no zone takes a dock there.
+     * A place's range over free room (`slideRange`), as `lanes()` slides a spot over a free stretch: its first and last
+     * landings, the item at either end, and its length. Null where no zone takes a dock there, where no dock with no
+     * space lands between its neighbors (the tiles then read its slots' landings as they are), and where the room is
+     * a point (a single start: the dock there is a slot's landing as it is).
      */
-    const ranges = new Map<string, { from: number; to: number; w: number; first: Rect; last: Rect } | null>();
-    const rangeOf = (order: string): { from: number; to: number; w: number; first: Rect; last: Rect } | null => {
+    const ranges = new Map<string, TileRange | null>();
+    const rangeOf = (order: string): TileRange | null => {
       if (ranges.has(order)) return ranges.get(order)!;
       const n = neighborsIn(order);
-      const zones: Zone[] = n ? [...(!n.before || zoneIn(n.before) === "start" ? ["start" as const] : []), ...(!n.after || zoneIn(n.after) === "end" ? ["end" as const] : [])] : [];
-      const ends = (l: DockLayout): { a: number; b: number } | null => {
-        const at = (id: string): Rect | null => {
-          const it = l.items[id];
-          return it && it.edge === spec.id && !it.inMenu && !it.floating ? it.rect : null;
-        };
-        const rb = n?.before ? at(n.before) : undefined;
-        const ra = n?.after ? at(n.after) : undefined;
-        const el = l.edges[spec.id]?.rect ?? drawn;
-        if (rb === null || ra === null || !el) return null;
-        return { a: rb ? span(rb)[1] - slackOf(n!.before!, span(rb)) + gapPx : span(el)[0] + padStart, b: ra ? span(ra)[0] - gapPx : span(el)[1] - padEnd };
-      };
-      const probe = zones.length ? spec.slots.find((s) => s.place.kind === "gap" && s.place.zone === zones[0] && !!s.result.layout.items[c.dragged] && orderOf(s) === order) : undefined;
-      const pl = probe?.result.layout;
-      const pe = pl ? ends(pl) : null;
-      const se = ends(c.base);
-      // Whether the dock pushes `id` on `side` from where the lift leaves it (`givesWay`'s "moves"), slack aside.
-      const pushed = (id: string | undefined, side: "before" | "after"): boolean => {
-        const p = id ? c.base.items[id] : undefined;
-        const q = id && pl ? pl.items[id] : undefined;
-        if (!p || !q || q.inMenu || q.floating || q.edge !== spec.id) return false;
-        const [p0, p1] = span(p.rect);
-        const [q0, q1] = span(q.rect);
-        if (q.form !== p.form && q1 - q0 < p1 - p0 - 0.5) return false;
-        return side === "before" ? p1 - slackOf(id!, [p0, p1]) - (q1 - slackOf(id!, [q0, q1])) > 0.5 : q0 - p0 > 0.5;
-      };
-      const shape = pl?.items[c.dragged]?.rect;
-      let r: { from: number; to: number; w: number; first: Rect; last: Rect } | null = null;
-      if (n && zones.length && shape && (pe || se)) {
-        const a = pe && (zones.includes("start") || !pushed(n.before, "before")) ? pe.a : (se ?? pe)!.a;
-        const b = pe && (zones.includes("end") || !pushed(n.after, "after")) ? pe.b : (se ?? pe)!.b;
-        const w = span(shape)[1] - span(shape)[0];
-        // The landings that land where aimed (within 1 px, every fixed item kept): at the range's ends and every pitch
-        // between, as `lanes()` samples them. A dock keeps the space that puts the item there, in the zone nearer the
-        // edge's middle first.
-        const ids = order.split(" ");
-        const atOf = (zone: Zone): number => ids.slice(0, ids.indexOf(c.dragged)).filter((id) => zoneIn(id) === zone).length;
-        const middle = ((e) => (e ? (span(e)[0] + span(e)[1]) / 2 : 0))(c.base.edges[spec.id]?.rect ?? drawn);
-        const fixed = Object.entries(c.base.items).filter(([id, it]) => id !== c.dragged && it.edge === spec.id && !it.inMenu && !it.floating && c.state.items[id]?.fixed);
-        const lands = (x0: number): boolean => {
-          const near: Zone = x0 + w / 2 < middle ? "start" : "end";
-          for (const zone of [near, near === "start" ? ("end" as const) : ("start" as const)]) {
-            if (!zones.includes(zone)) continue;
-            const space = zone === "start" ? x0 - a : b - (x0 + w);
-            if (space < -EPS) continue;
-            const moved = moveTo(c.state, c.dragged, { edge: spec.id, zone, at: atOf(zone), space: Math.max(0, space) });
-            if (moved === c.state) continue;
-            const l = solveLanded(markUsed(moved, c.dragged), c.dragged, c.prev);
-            const it = l.items[c.dragged];
-            // (It lands there as this place: the edge's items in its order.)
-            if (!it || it.inMenu || it.edge !== spec.id || Math.abs(span(it.rect)[0] - x0) > 1 || orderIn(l) !== order) continue;
-            const kept = fixed.every(([id, f]) => {
-              const now = l.items[id];
-              return (now?.inMenu && itemSteps(c.state.items[id]!)) || (!!now && Math.abs(span(now.rect)[0] - span(f.rect)[0]) <= 1);
-            });
-            if (kept) return true;
-          }
-          return false;
-        };
-        const sample = c.slack > 0 ? 2 * c.slack : SPOT_PITCH;
-        const tries = rangeTries(a, b, w, sample);
-        const from = tries.find(lands);
-        const to = from === undefined ? undefined : [...tries].reverse().find((x0) => x0 <= from || lands(x0));
-        const placed = (x0: number): Rect => (v ? { ...shape, y: x0 } : { ...shape, x: x0 });
-        // (Room for a single start is a point, no range: the dock there is a slot's landing as it is.)
-        if (from !== undefined && to !== undefined && to - from >= 1) r = { from, to, w, first: placed(from), last: placed(to) };
-      }
+      const ids = order.split(" ");
+      const room = n && slideEdge ? slideRoom(slideEdge, n.before, n.after, ids.slice(0, ids.indexOf(c.dragged))) : null;
+      const range = room && slideEdge ? slideRange(slideEdge, room, c.slack > 0 ? 2 * c.slack : SPOT_PITCH) : null;
+      const r = room && range && range.to - range.from >= 1 ? { before: n?.before, after: n?.after, from: range.from, to: range.to, w: room.w, first: range.first, last: range.last } : null;
       ranges.set(order, r);
+      if (r && slides) slides.push({ edge: spec.id, ...r });
       return r;
     };
     // The range a slot's landing lies in (its place's, the item at the same length), if any: its landings are then the
@@ -448,7 +380,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     // the last start-zone item stays in the start zone).
     const besideZone = (s: Slot): number => {
       const before = neighborsIn(orderOf(s))?.before;
-      return s.place.kind === "gap" && s.place.zone === (before ? zoneIn(before) : "start") ? 0 : 1;
+      return s.place.kind === "gap" && s.place.zone === zoneIn(c.base, before) ? 0 : 1;
     };
     // (The item in its » menu has no landing along the edge: home is its » entry, which keeps what no place takes.)
     const inMenu = !!c.now.items[c.dragged]?.inMenu;
@@ -472,13 +404,17 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       run.map((r) => (end ? lastOf(r.s) : firstOf(r.s))).reduce((m, x) => (end ? (span(x)[1] > span(m)[1] ? x : m) : span(x)[0] < span(m)[0] ? x : m));
     const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => aimCut(facing(p, true), facing(q, false), axis, c.share[axis], c.slack);
     // A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
-    // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.) The rest in order.
-    const cuts = crossFreeCuts(runs.length, (i, j) => cutOf(runs[i]!, runs[j]!), (i) => runs[i]!.some((x) => x.s.home));
+    // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.) The rest in order and
+    // within the band the places' stretches span, from the first place's start to the last place's end, as `lanes()`
+    // keeps its cuts within its lane's band.
+    const bandStart = runs.length ? Math.min(...runs[0]!.map((r) => r.a)) : -Infinity;
+    const bandEnd = runs.length ? Math.max(...runs.at(-1)!.map((r) => r.b)) : Infinity;
+    const cuts = crossFreeCuts(runs.length, (i, j) => cutOf(runs[i]!, runs[j]!), (i) => runs[i]!.some((x) => x.s.home), bandStart, bandEnd);
     const spans: Span[] = [];
     runs.forEach((run, i) => {
       // The place's stretch: from the cut before it to the cut after it (its slots' pieces at the edge's ends).
-      const cp = i > 0 ? cuts[i - 1]! : Math.min(...run.map((r) => r.a));
-      const cn = i + 1 < runs.length ? cuts[i]! : Math.max(...run.map((r) => r.b));
+      const cp = i > 0 ? cuts[i - 1]! : bandStart;
+      const cn = i + 1 < runs.length ? cuts[i]! : bandEnd;
       for (const r of run) [r.a, r.b] = [Math.min(Math.max(r.a, cp), cn), Math.max(Math.min(r.b, cn), cp)];
       // (The own interval is laid as home's own tile below, over what its stretch keeps here.)
       const held = run.filter((r) => r.b - r.a > EPS).sort((p, q) => p.a - q.a);
