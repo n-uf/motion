@@ -29,3 +29,4 @@ The landing model's distance bound is 0001. Three shipped rules have no record y
 | 0009 | [One layout per held place of a tiling drag](0009-one-layout-per-tiling-place.md): `tilingDrag(...).after(held)` over a host's adapter; home is the gap the release leaves | 2026-11-22 |
 | 0010 | [Three layouts, one job each](0010-three-layouts.md): `room` for which places exist, the landings for the aim cut, `shown` for drawing (in progress) | 2026-11-22 |
 | 0011 | [Which item counts as docked is the item's declaration](0011-which-item-counts-as-docked.md): `countsAsDocked` | 2026-11-22 |
+| 0012 | [One zone map per tiling drag, and swap-only run neighbors](0012-one-zone-map-per-tiling-drag.md): the hit is built once at the lift on the lift or the base, one hold rule; a side takes an insert only for a new arrangement | 2026-11-23 |
