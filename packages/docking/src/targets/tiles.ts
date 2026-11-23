@@ -356,11 +356,20 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     const ranges = new Map<string, TileRange | null>();
     const rangeOf = (order: string): TileRange | null => {
       if (ranges.has(order)) return ranges.get(order)!;
-      const n = neighborsIn(order);
-      const ids = order.split(" ");
-      const room = n && slideEdge ? slideRoom(slideEdge, n.before, n.after, ids.slice(0, ids.indexOf(c.dragged))) : null;
-      const range = room && slideEdge ? slideRange(slideEdge, room, c.slack > 0 ? 2 * c.slack : SPOT_PITCH) : null;
-      const r = room && range && range.to - range.from >= 1 ? { before: n?.before, after: n?.after, from: range.from, to: range.to, w: room.w, first: range.first, last: range.last } : null;
+      // (Read once per generation: the edge's other tiling reads the same range, `Ctx.slideRanges`.)
+      const key = `${spec.id} ${order}`;
+      const known = c.slideRanges.get(key);
+      const r =
+        known !== undefined
+          ? known
+          : ((): TileRange | null => {
+              const n = neighborsIn(order);
+              const ids = order.split(" ");
+              const room = n && slideEdge ? slideRoom(slideEdge, n.before, n.after, ids.slice(0, ids.indexOf(c.dragged))) : null;
+              const range = room && slideEdge ? slideRange(slideEdge, room, c.slack > 0 ? 2 * c.slack : SPOT_PITCH) : null;
+              return room && range && range.to - range.from >= 1 ? { before: n?.before, after: n?.after, from: range.from, to: range.to, w: room.w, first: range.first, last: range.last } : null;
+            })();
+      c.slideRanges.set(key, r);
       ranges.set(order, r);
       if (r && slides) slides.push({ edge: spec.id, ...r });
       return r;

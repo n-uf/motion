@@ -230,6 +230,12 @@ export interface Ctx {
   readonly share: { readonly x: number; readonly y: number };
   /** How far past two overlapping landings' overlap their cut may lie, px: half the pitch (`aimSlack`). */
   readonly slack: number;
+  /**
+   * The sliding ranges the tiles have read in this generation, by edge and order (`<edge> <order>`): each edge is tiled
+   * twice (on its own, then with ownership), and both read one range. Made with the context, so nothing carries over
+   * to another call.
+   */
+  readonly slideRanges: Map<string, TileRange | null>;
 }
 
 /** A slot: an insertion line along an edge and the drop it makes. */
