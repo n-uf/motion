@@ -28,7 +28,8 @@ layout per held place).
 - **`after(held)`** is `normalize(change)`: the tree a release commits, its layout, the subject's landing and every
   other pane it moves from where it was at the lift. What a frame draws is what a release stores, `normalize` included.
 - **The base** is the tree with the subject released, laid out: what a frame draws at rest (nothing held, or a refused
-  place), and the one hit basis of the drag, fixed at the lift.
+  place), and the one hit basis of the drag, fixed at the lift (since [0012](0012-one-zone-map-per-tiling-drag.md): the
+  lift or the base, as the host draws).
 - **Home is the gap the release leaves:** the subject's lift rect when releasing it takes a drawn pane away (a pane alone,
   a whole stack), null when it takes none (a member torn out of a stack that stays drawn). A torn member's own place is
   then an ordinary place, the join back at its index. `after(home).tree` is the lift tree itself, never normalized.

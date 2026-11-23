@@ -3,7 +3,7 @@
 Every public entry of the three packages, with its exported functions, constants and types: names, parameters and
 return shapes, condensed. It is generated from the code: the `exports` map of each package's `package.json` names the
 entries, and each entry file's exports are read with the TypeScript compiler, so the names and signatures here are the
-code's at `22b03459`. What each export does, and the rules behind it, are on the design pages
+code's at `eaea729c`. What each export does, and the rules behind it, are on the design pages
 ([motion.md](./motion.md), [placement.md](./placement.md), [docking.md](./docking.md)) and the reference pages; how
 the packages and their folders fit is [structure.md](./structure.md); the concept across the three is
 [concept.md](./concept.md).
@@ -30,7 +30,7 @@ How to read the listings:
 | [`@n-uf/motion/browser`](#n-ufmotionbrowser) | Everything that touches a host: the browser clock, the reduced-motion query and the DOM writers. |
 | [`@n-uf/placement`](#n-ufplacement) | What every entry shares: the shapes, their geometry, `Side` and `Axis`, and the drop-target shape `Target`. |
 | [`@n-uf/placement/stack`](#n-ufplacementstack) | One edge: the cut of a stage into bands, the fit of an edge's items with their form ladders, asked lengths and dividers, one edge's drop places, and the float fit. |
-| [`@n-uf/placement/tiling`](#n-ufplacementtiling) | Panes that divide an area: order layouts, the split tree, the drop rules and regions, and the layout half of a tiling drag (`tilingDrag`, its adapter and its conformance run). |
+| [`@n-uf/placement/tiling`](#n-ufplacementtiling) | Panes that divide an area: order layouts, the split tree, the drop rules and regions, and a tiling drag (`tilingDrag`: its layout half and its hit half, its adapter and their conformance runs). |
 | [`@n-uf/placement/popup`](#n-ufplacementpopup) | A popup positioned as Wayland's xdg-positioner does. |
 | [`@n-uf/docking`](#n-ufdocking) | One model of a whole window: the dock state, `solve`, the changes, targets and refusals, lanes, `dockDrag` and storage. |
 | [`@n-uf/docking/testing`](#n-ufdockingtesting) | The conformance rows, the landing rows, their runners and reference hosts, and the `AssertLanding` and `AssertGeometry` type checks. |
@@ -481,7 +481,7 @@ interface DragIntent<T extends DragTarget> {
   state: DragIntentState<T>;
   tuning: DragTuning;
 }
-interface DragIntentOptions<T extends DragTarget> { home: Rect; lift?: Point; bounds?: Rect; tuning?: Partial<DragTuning>; placeOf?: (target: T, point: Point, previous: string | null) => strin… }
+interface DragIntentOptions<T extends DragTarget> { home?: Rect; lift?: Point; bounds?: Rect; tuning?: Partial<DragTuning>; placeOf?: (target: T, point: Point, previous: string | null) => strin… }
 interface DragIntentState<T extends DragTarget> { speed: number; current: T | null; shown: T | null; leftHome: boolean }
 type DragKeys = Partial<Modifiers>
 interface DragModifiers { on: boolean; floatKey: ModifierKey; armKey: ModifierKey }
@@ -858,7 +858,7 @@ interface WrapSpec { widths: number[]; row: number; gap?: number; lead?: number 
 
 ### `@n-uf/placement/tiling`
 
-Panes that divide an area: order layouts, the split tree, the drop rules and regions, and the layout half of a tiling drag (`tilingDrag`, its adapter and its conformance run).
+Panes that divide an area: order layouts, the split tree, the drop rules and regions, and a tiling drag (`tilingDrag`: its layout half and its hit half, its adapter and their conformance runs).
 
 Functions:
 
@@ -898,9 +898,8 @@ Constants:
 ```ts
 const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "paneCenter" | "sides">>
 const PANE_SIDES: Side[]
-const TILING_HIT_DEFAULTS: { edge: number; travel: number; share: number; }
-const TILING_HIT_PROPERTIES: ["fixed-map", "zone-rule", "hold-rule", "existence", "lift-equals-home", "shown-under-pointer", "shown-equals-landed", "new-arrangement-sid…
-const TILING_NEIGHBOR_SWAP_SHARE: 0.56
+const TILING_HIT_DEFAULTS: { edge: number; travel: number; cap: number; neighborSwap: number; }
+const TILING_HIT_PROPERTIES: ["fixed-map", "zone-rule", "stillness", "hold-measures", "one-pass", "existence", "lift-equals-home", "shown-under-pointer", "shown-equals-…
 const TILING_PROPERTIES: ["home-is-lift", "home-is-the-gap", "home-over-changed", "one-layout", "swap-exchanges", "swap-trades-slots", "swap-keeps-stack-mates", "su…
 ```
 
@@ -950,13 +949,12 @@ interface TilingDragOptions<T, K> extends DropOptions<K> { ops: TilingTree<T, K>
 type TilingHeld<K> = { kind: "home"; } | { kind: "swap"; at: K; } | { kind: "beside"; at: K; side: Side; } | { kind: "join"; at: K; index?: number; }
 interface TilingHit<T, K> {
   basis: TilingBasis;
-  laid: TilingLaidOut<T, K>;
   home: Rect | null;
   targets: TilingHitTarget<K>[];
   intent: TilingHitIntent<K>;
-  zone(point: Point): string | null;
+  placeAt(point: Point): string | null;
   hold(state: TilingHold | null, point: Point): TilingHold | null;
-  place(id: string): TilingHeld<K> | null;
+  heldOf(id: string): TilingHeld<K> | null;
   placeOf(target: TilingHitTarget<K>, point: Point, previous?: string | null): string | null;
   read(frame: TilingHitFrame<TilingHitTarget<K>>, point: Point): TilingHitRead<K>;
   drawn(read: TilingHitRead<K>): TilingLaidOut<T, K>;
@@ -965,18 +963,19 @@ interface TilingHit<T, K> {
 interface TilingHitConformance {
   ok: boolean;
   failures: string[];
-  counts: Readonly<Record<"fixed-map" | "zone-rule" | "hold-rule" | "…;
+  counts: Readonly<Record<"fixed-map" | "zone-rule" | "stillness" | "…;
   reported: { swapsBeside: number; insertsMoveOthers: number; insertsMo…;
 }
 interface TilingHitFrame<T> { shown: T | null }
-interface TilingHitIntent<K> { home: Rect; tuning: { aimSpeed: number; dwell: number; switchHold: number; room…; placeOf: (target: TilingHitTarget<K>, point: Point, previous: string… }
-interface TilingHitOptions<K> { regions?: PaneRegionOptions; key?: (pane: K) => string; edge?: number; travel?: number; share?: number }
+interface TilingHitIntent<K> { tuning: { aimSpeed: number; dwell: number; switchHold: number; room…; placeOf: (target: TilingHitTarget<K>, point: Point, previous: string… }
+interface TilingHitOptions<K> { regions?: TilingHitRegions; key?: (pane: K) => string; edge?: number; travel?: number; cap?: number; neighborSwap?: number }
 type TilingHitProperty = (typeof TILING_HIT_PROPERTIES)[number]
 interface TilingHitRead<K> { held: TilingHeld<K> | null; refused: TilingHeld<K> | null; mark: TilingMark<K> | null }
+type TilingHitRegions = Pick<PaneRegionOptions, "center" | "centerX" | "centerY" | "centerMin" | "pixelRatio">
 interface TilingHitTarget<K> extends Target { pane: K; at: K; part?: string; home?: true }
-interface TilingHold { place: string; at: Point }
+interface TilingHold { place: string; from: Point }
 interface TilingLaidOut<T, K> { tree: T; layout: ReadonlyMap<K, Rect>; splits: ReadonlyMap<string, SplitGeometry> }
-type TilingMark<K> = { kind: "side"; at: K; side: Side; rect: Rect; } | { kind: "swap"; at: K; rect: Rect; wash: Rect | null; } | { kind: "join"; at: K; rect: Rect; slot: Rect | null; }
+type TilingMark<K> = { kind: "beside"; at: K; side: Side; rect: Rect; } | { kind: "swap"; at: K; rect: Rect; wash: Rect | null; } | { kind: "join"; at: K; rect: Rect; slot: Rect | null; }
 interface TilingMove<K> { pane: K; from: Rect; to: Rect }
 interface TilingPart { key: string; rect: Rect; slots?: Rect[] }
 type TilingProperty = (typeof TILING_PROPERTIES)[number]

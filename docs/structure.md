@@ -195,18 +195,23 @@ A conformance suite is shipped in a public entry, so a host runs it on its own i
   `createLandingHost`), the hand rule's bound (`handBound`), and the type checks `AssertLanding` and `AssertGeometry`.
 - **`@n-uf/placement/tiling`'s `tilingConformance`**: the tiling drag's properties (`TILING_PROPERTIES`) over every
   subject of a host's trees and every held place, on the host's own `TilingTree` adapter.
-- **`@n-uf/placement/tiling`'s `tilingHitConformance`**: the hit half's nine properties (`TILING_HIT_PROPERTIES`) over
-  every subject of a host's trees and both bases, on the same adapter, its `parts` included.
+- **`@n-uf/placement/tiling`'s `tilingHitConformance`**: the properties of `TILING_HIT_PROPERTIES` over every subject
+  of a host's trees and both bases, on the same adapter, its `parts` included.
 
-The library's own tests run both on the reference implementations.
+The library's own tests run both on the reference implementations. Placement imports nothing of motion, so the fit of
+the hit to the drag intent is pinned by a type check in `packages/placement/test/tiling-hit.test.ts` (it imports
+motion's types only): `TilingHitTarget` is a `DragTarget`, `TilingHitIntent` is the intent's options in whole and
+`TilingHitFrame` reads its frame as given. The lab's Tiling drag page checks the rest at run time: the place read through
+the intent is the pure hold's.
 
 ### Old vs new
 
 `pnpm old-vs-new <base>` records the public outputs of the three packages at a base commit and at the head over a fixed
 corpus and prints, per package and per output kind, how many cases are the same and how many changed. The recorders are
 `packages/<pkg>/record/<pkg>.record.ts` (each with its own vitest config) on the shared `record/canon.ts` and
-`record/config.ts`; a change that means to move outputs lists them in `.changes-expect/<slug>.json`. The full contract
-is [old-vs-new.md](./old-vs-new.md).
+`record/config.ts`; a change that means to move outputs lists them in `.changes-expect/<slug>.json`. Placement's
+recorder covers the tiling drag's hit half (`tiling-hit`: the place each point of a fixed grid reads with nothing held,
+on both bases), which a later change to the hit is proven against. The full contract is [old-vs-new.md](./old-vs-new.md).
 
 ## The lab
 

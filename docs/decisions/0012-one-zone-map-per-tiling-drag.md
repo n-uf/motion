@@ -28,16 +28,17 @@ alone.
 
 - **One zone map per drag.** `tilingDrag(...).hit(basis)` builds the targets once, at the lift, from one layout:
   `"lift"` for a host that draws a mark over the layout at the lift, `"base"` for a host that draws the landed layout.
-  The host says which at the lift, never per frame. Nothing is measured or laid out again per frame, and no rect comes
-  from another layout.
+  The host says which at the lift, never per frame. The hit is remembered per drag and basis. Nothing is measured or
+  laid out again per frame, and no rect comes from another layout.
 - **Targets** are in `@n-uf/motion/drag`'s shape: one body target per pane the basis draws (the five regions of
   `paneRegion`), one target per pane part the adapter declares (`TilingTree.parts`, a join; the slot under the pointer
   gives the index), and home, the subject's lift rect, which wins over everything beneath it.
 - **A place exists when `after(place).refusal` is null.** A refused zone holds nothing and falls to the target beneath
   it, never sideways, so the map never depends on room. A place whose release has the lift's arrangement is home.
-- **One hold rule, two measures.** The held place keeps its zone until the pointer is `edge` px past the zone's edge
-  (6; every zone, home included); inside one pane it also keeps until the pointer is `travel` px from where the place
-  was taken (24). Both are at most `share` (0.25) of the zone's extent. Any change of place takes the point anew.
+- **One hold rule, two measures.** The held place keeps its zone until the pointer is `edge` px past the edge of the
+  zone's visible part, the part no zone above it covers (6; every zone, home included; home wins over what lies beneath
+  it); inside one pane, not over home, it also keeps until the pointer is `travel` px from where the place was taken
+  (24). Both are at most `cap` (0.25) of the zone's extent on each axis. Any change of place takes the point anew.
 - **What a frame draws.** On the lift basis, the lift and a mark that is a region of it (a side's half, a swap's or a
   join's outline, the wash in the open slot), never an `after` rect. On the base basis, `after(held)` from the first
   frame a place is held. A release commits `after(held)`, or the lift tree when nothing is held.
@@ -50,7 +51,7 @@ alone.
     whole occupants. For a tab group as the neighbor only the facing side goes: a swap moves the active tab alone.
   - A torn tab has no run neighbor. A split with `master` is not part of a run.
   - With both sides along the run gone, the pane is a strip, the swap and a strip, each its full length along the run;
-    the swap spans `TILING_NEIGHBOR_SWAP_SHARE` (0.56) across the run, each strip 22 %.
+    the swap spans `neighborSwap` (0.56, an option of the hit) across the run, each strip 22 %.
   - It is judged once, on the lift tree, and is the same on both bases. A refused swap brings no strip back.
 - **Every zone is convex.**
 
@@ -63,17 +64,17 @@ alone.
 - A strip is as large as a normal side band, so a side insert is as easy to hit on a neighbor as on any other pane. The
   cost is that the swap starts at the neighbor's edge, with no neutral band between home and the swap, and a pane
   grabbed by its title bar away from the middle goes into a strip, not the swap. If the swap feels too short, the cure
-  is the one number, the share.
+  is the one number, the share (`neighborSwap`, which a host can set).
 - A swap trades the two slots, so "half each, beside the neighbor along the run" is no longer offered through that
   neighbor. When a swap is refused for size, the neighbor's middle offers nothing; if it is the last pane of its run,
   the order "N, then S" cannot be reached through it.
 - On the lift basis every pane is a target, also one the base would cover with home. On the base, a pane whose rect
   lies wholly under home cannot be targeted; its places are reached through its neighbor.
 - Neighbors no longer grow during a lift-basis drag, so the swap zone is its pane as drawn at the lift.
-- Guarded by placement's `test/tiling-hit.test.ts` and `tilingHitConformance` (`fixed-map`, `zone-rule`, `hold-rule`,
-  `existence`, `lift-equals-home`, `shown-under-pointer`, `shown-equals-landed`, `new-arrangement-sides`,
-  `zones-convex`) over generated trees, both 2×2 grids, nested runs and tab groups, and the lab's Tiling drag page
-  (Snap to slot on the base, Indicator on the lift).
+- Guarded by placement's `test/tiling-hit.test.ts` (the 13 diagonal sweeps of the failed draft kept as a table) and
+  `tilingHitConformance` (the properties of `TILING_HIT_PROPERTIES`) over generated trees, both 2×2 grids, nested runs
+  and tab groups, and the lab's Tiling drag page (Snap to slot on the base, Indicator on the lift; a check that the
+  place read through the drag intent is the pure hold's).
 
 ## Alternatives rejected
 
