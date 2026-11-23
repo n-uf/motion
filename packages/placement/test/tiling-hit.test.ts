@@ -252,4 +252,15 @@ describe("tilingHitConformance: the seven properties", () => {
     expect(r.failures).toEqual([]);
     expect(r.ok).toBe(true);
   });
+
+  it("hold with a run neighbor narrower than its run (a fixed length across): it keeps its sides", () => {
+    const column: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "s" }, b: { pane: "n" } } };
+    const fixedAcross = (child: Split<string>): number | undefined => ("pane" in child && child.pane === "n" ? 300 : undefined);
+    const r = tilingHitConformance([column, three], opts({ fixedAcross }));
+    expect(r.failures).toEqual([]);
+    const hit = tilingDrag(column, pane("s"), opts({ fixedAcross })).hit("lift");
+    const N = hit.laid.layout.get("n")!;
+    expect(N.width).toBe(300);
+    expect(show(hit.place(hit.zone({ x: N.x + N.width / 2, y: N.y + N.height - 3 })!))).toBe("beside n bottom");
+  });
 });

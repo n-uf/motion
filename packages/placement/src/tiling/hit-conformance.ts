@@ -165,16 +165,35 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const t = h.kind === "swap" ? ops.swap(drag.lift.tree, subject, h.at) : ops.beside(ops.release(drag.lift.tree, subject), subject, h.at, h.side, { kind: "half" });
       return ops.normalize ? ops.normalize(t) : t;
     };
+    /** Whether the smallest split holding both `x` and `y` in the lift tree lays its panes out as master and stack. */
+    const meetInMaster = (x: K, y: K): boolean => {
+      let node = ops.split(drag.lift.tree);
+      let master = false;
+      while (node && !("pane" in node)) {
+        const has = (n: Split<K>, k: K): boolean => ("pane" in n ? n.pane === k : has(n.a, k) || has(n.b, k));
+        master = !!node.master;
+        if (has(node.a, x) && has(node.a, y)) node = node.a;
+        else if (has(node.b, x) && has(node.b, y)) node = node.b;
+        else break;
+      }
+      return master && !!node && !("pane" in node);
+    };
     /**
-     * The second copy of the rule, by result: a side exists exactly when its insert gives a new arrangement, neither the
-     * lift's nor the swap's. Checked by the drag's own rule only where it judges (a whole child of a run next to the
-     * subject); the copy asks it of every pane.
+     * The second copy of the rule, by result: a side is gone when its insert gives no new arrangement (the lift's or the
+     * swap's), the release leaves a slot, the two panes meet in no master split (a master split is no run), and the pane
+     * has the subject's bounds across that side's axis (a narrower one, a fixed length across, keeps its side). The copy
+     * asks this of every pane; the drag's own rule judges only a whole child of a run next to the subject.
      */
     const sidesOf = (at: K): Side[] => {
       const swap = flatOf(changed({ kind: "swap", at }));
+      const r = drag.lift.layout.get(at);
+      const same = (a: number, b: number): boolean => Math.abs(a - b) <= 0.5;
       return (["top", "right", "bottom", "left"] as Side[]).filter((side) => {
         const f = flatOf(changed({ kind: "beside", at, side }));
-        return f !== liftFlat && f !== swap;
+        if (f !== liftFlat && f !== swap) return true;
+        if (!home || !r || meetInMaster(subjectDrawn, at)) return true;
+        const across = side === "top" || side === "bottom" ? same(r.x, home.x) && same(r.width, home.width) : same(r.y, home.y) && same(r.height, home.height);
+        return !across;
       });
     };
     const panes: { pane: K; at: K; rect: Rect; sides: Side[] }[] = [];
@@ -324,7 +343,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
           const own = drawnAs(a.tree, subjectKey);
           const others = [...a.layout].some(([k, rect]) => k !== at && k !== own && drag.base.layout.has(k) && !sameRect(rect, drag.base.layout.get(k)));
           const under = !!a.landing && inside(a.landing, p);
-          if (others) {
+          // A fixed length keeps the subject's size wherever it lands: its landing need not reach the pointer.
+          if (others || options.fixed || options.fixedAcross) {
             reported.insertsMoveOthers++;
             if (!under) reported.insertsMoveOthersBeside++;
           } else check("shown-under-pointer", under, () => `${show(r.held)}: landing ${JSON.stringify(a.landing)} does not contain ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
@@ -353,7 +373,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         const isSide = got?.kind === "beside" && got.side === side;
         if (pn.sides.includes(side)) {
           // A pane narrower than the center's floor has no band there: the point is in its middle.
-          if (live(want) && regionOf(r, p, pn.sides) === side) check("new-arrangement-sides", isSide, () => `${String(pn.at)} reads ${show(got)} at its ${side} edge, a new arrangement`);
+          // A side kept by the bounds clause whose insert gives the lift's arrangement reads as home.
+          if (live(want) && regionOf(r, p, pn.sides) === side) check("new-arrangement-sides", isSide || (givesLift(want) && got?.kind === "home"), () => `${String(pn.at)} reads ${show(got)} at its ${side} edge, a new arrangement`);
         } else {
           check("new-arrangement-sides", !isSide, () => `${String(pn.at)} offers its ${side} insert, which gives the ${flatOf(changed(want as { kind: "beside"; at: K; side: Side })) === liftFlat ? "lift's" : "swap's"} arrangement`);
         }
