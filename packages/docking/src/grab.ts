@@ -103,7 +103,18 @@ export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
   const grown = lift.grown;
   const atHome = (laid: DockItemLayout | undefined, size: Size): boolean =>
     !!home && !!homeSize && !!laid && sameForm(laid, home) && Math.abs(size.width - homeSize.width) < EPS && Math.abs(size.height - homeSize.height) < EPS;
-  const twin: Grab = (laid, size, rule) => {
+  if (host) {
+    // The lift rule, checked where it can be: asked again at the item's own form and size, the function must give the
+    // press it gave at the lift (a function that reads the pointer or the time doesn't, and its held item jumps).
+    const asked = (laid: DockItemLayout | undefined, size: Size): Point | undefined => {
+      const p = ask(laid, size);
+      if (p && press && atHome(laid, size) && Math.max(Math.abs(p.x - press.x), Math.abs(p.y - press.y)) > LIFT_SLACK) warnLift(host, press, p);
+      return p;
+    };
+    return (laid, size, rule) => asked(laid, size) ?? twin(laid, size, rule);
+  }
+  return twin;
+  function twin(laid: DockItemLayout | undefined, size: Size, rule: GrabRule): Point {
     // The press itself where the plain point held it before: at the lift, and in a float of the item's own form and
     // size. A lane keeps its share rule at the item's own form too (across the item's length, the middle), so a plain
     // point lands as it did.
@@ -114,8 +125,26 @@ export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
       return grown ? { x: clamp(press.x / grown.width, 0, 1) * size.width, y: clamp(press.y / grown.height, 0, 1) * size.height } : press;
     }
     return { x: share.x * size.width, y: share.y * size.height };
-  };
-  return host ? (laid, size, rule) => ask(laid, size) ?? twin(laid, size, rule) : twin;
+  }
+}
+
+/** How far (px, either way) a grab function's answer at the item's own form may stray from its press at the lift. */
+const LIFT_SLACK = 0.5;
+const warnedLift = new WeakSet<object>();
+
+/**
+ * A development warning, once per function: asked again at the item's own form and size, a host's grab function gave
+ * another point than the press it gave at the lift, so its held item jumps at the lift (the lift rule; decision 0013).
+ * Silent where `process.env.NODE_ENV` is `"production"` and where no console exists. No DOM or Node type is read.
+ */
+function warnLift(host: object, press: Point, again: Point): void {
+  if (warnedLift.has(host)) return;
+  const g = globalThis as { process?: { env?: Record<string, string | undefined> }; console?: { warn?: (...args: unknown[]) => void } };
+  if (g.process?.env?.NODE_ENV === "production") return;
+  warnedLift.add(host);
+  g.console?.warn?.(
+    `@n-uf/docking: the grab function gave (${again.x}, ${again.y}) at the item's own form and size, not the press it gave at the lift (${press.x}, ${press.y}). It must be pure for the drag and give the press there; seed the held item from dockDrag(...).after(null).grab.`,
+  );
 }
 
 /** `grabOf` over one lift, remembering the last grab it resolved (by identity): a drag passes one grab every frame. */
