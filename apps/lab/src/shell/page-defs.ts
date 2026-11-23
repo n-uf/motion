@@ -3,10 +3,11 @@
  * reads them from ./page-list, which the shell fills, so it never imports the list that loads it.
  */
 
-export type GroupId = "overview" | "motion" | "docwin" | "checks";
+export type GroupId = "overview" | "motion" | "placement" | "docwin" | "checks";
 export const GROUPS: readonly { id: GroupId; title: string }[] = [
   { id: "overview", title: "Overview" },
   { id: "motion", title: "Motion" },
+  { id: "placement", title: "Placement" },
   { id: "docwin", title: "Document window" },
   { id: "checks", title: "Checks" },
 ];

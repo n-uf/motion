@@ -1,0 +1,23 @@
+<!-- The Tiling drag page (src/tiling-drag/tiling-drag.ts): one split tree, a drag of a pane or a stack, and the presets. -->
+<div class="td-page">
+  <div class="td-bar-row">
+    <span class="td-label" id="td-tree-label">Tree</span>
+    <div class="td-modes" id="td-trees" role="radiogroup" aria-labelledby="td-tree-label">
+      <button type="button" role="radio" data-tree="three" aria-checked="true">Three panes</button>
+      <button type="button" role="radio" data-tree="stacked" aria-checked="false">With a stack</button>
+      <button type="button" role="radio" data-tree="narrow" aria-checked="false">One narrow</button>
+    </div>
+    <button type="button" class="lab-btn" id="td-reset" title="The tree as it starts">Reset</button>
+  </div>
+  <p class="td-help">Drag a pane by its title bar, a whole stack by its bar, or one tab out of a stack. Over a pane's middle the pane is a swap, over its edges a side, over its title bar a join. What you see while you hold is what the release commits.</p>
+  <div class="td-scroll">
+    <div class="td-stage" id="td-stage" aria-label="Panes"></div>
+  </div>
+  <p class="td-status" id="td-status" role="status" aria-live="polite">Nothing held.</p>
+  <section class="td-presets" aria-label="Presets">
+    <h2 class="section-title">Presets</h2>
+    <p class="td-sum" id="td-sum">Pick a preset to set it up and check it, or run them all.</p>
+    <button type="button" class="lab-btn" id="td-run-all">Run all presets</button>
+    <ol class="td-list" id="td-list"></ol>
+  </section>
+</div>
