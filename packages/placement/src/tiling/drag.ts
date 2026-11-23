@@ -84,7 +84,7 @@ export interface TilingDragOptions<T, K> extends DropOptions<K> {
   readonly area: Rect;
   /** Panes that take no drop (a swap, a side or a join on one is refused `"still"`, and they have no target). Default: none. */
   readonly still?: (pane: K) => boolean;
-  /** A pane's drop regions (centre share, floor, hysteresis), as `paneRegion` takes them. Default: its defaults. */
+  /** A pane's drop regions (center share, floor, hysteresis), as `paneRegion` takes them. Default: its defaults. */
   readonly regions?: PaneRegionOptions;
   /** A pane's key in its target's id (`pane:<key>`), unique across the panes; default `String`. */
   readonly key?: (pane: K) => string;
@@ -168,7 +168,7 @@ export interface TilingDrag<T, K> {
   targetsOn(layout: ReadonlyMap<K, Rect>): PaneTarget<K>[];
   /**
    * The place within `target` the pointer is at, judged at the target's own `hit` (the intent's `placeOf`): the
-   * pane's centre is a swap, a side band a side drop (`paneRegion`, `previous` held for its hysteresis). Null where
+   * pane's center is a swap, a side band a side drop (`paneRegion`, `previous` held for its hysteresis). Null where
    * that place is refused. A place id is opaque: `heldOf` reads it.
    */
   placeOf(target: PaneTarget<K>, point: Point, previous: string | null): string | null;
@@ -292,7 +292,7 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     return a;
   };
 
-  // The hit half: one target per pane of a layout, five places each (the centre and the four sides), named once per pane.
+  // The hit half: one target per pane of a layout, five places each (the center and the four sides), named once per pane.
   const key = options.key ?? String;
   const liftOwn = drawnAs(tree, subjectKey);
   const targetsOn = (layout: ReadonlyMap<K, Rect>): PaneTarget<K>[] =>
