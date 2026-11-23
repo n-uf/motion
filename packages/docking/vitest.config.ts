@@ -8,6 +8,7 @@ import { configDefaults, defineConfig } from "vitest/config";
  */
 const SWEEP_FILES = [
   "test/bar-zones.test.ts",
+  "test/grab-function.test.ts",
   "test/keep-clear-scope.test.ts",
   "test/kit-edges.test.ts",
   "test/lanes-corner.test.ts",
