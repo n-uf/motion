@@ -347,7 +347,8 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     const split = ops.split(t);
     return split ? rec(split) : "";
   };
-  const liftArrangement = arrangementOf(lift.tree);
+  // Normalized, as every change's tree is (`changeOf`, `after`): the two are compared like with like.
+  const liftArrangement = arrangementOf(ops.normalize ? ops.normalize(lift.tree) : lift.tree);
   const homeMemo = new Map<string, boolean>();
   /** A live place whose release has the lift's arrangement: it is home. */
   const homeLike = (p: Place<K>): boolean => {
