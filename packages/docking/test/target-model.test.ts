@@ -461,10 +461,12 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           if (ownRect && inside(ownRect, pt)) {
             // Every target counts here, `home:<id>` too: a home slot elsewhere (the column line beside the item's own
             // column) needn't cover the own rect.
-            // On a bar or a toolbar rail the own place is home's up to the aim cut beside it: a gap of its own edge
-            // whose landing overlaps the own rect along the edge (the two cut at the grab) may hold the rest.
+            // On a bar or a toolbar rail the own place is home's up to the aim cut beside it: past it a gap of its own
+            // edge may hold the point only where its landing is as near the point along the edge as home's (the own
+            // rect, which holds the point: so the gap's landing holds it too).
             const homeT = all.filter((t) => inTarget(t, pt));
-            const cutHere = (t: DockDrop): boolean => !byHalves(e) && t.place.kind === "gap" && t.place.edge === e.id && !!t.slot && overlapsAlong(t.slot, ownRect, vertical);
+            const dHere = (r: R): number => (vertical ? Math.max(0, r.y - pt.y, pt.y - r.y - r.height) : Math.max(0, r.x - pt.x, pt.x - r.x - r.width));
+            const cutHere = (t: DockDrop): boolean => !byHalves(e) && t.place.kind === "gap" && t.place.edge === e.id && !!t.slot && dHere(t.slot) <= dHere(ownRect) + 0.5;
             if (!homeT.length || homeT.some((t) => t.place.kind !== "home" && !cutHere(t)) || hitR.length) fail("own-not-home", `${at}: ${[...homeT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ") || "nothing"}`);
             continue;
           }

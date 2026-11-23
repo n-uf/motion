@@ -137,6 +137,9 @@ describe("drop room is that of the same state with the growth off", () => {
           const ids = (ts: readonly { id: string }[]) => ts.filter((t) => t.id.includes("toolbar")).map((t) => t.id).sort();
           expect(ids(stops(grown, dragged)), at).toEqual(ids(stops(off, dragged)));
           const a = targets(grown, dragged).filter((t) => t.id.includes("toolbar"));
+          // (The `order` allowance rests on the zone deferral: a place is an order, and a drop over free room that docks in
+          // another zone than the target's counts as that target's place. Once the free room's zone is one rule, a place
+          // lacks a target only at another's landing, and the allowance goes.)
           for (const p of stops(grown, dragged).filter((x) => x.id.includes("toolbar") && !a.some((t) => t.id === x.id)))
             expect(a.some((t) => same(landing(t, dragged), landing(p, dragged)) || order(t) === order(p)), `${at} ${p.id} lands where a target does, or is its place`).toBe(true);
           // Each place's drop leaves every item in the form, the » and the edge the growth-off state's drop does.
