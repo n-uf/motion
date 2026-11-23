@@ -1,6 +1,6 @@
 # @n-uf/docking: reference
 
-The behavior of `@n-uf/docking`, entry by entry: rules, ids, options and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/docking/README.md) is the short tour; the [design page](./docking.md) has the concept, the parts and the rules a consumer relies on. The general layer it stands on (the edge fit, the form vocabulary, the edge cut and the float fit) is `@n-uf/placement` ([placement-reference.md](./placement-reference.md)).
+The behavior of `@n-uf/docking`, entry by entry: rules, ids, options and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/docking/README.md) is the short tour; the [design page](./docking.md) has the concept, the parts and the rules a consumer relies on; every signature and type field is on [sdk.md](./sdk.md). The general layer it stands on (the edge fit, the form vocabulary, the edge cut and the float fit) is `@n-uf/placement` ([placement-reference.md](./placement-reference.md)).
 
 State in, rects and drop targets out. Pure functions over plain data: no DOM, no framework, no motion; one dependency, `@n-uf/placement`. Rendering stays in the app: it draws the rects, measures its groups, and feeds pointer samples to a drag intent.
 
@@ -356,7 +356,10 @@ drag of `id`:
 - `marks` per lane, the place guides as seen (a drag's `after(held)` gives them in that held place's layout): a mark at every place a drop lands but the held one's.
   - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
-    A growing item there (a title filling its bar) counts at its natural length, so its slack is free room.
+    A growing fixed item there (a title filling its bar) counts at its natural length, so its slack is free room: the
+    box lies over the grown part of the title. A movable grower is read as the layout draws it, so no box lies over it.
+    Decided, not built: every grower read as `shown(frame)` draws it, so beside a growing title the guide is cut in the
+    drawn layout and shows a line at most ([decision 0010](decisions/0010-three-layouts.md), in progress).
   - A neighbor gives way when the item lands in the room beside it: it moves away from the room, leaves the lane (the
     menu, a float), or steps down to a shorter form than it has now. "Now" is the layout the marks are drawn in, one
     layout: as seen, or a held place's (where a neighbor already drawn stepped down gives way no further, and one the

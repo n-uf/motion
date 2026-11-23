@@ -1,6 +1,6 @@
 # @n-uf/motion: reference
 
-The behavior of `@n-uf/motion`, entry by entry: tables, rules and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/motion/README.md) is the short tour; the [design page](./motion.md) has the concept, the parts and the rules a consumer relies on.
+The behavior of `@n-uf/motion`, entry by entry: tables, rules and longer examples. The reference covers behavior; the exported types are the contract. The [package README](../packages/motion/README.md) is the short tour; the [design page](./motion.md) has the concept, the parts and the rules a consumer relies on; every signature and type field is on [sdk.md](./sdk.md).
 
 One package, nine entries: `@n-uf/motion` (everything host-free in one import), its six host-free folders on their own (`@n-uf/motion/clock`, `/signals`, `/values`, `/gestures`, `/drag` for the drag intent and the landing model, `/layout` for the window motion rules applied to a whole layout), `@n-uf/motion/testing` (frame-sampled checks of the motion rules, for tests and browser specs), and `@n-uf/motion/browser`, everything that touches a host: the clock on `requestAnimationFrame`, the reduced-motion media query and the DOM writers. The core entries touch no DOM; importing several of them still gives one signal graph. Times are in ms, distances in px and pointer speeds in px/ms everywhere, and no name carries its unit; an animator's velocity is in units per second.
 

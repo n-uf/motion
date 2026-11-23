@@ -30,7 +30,8 @@ npm i @n-uf/motion
 ## @n-uf/placement: where things fit
 
 The stage cut into bands, the items along one edge fitted with their forms, one edge's drop places, floats kept
-clear, panes tiled and popups positioned. Pure functions over plain data.
+clear, panes tiled (with one layout per held place of a tiling drag, `tilingDrag`) and popups positioned. Pure
+functions over plain data.
 
 ```sh
 npm i @n-uf/placement
@@ -67,14 +68,16 @@ pnpm lab     # the motion lab on http://localhost:3060
   `/testing` and `/browser` entries.
 - `packages/placement`: `@n-uf/placement` and its `/stack`, `/tiling` and `/popup` entries.
 - `packages/docking`: `@n-uf/docking` and its `/testing` entry.
-- [`docs/`](./docs): the design pages and the reference pages of the packages, [proposals](./docs/proposals)
-  (features before they are built, the parked ones as the backlog) and [decisions](./docs/decisions) (one record per
-  settled rule).
-- `apps/lab`: a lab (not published), with an overview, a glossary and four
+- [`docs/`](./docs): [the concept](./docs/concept.md) across the three packages, the design pages and the reference
+  pages of the packages, [the SDK surface](./docs/sdk.md) (every entry's types and signatures), [the project
+  structure](./docs/structure.md), [proposals](./docs/proposals) (features before they are built, the parked ones as
+  the backlog) and [decisions](./docs/decisions) (one record per settled rule).
+- `apps/lab`: a lab (not published), with an overview, a glossary and five
   working pages. Motion has two: Settle and tiling, a tiling stage whose
   windows are the items of one layout motion (master, dwindle, columns, grid;
   the drop preview is Outline, Placeholder or Glide), and Drag intent and
-  previews, the drag intent's cases on the Document window. The Document window
+  previews, the drag intent's cases on the Document window. Placement has
+  Tiling drag, `tilingDrag` over the reference adapter. The Document window
   is one Reference host (panels, toolbars and floats in a window; every
   conformance row of `@n-uf/docking/testing` plays on it, and its presets are
   tried by a real mouse). Checks runs the pages' scenarios. Every move is
