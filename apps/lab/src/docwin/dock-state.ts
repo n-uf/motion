@@ -69,6 +69,7 @@ import {
   type DockRefusalTarget,
   type DockDrop,
   type DockDrag,
+  type DockGrab,
   type DockLaneMark,
 } from "@n-uf/docking";
 
@@ -162,6 +163,11 @@ interface Held {
   readonly id: ItemId;
   readonly kind: string;
   readonly grab: Point;
+  /**
+   * The grab as a function of the laid form (`DockGrab`): each form's grip anchor, the pointer's offset from the grip
+   * kept, so the library aims every landing with the grip where the held copy shows it. At the lifted form, `grab`.
+   */
+  readonly grabOf: DockGrab;
   readonly home: Rect;
   readonly docked: boolean;
   /** The held copy's frame: the morph's box with its anchor (the grip) on the pointer; each form's content inside. */
@@ -639,12 +645,12 @@ export function createDocwin(o: DocwinOptions) {
       // targets from them: one generation; under the published rules, the targets again.
       if (drag.landing) {
         // The new state's geometry, handed over whole: one drag, one previous (the layout committed now).
-        const next = dragOf(drag.id, drag.grab);
+        const next = dragOf(drag.id, drag.grabOf);
         drag.landing.drag = next;
         drag.landing.model.setGeometry(next);
         drag.roomLayout = null;
         drag.targets = targetsFrom(next.regions);
-      } else drag.targets = targetsOf(drag.id, drag.grab);
+      } else drag.targets = targetsOf(drag.id, drag.grabOf);
     }
     restingStrips();
     store();
@@ -721,7 +727,7 @@ export function createDocwin(o: DocwinOptions) {
   /** The settings a drag's `lanes()` / `targets()` calls run with now (what the Code view writes out). */
   const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
   /** A drag's targets; with the press's `grab`, cut by the same aim order as its lanes (`aimCut`). */
-  const targetsOf = (id: ItemId, grab?: Point): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab } : {}) });
+  const targetsOf = (id: ItemId, grab?: DockGrab): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab } : {}) });
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
   /**
@@ -730,7 +736,7 @@ export function createDocwin(o: DocwinOptions) {
    * press's `grab`, so a toolbar brought back to where it was pressed lands on its own place, and the viewer's stretch
    * positions (free: a sliding spot per free stretch; pitched: spots at the pitch).
    */
-  function dragOf(id: ItemId, grab: Point): DockDrag {
+  function dragOf(id: ItemId, grab: DockGrab): DockDrag {
     return dockDrag(ruled(), id, { ...reachOf(), grab, emptyLanes, pitch, stretchPositions, snapDistance });
   }
   /** The drag's targets from its lanes (one generation): every spot's drop, once by id, and the float. */
@@ -741,7 +747,7 @@ export function createDocwin(o: DocwinOptions) {
     return [...byId.values()];
   }
   /** A landing model for a drag of `id` grabbed at `grab`, starting at the item's own place. */
-  function landingFor(id: ItemId, grab: Point): NonNullable<Held["landing"]> {
+  function landingFor(id: ItemId, grab: DockGrab): NonNullable<Held["landing"]> {
     const drag = dragOf(id, grab);
     // The drag is the model's geometry as it is (its regions, `home`, `landingOf`, `spotsOf`); the preview, the one
     // `previewPlan` reads, names the guide level.
@@ -937,7 +943,7 @@ export function createDocwin(o: DocwinOptions) {
 
   /** The form the drop at `t` gives the held item, at its measured size; null when it lands in no drawn form. */
   function formAt(d: Held, t: DockDrop): FormSpec | null {
-    const a = t.after(d.pointer, d.grab);
+    const a = t.after(d.pointer, d.grabOf);
     const it = a.layout.items[d.id];
     if (!it || it.inMenu || (it.floating && t.place.kind !== "float")) return null;
     return { formKind: it.formKind, axis: it.axis, rows: it.rows, hidden: it.hidden, size: it.rect, railTitle: it.railTitle, ladder: ladderOf(d.id, it) };
@@ -1018,9 +1024,6 @@ export function createDocwin(o: DocwinOptions) {
     const was = layout.items[id];
     if (!was) return false;
     const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
-    // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
-    const landing0 = approved() ? landingFor(id, grab) : null;
-    const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id, grab);
     // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
     const el = document.createElement("div");
     el.className = `dw-held dw-morph dw-${was.kind}`;
@@ -1035,6 +1038,13 @@ export function createDocwin(o: DocwinOptions) {
     const home0: HeldForm = { ...homeForm, anchor: grab, opacity: 1 };
     Object.assign(home0.el.style, { opacity: "1", visibility: "" });
     forms.set(home0.key, home0);
+    // The grab in each form the library lays the item in: that form's grip anchor (drawn once per drag, by key), so the
+    // landings are aimed with the grip where the held copy shows it. At the lifted form and size, the press.
+    const grabOf: DockGrab = (f, s) =>
+      heldForm(el, forms, id, was.kind, { formKind: f.formKind, axis: f.axis, rows: f.rows, hidden: f.hidden, size: { width: s.width, height: s.height }, railTitle: f.railTitle, ladder: ladderOf(id, f) }, fromGrip).anchor;
+    // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
+    const landing0 = approved() ? landingFor(id, grabOf) : null;
+    const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id, grabOf);
     const docked = !was.floating;
     // Home is the item's own rect. A side rail's drop strip may overlap it (an item alone in its column reaches the rail
     // at its window edge): the drag intent arms a spring-loaded strip by dwell even over home.
@@ -1044,6 +1054,7 @@ export function createDocwin(o: DocwinOptions) {
       id,
       kind: was.kind,
       grab,
+      grabOf,
       home,
       docked,
       el,
@@ -1275,7 +1286,7 @@ export function createDocwin(o: DocwinOptions) {
       // A key held wins over geometry: the intent reports no refusal then.
       refused: !homing && f.refused ? (f.refused as DockRefusalTarget).refusal : null,
       cantGo: null,
-      outline: s ? { target: s, rect: s.place.kind === "float" ? (s.after(d.pointer, d.grab).layout.items[d.id]?.rect ?? null) : (s.slot ?? null) } : null,
+      outline: s ? { target: s, rect: s.place.kind === "float" ? (s.after(d.pointer, d.grabOf).layout.items[d.id]?.rect ?? null) : (s.slot ?? null) } : null,
       guides: () => [],
     };
   }
@@ -1307,7 +1318,7 @@ export function createDocwin(o: DocwinOptions) {
     if (room) {
       if (roomLayout) draw(state, roomLayout, d.id);
       else {
-        const after = room.after(d.pointer, d.grab);
+        const after = room.after(d.pointer, d.grabOf);
         draw(after.state, after.layout, d.id);
       }
     } else draw(state, layout, d.id);
@@ -1401,7 +1412,7 @@ export function createDocwin(o: DocwinOptions) {
     // Back over its own place: the item drawn where it was ("Back to its place").
     if (!d || d.homing) return layout;
     // Over a refusal nothing is shown and a release commits nothing: the held item's place left empty.
-    if (d.shown && !d.refused) return d.shown.after(d.pointer, d.grab).layout;
+    if (d.shown && !d.refused) return d.shown.after(d.pointer, d.grabOf).layout;
     const { [d.id]: _held, ...items } = layout.items;
     return { ...layout, items, floats: layout.floats.filter((f) => f !== d.id) };
   }
@@ -1455,7 +1466,7 @@ export function createDocwin(o: DocwinOptions) {
     let preview = d.preview;
     const go = commits(t);
     if (go) {
-      const after = landedAfter ?? t!.after(d.pointer, d.grab);
+      const after = landedAfter ?? t!.after(d.pointer, d.grabOf);
       if (!preview) preview = after.layout.items[id]?.rect ?? null;
       commit(after.state);
     } else draw(state, layout);
