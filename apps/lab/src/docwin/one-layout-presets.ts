@@ -20,6 +20,7 @@ import { drive, hold, mid, through, type Key } from "./intent-presets";
 import { defaultState, GROUPS, type ItemId } from "./model";
 import { presetFrom } from "./one-preview-presets";
 import type { Docwin } from "./dock-state";
+import { off, styleRect } from "../shared/geometry";
 
 type OneLayoutPreset = ReturnType<typeof presetFrom>;
 
@@ -29,12 +30,9 @@ const fresh = (c: Docwin, guides?: "near" | "all"): void => {
   c.setDropPreview("item");
   if (guides) c.setPlaceGuides("snap", guides);
 };
-const off = (a: Rect, b: Rect): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height));
 const overlaps = (a: Rect, b: Rect): boolean => Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1;
 const inside = (a: Rect, b: Rect, by: number): boolean => a.x >= b.x - by && a.y >= b.y - by && a.x + a.width <= b.x + b.width + by && a.y + a.height <= b.y + b.height + by;
 const distanceTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.width)), Math.max(r.y - p.y, 0, p.y - (r.y + r.height)));
-/** An element's rect in window px, from its own style (layout px: a scaled window doesn't change it). */
-const styleRect = (el: HTMLElement): Rect => ({ x: parseFloat(el.style.left), y: parseFloat(el.style.top), width: parseFloat(el.style.width), height: parseFloat(el.style.height) });
 
 /** The paths of a drag of `id` in the window now: to the middle of each lane that takes it, fast then slow, then a rest. */
 function pathsOf(c: Docwin, id: ItemId): ((g: Point) => Key[])[] {

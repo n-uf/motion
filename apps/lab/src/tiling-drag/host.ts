@@ -25,17 +25,17 @@ import {
 } from "@n-uf/placement/tiling";
 
 export type Tree = StackedSplit<string>;
-export const ops = splitTreeOps<string>();
-export const AREA: Rect = { x: 0, y: 0, width: 720, height: 440 };
-export const OPTIONS = { ops, area: AREA, gap: 8, min: 80 } as const;
+const ops = splitTreeOps<string>();
+const AREA: Rect = { x: 0, y: 0, width: 720, height: 440 };
+const OPTIONS = { ops, area: AREA, gap: 8, min: 80 } as const;
 /** The title bar's height, px: a join's place in a pane. */
-export const BAR = 26;
+const BAR = 26;
 
-export const NAMES: Readonly<Record<string, string>> = { a: "01 Overview", b: "02 Notes", c: "03 Features", d: "04 Install", e: "05 Examples" };
+const NAMES: Readonly<Record<string, string>> = { a: "01 Overview", b: "02 Notes", c: "03 Features", d: "04 Install", e: "05 Examples" };
 export const nameOf = (k: string): string => NAMES[k] ?? k;
 
 export type TreeId = "three" | "stacked" | "narrow";
-export const TREES: Readonly<Record<TreeId, Tree>> = {
+const TREES: Readonly<Record<TreeId, Tree>> = {
   /** a narrow on the left, b over c on the right: a side of a has no room for two panes. */
   narrow: { split: { axis: "x", ratio: 0.2, a: { pane: "a" }, b: { axis: "y", ratio: 0.5, a: { pane: "b" }, b: { pane: "c" } } } },
   /** The sketch's three panes: a over b on the left, c on the right. */
@@ -58,6 +58,15 @@ export interface Held {
   region: PaneRegion | null;
 }
 
+/** What a frame of a drag draws (`Host.frame`). */
+interface Frame {
+  readonly shown: TilingAfter<Tree, string> | null;
+  readonly tree: Tree;
+  readonly layout: ReadonlyMap<string, Rect>;
+  readonly own: string;
+  readonly partner: string | null;
+}
+
 const contains = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const box = (r: Rect): string => `left:${r.x}px;top:${r.y}px;width:${r.width}px;height:${r.height}px`;
@@ -66,7 +75,7 @@ export const keyOf = (s: TilingSubject<string>): string => (s.kind === "pane" ? 
 export const drawnAs = (t: Tree, k: string): string => ops.stackOf!(t, k)?.active ?? k;
 const subjectName = (s: TilingSubject<string>): string => (s.kind === "pane" ? nameOf(s.pane) : s.stack.members.map(nameOf).join(" · "));
 
-export function describeHeld(h: TilingHeld<string> | null): string {
+function describeHeld(h: TilingHeld<string> | null): string {
   if (!h) return "nothing";
   if (h.kind === "home") return "home";
   if (h.kind === "swap") return `swap with ${nameOf(h.at)}`;
@@ -149,6 +158,21 @@ export class Host {
     return this.drag?.held ? this.drag.drag.after(this.drag.held) : null;
   }
 
+  /**
+   * What a frame of the drag draws, or null with no drag: the held place's layout when it is not refused (`shown`), else
+   * the base; the subject's drawn key in it, and a swap's partner (drawn as the wash, not as a pane).
+   */
+  frame(): Frame | null {
+    const d = this.drag;
+    if (!d) return null;
+    const a = this.after();
+    const shown = a && !a.refusal ? a : null;
+    const tree = shown ? shown.tree : d.drag.base.tree;
+    const layout = shown ? shown.layout : d.drag.base.layout;
+    const partner = shown && shown.held.kind === "swap" ? drawnAs(tree, shown.held.at) : null;
+    return { shown, tree, layout, own: drawnAs(tree, keyOf(d.subject)), partner };
+  }
+
   /** Commit what shows: `after(held).tree`, or nothing. */
   release(): void {
     const a = this.after();
@@ -200,13 +224,8 @@ export class Host {
       return;
     }
     const a = this.after();
-    const shown = a && !a.refusal ? a : null;
-    const tree = shown ? shown.tree : d.drag.base.tree;
-    const layout = shown ? shown.layout : d.drag.base.layout;
-    const own = drawnAs(tree, keyOf(d.subject));
+    const { shown, tree, layout, own, partner } = this.frame()!;
     const parts: string[] = [];
-    let partner: string | null = null;
-    if (shown && shown.held.kind === "swap") partner = drawnAs(tree, shown.held.at);
     for (const [k, r] of layout) {
       if (k === own || k === partner) continue;
       parts.push(this.paneHtml(k, r, tree));
