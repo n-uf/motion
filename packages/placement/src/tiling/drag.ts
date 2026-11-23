@@ -56,7 +56,15 @@ export interface TilingTree<T, K> {
   release(tree: T, subject: TilingSubject<K>): T;
   /** The released tree with the subject placed on `side` of the drawn pane `at`, sized by `size`. */
   beside(released: T, subject: TilingSubject<K>, at: K, side: Side, size: TilingSize): T;
-  /** `tree` (the subject still in it) with the subject and the drawn pane `at` in each other's place. */
+  /**
+   * `tree` (the subject still in it) with the subject and the drawn pane `at` in each other's place.
+   * - A pane subject and `at` each take the other's slot, in the split or in a stack. The swap moves `at` alone, never
+   *   the stack it stands for: when `at` is a stack's drawn member, the subject takes its place in that stack (drawn,
+   *   as `at` was) and the stack's other members stay; `at` goes to the subject's old slot (alone, or in the subject's
+   *   stack, at its index, when the subject is a member torn out of one).
+   * - A whole stack subject trades its drawn slot in the split with `at`'s; when `at` is a stack's drawn member, the
+   *   two stacks trade places, each whole.
+   */
   swap(tree: T, subject: TilingSubject<K>, at: K): T;
   /** The released tree with the subject joined to the drawn pane `at`'s stack (made one when `at` is alone), at `index` (default: last). Leave it out when the tree has no stacks: every join is refused `"join"`. */
   join?(released: T, subject: TilingSubject<K>, at: K, index?: number): T;
@@ -89,7 +97,9 @@ export type TilingHeld<K> =
  * - `join`: the adapter has no `join`;
  * - `room-along`, `room-across`: `at` is too short for two panes along the split, or too narrow across it, in the base
  *   (`canSplitPane`): `need` and `have` px;
- * - `fit`: in the layout the release makes, `pane` (the subject or `at`) is below `min` (`dropFits`).
+ * - `fit`: in the layout the release makes (a side, a swap or a join), `pane` (the subject's drawn key or `at`'s) is
+ *   below `min` wide or high, the fit rule of `dropFits`. A swap hands each pane the other's rect, so either may fall
+ *   below it; a join is judged on the stack's rect.
  */
 export type TilingRefusal<K> =
   | { readonly code: "self" | "still" | "missing" | "join" }
@@ -153,6 +163,8 @@ const px = (v: number | undefined): number => (v !== undefined && Number.isFinit
  *   the released tree, or `swap` on the lift tree (see `TilingTree` for why). Home's is the lift tree, never normalized.
  * - **`layout`** is that tree laid out, so a frame that draws it draws exactly what the release stores.
  * - **Refusals** are judged on the base (room) and on the change's own layout (fit), never on another tree.
+ *
+ * Throws when the subject is not in `tree` (neither drawn nor a member of a drawn stack): a drag has nothing to lift.
  */
 export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: TilingDragOptions<T, K>): TilingDrag<T, K> {
   const { ops, area } = options;
@@ -167,10 +179,14 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
   const subjectKey = subject.kind === "pane" ? subject.pane : subject.stack.active;
 
   const lift = lay(tree);
+  const liftRect = lift.layout.get(drawnAs(tree, subjectKey));
+  if (!liftRect) {
+    const what = subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`;
+    throw new Error(`tilingDrag: the subject (${what}) is not in the tree: it is neither drawn nor a member of a drawn stack`);
+  }
   const base = lay(ops.release(tree, subject));
-  const liftRect = lift.layout.get(drawnAs(tree, subjectKey)) ?? null;
   const takesPane = panesOf(ops.split(base.tree)).length < panesOf(ops.split(tree)).length;
-  const home = takesPane && liftRect ? { ...liftRect } : null;
+  const home = takesPane ? { ...liftRect } : null;
 
   /** Every drawn pane of `laid` but the subject's whose rect differs from where it was drawn at the lift. */
   const movedIn = (laid: TilingLaidOut<T, K>): TilingMove<K>[] => {
@@ -227,12 +243,12 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
           : ops.join!(base.tree, subject, held.at, held.index);
     const laid = lay(normalize(changed));
     const own = drawnAs(laid.tree, subjectKey);
-    if (held.kind === "beside") {
-      const partner = drawnAs(laid.tree, held.at);
-      if (!dropFits(laid.layout, own, partner, area, { min: options.min, side: held.side }).ok) {
-        const small = (r: Rect | undefined): boolean => !r || r.width < px(options.min) || r.height < px(options.min);
-        return refused(held, { code: "fit", pane: small(laid.layout.get(own)) ? own : partner });
-      }
+    // The fit rule, on every change: in the layout it makes, the subject and `at` (each as it is drawn there) keep `min`.
+    // `side` only words `dropFits`' reason, which is not read here.
+    const partner = drawnAs(laid.tree, held.at);
+    if (!dropFits(laid.layout, own, partner, area, { min: options.min, side: held.kind === "beside" ? held.side : "left" }).ok) {
+      const small = (r: Rect | undefined): boolean => !r || r.width < px(options.min) || r.height < px(options.min);
+      return refused(held, { code: "fit", pane: small(laid.layout.get(own)) ? own : partner });
     }
     return { ...laid, held, refusal: null, landing: laid.layout.get(own) ?? null, moved: movedIn(laid) };
   };
