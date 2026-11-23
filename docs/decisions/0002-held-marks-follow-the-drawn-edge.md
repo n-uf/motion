@@ -43,4 +43,4 @@ The rule stated so a test can pin it:
 
 ## Date
 
-2026-11-20, not yet released: it ships with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws, while its room is open, the layout its release commits, `dockDrag(...).after(held)`, which replaces `lanes(…, { spot })`), in the release after 26.11.54. The release is named here when it ships.
+2026-11-20, in release 26.11.55, with the one-layout change ([0003](0003-one-layout-per-state.md): a held frame draws, while its room is open, the layout its release commits, `dockDrag(...).after(held)`, which replaced `lanes(…, { spot })`).
