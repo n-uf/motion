@@ -93,13 +93,18 @@ describe("seeded bars: marks and stretches", () => {
     }
   });
 
-  it("fixed forms, bar#610: the room between g2 and g1 with a single start (g2 steps down) is a plain dock at 293, with its box and striped end", () => {
+  it("fixed forms, bar#610: a drop counts g0 as just used, so on the full bar g1 gives way to the » (g2 keeps its form): no room between g2 and g1", () => {
+    // A sliding or pitched dock counts the dropped item as just used, as every target's drop does: one model on both
+    // paths. The bar holds g2 and g1 and has no room for g0 beside both; g0, now the most used, keeps the bar and g1 (the
+    // least used) goes to the », where before g2 stepped down to make a single start between g2 and g1 (at 293).
     const l = lanesOf(610, false, {}, true).regions.lanes.find((x) => x.id === "bar")!;
-    const spot = l.spots.find((s) => s.id === "bar/start/g2|g1");
-    expect(spot, l.spots.map((s) => s.id).join(", ")).toBeDefined();
-    expect(spot!.slide).toBeUndefined();
-    expect(spot!.landing.x).toBeCloseTo(293, 0);
-    expect(l.marks.filter((m) => m.id.includes("/g2|g1")).map((m) => `${m.kind} ${m.givesWay ?? ""}`.trim())).toEqual(["box", "hatch g2"]);
+    expect(l.spots.map((s) => s.id)).toEqual(["bar/start/^|g2", "bar/start/g2|$"]);
+    for (const s of l.spots) {
+      const a = s.target.after({ x: s.landing.x + 1, y: s.landing.y + 1 }, { x: 1, y: 1 }).layout;
+      expect(a.items.g1!.inMenu, s.id).toBe(true);
+      expect(a.items.g2!.form, s.id).toBe(0);
+    }
+    expect(l.spots.find((s) => s.id === "bar/start/g2|$")!.landing.x).toBeCloseTo(317, 0);
   });
 
   /** The landings a pitched lane offers that the free lanes reach by no spot within 1 px and no slide's range. */
