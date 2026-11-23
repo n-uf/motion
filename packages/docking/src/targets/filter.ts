@@ -9,7 +9,7 @@ import { liftItem, prune } from "../changes";
 import { axisOf, keepClearFor, formsOf, isHandFolded, withoutBarGrowth, zoneOf } from "../helpers";
 import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
-import { reservedRect, solveLanded } from "./edges";
+import { landedLayout, reservedRect, solveLanded } from "./edges";
 import type { Ctx, DropResult, DockDropOptions } from "./model";
 
 /**
@@ -102,7 +102,8 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     isHome: (r) => placeKey(r.state, dragged) === here,
     sound: soundness(state, base, dragged),
     lay: layKeys(state),
-    share: grabShare(now.items[dragged]?.rect, options.grab),
+    // (Held, a movable grower is its natural length, as `lanes()` reads the grab: `landedLayout`.)
+    share: grabShare(landedLayout(state, now, dragged, prev).items[dragged]?.rect, options.grab),
     slack: aimSlack(options.pitch),
   };
   return { c, item, prev };

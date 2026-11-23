@@ -24,7 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
 import { liftItem, moveTo, type DockPlace } from "./changes";
-import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, cutsByHalves, grabShare, len, lo, metPastGrowing } from "./aim";
+import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, cutsByHalves, grabShare, len, lo } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
@@ -1098,11 +1098,6 @@ interface Stretch {
   readonly after: { readonly id: string; readonly r: Rect } | undefined;
   readonly a: number;
   readonly b: number;
-  /**
-   * Where the stretch begins past the neighbor before it as drawn (`a`, or past a growing neighbor's drawn length where
-   * `a` lies inside it, at its natural length): where a sliding spot's stretch of the lane starts.
-   */
-  readonly drawnA: number;
   /** The held item's length on a drop here (the form the drop leaves it in). */
   readonly w: number;
   /** A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end. */
@@ -1190,10 +1185,7 @@ function stretches(state: DockState, dragged: string, options: DockLaneOptions, 
       const a = probe && (zones.includes("start") || !pushed(before, "before")) ? probe.a : seenEnds.a;
       const b = probe && (zones.includes("end") || !pushed(after, "after")) ? probe.b : seenEnds.b;
       const wi = probe?.w ?? w;
-      // Where it begins as drawn: past a growing neighbor before it at its drawn length (its slack lies inside it, though
-      // a dock there may take that slack). A neighbor the drop steps down to a shorter form makes its room: `a` as is.
-      const drawnA = before && slack(before) > 0 ? Math.max(a, lo(before.r, axis) + len(before.r, axis) + gap) : a;
-      each({ before, after, a, b, drawnA, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
+      each({ before, after, a, b, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
     }
   }
 }
@@ -1282,7 +1274,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
   const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
-  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, drawnA, w, zones, atOf, spaceAt, before, after }) => {
+  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;
     // (A stretch shorter than the item still offers its start, flush after the neighbor before it, where a dock there
     // lands: a point, below, as a pitched stretch's end gives it.)
@@ -1435,9 +1427,9 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         target,
         hit: target.hit,
         ...(homeRaw ? { home: true as const } : {}),
-        // Its stretch of the lane is cut from its landing past the neighbor before it as drawn: a range that runs on into
-        // a growing neighbor's slack (a dock there takes it) still starts its stretch past that neighbor.
-        slide: { from, to, snaps, snapDistance, step: STEP, first: metPastGrowing(at(from), axis, drawnA, to), last: at(to) },
+        // Its stretch of the lane is cut from its range's end landings, where its drop lands at the hand: a range that runs
+        // into a growing neighbor's slack (the room the drop makes; the neighbor gives way) cuts from there too.
+        slide: { from, to, snaps, snapDistance, step: STEP, first: at(from), last: at(to) },
       });
     }
   });
