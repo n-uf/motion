@@ -45,7 +45,7 @@ export interface DockGrabForm extends DockItemLayout {
 export type DockGrab = Point | ((form: DockGrabForm, size: Size) => Point | undefined);
 
 /** Which rule of the twin a reader asks for: a float's, or a lane's (a spot's or a rail's). */
-export type GrabRule = "float" | "lane";
+type GrabRule = "float" | "lane";
 
 /** The drag's grab as the one function every reader calls (internal): the host's where it answers, else the twin. */
 export type Grab = (laid: DockItemLayout | undefined, size: Size, rule: GrabRule) => Point;
@@ -61,7 +61,7 @@ export interface Lift {
 }
 
 /** The place `it` lies in. */
-export function grabPlaceOf(it: DockItemLayout): DockGrabPlace {
+function grabPlaceOf(it: DockItemLayout): DockGrabPlace {
   const side = it.rail ?? it.railTitle;
   if (side) return { kind: "rail", side, orient: it.axis };
   if (it.floating || it.edge === undefined) return { kind: "float" };
