@@ -538,6 +538,11 @@ layout when panes only reorder, and the split tree when a drop splits a pane on 
   `center`, `centerX`, `centerY`, `centerMin` and `pixelRatio` are not read; hysteresis still applies. The same center
   gives the same region. It is an option of the one function, not a second name: the point, the previous region and
   the hysteresis are the same inputs either way.
+- `paneRegion(rect, point, previous, { sides })` takes the sides that exist (default all four). A point is in the
+  center unless it lies past the center's edge toward a side that exists, so a side left out gives its whole strip to the
+  center, which then reaches the pane's edge there. `paneRegionShapes(rect, options)` gives the five regions as convex
+  polygons in the rect's coordinates (the center, and each side's trapezoid; a side left out has none), the regions
+  `paneRegion` names without hysteresis; a hit reads its zones from them.
 - `masterRatio(ratio)` and `masterCount(count, n)` are the clamps `masterStack` and a master split apply: the ratio
   within 0.05..0.95 (0.5 when left out or not finite), the count rounded and within 1..n (1 when left out or NaN, and
   never 0). A host that lays out its own master and stack calls them instead of repeating the numbers.
@@ -573,8 +578,8 @@ console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
 ### A tiling drag: one layout per held place (`tilingDrag`)
 
 `tilingDrag(tree, subject, options)` is the layout half of a drag on a split tree: what a frame holding a place draws,
-and what its release commits, are one layout. The hit half (targets, a pane's parts, `placeOf`) comes later; until then
-a host picks the held place itself.
+and what its release commits, are one layout. Its hit half, which place the pointer is over (targets, a pane's parts,
+the hold), is `drag.hit(basis)`, described after the layout half below.
 
 - **The adapter.** The host keeps its own tree type `T` and gives a `TilingTree<T, K>`: `split(tree)` (the tree as a
   `Split` of the drawn panes, a stack standing in it as its active member), `stackOf(tree, pane)` (optional), and the
@@ -608,7 +613,8 @@ a host picks the held place itself.
   or `at` is below `min`, `dropFits`' rule; a swap hands each the other's rect, so either may fall below it). A refused
   place's `tree` and `layout` are the lift's, `landing` is null and nothing moves: its release commits nothing. For a
   refused place, draw `base`, not `after().layout`.
-- **The draw rule, for now.** Nothing held, or a refused place: the base. A place held: `after(held).layout`. For a
+- **The draw rule.** Nothing held, or a refused place: the base. A place held: `after(held).layout` (`hit.drawn(read)`
+  gives this on the base basis; on the lift basis a frame draws the lift and a mark). For a
   swap the subject's old place reopens (the neighbor that grew into it at the lift gives the room back): the partner's
   landing there is `after(swap).layout.get(partner)`, and a host may mark it (the lab draws a tinted wash with ⇄ and the
   partner's name, with no frame) while the partner is still drawn where it is, as the subject's landing.
@@ -634,6 +640,57 @@ console.log(swap.layout.get("c")); // { x: 0, y: 0, width: 320, height: 250 }: t
 console.log(swap.moved.map((m) => m.pane)); // ["c"]: b is back where it was at the lift
 console.log(drag.after({ kind: "home" }).tree === tree); // true
 ```
+
+### A tiling drag: which place the pointer is over (`drag.hit`)
+
+`drag.hit(basis, options?)` is the hit half. Call it once, at the lift: `"lift"` hit-tests the layout at the lift (the
+subject's slot open) for a host that draws a mark over it, `"base"` the tree with the subject released for a host that
+draws the landed layout. Each call is a hit of its own, with its own hold. The design page has the rules and an example
+with `@n-uf/motion/drag` (*A tiling drag's hit half*); [decision 0012](decisions/0012-one-zone-map-per-tiling-drag.md)
+the reasons.
+
+- **What it gives.** `basis`, `laid` (the layout it hit-tests), `home` (the subject's lift rect, or null), `targets`
+  (frozen), `intent` (the options for `createDragIntent({ ...hit.intent, lift })`), and `zone(point)`, `hold(state,
+  point)`, `place(id)`, `placeOf(target, point)`, `read(frame, point)`, `drawn(read)` and `release(read)`. A host never
+  parses a place id: `place(id)` gives its `TilingHeld`.
+- **Targets.** `home` (priority 1, the subject's lift rect); `pane:<key>` (priority 2, a pane's rect: its five regions,
+  with the sides a run neighbor keeps); `part:<pane key>:<part key>` (priority 1, an adapter's part, a join, a slot giving
+  the index). Each has `pane` and `at`, and `part` or `home` where it is one. A still pane has no target; on the lift
+  the subject's own slot has none either. `options.key(pane)` gives the key in an id (default `String`; keys must be
+  unique across panes).
+- **Options.** `regions` (the `PaneRegionOptions`; `hysteresis` is not read), `edge` (6), `travel` (24) and `share`
+  (0.25), the hold rule's measures, `TILING_HIT_DEFAULTS` having them. A negative `edge`, `travel` or `share` is 0.
+- **The intent's options.** `hit.intent` has `home` as a rect no point is in, and `tuning` with `aimSpeed` unbounded,
+  `dwell`, `switchHold`, `roomAfter`, `breakthrough` and `gapGrace` at 0, and `band` as wide as `edge` with `bandShare` 1,
+  so the intent keeps every target the hit still holds and shows it; its `placeOf` is the hit's.
+- **The reader.** `read(frame, point)` gives `{ held, refused, mark }`. `held` is a `TilingHeld` (`{ kind: "home" }` at
+  home), or null with nothing held outside home. `refused` is the refused place under the pointer, when nothing is held.
+  `mark` is a `TilingMark` on the lift basis for a held place other than home, else null: `{ kind: "side", at, side,
+  rect }` (the target pane's half), `{ kind: "swap", at, rect, wash }` (its outline, and home as the wash, null with no
+  slot) or `{ kind: "join", at, rect, slot }` (its outline, and the slot with an index). A place is shown only when the
+  intent's shown target is one of its zones.
+- **Draw and commit.** `drawn(read)` is the lift on the lift basis; on the base `after(held)` for a held place, the lift
+  at home, the base with nothing held. `release(read)` is `after(held)`, or home's `after` with nothing held.
+- **Parts.** `TilingTree.parts(tree, pane, rect)` gives `TilingPart`s (`key`, `rect`, `slots?`), read once per drag on
+  the layout the hit is on. Slot `i` stands before the `i`-th member of the pane's stack in that tree (the subject's own
+  members not counted), so over it the join has that index; a slot past the members, or over the part with no slot,
+  joins last. Parts are the host's declared geometry: nothing is read from the DOM. `splitTreeOps({ bar, tab })` is
+  the reference: a bar of height `bar` along each pane's top (none when 0, the default), and for a stack a slot per
+  member, `tab(member)` px wide (default 80), cut at the bar's end.
+- **The hold.** `hold(state, point)` is pure: `state` is `{ place, at }` or null, and it gives the state after the pointer
+  is at `point`. The place at a point is the topmost live zone: home, then a slot, its part, the pane's region. A held
+  place stays while the pointer is within `edge` px (capped) past one of its zones, and not deep inside a zone above it,
+  or, inside its pane and not over home, within `travel` px (capped) of `at`. A place whose release has the lift's
+  arrangement is home, and home's zones are all of theirs.
+- **The run neighbor.** Judged once on the lift tree when the release leaves a slot. The pane's bounds across the run
+  are the subject's within 0.5 px. The sides gone are those whose insert gives the lift's arrangement or the swap's.
+  The pane's regions are then taken with `sides` the rest, and `centerX` (a run along y) or `centerY` (along x) set to
+  `TILING_NEIGHBOR_SWAP_SHARE`, 0.56. A target that is a stack's drawn member counts as the pane it stands for.
+- **Conformance.** `tilingHitConformance(trees, options, hitOptions?, limit?)` runs the nine properties of
+  `TILING_HIT_PROPERTIES` on every subject of each tree (`tilingSubjects`) and both bases, over seeded points, walks and
+  sweeps, and gives `{ ok, failures, counts, reported }`: the first `limit` failures (default 20) in words, per property
+  how many checks ran and failed, and `reported`, the rows counted and not failed (`swapsBeside`, `insertsMoveOthers`,
+  `insertsMoveOthersBeside`).
 
 ## Popup (`@n-uf/placement/popup`)
 
