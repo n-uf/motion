@@ -21,7 +21,7 @@
  * `@n-uf/motion/drag`. `masterRatio` and `masterCount` are the master area's clamps, for a host that lays out its own.
  * `Rect` is the root's type, re-exported. `giveWay` floats the newest pane while one breaks its minimum. Pure: no DOM, no time.
  *
- * See docs/placement.md, Entry: tiling.
+ * See docs/placement.md, Entry: tiling (the hit half: "A tiling drag's hit half").
  */
 export type { Rect } from "../geometry";
 export { columns, grid, masterCount, masterRatio, masterStack, type MasterOptions, type OrderLayout, type OrderOptions, type TileOptions } from "./order";

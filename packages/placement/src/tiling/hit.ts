@@ -21,7 +21,7 @@
  *   the lift basis, the mark: a region of the lift layout (the target's half for a side, its outline for a swap or a
  *   join, and for a swap the wash in the open slot), never an `after` rect.
  *
- * See docs/placement.md, Entry: tiling.
+ * See docs/placement.md, Entry: tiling, "A tiling drag's hit half".
  */
 import type { Point, Rect } from "../geometry";
 import type { Axis, Side } from "../side";
