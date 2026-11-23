@@ -237,7 +237,57 @@ describe("tilingHitConformance: every property", () => {
     { split: { axis: "y", ratio: 0.5, a: { axis: "x", ratio: 0.5, a: { pane: "s" }, b: { pane: "t" } }, b: { pane: "n" } } },
     { split: { axis: "x", ratio: 0.35, a: { pane: "s" }, b: { axis: "x", ratio: 0.5, a: { pane: "n" }, b: { pane: "m" } } }, stacks: [{ id: "g", members: ["n", "n2"], active: "n" }] },
     { split: { axis: "y", ratio: 0.66, a: { pane: "s" }, b: { pane: "n" } }, stacks: [{ id: "h", members: ["s", "s2", "s3"], active: "s" }] },
+    // s in the middle of a column: two run neighbors.
+    { split: { axis: "y", ratio: 0.3, a: { pane: "a" }, b: { axis: "y", ratio: 0.45, a: { pane: "s" }, b: { pane: "b" } } } },
+    // A row: plain run neighbors left and right.
+    { split: { axis: "x", ratio: 0.4, a: { pane: "a" }, b: { axis: "x", ratio: 0.5, a: { pane: "s" }, b: { pane: "b" } } } },
   ];
+
+  it("s in the middle of a run has two run neighbors; in a row the neighbor's left and right bands are the swap", () => {
+    const column = tilingDrag(runs[7]!, pane("s"), opts()).hit("lift");
+    for (const k of ["a", "b"]) {
+      const r = column.laid.layout.get(k)!;
+      expect(show(column.place(column.zone({ x: r.x + r.width / 2, y: k === "a" ? r.y + r.height - 3 : r.y + 30 })!))).toBe(`swap ${k}`);
+    }
+    const row = tilingDrag(runs[8]!, pane("s"), opts()).hit("lift");
+    const B = row.laid.layout.get("b")!;
+    expect(show(row.place(row.zone({ x: B.x + 3, y: B.y + B.height / 2 })!))).toBe("swap b");
+    expect(show(row.place(row.zone({ x: B.x + B.width - 3, y: B.y + B.height / 2 })!))).toBe("swap b");
+    expect(show(row.place(row.zone({ x: B.x + B.width / 2, y: B.y + B.height - 3 })!))).toBe("beside b bottom");
+  });
+
+  it("one pass: the 13 diagonal sweeps of the failed draft (bands added to the swap) meet each place at most once", () => {
+    const all = [three, stacked, ...trees(11, 12, false), ...trees(23, 10, true)];
+    const sweeps: [number, string, "lift" | "base", number, number, number, number][] = [
+      [3, "p1", "lift", 478, 386, 190, 269],
+      [5, "p0", "lift", 140, 70, 256, 388],
+      [5, "p0", "lift", 16, 430, 369, 233],
+      [5, "p1", "base", 573, 65, 588, 339],
+      [5, "p1", "base", 469, 53, 617, 217],
+      [5, "p2", "lift", 140, 70, 256, 388],
+      [5, "p2", "lift", 16, 430, 369, 233],
+      [9, "p0", "lift", 772, 77, 463, 157],
+      [11, "p4", "lift", 723, 44, 742, 358],
+      [12, "p0", "base", 628, 415, 334, 15],
+      [19, "s:p2", "lift", 559, 400, 458, 19],
+      [19, "p0", "lift", 559, 400, 458, 19],
+      [20, "s:p0", "lift", 792, 449, 137, 480],
+    ];
+    for (const [i, who, basis, x0, y0, x1, y1] of sweeps) {
+      const tree = all[i]!;
+      const stack = tree.stacks?.find((s) => s.id === who);
+      const drag = tilingDrag(tree, stack ? { kind: "stack", stack } : pane(who), opts());
+      const hit = drag.hit(basis);
+      const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 1.5);
+      let state: ReturnType<typeof hit.hold> = null;
+      const met: string[] = [];
+      for (let s = 0; s <= steps; s++) {
+        state = hit.hold(state, { x: x0 + ((x1 - x0) * s) / steps, y: y0 + ((y1 - y0) * s) / steps });
+        if (state && met[met.length - 1] !== state.place) met.push(state.place);
+      }
+      expect({ sweep: `${i} ${who} ${basis}`, twice: met.filter((m, k) => m !== "home" && met.indexOf(m) !== k) }).toEqual({ sweep: `${i} ${who} ${basis}`, twice: [] });
+    }
+  });
 
   it("hold on the reference adapter, panes and stacks, both bases", () => {
     const r = tilingHitConformance([three, stacked, ...runs, ...trees(11, 12, false), ...trees(23, 10, true)], opts());
