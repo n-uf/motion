@@ -7,9 +7,14 @@
       <button type="button" role="radio" data-tree="stacked" aria-checked="false">With a stack</button>
       <button type="button" role="radio" data-tree="narrow" aria-checked="false">One narrow</button>
     </div>
+    <span class="td-label" id="td-preview-label">Preview</span>
+    <div class="td-modes" id="td-previews" role="radiogroup" aria-labelledby="td-preview-label">
+      <button type="button" role="radio" data-preview="snap" aria-checked="true">Snap to slot</button>
+      <button type="button" role="radio" data-preview="indicator" aria-checked="false">Indicator</button>
+    </div>
     <button type="button" class="lab-btn" id="td-reset" title="The tree as it starts">Reset</button>
   </div>
-  <p class="td-help">Drag a pane by its title bar, a whole stack by its bar, or one tab out of a stack. Over a pane's middle the pane is a swap, over its edges a side, over its title bar a join. What you see while you hold is what the release commits.</p>
+  <p class="td-help">Drag a pane by its title bar, a whole stack by its bar, or one tab out of a stack. Over a pane's middle the pane is a swap, over its edges a side, over its title bar a join (a tab's cell gives the place in the stack). Snap to slot draws the held place landed; Indicator keeps the layout of the lift and marks the place on it. What a release commits is what you see.</p>
   <div class="td-scroll">
     <div class="td-stage" id="td-stage" aria-label="Panes"></div>
   </div>
