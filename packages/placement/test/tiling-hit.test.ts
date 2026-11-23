@@ -37,13 +37,19 @@ const show = (h: { kind: string; at?: string; side?: string; index?: number } | 
 
 describe("the hit's shapes fit @n-uf/motion/drag's intent (a type check: placement imports nothing of motion)", () => {
   it("targets are drag targets, the intent options are intent options, the frame is read as given", () => {
-    type Same<A, B> = [A] extends [B] ? true : false;
-    const target: Same<TilingHitTarget<string>, DragTarget> = true;
-    const intent: Same<TilingHitIntent<string>, Pick<DragIntentOptions<TilingHitTarget<string>>, "placeOf"> & { tuning: NonNullable<DragIntentOptions<TilingHitTarget<string>>["tuning"]> }> = true;
+    /** A fits B (one way: A is assignable to B). */
+    type Fits<A, B> = [A] extends [B] ? true : false;
+    /** A and B are the same (both ways). */
+    type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+    const target: Fits<TilingHitTarget<string>, DragTarget> = true;
+    // The intent's options are exactly `tuning` and `placeOf`, both ways: a `home` (or any other key) coming back fails here.
+    const keys: Same<keyof TilingHitIntent<string>, "tuning" | "placeOf"> = true;
+    const tuning: Fits<TilingHitIntent<string>["tuning"], NonNullable<DragIntentOptions<TilingHitTarget<string>>["tuning"]>> = true;
+    const placeOf: Same<TilingHitIntent<string>["placeOf"], NonNullable<DragIntentOptions<TilingHitTarget<string>>["placeOf"]>> = true;
     // The intent's options in whole: no home is needed (it is optional), so `{ ...hit.intent }` is all of them.
-    const whole: Same<TilingHitIntent<string>, DragIntentOptions<TilingHitTarget<string>>> = true;
-    const frame: Same<DragFrame<TilingHitTarget<string>>, TilingHitFrame<TilingHitTarget<string>>> = true;
-    expect([target, intent, whole, frame]).toEqual([true, true, true, true]);
+    const whole: Fits<TilingHitIntent<string>, DragIntentOptions<TilingHitTarget<string>>> = true;
+    const frame: Fits<DragFrame<TilingHitTarget<string>>, TilingHitFrame<TilingHitTarget<string>>> = true;
+    expect([target, keys, tuning, placeOf, whole, frame]).toEqual([true, true, true, true, true, true]);
   });
 });
 

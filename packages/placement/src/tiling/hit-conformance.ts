@@ -467,16 +467,26 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         () => `at ${p.x.toFixed(1)},${p.y.toFixed(1)}: held ${show(r.held)}${ok ? "" : " (refused)"}, release ${show(rel.held)}`,
       );
     };
+    const sameHold = (a: TilingHold | null, b: TilingHold | null): boolean => JSON.stringify(a) === JSON.stringify(b);
+    const holdName = (s: TilingHold | null): string => (s ? `${s.place} from ${s.from.x.toFixed(1)},${s.from.y.toFixed(1)}` : "nothing");
     for (let w = 0; w < 4; w++) {
       frame(FAR);
       let p = randomPoint(area);
+      // The pure hold along the same walk (the stateful one memoizes the last point, so it cannot show stillness).
+      let state: TilingHold | null = null;
       for (let i = 0; i < 40; i++) {
         p = { x: Math.min(area.x + area.width, Math.max(area.x, p.x + (rnd() - 0.5) * 60)), y: Math.min(area.y + area.height, Math.max(area.y, p.y + (rnd() - 0.5) * 60)) };
-        const r = frame(p);
-        checkFrame(p, r);
-        // Stillness: the same point again reads the same.
-        const again = [frame(p), frame(p)];
-        check("stillness", again.every((x) => JSON.stringify(x) === JSON.stringify(r)), () => `a still pointer at ${p.x.toFixed(1)},${p.y.toFixed(1)} changed ${show(r.held)} to ${again.map((x) => show(x.held)).join(", ")}`);
+        checkFrame(p, frame(p));
+        state = hit.hold(state, p);
+        // Stillness: the same point again changes nothing, from the walk's state and from nothing held.
+        const still = hit.hold(state, p);
+        check("stillness", sameHold(still, state), () => `a still pointer at ${p.x.toFixed(1)},${p.y.toFixed(1)} changed ${holdName(state)} to ${holdName(still)}`);
+        const fresh0 = hit.hold(null, p);
+        const twice = hit.hold(fresh0, p);
+        check("stillness", sameHold(twice, fresh0), () => `at ${p.x.toFixed(1)},${p.y.toFixed(1)} hold(hold(null, p), p) is ${holdName(twice)}, hold(null, p) ${holdName(fresh0)}`);
+        // Away (far outside the stage, where nothing is held) and back: as if nothing had been held.
+        const back = hit.hold(hit.hold(state, FAR), p);
+        check("stillness", sameHold(back, fresh0), () => `away and back to ${p.x.toFixed(1)},${p.y.toFixed(1)} reads ${holdName(back)}, nothing held gives ${holdName(fresh0)}`);
       }
     }
     // One pass: a straight sweep meets each place at most once (the pure hold, so the stateful one is left alone). Home

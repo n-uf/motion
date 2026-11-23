@@ -114,6 +114,9 @@
       <tr><th scope="row">fixed length</th><td>A length a pane keeps along or across a split whatever the ratio.</td><td><code>SplitOptions.fixed</code>, <code>SplitOptions.fixedAcross</code></td></tr>
       <tr><th scope="row">master, stack</th><td>A layout of panes in two areas: the first few (the master) on one side, the rest (the stack) on the other.</td><td><code>masterStack</code>, <code>Split.master</code></td></tr>
       <tr><th scope="row">pane drop region</th><td>The part of a pane under the pointer during a drag: its center (a drop swaps with the pane) or one of its four sides (a drop splits the pane on that side). Not a "zone", which stays a toolbar area's third.</td><td><code>PaneRegion</code>, <code>paneRegion</code>, <code>dropOnPane</code></td></tr>
+      <tr><th scope="row">basis</th><td>In a tiling drag, the one layout the drag hit-tests, fixed at the lift: the lift (the dragged pane's slot open, for a page that draws a mark) or the base (the pane taken out, for a page that draws the landed layout).</td><td><code>TilingBasis</code>, <code>drag.hit(basis)</code></td></tr>
+      <tr><th scope="row">hit zone, zone map</th><td>In a tiling drag, the area of the basis where a place is under the pointer (a place may have several), and all of them together, built once at the lift. Always said with "hit" or "map": a bare "zone" stays a toolbar area's third.</td><td><code>hit.placeAt</code>, <code>TilingHit</code></td></tr>
+      <tr><th scope="row">mark</th><td>On the lift basis, the region of the lift layout drawn for the held place: a side's half of the target pane, a swap's or a join's outline, and a swap's wash in the open slot. Never a landed rect.</td><td><code>TilingMark</code>, <code>read.mark</code></td></tr>
     </tbody>
   </table>
 
