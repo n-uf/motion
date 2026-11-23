@@ -29,6 +29,10 @@ import type { Point } from "../shapes";
  * pixel at a time, which reads slow): a gap may end a rest, so it is never a slow step, and a rest is never averaged into
  * the next fling. Across a lost stretch `speed` and `steady` read its mean, so a slide through it counts on.
  *
+ * An interval under `SAME_SAMPLE` (1 ms) between two samples is the same sample (a release read a fraction of a
+ * millisecond after the last frame): it keeps the previous step and speed, as a repeated point does, instead of reading
+ * its few pixels over 1 ms as a slow step.
+ *
  * Internal to the landing model (not exported from `./drag`).
  */
 export interface HandSpeed {
@@ -89,6 +93,21 @@ export const HAND_SPEED: HandSpeedOptions = { span: 48, steps: 5, gap: 40, slowS
 /** The most frames a lost stretch is filled with: the newest ones (more than the span and a half reads). */
 const FILL_MAX = 32;
 
+/**
+ * The shortest interval between two samples that is two samples, ms. A shorter one (a release read a fraction of a
+ * millisecond after the last frame, or two timestamps of one frame) is the same sample seen twice: its distance over so
+ * short a time says nothing about how fast the hand moves, whatever its timestamps' precision.
+ */
+export const SAME_SAMPLE = 1;
+
+/**
+ * The speed over an interval of `dt` ms that covered `distance` px, px/ms: the distance over the time, or `previous`
+ * when the interval is shorter than `SAME_SAMPLE` (a repeated point keeps the last step the same way).
+ */
+export function speedOver(distance: number, dt: number, previous: number): number {
+  return dt < SAME_SAMPLE ? previous : distance / dt;
+}
+
 export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSpeed {
   const o = { ...HAND_SPEED, ...options };
   let samples: { p: Point; t: number }[] = [];
@@ -118,7 +137,12 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
   /** One sample into the window (a real one, or a lost frame filled in). */
   const add = (p: Point, t: number): void => {
     const last = samples[samples.length - 1];
-    newest = step = last ? dist(last.p, p) / Math.max(1, t - last.t) : Infinity;
+    if (!last) newest = step = Infinity;
+    else {
+      const d = dist(last.p, p);
+      newest = speedOver(d, t - last.t, newest);
+      step = speedOver(d, t - last.t, step);
+    }
     samples.push({ p, t });
     // Keep the newest samples that span the window, and no more.
     while (samples.length > o.steps + 1 && t - samples[1]!.t >= o.span) samples.shift();
@@ -141,7 +165,7 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       const d = dist(last.p, p);
       const dt = t - last.t;
       // The gap's own step: it may end a rest, so it is unknown unless it is a crawl.
-      const across = d <= o.slowStep ? d / Math.max(1, dt) : Infinity;
+      const across = d <= o.slowStep ? speedOver(d, dt, step) : Infinity;
       if (dt >= o.gap) {
         const v = sofar();
         if (seenStill || v === null || d / dt < v * o.carry) {
