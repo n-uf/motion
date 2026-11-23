@@ -67,3 +67,36 @@ export function aimCut(a: Rect, b: Rect, axis: Axis, held: number, slack: number
   const s = Math.max(0, slack);
   return clamp(across + ((held - 0.5) * (len(a, axis) + len(b, axis))) / 2, bStart - s, aEnd + s);
 }
+
+/**
+ * The cut after each of `n` places in order along an edge (`n - 1` of them), `cut(i, j)` the cut between places `i` and
+ * `j`. A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
+ * (unless `pinned`, the item's own place, or the first or last), its neighbors cut between themselves, and its own cuts
+ * are that one cut, so it has no stretch and moves no other cut. The rest are kept in order and within `[min, max]`.
+ */
+export function crossFreeCuts(n: number, cut: (i: number, j: number) => number, pinned: (i: number) => boolean, min = -Infinity, max = Infinity): number[] {
+  const active = Array.from({ length: n }, (_, i) => i);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (let k = 1; k + 1 < active.length; k++) {
+      const [p, q, r] = [active[k - 1]!, active[k]!, active[k + 1]!];
+      if (!pinned(q) && cut(q, r) < cut(p, q) - EPS) {
+        active.splice(k, 1);
+        changed = true;
+        break;
+      }
+    }
+  }
+  const kept: number[] = [];
+  for (let k = 0; k + 1 < active.length; k++) kept.push(clamp(Math.max(cut(active[k]!, active[k + 1]!), kept[k - 1] ?? min), min, max));
+  // The cut after each place: an active one's own, a left-out one's the cut between its active neighbors.
+  return Array.from({ length: Math.max(0, n - 1) }, (_, i) => kept[active.findIndex((j) => j > i) - 1]!);
+}
+
+/** The starts a sliding range is sampled at: `a`, every `sample` px after it, and the last start that fits (`b - w`). */
+export function rangeTries(a: number, b: number, w: number, sample: number): number[] {
+  const tries = [a];
+  for (let x0 = a + sample; x0 < b - w - EPS; x0 += sample) tries.push(x0);
+  if (b - w > a + EPS) tries.push(b - w);
+  return tries;
+}

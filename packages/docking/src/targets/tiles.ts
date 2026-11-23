@@ -4,7 +4,7 @@
  */
 import { EPS, area, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
-import { SPOT_PITCH, aimCut, cutsByHalves } from "../aim";
+import { SPOT_PITCH, aimCut, crossFreeCuts, cutsByHalves, rangeTries } from "../aim";
 import { markUsed, moveTo } from "../changes";
 import { axisOf, zoneOf } from "../helpers";
 import { ZONES, type DockLayout, type Zone } from "../model";
@@ -423,9 +423,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
           return false;
         };
         const sample = c.slack > 0 ? 2 * c.slack : SPOT_PITCH;
-        const tries = [a];
-        for (let x0 = a + sample; x0 < b - w - EPS; x0 += sample) tries.push(x0);
-        if (b - w > a + EPS) tries.push(b - w);
+        const tries = rangeTries(a, b, w, sample);
         const from = tries.find(lands);
         const to = from === undefined ? undefined : [...tries].reverse().find((x0) => x0 <= from || lands(x0));
         const placed = (x0: number): Rect => (v ? { ...shape, y: x0 } : { ...shape, x: x0 });
@@ -474,25 +472,8 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       run.map((r) => (end ? lastOf(r.s) : firstOf(r.s))).reduce((m, x) => (end ? (span(x)[1] > span(m)[1] ? x : m) : span(x)[0] < span(m)[0] ? x : m));
     const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => aimCut(facing(p, true), facing(q, false), axis, c.share[axis], c.slack);
     // A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
-    // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.)
-    const active = runs.map((_, i) => i);
-    for (let changed = true; changed; ) {
-      changed = false;
-      for (let k = 1; k + 1 < active.length; k++) {
-        const [p, q, r] = [runs[active[k - 1]!]!, runs[active[k]!]!, runs[active[k + 1]!]!];
-        if (!q.some((x) => x.s.home) && cutOf(q, r) < cutOf(p, q) - EPS) {
-          active.splice(k, 1);
-          changed = true;
-          break;
-        }
-      }
-    }
-    const activeCuts: number[] = [];
-    // In order, as `lanes()` keeps its cuts: never before the cut before it.
-    for (let k = 0; k + 1 < active.length; k++) activeCuts.push(Math.max(cutOf(runs[active[k]!]!, runs[active[k + 1]!]!), activeCuts[k - 1] ?? -Infinity));
-    // The cut after each place: an active one's own, a left-out one's the cut between its active neighbors.
-    const cuts: number[] = [];
-    for (let i = 0; i + 1 < runs.length; i++) cuts.push(activeCuts[active.findIndex((j) => j > i) - 1]!);
+    // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.) The rest in order.
+    const cuts = crossFreeCuts(runs.length, (i, j) => cutOf(runs[i]!, runs[j]!), (i) => runs[i]!.some((x) => x.s.home));
     const spans: Span[] = [];
     runs.forEach((run, i) => {
       // The place's stretch: from the cut before it to the cut after it (its slots' pieces at the edge's ends).
