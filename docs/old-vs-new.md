@@ -61,7 +61,7 @@ case, by id. `record/canon.ts` has the shared pieces.
 | Package | Output kinds |
 |---|---|
 | docking | `contract`, `solve`, `targets`, `drops` (each target's drop), `refusals`, `stops`, `lanes`, `dividers`, `resize` (what `resizeBetween` and `resetBetween` write), `case-layout` and `case-solve` (the conformance rows), `after-rest`, `landing-frames`, `guides` and `after` / `release-after` (a drag's frames) |
-| placement | `contract`, `fit`, `fit-previous` (refitted from its previous fit), `dividers`, `resize`, `gaps`, `cut`, `float-fit`, `layout-split`, `split-geometry` (`layoutSplitTree`: every split named, under host callbacks), `split-edits`, `pane-region`, `pane-targets`, `order-layout`, `order-targets` |
+| placement | `contract`, `fit`, `fit-previous` (refitted from its previous fit), `dividers`, `resize`, `gaps`, `cut`, `float-fit`, `layout-split`, `split-geometry` (`layoutSplitTree`: every split named, under host callbacks), `split-edits`, `pane-region`, `pane-targets`, `order-layout`, `order-targets`, `tiling-hit` (a tiling drag's hit half: the place each point of a fixed grid reads with nothing held, both bases) |
 | motion | `landing-frames` (the landing model over every landing row), `layout-frames` (`createLayoutMotion` on the fake clock), `animator` |
 
 ### Old commits
