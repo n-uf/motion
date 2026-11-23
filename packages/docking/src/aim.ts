@@ -15,7 +15,7 @@
  * off; no cut is read from insertion lines, as drawn or with the growth off; what is drawn is `shown(frame)`.
  */
 import { EPS, clamp, type Axis, type Point, type Rect } from "@n-uf/placement";
-import type { DockEdge } from "./model";
+import type { DockEdge, DockLayout, Zone } from "./model";
 
 /** The pitch of the spots over a bar's free stretches, px: a quarter of a typical toolbar's length (158 px in the lab). */
 export const SPOT_PITCH = 40;
@@ -26,6 +26,15 @@ export const SNAP_DISTANCE = 8;
 export const lo = (r: Rect, axis: Axis): number => (axis === "x" ? r.x : r.y);
 /** `r`'s length along `axis`. */
 export const len = (r: Rect, axis: Axis): number => (axis === "x" ? r.width : r.height);
+
+/**
+ * The zone `id` lies in, in `layout`: the start zone where it lies in none (no neighbor there, or one not laid out). The
+ * one reading of a neighbor's zone: which zones a room between two neighbors takes, and at one landing the dock in the
+ * zone of the neighbor before it first.
+ */
+export function zoneIn(layout: DockLayout, id: string | undefined): Zone {
+  return (id === undefined ? undefined : layout.items[id]?.zone) ?? "start";
+}
 
 /**
  * Whether an edge's places are cut by halves of the items drawn (a panel column), not by the landings. A toolbar tray at

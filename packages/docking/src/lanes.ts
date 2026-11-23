@@ -22,14 +22,14 @@
  * is `dockDrag`'s (./drag), built on these.
  */
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
-import { itemSteps } from "@n-uf/placement/stack";
-import { liftItem, markUsed, moveTo, type DockPlace } from "./changes";
-import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, rangeTries } from "./aim";
+import { liftItem, type DockPlace } from "./changes";
+import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, zoneIn } from "./aim";
+import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
-import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
+import type { DockState, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { parseTargetId, targetsAndRefusals } from "./targets";
-import { landedLayout, solveLanded } from "./targets/edges";
+import { landedLayout } from "./targets/edges";
 import type { DropResult, DockRefusal, DockDrop, DockDropOptions } from "./targets/model";
 
 export { SPOT_PITCH };
@@ -228,45 +228,6 @@ const hull = (a: Rect, b: Rect): Rect => {
 const nonNeg = (v: number | undefined): number => (Number.isFinite(v) && v! > 0 ? v! : 0);
 const sameRect = (a: Rect, b: Rect): boolean => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y), Math.abs(a.width - b.width), Math.abs(a.height - b.height)) < 0.5;
 const ORIGIN = { x: 0, y: 0 };
-
-/** The items drawn on `edge` in `l`, other than `dragged`, in order along `axis`. */
-function onEdge(l: DockLayout, edge: string, dragged: string, axis: Axis): { id: string; r: Rect; zone: Zone | undefined }[] {
-  return Object.entries(l.items)
-    .filter(([id, it]) => id !== dragged && it.edge === edge && !it.inMenu && !it.floating && it.rect.width > EPS && it.rect.height > EPS)
-    .map(([id, it]) => ({ id, r: it.rect, zone: it.zone }))
-    .sort((a, b) => lo(a.r, axis) - lo(b.r, axis));
-}
-
-/** The items either side of the dragged item on `edge` in `after`: `^` and `$` at the ends. */
-function neighbors(after: DockLayout, edge: string, dragged: string, axis: Axis): { before: string; next: string } {
-  const me = after.items[dragged];
-  const others = onEdge(after, edge, dragged, axis);
-  const at = me ? mid(me.rect, axis) : 0;
-  return { before: [...others].reverse().find((o) => mid(o.r, axis) < at)?.id ?? "^", next: others.find((o) => mid(o.r, axis) >= at)?.id ?? "$" };
-}
-
-/**
- * How a neighbor gives way to a drop beside a room, or null where it doesn't: when the item lands, the neighbor
- * `"leaves"` the lane (into the menu, a float), `"steps"` down to a shorter form than it has `now`, or `"moves"` away
- * from the room (its end left of where it was, for the neighbor `before` the room; its start right of it, for the one
- * after; by more than half a pixel). `extent` is its extent along the lane as read (a growing item at its natural
- * length). The one rule the marks (a striped end at each neighbor that gives way) and the stretches (the room a drop
- * makes) read.
- */
-function givesWay(
-  now: DockItemLayout | undefined,
-  after: DockItemLayout | undefined,
-  lane: string,
-  side: "before" | "after",
-  extent: (r: Rect) => [number, number],
-): "leaves" | "steps" | "moves" | null {
-  if (!now) return null;
-  if (!after || after.inMenu || after.floating || after.edge !== lane) return "leaves";
-  const [p0, p1] = extent(now.rect);
-  const [q0, q1] = extent(after.rect);
-  if (after.form !== now.form && q1 - q0 < p1 - p0 - 0.5) return "steps";
-  return (side === "before" ? p1 - q1 : q0 - p0) > 0.5 ? "moves" : null;
-}
 
 /**
  * The layout as seen with the held item lifted (its room given back to its stretch, `lift`): what the window showed
@@ -636,7 +597,7 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   const lastOf = (r: Raw): Rect => r.slide?.last ?? r.landing;
   // At one landing the item's own place first, then the dock in the zone of the neighbor before it (a drop flush after the
   // last start-zone item stays in the start zone), as a sliding spot's snap points break it.
-  const besideZone = (r: Raw): number => (r.target.place.kind === "gap" && r.target.place.zone === (seen.items[r.before]?.zone ?? "start") ? 0 : 1);
+  const besideZone = (r: Raw): number => (r.target.place.kind === "gap" && r.target.place.zone === zoneIn(seen, r.before) ? 0 : 1);
   const sorted = [...list].sort((a, b) => mid(firstOf(a), axis) - mid(firstOf(b), axis) || (a.home ? -1 : b.home ? 1 : 0) || besideZone(a) - besideZone(b));
   // On a bar or a toolbar rail the item's own place is one landing for half a pitch around it: another spot landing
   // that near (a center dock beside a place near the middle) is home's, so away and back to the press point is home.
@@ -1033,7 +994,7 @@ function pitchedSpots(state: DockState, dragged: string, options: DockLaneOption
      * stretch's end lies against. Whether it was kept.
      */
     const emit = (zone: Zone, at: number, space: number, x0: number, flush?: string): boolean => {
-      const hit = landsAt(state, dragged, run, { edge: e.id, zone, at, space }, x0);
+      const hit = landsAt(run, { edge: e.id, zone, at, space }, x0);
       if (!hit) return false;
       const { next, layout } = hit;
       const landed = layout.items[dragged]!;
@@ -1071,40 +1032,23 @@ function pitchedSpots(state: DockState, dragged: string, options: DockLaneOption
   return out;
 }
 
-/** One bar or toolbar rail as its free stretches read it: the held item's length on it, its gap, middle and fixed items. */
-interface StretchEdge {
-  readonly e: DockEdge;
-  readonly axis: Axis;
-  /** The held item's length here: a landing on this edge (a stretch's own `w` is its length on a drop there). */
-  readonly w: number;
+/** One bar or toolbar rail as its free stretches read it (`SlideEdge`), with its gap and the spots it already has. */
+interface StretchEdge extends SlideEdge {
   readonly gap: number;
-  readonly middle: number;
   /** The spots this edge already has (from `targets()`). */
   readonly mine: readonly Raw[];
-  /** Fixed items (a title, window controls) as drawn: they keep their place, so a dock that would move one is none. */
-  readonly fixed: readonly { readonly id: string; readonly r: Rect }[];
-  readonly prev: { readonly previous?: DockLayout };
 }
 
 /**
- * One free stretch: `[a, b]` along the edge between its neighbors, the room a drop there makes (flush after the neighbor
- * before it, flush before the one after it, each in the form the drop leaves it in), the zones a dock there takes, and
- * its place.
+ * One free stretch: the room a drop between two neighbors makes (`slideRoom`: flush after the neighbor before it, flush
+ * before the one after it, each in the form the drop leaves it in), the zones a dock there takes, and its place.
  */
-interface Stretch {
+interface Stretch extends Omit<SlideRoom, "before" | "after"> {
   /** The neighbors either side, as the drop finds them (the held item lifted), drawn as seen. */
   readonly before: { readonly id: string; readonly r: Rect } | undefined;
   readonly after: { readonly id: string; readonly r: Rect } | undefined;
-  readonly a: number;
-  readonly b: number;
-  /** The held item's length on a drop here (the form the drop leaves it in). */
-  readonly w: number;
-  /** A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end. */
-  readonly zones: readonly Zone[];
-  /** A dock in this stretch: before the zone's items that come after the stretch. */
-  readonly atOf: (zone: Zone) => number;
-  /** The space that puts the item at `x0`: from the stretch's start in a start zone, to its end in an end zone. */
-  readonly spaceAt: (zone: Zone, x0: number) => number;
+  /** The room itself, as `slideRange` reads it. */
+  readonly room: SlideRoom;
 }
 
 /**
@@ -1127,65 +1071,21 @@ function stretches(state: DockState, dragged: string, options: DockLaneOptions, 
     const mine = raws.filter((r) => r.edge === e.id);
     const drawn = base.edges[e.id] ?? seen.edges[e.id];
     if (mine.length === 0 || !drawn) continue;
-    const gap = nonNeg(e.gap);
     const others = onEdge(base, e.id, dragged, axis);
-    const zoneOf = (o: (typeof others)[number]): Zone => o.zone ?? "start";
+    const run: StretchEdge = { state, dragged, e, axis, base, drawn: drawn.rect, gap: nonNeg(e.gap), middle: mid(drawn.rect, axis), mine, fixed: others.filter((o) => state.items[o.id]?.fixed), prev };
+    const each = visit(run);
+    // The held item's length where no dock in a stretch lands there: a landing on this edge.
     const w = len(mine[0]!.landing, axis);
-    const each = visit({ e, axis, w, gap, middle: mid(drawn.rect, axis), mine, fixed: others.filter((o) => state.items[o.id]?.fixed), prev });
-    /** A growing item's drawn length past its natural one (a title filling the bar): a dock beside it can take that. */
-    const slack = (o: (typeof others)[number] | undefined): number => {
-      const main = o ? state.items[o.id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main : undefined;
-      return o && main?.grows ? Math.max(0, len(o.r, axis) - main.natural) : 0;
-    };
-    /** `[a, b]` between `before` and `after` as they lie in `l`: flush after the one, flush before the other. */
-    const ends = (l: DockLayout, before: (typeof others)[number] | undefined, after: (typeof others)[number] | undefined): { a: number; b: number } | null => {
-      const at = (o: (typeof others)[number]): Rect | null => {
-        const it = l.items[o.id];
-        return it && it.edge === e.id && !it.inMenu && !it.floating ? it.rect : null;
-      };
-      const rb = before ? at(before) : undefined;
-      const ra = after ? at(after) : undefined;
-      if (rb === null || ra === null) return null;
-      const el = l.edges[e.id]?.rect ?? drawn.rect;
-      return {
-        a: before && rb ? lo(rb, axis) + len(rb, axis) - slack({ ...before, r: rb }) + gap : lo(el, axis) + nonNeg(e.pad?.start),
-        // (Not before a growing item: a dock there keeps no space, the item it precedes takes all that is spare.)
-        b: ra ? lo(ra, axis) - gap : lo(el, axis) + len(el, axis) - nonNeg(e.pad?.end),
-      };
-    };
     for (let i = 0; i <= others.length; i++) {
       const before = others[i - 1];
       const after = others[i];
-      const zones: Zone[] = [...(!before || zoneOf(before) === "start" ? ["start" as const] : []), ...(!after || zoneOf(after) === "end" ? ["end" as const] : [])];
-      const atOf = (zone: Zone): number => others.slice(0, i).filter((o) => zoneOf(o) === zone).length;
-      // The room the drop makes, not only the room as seen: a dock here keeping no space, laid out, its neighbors in the
-      // forms it leaves them in (a neighbor steps down to a shorter form where the edge has no room for the item beside
-      // its form as seen) and the item in its own. The forms don't depend on the space a dock keeps (space comes out of
-      // the spare length), so every dock in the stretch finds them so. As seen where no such dock lands here. A dock
-      // pushes the neighbors on its zone's open side that keep no room for it; that is no room made, so at an end with
-      // no zone of its own (after a start item: the stretch's end; before an end item: its start) a neighbor that gives
-      // way by moving (`givesWay`) leaves the end where it is seen.
-      const probe = ((): { a: number; b: number; w: number; layout: DockLayout } | null => {
-        const zone = zones[0];
-        if (!zone) return null;
-        const moved = moveTo(state, dragged, { edge: e.id, zone, at: atOf(zone), space: 0 });
-        if (moved === state) return null;
-        // (A dropped item counts as just used, as every drop does: the room is the one its commit makes.)
-        const l = solveLanded(markUsed(moved, dragged), dragged, prev);
-        const landed = l.items[dragged];
-        if (!landed || landed.inMenu || landed.edge !== e.id) return null;
-        const n = neighbors(l, e.id, dragged, axis);
-        if (n.before !== (before?.id ?? "^") || n.next !== (after?.id ?? "$")) return null;
-        const r = ends(l, before, after);
-        return r && { ...r, w: len(landed.rect, axis), layout: l };
-      })();
-      const seenEnds = ends(base, before, after)!;
-      const pushed = (o: (typeof others)[number] | undefined, side: "before" | "after"): boolean =>
-        !!o && !!probe && givesWay(base.items[o.id], probe.layout.items[o.id], e.id, side, (r) => [lo(r, axis), lo(r, axis) + len(r, axis) - slack({ ...o, r })]) === "moves";
-      const a = probe && (zones.includes("start") || !pushed(before, "before")) ? probe.a : seenEnds.a;
-      const b = probe && (zones.includes("end") || !pushed(after, "after")) ? probe.b : seenEnds.b;
-      const wi = probe?.w ?? w;
-      each({ before, after, a, b, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
+      // The room the drop makes, not only the room as seen (`slideRoom`): a dock here keeping no space, laid out, its
+      // neighbors in the forms it leaves them in (a neighbor steps down to a shorter form where the edge has no room for
+      // the item beside its form as seen) and the item in its own. The forms don't depend on the space a dock keeps
+      // (space comes out of the spare length), so every dock in the stretch finds them so. The one room the tiles cut
+      // a place over free room from.
+      const room = slideRoom(run, before?.id, after?.id, others.slice(0, i).map((o) => o.id), w);
+      if (room) each({ ...room, before, after, room });
     }
   }
 }
@@ -1205,7 +1105,7 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
     const { e, axis } = run;
     const taken = [...run.mine.map((r) => r.landing)];
     const emit = (zone: Zone, at: number, space: number, x0: number, nb: string): void => {
-      const hit = landsAt(state, dragged, run, { edge: e.id, zone, at, space }, x0);
+      const hit = landsAt(run, { edge: e.id, zone, at, space }, x0);
       if (!hit) return;
       const { next, layout } = hit;
       const landed = layout.items[dragged]!;
@@ -1233,26 +1133,6 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
   return out;
 }
 
-/** The dock `place` on `run`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */
-function landsAt(state: DockState, dragged: string, run: StretchEdge, place: DockPlace, x0: number): { next: DockState; layout: DockLayout } | null {
-  const moved = moveTo(state, dragged, place);
-  if (moved === state) return null;
-  // A dropped item counts as just used, as every target's drop does (`markUsed`): one model on both paths.
-  const next = markUsed(moved, dragged);
-  const layout = solveLanded(next, dragged, run.prev);
-  const landed = layout.items[dragged];
-  const { axis } = run;
-  if (!landed || landed.inMenu || landed.edge !== run.e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) return null;
-  // A fixed item that takes steps (`stepping`) may step for the dock; one that goes into the » has no place to keep.
-  const kept = (f: StretchEdge["fixed"][number]): boolean => {
-    const it = layout.items[f.id];
-    if (it?.inMenu && itemSteps(state.items[f.id]!)) return true;
-    return !!it && Math.abs(lo(it.rect, axis) - lo(f.r, axis)) <= 1;
-  };
-  if (!run.fixed.every(kept)) return null;
-  return { next, layout };
-}
-
 /**
  * One sliding spot per free stretch of a bar or a toolbar rail (`stretchPositions: "free"`): the same stretches as
  * `pitchedSpots` (between the items as the drop finds them with the held item lifted, in the forms the drop leaves them
@@ -1276,31 +1156,17 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
   const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
-  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
-    const { e, axis, middle, mine } = run;
+  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ w, zones, atOf, spaceAt, before, after, room }) => {
+    const { e, axis, mine } = run;
     // (A stretch shorter than the item still offers its start, flush after the neighbor before it, where a dock there
     // lands: a point, below, as a pitched stretch's end gives it.)
     if (zones.length === 0) return;
     {
-      /** The dock that lands the item's start at `x0`: its place, state and layout, or null where it lands elsewhere. */
-      const land = (x0: number): { place: DockPlace; result: DropResult } | null => {
-        const near: Zone = x0 + w / 2 < middle ? "start" : "end";
-        for (const zone of [near, near === "start" ? ("end" as const) : ("start" as const)]) {
-          if (!zones.includes(zone)) continue;
-          const space = spaceAt(zone, x0);
-          if (space < -EPS) continue;
-          const place: DockPlace = { edge: e.id, zone, at: atOf(zone), space: Math.max(0, space) };
-          const hit = landsAt(state, dragged, run, place, x0);
-          if (hit) return { place, result: { state: hit.next, layout: hit.layout } };
-        }
-        return null;
-      };
-      // The range: the landings that land where aimed, at its ends and every `sample` px between.
-      const tries = rangeTries(a, b, w, sample);
-      const ok = tries.map((x0) => ({ x0, hit: land(x0) })).filter((t) => t.hit);
-      if (ok.length === 0) return;
-      const from = ok[0]!.x0;
-      const to = ok.at(-1)!.x0;
+      // The range (`slideRange`): the landings that land where aimed, at its ends and every `sample` px between. The one
+      // range the tiles cut a place over free room from.
+      const range = slideRange(run, room, sample);
+      if (!range) return;
+      const { from, to, land } = range;
       const bId = before?.id ?? "^";
       const nId = after?.id ?? "$";
       // Room for the item at a single start (no room past it, or a range under a pixel, the grain a free start lands on:
@@ -1314,12 +1180,12 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
             const space = spaceAt(zone, from);
             if (space < -EPS) continue;
             const place: DockPlace = { edge: e.id, zone, at: atOf(zone), space: Math.max(0, space) };
-            const hit = landsAt(state, dragged, run, place, from);
+            const hit = landsAt(run, place, from);
             if (hit) return { place, result: { state: hit.next, layout: hit.layout } };
           }
           return null;
         })();
-        const { place, result } = firstZone ?? ok[0]!.hit!;
+        const { place, result } = firstZone ?? range.start;
         const landed = result.layout.items[dragged]!.rect;
         const n = neighbors(result.layout, e.id, dragged, axis);
         const zone = place.zone as Zone;
@@ -1349,7 +1215,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
       put(to);
       // Two docks at one start: the item's own place first, then the dock in the zone of the neighbor before the stretch
       // (a drop flush after the last start-zone item stays in the start zone), as the tiles break it (`./targets/tiles`).
-      const beforeZone: Zone = (before && (state.items[before.id]?.align as Zone | undefined)) || "start";
+      const beforeZone = zoneIn(run.base, before?.id);
       const rank = (r: Raw): number => (r.home ? 0 : r.target.place.kind === "gap" && r.target.place.zone === beforeZone ? 1 : 2);
       for (const r of [...inside].sort((p, q) => rank(p) - rank(q))) put(lo(r.landing, axis), r);
       // The item's own place wins near it: no other snap point within twice the snap distance of it, so every start
@@ -1359,8 +1225,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
       const snaps = kept.map((p) => p.at);
       /** The taken-over dock that commits at `x0`, if `x0` is a snap point of one. */
       const dockAt = (x0: number): Raw | undefined => kept.find((p) => Math.abs(p.at - x0) < 1e-6)?.raw;
-      const shape = ok[0]!.hit!.result.layout.items[dragged]!.rect;
-      const at = (x0: number): Rect => along(shape, axis, x0, x0 + w);
+      const { at } = range;
       /** The nearest snap point to `x0` within the snap distance, else `x0`. */
       const snapped = (x0: number): number => {
         let best = x0;
@@ -1381,7 +1246,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         const k = `${r ? "dock " : ""}${Math.round(x0 * 1000) / 1000}`;
         const known = results.get(k);
         if (known) return known;
-        const result = r ? r.target.after(ORIGIN, ORIGIN) : (land(x0)?.result ?? ok.reduce((p, q) => (Math.abs(q.x0 - x0) < Math.abs(p.x0 - x0) ? q : p)).hit!.result);
+        const result = r ? r.target.after(ORIGIN, ORIGIN) : (land(x0) ?? range.nearest(x0)).result;
         results.set(k, result);
         return result;
       };
