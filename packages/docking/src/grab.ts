@@ -173,13 +173,33 @@ export function grabResolver(lift: Lift): (grab: DockGrab | undefined) => Grab {
 const fnIds = new WeakMap<object, number>();
 let nextFnId = 0;
 
+/** A function as a memo key part: its identity (one closure per drag), none as null. */
+export function fnKey(fn: object | undefined): string | null {
+  if (!fn) return null;
+  let id = fnIds.get(fn);
+  if (id === undefined) fnIds.set(fn, (id = nextFnId++));
+  return `fn${id}`;
+}
+
 /** A grab as a memo key part: a point by value, a function by its identity (one closure per drag), none as null. */
 export function grabKey(grab: DockGrab | undefined): readonly [number, number] | string | null {
   if (!grab) return null;
-  if (typeof grab !== "function") return [grab.x, grab.y];
-  let id = fnIds.get(grab);
-  if (id === undefined) fnIds.set(grab, (id = nextFnId++));
-  return `fn${id}`;
+  return typeof grab === "function" ? fnKey(grab) : [grab.x, grab.y];
+}
+
+const ORIGIN: Point = { x: 0, y: 0 };
+
+/**
+ * The grab in the form `layout` lays `dragged` in: the one reading every landing's grab comes from (`DropResult.grab` of
+ * each drop that doesn't aim by the hand, `DockAfter.grab` of each held place). The drag's grab function `grab` is read
+ * at the laid rect's size by the float rule where the item floats, else the lane rule; `lift` reads the lift rule (the
+ * item at rest, in its own form). Where the layout lays the item nowhere: the press where it is a plain point, else the
+ * corner.
+ */
+export function grabIn(grab: Grab, layout: DockLayout, dragged: string, press: DockGrab | undefined, lift = false): Point {
+  const laid = layout.items[dragged];
+  if (laid) return grab(laid, sizeOf(laid.rect), lift ? "lift" : laid.floating ? "float" : "lane");
+  return press && typeof press !== "function" ? { x: press.x, y: press.y } : ORIGIN;
 }
 
 /** Whether two points are one, within `EPS` each way. */

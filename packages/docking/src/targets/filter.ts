@@ -5,10 +5,10 @@
 import { overlaps } from "@n-uf/placement";
 import { formMain, itemSteps } from "@n-uf/placement/stack";
 import { aimSlack } from "../aim";
-import { grabOf, liftOf } from "../grab";
+import { grabOf, liftOf, type Lift } from "../grab";
 import { liftItem, prune } from "../changes";
 import { axisOf, keepClearFor, formsOf, isHandFolded, withoutBarGrowth, zoneOf } from "../helpers";
-import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
+import { ZONES, type DockEdge, type DockState, type DockItem, type DockItemLayout, type DockLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
 import { landedLayout, reservedRect, solveLanded } from "./edges";
 import type { Ctx, DropResult, DockDropOptions } from "./model";
@@ -74,6 +74,16 @@ function roomOf(state: DockState, now: DockLayout, prev: SolveOptions): DockLayo
 }
 
 /**
+ * What the grab reads of a drag's lift, as every reader takes it (a drop's context, the lanes, a drop's `grab`): the item
+ * as a drop counts it (held, a movable grower is its natural length: `landedLayout`) and the lift over `now`, the window
+ * as seen.
+ */
+export function liftIn(state: DockState, now: DockLayout, dragged: string, prev: SolveOptions): { own: DockItemLayout | undefined; lift: Lift } {
+  const own = landedLayout(state, now, dragged, prev).items[dragged];
+  return { own, lift: liftOf(state, now, dragged, own?.rect) };
+}
+
+/**
  * A drag's context: null for an unknown, fixed or closed item (it has no targets). `others`: edges kept out of `state`
  * (its hidden ones) that a drop's new column must not repeat the ids of.
  */
@@ -88,9 +98,7 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
   const base = solve(rest, prev);
   // Every drop prunes the dynamic columns left empty: the place the item is in now counts without them too.
   const here = placeKey(prune(state), dragged);
-  // (Held, a movable grower is its natural length, as `lanes()` reads the grab: `landedLayout`.)
-  const own = landedLayout(state, now, dragged, prev).items[dragged];
-  const lift = liftOf(state, now, dragged, own?.rect);
+  const { own, lift } = liftIn(state, now, dragged, prev);
   const c: Ctx = {
     state,
     others,
