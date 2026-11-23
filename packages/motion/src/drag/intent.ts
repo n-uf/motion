@@ -324,8 +324,12 @@ export interface DragIntentState<T extends DragTarget> {
 }
 
 export interface DragIntentOptions<T extends DragTarget> {
-  /** Where the item was lifted from: the indicator stays off until the pointer leaves it, and a release there does nothing. */
-  readonly home: Rect;
+  /**
+   * Where the item was lifted from: the indicator stays off until the pointer leaves it, and a release there does
+   * nothing. Absent: no home (the pointer has left it from the first sample, and a release anywhere lands on what is
+   * under it), for a host whose targets hold the item's own place themselves.
+   */
+  readonly home?: Rect;
   /** Where the press that lifted the item was (the grip); default the first sample's point. The lift zone is about it. */
   readonly lift?: Point;
   /**
@@ -384,7 +388,7 @@ export interface DragIntent<T extends DragTarget> {
    * starts again.
    */
   hide(time: number): void;
-  /** The item's home moved with the view (it scrolled) by (dx, dy). */
+  /** The item's home moved with the view (it scrolled) by (dx, dy). With no home, nothing. */
   moveHome(dx: number, dy: number): void;
   readonly state: DragIntentState<T>;
   readonly tuning: DragTuning;
@@ -433,7 +437,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   const placeOf = options.placeOf ?? ((t: T) => t.id);
   // Each target's place on the last sample, by id: its `previous` on the next.
   let lastPlaces = new Map<string, string | null>();
-  let home: Rect = { ...options.home };
+  let home: Rect | null = options.home ? { ...options.home } : null;
   let samples: { x: number; y: number; t: number }[] = [];
   let cur: T | null = null;
   let curSince = 0;
@@ -514,7 +518,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       return ft ? (given.find((x) => x.id === ft.id) ?? ft) : null;
     }
     // Over home a release does nothing, except onto an armed spring-loaded target whose zone overlaps home.
-    if (inRect(home, point)) {
+    if (home && inRect(home, point)) {
       const armed = armedId === null ? null : given.find((x) => x.id === armedId);
       return armed && inZone(asArmed(armed), point) && placeOf(armed, point, lastPlaces.get(armed.id) ?? null) !== null ? armed : null;
     }
@@ -542,8 +546,8 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
         anchor = { x: p.x, y: p.y };
         stillSince = t;
       }
-      if (!inRect(home, p, -tuning.homeInset)) leftHome = true;
-      const atHome = inRect(home, p);
+      if (!home || !inRect(home, p, -tuning.homeInset)) leftHome = true;
+      const atHome = !!home && inRect(home, p);
       if (!atHome) wentOut = true;
       // Each target's place at this point, worked out once per sample; a null place is no target.
       const places = new Map<string, string | null>();
@@ -694,7 +698,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
       restart = true;
     },
     moveHome(dx, dy) {
-      home = { ...home, x: home.x + dx, y: home.y + dy };
+      if (home) home = { ...home, x: home.x + dx, y: home.y + dy };
     },
   };
 }
