@@ -624,7 +624,7 @@ A float that names no `orient` takes its item's: **`DockItem.floatOrient`** (`"r
 **`floatOrientOf(item)`**, the axis of the first form the item declares, so a toolbar group declared row first floats as
 a row. **`DockDropOptions.floatOrient`** overrides that for the drag's float target. A float's size is kept **per
 orient**, **`DockItem.floatSizes`** (`{ row?, column? }`). **`floatSizeOf(item, orient?)`** gives `floatSizes[orient]`,
-else the item's first form's natural size along `orient`, not 280 × 360; a form that grows (a panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360). `floatAt` with a rect and a hand `resizeFloat` write
+else the item's first form's natural size along `orient`, not 280 × 360; a form that grows and shows a body (a panel's card, `sizedByHand`) keeps `DEFAULT_FLOAT_SIZE` (280 × 360); a form that grows without one (a toolbar that grows on a bar) floats at its natural size. `floatAt` with a rect and a hand `resizeFloat` write
 the size for the orient the float is in; the drag's float target takes the size for the orient it lands in. Give a
 float `orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical. **Per-orient sizes
 apply to items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes(item)`): an item with no
@@ -634,8 +634,8 @@ apply to items that declare `floatSizes`; others keep the stored rect** (`declar
 
 **Turning a float.** `orientFloat(state, id, to)` gives the frame the size the new orient draws it at (`floatSizeOf` for
 `to`, as `solve` draws it), at the place the float already has; an anchored float keeps its anchor, so the anchor puts
-the new frame, and the float's first-form size is what `solve` draws: a form that grows (a panel's card) is the float's
-rect, any other (a toolbar group) its `floatSizes` for the orient, else its natural size. A form that grows keeps the
+the new frame, and the float's first-form size is what `solve` draws: a form sized by hand (a panel's card) is the float's
+rect, any other (a toolbar group) its `floatSizes` for the orient, else its natural size. A form sized by hand keeps the
 rect it leaves under its old orient, so turning back restores it, and a hand size for each orient survives any number
 of turns. Rotating a toolbar there and back gives the same rect, and an upright 36 × 107 strip turned to a row is the
 row's 88 × 28, never the old frame around the new content. A state stored with the old single `floatSize` (before
@@ -689,8 +689,8 @@ that already covers something (no clear place at its size) may move to a clear p
 preview is still the commit. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle
 stays where it is drawn (`"docked"`), so a resize never covers more than the float did, and a float clear of everything
 stops at the obstacle. It gives `{ rect, limits }`, `limits` naming what bound it:
-`"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form that grows (a
-panel's card): a toolbar group's size and a folded float's bar come from their forms. On commit (each move, or the
+`"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form sized by hand (a
+panel's card, `sizedByHand`): a toolbar group's size (one that grows on a bar too) and a folded float's bar come from their forms. On commit (each move, or the
 release) `resizeFloat(state, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSizes` for the
 float's orient, so the preview is the commit and the size survives `storeDockState`. `fitFloat` is the other half: it moves a float to a clear
 place and never resizes it.
