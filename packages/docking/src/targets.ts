@@ -77,8 +77,9 @@
 import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Point, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
-import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, growsOnBar, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
-import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type Zone } from "./model";
+import { grabKey, grabResolver, sameForm, samePoint, sizeOf } from "./grab";
+import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type DockItemLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { cutsByHalves } from "./aim";
@@ -281,8 +282,9 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
       ...t,
       after: (point, grab) => {
         const a = t.after(point, grab);
+        const held = a.grab ? { grab: a.grab } : {};
         // Nothing committed: the state as it was, the same object.
-        if (a.state === shown) return { state, layout: showsIn ? solveLanded(state, dragged, prev) : a.layout };
+        if (a.state === shown) return { state, layout: showsIn ? solveLanded(state, dragged, prev) : a.layout, ...held };
         // Only a drop that names a zone (a gap in a zone of an edge offering a choice, `namesZone`) sets the item's zone;
         // every other move keeps its own.
         const on = t.place.kind === "gap" ? shown.edges.find((e) => t.place.kind === "gap" && e.id === t.place.edge) : undefined;
@@ -295,7 +297,7 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
         // Where items lie in zones not their own, the result lays them out again from their own zones.
         const layout = renumbered || showsIn || rezoned.size > 0 ? solveLanded(restored, dragged, prev) : a.layout;
-        return { state: restored, layout };
+        return { state: restored, layout, ...held };
       },
     });
   return { ...g, targets: g.targets.map(wrap), ...(g.places ? { places: g.places.map(wrap) } : {}) };
@@ -337,12 +339,12 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
     // Its size: the one given, else its float's where it lands in the orient it floats in, else the size for the orient it lands in.
     const wasOrient = was?.orient ?? floatOrientOf(item);
     const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
-    // A movable grower is pressed on its grown rect and floats at its natural size: the hand keeps its share of the item
-    // (`grab` over the rect as seen), so the float lies under the pointer as it is held.
-    const seenOwn = now.items[dragged];
-    const seenEdge = seenOwn?.edge ? state.edges.find((e) => e.id === seenOwn.edge) : undefined;
-    const grown = seenOwn && seenEdge && growsOnBar(state, seenEdge, dragged, seenOwn.form) && seenOwn.rect.width > 0 && seenOwn.rect.height > 0 ? seenOwn.rect : null;
-    const handOf = (g: Point | undefined): Point | undefined => (g && grown ? { x: clamp(g.x / grown.width, 0, 1) * size.width, y: clamp(g.y / grown.height, 0, 1) * size.height } : g);
+    // The grab in the float's form (`grabOf`: a movable grower pressed on its grown rect keeps its share of it, so the
+    // float lies under the pointer as it is held). The form is the probe's: the float laid at its size, solved once.
+    const grabs = grabResolver(c.lift);
+    let probe: { laid: DockItemLayout | undefined } | null = null;
+    const probeForm = (): DockItemLayout | undefined =>
+      (probe ??= { laid: solve(markUsed(floatAt(state, dragged, rect(0, 0, size.width, size.height), options.floatOrient), dragged), prev).items[dragged] }).laid;
     targets.push({
       id: targetId({ kind: "float", item: dragged }),
       priority: 3,
@@ -353,15 +355,26 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
       item: dragged,
       place: { kind: "float" },
       after(point, grab) {
-        const g = handOf(grab) ?? { x: size.width / 2, y: size.height / 2 };
+        const fn = grabs(grab);
+        const laid = probeForm();
         // Where the pointer puts it, or with `floatFromHeld` where the held item is drawn, before the float is fitted.
-        const raw = options.floatFromHeld ? heldRect(state, dragged, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
-        const first = solve(markUsed(floatAt(state, dragged, raw, options.floatOrient), dragged), prev);
+        const aimed = (g: Point): { raw: Rect; first: DockLayout } => {
+          const raw = options.floatFromHeld ? heldRect(state, dragged, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
+          return { raw, first: solve(markUsed(floatAt(state, dragged, raw, options.floatOrient), dragged), prev) };
+        };
+        let g = fn(laid, size, "float");
+        let { raw, first } = aimed(g);
+        // Fitted in another form than the probe's: aimed once more with the grab in that form, never again.
+        const firstLaid = first.items[dragged];
+        if (laid && firstLaid && !sameForm(firstLaid, laid)) {
+          const again = fn(firstLaid, sizeOf(firstLaid.rect), "float");
+          if (!samePoint(again, g)) ({ raw, first } = aimed((g = again)));
+        }
         const fitted = first.items[dragged]?.rect;
         const at = fitted ?? raw;
         const placed = (x: number, y: number, stays: boolean): DropResult => {
           const s = floatAt(state, dragged, rect(x, y, size.width, size.height), options.floatOrient);
-          return c.settle(markUsed(stays ? { ...s, floats: s.floats.map((f) => (f.id === dragged ? { ...f, stays: true as const } : f)) } : s, dragged));
+          return { ...c.settle(markUsed(stays ? { ...s, floats: s.floats.map((f) => (f.id === dragged ? { ...f, stays: true as const } : f)) } : s, dragged)), grab: g };
         };
         // "Doesn't fit" is decided by the hand: a clear place counts only while the pointer is on the item placed there
         // (on the hand rect as kept inside the stage, so the stage's clamp never counts against it).
@@ -539,7 +552,7 @@ function stopsKey(dragged: string, o: DockDropOptions): string {
     prev = layoutIds.get(o.previous) ?? nextLayoutId++;
     layoutIds.set(o.previous, prev);
   }
-  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, o.grab ? [o.grab.x, o.grab.y] : null, o.pitch ?? null]);
+  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, grabKey(o.grab), o.pitch ?? null]);
 }
 
 function orderedStops(state: DockState, dragged: string, options: DockDropOptions): DockDrop[] {

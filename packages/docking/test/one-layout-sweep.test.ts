@@ -83,7 +83,7 @@ interface Drag {
 function dragOf(w: SweepWindow): Drag | null {
   const own = solve(w.state, { previous: w.previous }).items[w.dragged];
   if (!own || own.inMenu || own.floating || own.rect.width <= 0 || own.rect.height <= 0) return null;
-  const given = w.options.grab;
+  const given = (w.options as { grab?: Point }).grab;
   const grab = given && given.x < own.rect.width && given.y < own.rect.height ? given : { x: own.rect.width / 2, y: own.rect.height / 2 };
   const options = { ...w.options, previous: w.previous, grab };
   const drag = dockDrag(w.state, w.dragged, options);

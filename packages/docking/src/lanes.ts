@@ -12,8 +12,8 @@
  * `dockDrag`'s `spotsOf`, so a column takes a panel by halves of what is seen). On a bar or a toolbar rail, and between any two
  * other spots, it is halfway across the gap between their landings, each in its own layout, so the pointer is at the
  * landing it picks and a toolbar moved along an occupied lane stays at the hand. On a bar or a toolbar rail, two landings
- * that overlap (spots a pitch apart, the pointer inside both) are cut where the item is held (`options.grab`): halfway
- * between the points the pointer would hold in each, so a pointer back at its press point picks the item's own place
+ * that overlap (spots a pitch apart, the pointer inside both) are cut where the item is held (`options.grab`, read in each
+ * landing's own form): halfway between the points the pointer would hold in each, so a pointer back at its press point picks the item's own place
  * however far from its middle it was pressed; landings apart are cut halfway across their gap whatever the grab. Cuts are
  * kept inside the lane and in order. The spots come from the same generation and filter as `targets()`, so a spot's
  * landing is exactly what its drop commits. Spot ids are keyed by the lane, zone and neighboring items, so they survive
@@ -23,10 +23,11 @@
  */
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, type DockPlace } from "./changes";
-import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, zoneIn } from "./aim";
+import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, len, lo, zoneIn } from "./aim";
+import { grabKey, grabOf, grabResolver, liftOf, sameForm, sizeOf, type DockGrab, type Grab } from "./grab";
 import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
-import type { DockState, DockLayout, Zone } from "./model";
+import type { DockState, DockLayout, DockItemLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { parseTargetId, targetsAndRefusals } from "./targets";
 import { landedLayout } from "./targets/edges";
@@ -84,8 +85,10 @@ export interface DockSpot {
   readonly pitched?: true;
   /**
    * A free stretch as one sliding spot (`stretchPositions: "free"`): its drop lands where the pointer holds it, the
-   * landing's start at the pointer less the grab, clamped to `[from, to]` and snapped within `snapDistance`, and
-   * `target.after(point, grab)` commits that (a dock keeping the `space` that puts it there). Its `landing` is the one at
+   * landing's start at the pointer less the grab along the lane (the grab in the form the item takes in the stretch;
+   * where the landing there lies in another form, aimed once more with the grab in that form, never again), clamped to
+   * `[from, to]` and snapped within `snapDistance`, and `target.after(point, grab)` commits that (a dock keeping the
+   * `space` that puts it there). Its `landing` is the one at
    * the stretch's point nearest the item's own place (that place where it lies here), else at its start.
    */
   readonly slide?: LaneSlide;
@@ -194,16 +197,22 @@ export interface DockLaneOptions extends DockDropOptions {
   /** Under `"free"`, how near a snap point a landing snaps to it, px (default 8). */
   readonly snapDistance?: number;
   /**
-   * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
-   * takes): the press's, constant for the drag (each grab is remembered as its own options). It counts along the item's own length only (its longer side as it is now): on a bar or a toolbar rail
-   * along that axis the cut between two overlapping landings lies halfway between the points the pointer would hold in
-   * each (with landings of one length; at the same share of each), kept within half a pitch of their overlap, so a
-   * pointer back at its press point picks the item's own place; landings with a gap between them (either side of a long
-   * neighbor) are cut halfway across it whatever the grab, so the pointer is at the landing it picks (R12). Across the
-   * item, and in a lane across its length (a rail toolbar over a bar), it is the item's middle, as without a grab. Panel columns take a panel by halves of what is drawn either way. Where another lane's band
-   * overlaps the press point (an empty bar's band over a rail's end) that lane can still take the pointer first.
+   * Where the pointer holds the item (what a target's `after(point, grab)` takes), constant for the drag (each grab is
+   * remembered as its own options: a function by its identity, so a host keeps one closure per drag). Either a point,
+   * px from its top left corner as it is now (the press's), or a function of the form the item is laid in and its size
+   * there giving that point in the laid rect's own coordinates (`DockGrab`): at the item's own form and size it gives
+   * the press point; `undefined` for a form leaves it to the library's twin of the press. A point is that twin: in a
+   * float the press in px; on a bar or a rail, along the item's own length (its longer side as it is now) the press's
+   * share, across it the middle.
+   *
+   * On a bar or a toolbar rail the cut between two overlapping landings lies halfway between the points the pointer
+   * would hold in each (the grab in each landing's own form), kept within half a pitch of their overlap, so a pointer
+   * back at its press point picks the item's own place; landings with a gap between them (either side of a long
+   * neighbor) are cut halfway across it whatever the grab, so the pointer is at the landing it picks (R12). Panel
+   * columns take a panel by halves of what is drawn either way. Where another lane's band overlaps the press point (an
+   * empty bar's band over a rail's end) that lane can still take the pointer first.
    */
-  readonly grab?: { readonly x: number; readonly y: number };
+  readonly grab?: DockGrab;
   /**
    * How an empty lane's marks draw it (an empty bar or side rail, or a virtual lane, its room not open): `"real"` (the
    * default), boxes at the size it will take, lying over what moves aside (the page, a column); `"edge"`, each a thin
@@ -278,10 +287,15 @@ export interface Base {
   readonly regions: Omit<DockRegions, "lanes">;
   /** The lanes cut by halves of the items drawn (panel columns). */
   readonly halves: ReadonlySet<string>;
-  /** Where the pointer holds the item, as a share of its width and height (0.5 each without `options.grab`). */
-  readonly share: { readonly x: number; readonly y: number };
+  /** `options.grab` as the one function (`grabOf`): where the pointer holds the item in each form it is laid in. */
+  readonly grab: Grab;
+  /** Where the pointer holds the item along a raw spot's lane, px into its first landing (`end` false) or its last. */
+  readonly held: Held;
   readonly marking: Marking;
 }
+
+/** Where the pointer holds the item along a raw spot's lane, px into its first or last landing (`aimCut`'s `heldA`/`heldB`). */
+type Held = (r: Raw, end: boolean) => number;
 
 /** What a lane's marks read beyond its spots. */
 interface Marking {
@@ -323,15 +337,15 @@ function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
 const memo = new WeakMap<DockState, Map<string, Base>>();
 const previousIds = new WeakMap<DockLayout, number>();
 let nextPrevious = 1;
-/** The options as a key: by value, `previous` by identity. */
+/** The options as a key: by value, `previous` by identity, a grab function by identity (`grabKey`). */
 function keyOf(dragged: string, o: DockLaneOptions): string {
-  const { previous, ...rest } = o;
+  const { previous, grab, ...rest } = o;
   let p = 0;
   if (previous) {
     if (!previousIds.has(previous)) previousIds.set(previous, nextPrevious++);
     p = previousIds.get(previous)!;
   }
-  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}`;
+  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}\u0000${JSON.stringify(grabKey(grab))}`;
 }
 
 /**
@@ -374,7 +388,7 @@ export function marksIn(base: Base, state: DockState, dragged: string, layout: D
   const on = heldEdge && !heldEdge.floating && !heldEdge.inMenu ? heldEdge.edge : undefined;
   const built = base.lanes.flatMap((l) => {
     const raws = base.raws.get(l.id);
-    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.share, base.marking, l.id === on, l.id === on && held === "slide" ? MIN_BOX : undefined) : null;
+    const again = raws ? laneFrom(l.id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(l.id), base.held, base.marking, l.id === on, l.id === on && held === "slide" ? MIN_BOX : undefined) : null;
     return again ? [{ lane: again, over: laneRectOver(raws!, layout, base.marking).rect }] : [];
   });
   const over = built.map(({ lane, over: r }) => ({ ...lane, rect: r }));
@@ -399,7 +413,7 @@ function newColumnsGiveWay<L extends { readonly axis: Axis; readonly marks: read
 /** The lane `id`'s spots with their stretches cut in `layout` (a panel column by halves of what `layout` draws), or null. Internal. */
 export function spotsIn(base: Base, id: string, layout: DockLayout, dragged: string): readonly DockSpot[] | null {
   const raws = base.raws.get(id);
-  return raws ? (laneFrom(id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(id), base.share, base.marking)?.spots ?? null) : null;
+  return raws ? (laneFrom(id, raws, layout, base.seen, dragged, base.refusals, base.halves.has(id), base.held, base.marking)?.spots ?? null) : null;
 }
 
 /** The raw spot `id` of the drag (internal): its lane, its target, and the layout its drop draws at rest. */
@@ -418,6 +432,8 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   const pitch = options.pitch === undefined ? SPOT_PITCH : options.pitch;
+  // The grab as one function over the lift (`grabOf`): what every sliding spot, cut and held frame reads.
+  const lift = liftOf(state, seen, dragged, own?.rect);
   const raws: Raw[] = [];
   const axisOfEdge = (id: string): Axis => {
     const e = state.edges.find((x) => x.id === id);
@@ -456,7 +472,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   // A bar's free stretches: one sliding spot each, which takes over the docks landing inside it; else spots at `pitch`,
   // each a dock keeping `space` (`DockItem.space`).
   if (options.stretchPositions !== "pitched") {
-    const { spots, absorbed } = slidingSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH);
+    const { spots, absorbed } = slidingSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH, grabResolver(lift));
     for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
     raws.push(...spots);
   } else if (pitch > 0) raws.push(...pitchedSpots(state, dragged, options, seen, lifted, raws, pitch));
@@ -480,11 +496,20 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     gap: (edge) => nonNeg(state.edges.find((e) => e.id === edge)?.gap),
     crossing: (edge, over) => state.edges.filter((e) => e.id !== edge && byLane.has(e.id) && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
   };
-  // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
-  // landing of another length along that axis is held at the same share; across the item, where the share says only
-  // where across a thin rail or bar it was pressed, the middle.
-  const share = grabShare(own?.rect, options.grab);
-  const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is DockLane => !!l);
+  // Where the pointer holds the item along each spot's lane: the grab in the form of each of its end landings (the
+  // twin of a press point: along the item's own length its share, across it the middle). Read once per raw spot.
+  const grab = grabOf(lift, options.grab);
+  const heldAt = new WeakMap<Raw, readonly [number, number]>();
+  const held: Held = (r, end) => {
+    let both = heldAt.get(r);
+    if (!both) {
+      const laid = r.layout.items[dragged];
+      const at = (x: Rect): number => grab(laid ? { ...laid, rect: x } : undefined, sizeOf(x), "lane")[r.axis];
+      heldAt.set(r, (both = [at(r.slide?.first ?? r.landing), at(r.slide?.last ?? r.landing)]));
+    }
+    return both[end ? 1 : 0];
+  };
+  const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), held, marking)).filter((l): l is DockLane => !!l);
   // Each lane's marks as seen: the window as seen is one layout (`marksIn`'s rule over it), the held item drawn nowhere.
   // `dockDrag`'s rest reads these.
   const laneList = newColumnsGiveWay(built.map((l) => settle(l, seen, state, dragged, built, options.emptyLanes)), (l) => l.id, state).map((l) => clearOfRail(l, seen, byLane.get(l.id)));
@@ -507,7 +532,8 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     seen,
     refusals: rs,
     halves,
-    share,
+    grab,
+    held,
     marking,
     regions: {
       refused: rs.filter((f) => !onLanes.has(f.edge)).flatMap((f) => f.hits ?? [f.hit]),
@@ -585,7 +611,7 @@ function drawnRect(layout: DockLayout, id: string): Rect | undefined {
  * `showsHeld` (a spot's layout that draws it here), else drawn nowhere; each neighbor's giving way judged in `drawn`.
  * `besideFloor`: the shortest room beside the held item that is a box (a sliding spot's: any).
  */
-function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, share: { readonly x: number; readonly y: number }, marking: Marking, showsHeld = false, besideFloor?: number): DockLane | null {
+function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: DockLayout, dragged: string, rs: readonly DockRefusal[], halves: boolean, held: Held, marking: Marking, showsHeld = false, besideFloor?: number): DockLane | null {
   if (list.length === 0) return null;
   const first = list[0]!;
   const axis = first.axis;
@@ -627,18 +653,17 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // or a rail stays at the hand however wide its neighbors (R12: a long neighbor between two landings puts a gap between
   // them, and halfway across it the pointer is at the landing it picks). Off a panel column, where two landings overlap
   // (spots a pitch apart over a free stretch, the pointer inside both) the cut is measured where the item is held:
-  // moved by the grab's share past the middle, so with landings of one length it lies halfway between the points the
-  // pointer holds in each, and a pointer at its press point lies on the item's own place. Kept inside the lane and in
-  // order.
+  // halfway between the points the pointer holds in each (the grab in each landing's own form), and a pointer at its
+  // press point lies on the item's own place. Kept inside the lane and in order.
   const drawnItems = first.edge && halves ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
-  const held = halves ? 0.5 : share[axis];
   const cutOf = (a: Raw, b: Raw): number => {
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
+    const [la, lb] = [lastOf(a), firstOf(b)];
     // (A sliding spot's facing end: its landing flush against the neighbor between them.)
     // Overlapping landings: at the grab, kept within half a pitch of their overlap (the pointer never further than that
     // from the landing it picks: two spots far apart that overlap a little cut near the overlap, as apart). Apart (a gap
     // between them): halfway across the gap, the grab aside. The one rule `targets()` cuts its tiles by (`aimCut`).
-    return aimCut(lastOf(a), firstOf(b), axis, held, aimSlack(marking.pitch), shared);
+    return aimCut(la, lb, axis, halves ? len(la, axis) / 2 : held(a, true), halves ? len(lb, axis) / 2 : held(b, false), aimSlack(marking.pitch), shared);
   };
   // On a bar or a toolbar rail a spot whose cut after it would lie before its cut before it is nearer no pointer (its
   // stretch between the landing cuts is empty): it is left out of the cutting, and its neighbors cut between themselves,
@@ -1152,7 +1177,7 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
  * item a stretch still has one wherever a zone can take the item, and its plain docks stay spots of their own where it
  * has none.
  */
-function slidingSpots(state: DockState, dragged: string, options: DockLaneOptions, seen: DockLayout, lifted: DockLayout, raws: readonly Raw[], sample: number): { spots: Raw[]; absorbed: Set<Raw> } {
+function slidingSpots(state: DockState, dragged: string, options: DockLaneOptions, seen: DockLayout, lifted: DockLayout, raws: readonly Raw[], sample: number, grabs: (grab: DockGrab | undefined) => Grab): { spots: Raw[]; absorbed: Set<Raw> } {
   const spots: Raw[] = [];
   const absorbed = new Set<Raw>();
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
@@ -1265,9 +1290,18 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         return p && p.kind === "gap" ? p : land(rest)?.place;
       })();
       const landing = homeRaw ? homeRaw.landing : (restResult.layout.items[dragged]?.rect ?? at(rest));
-      // The grab's share along the item's own length (its longer side, as it is now); across it, the middle.
-      const ownLen = own ? Math.max(own.rect.width, own.rect.height) : 0;
-      const long: Axis = own && own.rect.width >= own.rect.height ? "x" : "y";
+      // The grab in the form the item takes in the stretch (its listed landing's form, at the stretch's length `w`), read
+      // once per grab; a landing that lies in another form is aimed once more with the grab in that form, never again.
+      const restLaid: DockItemLayout | undefined = restResult.layout.items[dragged];
+      const cross = restLaid?.rect ?? landing;
+      const inStretch = axis === "x" ? { width: w, height: cross.height } : { width: cross.width, height: w };
+      const aimed = new Map<string, DropResult>();
+      const withGrab = (r: DropResult, g: Point, x0: number): DropResult => {
+        const k = `${Math.round(x0 * 1000) / 1000} ${g.x} ${g.y}`;
+        let out = aimed.get(k);
+        if (!out || out.state !== r.state) aimed.set(k, (out = { ...r, grab: g }));
+        return out;
+      };
       const target: DockDrop = {
         id: `slide:${e.id}:${bId}|${nId}`,
         priority: 2,
@@ -1275,10 +1309,20 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         slot: landing,
         item: dragged,
         place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!), ...(restPlace?.space ? { space: restPlace.space } : {}) },
-        after: (point: Point, grab?: Point) => {
-          const g = grab ? grab[long] : ownLen / 2;
-          const share = axis === long && ownLen > EPS && Number.isFinite(g) ? clamp(g / ownLen, 0, 1) : 0.5;
-          return commitAt(startAt((axis === "x" ? point.x : point.y) - share * w));
+        after: (point: Point, grab?: DockGrab) => {
+          const fn = grabs(grab);
+          const p = axis === "x" ? point.x : point.y;
+          let g = fn(restLaid, inStretch, "lane");
+          let x0 = startAt(p - g[axis]);
+          let r = commitAt(x0);
+          const laid = r.layout.items[dragged];
+          if (restLaid && laid && !sameForm(laid, restLaid)) {
+            // The probe lies in another form: the grab in that form; along the lane, aimed once more where it moved.
+            const again = fn(laid, sizeOf(laid.rect), "lane");
+            if (Math.abs(again[axis] - g[axis]) > EPS) r = commitAt((x0 = startAt(p - again[axis])));
+            g = again;
+          }
+          return withGrab(r, g, x0);
         },
       };
       const zone = zones[0]!;

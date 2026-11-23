@@ -16,7 +16,8 @@ function drags(): { w: SweepWindow; d: DockDrag; grab: Point }[] {
   return sweepWindows().flatMap((w) => {
     const own = solve(w.state, { previous: w.previous }).items[w.dragged];
     if (!own || own.inMenu || own.floating) return [];
-    const grab = w.options.grab && w.options.grab.x < own.rect.width && w.options.grab.y < own.rect.height ? w.options.grab : { x: own.rect.width / 2, y: own.rect.height / 2 };
+    const given = (w.options as { grab?: Point }).grab;
+    const grab = given && given.x < own.rect.width && given.y < own.rect.height ? given : { x: own.rect.width / 2, y: own.rect.height / 2 };
     return [{ w, d: dockDrag(w.state, w.dragged, { ...w.options, previous: w.previous, grab }), grab }];
   });
 }

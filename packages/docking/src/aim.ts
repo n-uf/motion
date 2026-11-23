@@ -7,8 +7,8 @@
  *   neighbor, the cut is that neighbor's middle as drawn.
  * - A bar or a toolbar rail takes the nearest landing (decision 0001, the hand rule): halfway across the gap between
  *   the two landings, so the pointer is at the landing it picks. Where the two landings overlap (the neighbor between
- *   them shorter than the item), the cut is made where the item is held (`grab`): halfway between the points the pointer
- *   would hold in each, kept within `slack` of their overlap.
+ *   them shorter than the item), the cut is made where the item is held (`grab`, read in each landing's own form):
+ *   halfway between the points the pointer would hold in each, kept within `slack` of their overlap.
  *
  * Each landing lies in the layout its own drop commits (a growing neighbor as that commit draws it, given way); a place
  * over free room cuts from its range's ends, the room its drop makes. Which places exist is read in the room, growth
@@ -60,21 +60,21 @@ export function grabShare(own: Rect | undefined, grab: Point | undefined): { rea
   return { x: w >= h ? shareOf(grab?.x, w) : 0.5, y: h > w ? shareOf(grab?.y, h) : 0.5 };
 }
 
-
 /**
  * The cut along `axis` between two adjacent places, `a` before `b`, by their landings (`a`'s facing its end, `b`'s its
  * start). `shared`: the neighbor between them as drawn, on an edge cut by halves; its middle is the cut. Else halfway
- * across the gap between the landings, or, where they overlap, at the grab (`held`, its share along the lane), kept
- * within `slack` of the overlap.
+ * across the gap between the landings, or, where they overlap, at the grab: halfway between the points the pointer holds
+ * in each (`heldA` into `a`, `heldB` into `b`, px along the lane, each the grab in that landing's own form), kept within
+ * `slack` of the overlap.
  */
-export function aimCut(a: Rect, b: Rect, axis: Axis, held: number, slack: number, shared?: Rect): number {
+export function aimCut(a: Rect, b: Rect, axis: Axis, heldA: number, heldB: number, slack: number, shared?: Rect): number {
   if (shared) return lo(shared, axis) + len(shared, axis) / 2;
   const aEnd = lo(a, axis) + len(a, axis);
   const bStart = lo(b, axis);
   const across = (aEnd + bStart) / 2;
   if (!(bStart < aEnd - EPS)) return across;
   const s = Math.max(0, slack);
-  return clamp(across + ((held - 0.5) * (len(a, axis) + len(b, axis))) / 2, bStart - s, aEnd + s);
+  return clamp(across + (heldA - len(a, axis) / 2 + (heldB - len(b, axis) / 2)) / 2, bStart - s, aEnd + s);
 }
 
 /**

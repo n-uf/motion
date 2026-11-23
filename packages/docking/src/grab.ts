@@ -1,0 +1,140 @@
+/**
+ * The grab: where the pointer holds the dragged item, as one function of the form the item is laid in and its size
+ * there (`DockGrab`). A host passes a plain point (the press, from the item's top-left corner as it is at the lift) or a
+ * function; at the lift a plain point becomes the library's own twin function, which gives back the point each kind of
+ * landing used before functions existed, so every reader (the float, a sliding spot, the aim cuts, a held frame's
+ * `DockAfter.grab`) reads one function.
+ *
+ * The twin, for a press point `p` (or none):
+ * - at the item's own form and size (where it lies at the lift): `p` itself (the middle without one);
+ * - a float: `p` in px as pressed, except a movable grower pressed on its grown rect, whose float keeps the press's share
+ *   of the grown rect; without a press, the float's middle;
+ * - a spot or a rail: along the item's own length (its longer side as a drop counts it) the press's share of that
+ *   length, across it the middle (`grabShare`).
+ *
+ * A host's function is asked with the laid item's layout entry and the place it lies in (`DockGrabForm`); what it gives
+ * is kept inside the laid rect. Where it gives `undefined` (a form the host can't place yet), the twin answers. The
+ * function must be pure for the drag: the same form and size give the same point, read neither the pointer, the time nor
+ * the page. The library keeps no memo of its answers.
+ */
+import { EPS, clamp, type Point, type Rect, type Size } from "@n-uf/placement";
+import { grabShare } from "./aim";
+import { growsOnBar } from "./helpers";
+import type { DockItemLayout, DockLayout, DockState, Orient } from "./model";
+
+/**
+ * The place an item lies in, as a grab function reads it: a float; a spot on an edge (a bar, a panel column, a toolbar
+ * rail); or a side's rail (a folded column's tile or a rail stop), with the rail's side and the axis its items lie along.
+ */
+export type DockGrabPlace =
+  | { readonly kind: "float" }
+  | { readonly kind: "spot"; readonly edge: string }
+  | { readonly kind: "rail"; readonly side: "left" | "right"; readonly orient: Orient };
+
+/** What a grab function reads of a landing: the laid item's layout entry (its axis, form, form kind and rect) and the place it lies in. */
+export interface DockGrabForm extends DockItemLayout {
+  readonly place: DockGrabPlace;
+}
+
+/**
+ * Where the pointer holds the dragged item: a point (px from the item's top-left corner as it lies at the lift, the
+ * press's), or a function of the form the item is laid in and its size there giving that point in the laid rect's own
+ * coordinates (`undefined`: the library's twin of the press for that form). At the item's own form and size the
+ * function gives the press point.
+ */
+export type DockGrab = Point | ((form: DockGrabForm, size: Size) => Point | undefined);
+
+/** Which rule of the twin a reader asks for: a float's, or a lane's (a spot's or a rail's). */
+export type GrabRule = "float" | "lane";
+
+/** The drag's grab as the one function every reader calls (internal): the host's where it answers, else the twin. */
+export type Grab = (laid: DockItemLayout | undefined, size: Size, rule: GrabRule) => Point;
+
+/** What the twin reads of the lift (internal). */
+export interface Lift {
+  /** The item as it lies at the lift (as seen). */
+  readonly home?: DockItemLayout;
+  /** Its rect as a drop counts it (a movable grower at its natural length): the share's base. */
+  readonly own?: Rect;
+  /** A movable grower's grown rect on its bar, which the press is taken on. */
+  readonly grown?: Rect;
+}
+
+/** The place `it` lies in. */
+export function grabPlaceOf(it: DockItemLayout): DockGrabPlace {
+  const side = it.rail ?? it.railTitle;
+  if (side) return { kind: "rail", side, orient: it.axis };
+  if (it.floating || it.edge === undefined) return { kind: "float" };
+  return { kind: "spot", edge: it.edge };
+}
+
+const samePlace = (a: DockGrabPlace, b: DockGrabPlace): boolean =>
+  a.kind === b.kind && (a.kind !== "spot" || a.edge === (b as typeof a).edge) && (a.kind !== "rail" || (a.side === (b as typeof a).side && a.orient === (b as typeof a).orient));
+
+/** Whether two layout entries lie in one form: one place, axis, form and form kind. */
+export function sameForm(a: DockItemLayout, b: DockItemLayout): boolean {
+  return a.axis === b.axis && a.form === b.form && a.formKind === b.formKind && samePlace(grabPlaceOf(a), grabPlaceOf(b));
+}
+
+/** A rect's size. */
+export const sizeOf = (r: Rect): Size => ({ width: r.width, height: r.height });
+
+/** The twin's lift: the item as seen, its rect as a drop counts it (`own`), and a movable grower's grown rect. */
+export function liftOf(state: DockState, seen: DockLayout, dragged: string, own: Rect | undefined): Lift {
+  const home = seen.items[dragged];
+  const edge = home?.edge ? state.edges.find((e) => e.id === home.edge) : undefined;
+  const grown = home && edge && growsOnBar(state, edge, dragged, home.form) && home.rect.width > 0 && home.rect.height > 0 ? home.rect : undefined;
+  return { ...(home ? { home } : {}), ...(own ? { own } : {}), ...(grown ? { grown } : {}) };
+}
+
+/** `grab` (a host's, or none) as the one function, over `lift`. */
+export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
+  const host = typeof grab === "function" ? grab : undefined;
+  const ask = (laid: DockItemLayout | undefined, size: Size): Point | undefined => {
+    if (!host || !laid) return undefined;
+    const p = host({ ...laid, place: grabPlaceOf(laid) }, { width: size.width, height: size.height });
+    return p && Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: clamp(p.x, 0, Math.max(0, size.width)), y: clamp(p.y, 0, Math.max(0, size.height)) } : undefined;
+  };
+  const home = lift.home;
+  const homeSize = home ? sizeOf(home.rect) : undefined;
+  // The press: a host's point at the item's own form and size (the lift rule), else the point given.
+  const press: Point | undefined = host ? ask(home, homeSize ?? { width: 0, height: 0 }) : (grab as Point | undefined);
+  const share = grabShare(lift.own, press);
+  const grown = lift.grown;
+  const atHome = (laid: DockItemLayout | undefined, size: Size): boolean =>
+    !!home && !!homeSize && !!laid && sameForm(laid, home) && Math.abs(size.width - homeSize.width) < EPS && Math.abs(size.height - homeSize.height) < EPS;
+  const twin: Grab = (laid, size, rule) => {
+    if (press && atHome(laid, size)) return press;
+    if (rule === "float") {
+      if (!press) return { x: size.width / 2, y: size.height / 2 };
+      return grown ? { x: clamp(press.x / grown.width, 0, 1) * size.width, y: clamp(press.y / grown.height, 0, 1) * size.height } : press;
+    }
+    return { x: share.x * size.width, y: share.y * size.height };
+  };
+  return host ? (laid, size, rule) => ask(laid, size) ?? twin(laid, size, rule) : twin;
+}
+
+/** `grabOf` over one lift, remembering the last grab it resolved (by identity): a drag passes one grab every frame. */
+export function grabResolver(lift: Lift): (grab: DockGrab | undefined) => Grab {
+  let last: { grab: DockGrab | undefined; fn: Grab } | null = null;
+  return (grab) => {
+    if (last && last.grab === grab) return last.fn;
+    last = { grab, fn: grabOf(lift, grab) };
+    return last.fn;
+  };
+}
+
+const fnIds = new WeakMap<object, number>();
+let nextFnId = 0;
+
+/** A grab as a memo key part: a point by value, a function by its identity (one closure per drag), none as null. */
+export function grabKey(grab: DockGrab | undefined): readonly [number, number] | string | null {
+  if (!grab) return null;
+  if (typeof grab !== "function") return [grab.x, grab.y];
+  let id = fnIds.get(grab);
+  if (id === undefined) fnIds.set(grab, (id = nextFnId++));
+  return `fn${id}`;
+}
+
+/** Whether two points are one, within `EPS` each way. */
+export const samePoint = (a: Point, b: Point): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;

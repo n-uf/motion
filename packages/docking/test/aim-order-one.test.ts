@@ -170,7 +170,8 @@ describe("a sliding spot beside a growing neighbor", () => {
     // So the cut is the aim cut between the landing before the title and that first landing (they overlap: at the grab),
     // no cut from the title as drawn.
     const firstLanding = { ...slide.landing, x: slide.slide!.from };
-    expect(slide.along[0]).toBeCloseTo(aimCut(before.landing, firstLanding, "x", grabShare(seen.items.a!.rect, grab).x, aimSlack(undefined)), 6);
+    const share = grabShare(seen.items.a!.rect, grab).x;
+    expect(slide.along[0]).toBeCloseTo(aimCut(before.landing, firstLanding, "x", share * before.landing.width, share * firstLanding.width, aimSlack(undefined)), 6);
     expect(slide.along[0]).toBeLessThan(title.x + title.width);
     // Over the title's slack both paths take the place after the title.
     const pt = { x: slide.along[0] + 10, y: title.y + title.height / 2 };

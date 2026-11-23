@@ -4,6 +4,7 @@
  */
 import { EPS, area, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
 import { SPOT_PITCH, aimCut, crossFreeCuts, cutsByHalves, zoneIn } from "../aim";
+import { sizeOf } from "../grab";
 import { axisOf, zoneOf } from "../helpers";
 import { ZONES, type DockLayout, type Zone } from "../model";
 import { onEdge, slideRange, slideRoom, type SlideEdge } from "../slide";
@@ -276,7 +277,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         const la = landingOf(inPiece[i - 1]!);
         const lb = landingOf(inPiece[i]!);
         const [u, w] = between[0] ?? [NaN, NaN];
-        const mid = between.length === 1 ? aimCut(la ?? rect(0, 0, 0, 0), lb ?? rect(0, 0, 0, 0), v ? "y" : "x", 0.5, 0, v ? rect(0, u, 0, w - u) : rect(u, 0, w - u, 0)) : NaN;
+        const mid = between.length === 1 ? aimCut(la ?? rect(0, 0, 0, 0), lb ?? rect(0, 0, 0, 0), v ? "y" : "x", 0, 0, 0, v ? rect(0, u, 0, w - u) : rect(u, 0, w - u, 0)) : NaN;
         meets[i] = mid > lo + EPS && mid < hi - EPS ? mid : (lo + hi) / 2;
       }
       const meet = (i: number): number => meets[i]!;
@@ -410,9 +411,17 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       else runs.push([r]);
     }
     // A place's facing landings: of its slots, the last landing faces the place after it, the first the place before.
-    const facing = (run: readonly Stretch[], end: boolean): Rect =>
-      run.map((r) => (end ? lastOf(r.s) : firstOf(r.s))).reduce((m, x) => (end ? (span(x)[1] > span(m)[1] ? x : m) : span(x)[0] < span(m)[0] ? x : m));
-    const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => aimCut(facing(p, true), facing(q, false), axis, c.share[axis], c.slack);
+    const facing = (run: readonly Stretch[], end: boolean): { r: Rect; s: Slot } =>
+      run.map((r) => ({ r: end ? lastOf(r.s) : firstOf(r.s), s: r.s })).reduce((m, x) => (end ? (span(x.r)[1] > span(m.r)[1] ? x : m) : span(x.r)[0] < span(m.r)[0] ? x : m));
+    // Where the pointer holds the item in a facing landing: the grab in that landing's own form (home's as a drop counts it).
+    const heldIn = ({ r, s }: { r: Rect; s: Slot }): number => {
+      const laid = s.home || nearHome(s) ? c.own : s.result.layout.items[c.dragged];
+      return c.grab(laid ? { ...laid, rect: r } : undefined, sizeOf(r), "lane")[axis];
+    };
+    const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => {
+      const [a, b] = [facing(p, true), facing(q, false)];
+      return aimCut(a.r, b.r, axis, heldIn(a), heldIn(b), c.slack);
+    };
     // A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
     // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.) The rest in order and
     // within the edge as drawn, as `lanes()` keeps its cuts within its lane's band. (Not within the places' zone pieces:
