@@ -62,9 +62,9 @@ describe("a sliding spot's snap points: keyed by what they commit", () => {
       expect(after.state.items.c!.align).toBe("center");
     });
 
-  it("a center dock landing exactly on the stretch's start is that point: the center dock wins over the plain dock", () => {
+  it("a center dock landing exactly on the stretch's start is that point: the dock in the zone beside the stretch wins (a drop flush after the last start-zone toolbar stays in the start zone)", () => {
     const { spot } = slideOf(state(1032));
     expect(spot.slide!.snaps.filter((q) => Math.abs(q - 416) < 1e-9)).toHaveLength(1);
-    expect(spot.target.after({ x: 416 + GRAB.x, y: 18 }, GRAB).state.items.c!.align).toBe("center");
+    expect(spot.target.after({ x: 416 + GRAB.x, y: 18 }, GRAB).state.items.c!.align ?? "start").toBe("start");
   });
 });

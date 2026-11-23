@@ -741,11 +741,16 @@ column) is home as a whole. A zone of a bar reaches over every card seen in it. 
 drop, so where the lift would reflow a neighbor the preview moves it under a fixed pointer, and the hit regions stay put.
 
 **Aim order.** Along every occupied edge (a rail, a bar, a title bar, a column footer, a column), the dragged item is taken out
-first and the pointer aims at the other items: over the leading half of one (its upper half on a side edge, its left
-half on a bar) the drop goes right before it, over its trailing half right after it. The hit regions split at the midpoints of
-the remaining items, whatever their order and zones. Where that aim gives the order the edge has now, the target is home
-(no slot elsewhere): home covers the item's own rect and the facing halves of its two neighbors, even a neighbor in
-another zone. That holds for **cards**, items whose bodies are drop places (toolbar groups, and panels under
+first and the pointer aims at the other items, by the one rule `lanes()` cuts its spots by (`aimCut`). In a panel column
+over the leading half of a panel (its upper half) the drop goes right before it, over its trailing half right after it:
+the hit regions split at the midpoints of the remaining panels. A toolbar tray at a column's foot cuts by halves too,
+like its column. On a bar or a toolbar rail a toolbar takes the nearest landing (`options.pitch`, as `lanes()`', sets how
+far past an overlap the cut may move: half of it): the hit regions of the places right before and right after a neighbor split halfway across the gap between
+their two landings, or, where the two overlap (the neighbor shorter than the item), where the item is held
+(`options.grab`, default its middle). Over a neighbor as long as the item, the item takes its place. Where that aim gives
+the order the edge has now, the target is home (no slot elsewhere): in a panel column home covers the item's own rect
+and the facing halves of its two neighbors, even a neighbor in another zone; on a bar or a toolbar rail, its own rect up
+to the cut beside it. That holds for **cards**, items whose bodies are drop places (toolbar groups, and panels under
 `hitBand: "middle"`); an open panel's body is no drop place, so over a panel the pointer aims only in the bands at its
 ends. Zones come in only where no item is aimed at: in the free stretch between two items, beyond the last one
 and on an empty zone or edge, the zone extents (thirds, or the solved spans) say which zone's slot the pointer is over,
@@ -999,7 +1004,7 @@ under a new column included), and lands its slot on no kept-clear rect. The rule
 overflows (or holds an item already too wide), a drop that adds no new note is accepted, even when it shifts a fixed
 item that was already squeezed.
 
-`stops(state, id)` gives the same targets, home and none left out, in reading order (the left side outer to inner, the
+`stops(state, id)` gives the places, home and none left out: stops are the places, the pointer takes the nearest. So a stop is every place the item lands, the targets and the gaps no pointer reaches (a landing nearer every pointer than theirs; such a stop's `hit` is its landing, and it is no part of `targets()`). In reading order (the left side outer to inner, the
 top bars, the bottom bars, the right side inner to outer, floating last) for "Move to ›" and the arrow keys. A dock state is
 an immutable value, so `stops` remembers its answer per state object: the stops of an item of one state object with the
 same options (`previous` by identity) are solved once, and asking again (a menu redrawn, a host asking on every render)

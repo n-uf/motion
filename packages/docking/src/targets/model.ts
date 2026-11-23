@@ -82,6 +82,17 @@ export interface DockDropOptions {
   readonly floatOrient?: Orient;
   /** As `solve`'s: edge or item ids solved without `previous`, in every `after` too. */
   readonly fresh?: readonly string[];
+  /**
+   * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
+   * takes): the press's, constant for the drag. On a bar or a toolbar rail, where the landings either side of a neighbor
+   * overlap, the tiles are cut there by it, as `lanes()` cuts its spots (`aimCut`); default the item's middle.
+   */
+  readonly grab?: Point;
+  /**
+   * The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`), as `DockLaneOptions.pitch`: half of it is how far
+   * past the overlap of two overlapping landings their cut may lie (`aimCut`), for the tiles and the lanes alike.
+   */
+  readonly pitch?: number;
 }
 
 /** Where a drop of the dragged item is refused: a host draws nothing there and may say "Can't go here" at the pointer. */
@@ -161,6 +172,8 @@ export interface Generated {
   readonly refusals: DockRefusal[];
   /** Slots the filter kept, with room in their zone, that end with no hit (none, by the property check). */
   readonly lost: string[];
+  /** The lost gaps' drops: places the item lands that no pointer reaches, which `stops` lists all the same. */
+  readonly places?: DockDrop[];
   /** Each docked target's zone by id: its tiles with its edge tiled on its own (what it may grow to its minimum in). */
   readonly zones?: ReadonlyMap<string, readonly Rect[]>;
 }
@@ -193,6 +206,10 @@ export interface Ctx {
   readonly sound: (after: DockLayout) => boolean;
   /** Where `solve` lays each edge of the state out. */
   readonly lay: ReadonlyMap<string, LayKey>;
+  /** Where the pointer holds the item, as a share of its width and height (`grabShare` of `options.grab`). */
+  readonly share: { readonly x: number; readonly y: number };
+  /** How far past two overlapping landings' overlap their cut may lie, px: half the pitch (`aimSlack`). */
+  readonly slack: number;
 }
 
 /** A slot: an insertion line along an edge and the drop it makes. */

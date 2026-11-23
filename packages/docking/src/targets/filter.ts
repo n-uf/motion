@@ -4,6 +4,7 @@
  */
 import { overlaps } from "@n-uf/placement";
 import { formMain, itemSteps } from "@n-uf/placement/stack";
+import { aimSlack, grabShare } from "../aim";
 import { liftItem, prune } from "../changes";
 import { axisOf, keepClearFor, formsOf, isHandFolded, withoutBarGrowth, zoneOf } from "../helpers";
 import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
@@ -101,6 +102,8 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     isHome: (r) => placeKey(r.state, dragged) === here,
     sound: soundness(state, base, dragged),
     lay: layKeys(state),
+    share: grabShare(now.items[dragged]?.rect, options.grab),
+    slack: aimSlack(options.pitch),
   };
   return { c, item, prev };
 }
