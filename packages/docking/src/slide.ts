@@ -10,7 +10,9 @@
  *   that drop leaves them in. Where that dock pushes a neighbor on a side with no zone of its own (`givesWay`'s
  *   "moves"), that end as the lift leaves it. As the lift leaves it where no such dock lands between the two.
  * - A landing (`slideLand`): a dock keeping the space that puts the item's start at `x0`, in the zone nearer the edge's
- *   middle first, kept where it lands there (within 1 px) with every fixed item kept (one that steps may step).
+ *   middle first, kept where it lands there (within 1 px) with every fixed item kept (one that steps may step), and
+ *   counted for the place only where its own commit is that place (the edge's items in order, the »'s items: `placeOf`
+ *   of the dock with no space there). Where no such dock lands between the two, every landing in the room counts.
  * - The range (`slideRange`): the landings at the room's start, every `sample` px after it and the last start that fits
  *   (`rangeTries`); its ends are the first and the last of them that land.
  */
@@ -99,6 +101,28 @@ export interface SlideRoom {
   readonly atOf: (zone: Zone) => number;
   /** The space a dock in `zone` keeps to put the item's start at `x0`. */
   readonly spaceAt: (zone: Zone, x0: number) => number;
+  /**
+   * The place's commit as `placeOf` reads it, where a dock with no space lands between the two (`slideRoom`'s probe):
+   * a landing counts for the place only where its own commit is this place. Undefined where no such dock lands: the
+   * room is read as the lift leaves it, and every landing in it counts.
+   */
+  readonly place?: string;
+}
+
+/**
+ * Which place a layout commits on `se`'s edge: the edge's shown items in order (the dragged one among them) and the
+ * items in the », so a landing that pushes a neighbor into the » or reorders the edge is another place.
+ */
+function placeOf(se: SlideEdge, l: DockLayout): string {
+  const shown = Object.entries(l.items)
+    .filter(([, it]) => it.edge === se.e.id && !it.inMenu && !it.floating && it.rect.width > EPS && it.rect.height > EPS)
+    .sort(([, p], [, q]) => lo(p.rect, se.axis) - lo(q.rect, se.axis))
+    .map(([id]) => id);
+  const menu = Object.entries(l.items)
+    .filter(([, it]) => it.inMenu)
+    .map(([id]) => id)
+    .sort();
+  return `${shown.join(" ")} » ${menu.join(" ")}`;
 }
 
 /** `[a, b]` between `before` and `after` as they lie in `l`: flush after the one, flush before the other. */
@@ -152,7 +176,7 @@ export function slideRoom(se: SlideEdge, before: string | undefined, after: stri
     !!id && !!probe && givesWay(se.base.items[id], probe.layout.items[id], e.id, side, (r) => [lo(r, axis), lo(r, axis) + len(r, axis) - slackOf(state, id, axis, r)]) === "moves";
   const a = probe && (zones.includes("start") || !pushed(before, "before")) ? probe.a : (seen ?? probe)!.a;
   const b = probe && (zones.includes("end") || !pushed(after, "after")) ? probe.b : (seen ?? probe)!.b;
-  return { before, after, a, b, w: width, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + width)) };
+  return { before, after, a, b, w: width, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + width)), ...(probe ? { place: placeOf(se, probe.layout) } : {}) };
 }
 
 /** The dock `place` on `se`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */
@@ -189,10 +213,10 @@ function slideLand(se: SlideEdge, room: SlideRoom, x0: number): SlideLanding | n
     const space = room.spaceAt(zone, x0);
     if (space < -EPS) continue;
     const place: DockPlace = { edge: se.e.id, zone, at: room.atOf(zone), space: Math.max(0, space) };
-    // (Not judged by the neighbors it lands between: a fixed neighbor that steps down for the dock still leaves a start
-    // that a pitched spot lands at, and the range keeps it.)
+    // A landing counts for the place only where its own commit is that place (`SlideRoom.place`): one that pushes a
+    // neighbor into the » or reorders the edge is another place's.
     const hit = landsAt(se, place, x0);
-    if (hit) return { place, result: { state: hit.next, layout: hit.layout } };
+    if (hit && (room.place === undefined || placeOf(se, hit.layout) === room.place)) return { place, result: { state: hit.next, layout: hit.layout } };
   }
   return null;
 }
