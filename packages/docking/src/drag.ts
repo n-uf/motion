@@ -176,14 +176,14 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   const axisOf = new Map(base.lanes.map((l) => [l.id, l.axis] as const));
   const flat = (ls: readonly LaneMarks[]): DockLaneMark[] => ls.flatMap((l) => l.marks.map((m) => ({ ...m, lane: l.lane })));
   /** The grab in the form `layout` lays the item in (where it lays it nowhere, the press, else its corner). */
-  const grabIn = (layout: DockLayout): Point => {
+  const grabIn = (layout: DockLayout, lift = false): Point => {
     const laid = layout.items[dragged];
-    if (laid) return base.grab(laid, sizeOf(laid.rect), laid.floating ? "float" : "lane");
+    if (laid) return base.grab(laid, sizeOf(laid.rect), lift ? "lift" : laid.floating ? "float" : "lane");
     return grab && typeof grab !== "function" ? { x: grab.x, y: grab.y } : ORIGIN;
   };
   // At rest: the window as seen, its lanes' marks as `lanes()` gives them (one layout, the held item drawn nowhere), and
   // the grab in the item's own form and size: the press point.
-  const rest: DockAfter = { state, layout: base.seen, landing: null, grab: grabIn(base.seen), marks: flat(base.lanes.map((l) => ({ lane: l.id, axis: l.axis, marks: l.marks }))) };
+  const rest: DockAfter = { state, layout: base.seen, landing: null, grab: grabIn(base.seen, true), marks: flat(base.lanes.map((l) => ({ lane: l.id, axis: l.axis, marks: l.marks }))) };
   /** One float frame remembered: a still pointer solves nothing. */
   let lastFloat: { x: number; y: number; after: DockAfter } | null = null;
 

@@ -134,6 +134,20 @@ describe("record docking", () => {
       wins.push({ name: "window, asked lengths", state: withAsks, dragged: "tools", options: { endReach: 24 }, previous: solve(withAsks), play: false });
       return { windows: wins.length - before };
     });
+    out.attempt("corpus", "off-middle windows", () => {
+      // Items whose lane runs across their own long side: a square tile in a toolbar rail and a toolbar taller than it is
+      // long in a bar. Pressed off the middle (the off-middle drags below), the lane reads the grab across the item.
+      const before = wins.length;
+      const { byId, form } = fixture ?? {};
+      need(form, "test/fixture form");
+      const tile = (id: string, len: number, cross: number): Any => ({ id, kind: "group", used: 1, forms: { row: [form("row", len, len, cross), form("menu", 0, 0, 0)], column: [form("icons", len, len, cross), form("menu", 0, 0, 0)] } });
+      const stage = { x: 0, y: 0, width: 1080, height: 640 };
+      const edge = (side: string, items: string[], cross: number, compact: boolean): Any => ({ id: "edge", side, ring: 0, accepts: ["group"], items, cross: { min: cross, max: cross, rail: cross }, ...(compact ? { compact: true } : {}), gap: 4, pad: { start: 8, end: 8 } });
+      const of = (e: Any, list: Any[]): Any => ({ stage, edges: [e], items: byId(list), floats: [], floatKinds: ["group"] });
+      wins.push({ name: "off-middle: a square tile in a rail", state: of(edge("left", ["sq", "long"], 30, true), [tile("sq", 28, 28), tile("long", 120, 28)]), dragged: "sq", play: true });
+      wins.push({ name: "off-middle: a tall toolbar in a bar", state: of(edge("top", ["tall", "wide"], 40, false), [tile("tall", 20, 32), tile("wide", 160, 32)]), dragged: "tall", play: true });
+      return { windows: wins.length - before };
+    });
     out.attempt("corpus", "random windows", () => {
       const before = wins.length;
       const { bar, byId, column, group, panel } = fixture ?? {};
@@ -274,6 +288,33 @@ describe("record docking", () => {
             }
           }
         return { paths: paths.length, frames: recorded };
+      });
+    }
+    // --- the drags pressed off the item's middle ------------------------------------------------------------------
+    // The drags above press at the middle (or the window's own grab). A press 5 px in from the top-left corner (both
+    // axes off the middle) reads the grab on both: every lane's spot stretches (the aim cuts) and `after(held)` of each
+    // spot at its middle and, on a sliding spot, near either end, and of the float at three points.
+    for (const w of wins.filter((x) => x.play && x.dragged)) {
+      const { name, state, dragged } = w;
+      out.attempt("drag", `${name} @off-middle`, () => {
+        const previous = w.previous ?? api("solve")(state);
+        const own = previous.items[dragged!];
+        if (!own || own.inMenu || own.floating || own.rect.width <= 0 || own.rect.height <= 0) return { skipped: "no docked item to lift" };
+        const grab = { x: Math.min(5, own.rect.width / 2), y: Math.min(5, own.rect.height / 2) };
+        const drag = api("dockDrag")(state, dragged, { ...(w.options ?? {}), previous, grab });
+        const helds: { id: string; held: Any }[] = [];
+        for (const l of drag.regions.lanes) {
+          const across = l.axis === "x" ? l.rect.y + l.rect.height / 2 : l.rect.x + l.rect.width / 2;
+          const at = (a: number): Any => (l.axis === "x" ? { x: a, y: across } : { x: across, y: a });
+          for (const sp of l.spots) {
+            const points = sp.slide && sp.along[1] - sp.along[0] > 8 ? [sp.along[0] + 2, (sp.along[0] + sp.along[1]) / 2, sp.along[1] - 2] : [(sp.along[0] + sp.along[1]) / 2];
+            for (const a of points) helds.push({ id: `${l.id} ${sp.id} @${Math.round(a)}`, held: { kind: "spot", spot: sp.id, point: at(a) } });
+          }
+        }
+        const c = drag.regions.content;
+        if (drag.regions.float) for (const f of [0.3, 0.5, 0.7]) helds.push({ id: `float @${f}`, held: { kind: "float", point: { x: c.x + f * c.width, y: c.y + (1 - f) * c.height } } });
+        for (const { id, held } of helds) out.attempt("after", `${name} @off-middle | ${id}`, () => result(drag.after(held)));
+        return { lanes: drag.regions.lanes.map((l: Any) => ({ id: l.id, spots: l.spots.map((s: Any) => ({ id: s.id, along: s.along })) })) };
       });
     }
     out.add("contract", "landing frame held name", { frame: nameOf(frameNames), guideRef: nameOf(refNames) });

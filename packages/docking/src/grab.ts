@@ -6,11 +6,11 @@
  * `DockAfter.grab`) reads one function.
  *
  * The twin, for a press point `p` (or none):
- * - at the item's own form and size (where it lies at the lift): `p` itself (the middle without one);
+ * - at the lift (a drag at rest, the item in its own form and size): `p` itself;
  * - a float: `p` in px as pressed, except a movable grower pressed on its grown rect, whose float keeps the press's share
  *   of the grown rect; without a press, the float's middle;
- * - a spot or a rail: along the item's own length (its longer side as a drop counts it) the press's share of that
- *   length, across it the middle (`grabShare`).
+ * - a spot or a rail, the item's own form included: along the item's own length (its longer side as a drop counts it)
+ *   the press's share of that length, across it the middle (`grabShare`), as a plain point always landed.
  *
  * A host's function is asked with the laid item's layout entry and the place it lies in (`DockGrabForm`); what it gives
  * is kept inside the laid rect. Where it gives `undefined` (a form the host can't place yet), the twin answers. The
@@ -44,8 +44,8 @@ export interface DockGrabForm extends DockItemLayout {
  */
 export type DockGrab = Point | ((form: DockGrabForm, size: Size) => Point | undefined);
 
-/** Which rule of the twin a reader asks for: a float's, or a lane's (a spot's or a rail's). */
-type GrabRule = "float" | "lane";
+/** Which rule of the twin a reader asks for: a float's, a lane's (a spot's or a rail's), or the lift's (a drag at rest). */
+type GrabRule = "float" | "lane" | "lift";
 
 /** The drag's grab as the one function every reader calls (internal): the host's where it answers, else the twin. */
 export type Grab = (laid: DockItemLayout | undefined, size: Size, rule: GrabRule) => Point;
@@ -104,7 +104,11 @@ export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
   const atHome = (laid: DockItemLayout | undefined, size: Size): boolean =>
     !!home && !!homeSize && !!laid && sameForm(laid, home) && Math.abs(size.width - homeSize.width) < EPS && Math.abs(size.height - homeSize.height) < EPS;
   const twin: Grab = (laid, size, rule) => {
-    if (press && atHome(laid, size)) return press;
+    // The press itself where the plain point held it before: at the lift, and in a float of the item's own form and
+    // size. A lane keeps its share rule at the item's own form too (across the item's length, the middle), so a plain
+    // point lands as it did.
+    if (press && rule !== "lane" && atHome(laid, size)) return press;
+    if (rule === "lift") return laid?.floating ? twin(laid, size, "float") : twin(laid, size, "lane");
     if (rule === "float") {
       if (!press) return { x: size.width / 2, y: size.height / 2 };
       return grown ? { x: clamp(press.x / grown.width, 0, 1) * size.width, y: clamp(press.y / grown.height, 0, 1) * size.height } : press;
