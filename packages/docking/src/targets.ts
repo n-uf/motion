@@ -139,6 +139,8 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
   for (const zones of byZone.values()) for (const group of zones.values()) group.sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1]).forEach((t, n) => rank.set(t, n));
   let ownHome: Rect | null = null;
   let ownSlot: Rect | null = null;
+  // Home's slot's tiles where no tile lies over its own place (the landing cuts of a bar handed it to other places).
+  const homeTiles: Rect[] = [];
   for (const t of placed) {
     if (t.kind === "refuse") {
       const n = rank.get(t)!;
@@ -148,6 +150,7 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
     // Home's own tile when no slot names it: `home:<id>` covers it (below). Named by the home slot, it still bounds
     // `home:<id>` along the edge where an aim cut hands part of the own interval to a neighbor slot.
     if (t.kind === "home" && t.order === 0 && t.id !== homeId) ownSlot = t.hit;
+    else if (t.kind === "home" && t.id !== homeId) homeTiles.push(t.hit);
     if (t.kind === "home" && t.id === homeId) {
       if (t.order === 0) ownHome = t.hit;
       continue;
@@ -176,8 +179,15 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
   }
   // (Its own rect within the slot's tile: the own rect as it is wherever no aim cut lies inside it.)
   if (!ownHome && ownSlot) {
+    // (Where the own rect as drawn lies outside it, a grower drawn over its slack: the tile itself.)
     const o = now.items[dragged]?.rect;
-    ownHome = o ? meet(o, ownSlot) : null;
+    ownHome = (o ? meet(o, ownSlot) : null) ?? ownSlot;
+  } else if (!ownHome && homeTiles.length > 0) {
+    // (Its own rect within them where it meets one, else the largest of them: never over another place's stretch.)
+    const o = now.items[dragged]?.rect;
+    const largest = (rs: readonly Rect[]): Rect => rs.reduce((m, r) => (area(r) > area(m) ? r : m));
+    const met = o ? homeTiles.flatMap((h) => meet(o, h) ?? []) : [];
+    ownHome = largest(met.length > 0 ? met : homeTiles);
   }
   return { targets, refused, ownHome };
 }
@@ -310,10 +320,14 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   const ownRect = now.items[dragged];
   const homeEdge = state.edges.find((e) => e.id === ownRect?.edge);
   const homeHit = homeRectOf(c, null);
-  if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0))
+  // (On a bar or a toolbar rail whose landing cuts hand the whole own interval to other places, home's tiles are its
+  // slot's stretch: no tile over its own place.)
+  if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0 || (t.kind === "home" && t.edge === homeEdge.id)))
     tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(state, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: homeHit, keep: null });
   // The hits lie on screen: clear of the keep-clear rects of the layout seen now.
   const placed = clipTiles(tiles, own, keepClearFor(state, now, "targets"), lost);
+  const dbgR = (r: Rect): string => `${r.x.toFixed(0)},${r.y.toFixed(0)} ${r.width.toFixed(0)}x${r.height.toFixed(0)}`;
+  if ((globalThis as any).process?.env?.DBG_CLIP) (globalThis as any).console.log("CLIP in", tiles.filter((t) => t.edge === "edge").map((t) => `${t.kind}:${t.id}@${t.order} ${dbgR(t.hit)}`).join(" ; "), "\nCLIP out", placed.filter((t) => t.edge === "edge").map((t) => `${t.kind}:${t.id} ${dbgR(t.hit)}`).join(" ; "));
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): DropResult => ({ state, layout: landedLayout(state, now, dragged, c.prev) });
 
