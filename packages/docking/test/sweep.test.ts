@@ -258,7 +258,7 @@ describe("state sweeps", () => {
     }
   });
 
-  it("home covers every docked item's whole own rect: no point across it picks a target that moves the item", () => {
+  it("home covers every docked item's own rect: no point across it picks a target that moves the item, but where a toolbar's landing beside it overlaps it (the aim cut at the grab)", () => {
     let points = 0;
     for (const seed of SEEDS) {
       const s = randomState(seed);
@@ -274,7 +274,14 @@ describe("state sweeps", () => {
             const p = { x: it.rect.x + 0.5 + ((it.rect.width - 1) * i) / 4, y: it.rect.y + 0.5 + ((it.rect.height - 1) * j) / 4 };
             points++;
             const t = targetAt(ts, p);
-            if (t && t.place.kind !== "home" && t.place.kind !== "none") throw new Error(`seed ${seed} drag ${id}: ${JSON.stringify(p)} on its own rect picks ${t.id}`);
+            // On a bar or a toolbar rail (not a panel column) the pointer takes the nearest landing: a gap of the item's
+            // own edge whose landing overlaps its own rect along the edge may hold the part past the cut between them.
+            const e = s.edges.find((x) => x.id === it.edge)!;
+            const vertical = e.side === "left" || e.side === "right";
+            const byLandings = !vertical || e.compact === true;
+            const r = it.rect;
+            const cut = !!t && byLandings && t.place.kind === "gap" && t.place.edge === e.id && !!t.slot && (vertical ? t.slot.y < r.y + r.height - 0.5 && r.y < t.slot.y + t.slot.height - 0.5 : t.slot.x < r.x + r.width - 0.5 && r.x < t.slot.x + t.slot.width - 0.5);
+            if (t && t.place.kind !== "home" && t.place.kind !== "none" && !cut) throw new Error(`seed ${seed} drag ${id}: ${JSON.stringify(p)} on its own rect picks ${t.id}`);
           }
       }
     }

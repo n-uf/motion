@@ -64,7 +64,8 @@
  *   `options.floatOrient`, else its float's, else the item's (`floatOrientOf`). Its size: `options.floatSize`, else its
  *   float's size where it lands in the orient that float is in, else `floatSizeOf` for the orient it lands in.
  *
- * `stops(state, id)` orders the same targets (no home, no none) for "Move to ›" and the arrow keys.
+ * `stops(state, id)` orders the places (no home, no none) for "Move to ›" and the arrow keys: every place the item lands,
+ * whether or not the pointer reaches it (the pointer takes the nearest landing, so a place may have no hit of its own).
  *
  * A dropped item counts as just used (`markUsed`). An unknown or closed item has no targets; a fixed item has none either,
  * but on an edge that `moves: "side"` (an anchor): `side:<other side>` (2), over the place its edge takes there
@@ -83,7 +84,8 @@ import { anchorTargets } from "./targets/anchor";
 import { edgeSpec, landedLayout, solveLanded } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
-import { edgeKindOf, type EdgeKind } from "./targets/kinds";
+import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./targets/kinds";
+import { meet } from "./targets/meet";
 import type { Ctx, EdgeSpec, Generated, DropResult, DockRefusal, DockDrop, DockDropOptions, Span, Tile } from "./targets/model";
 import { homeRectOf, ownership } from "./targets/ownership";
 import { clipTiles, tileEdge } from "./targets/tiles";
@@ -136,13 +138,16 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
   }
   for (const zones of byZone.values()) for (const group of zones.values()) group.sort((a, b) => pos(a)[0] - pos(b)[0] || pos(a)[1] - pos(b)[1]).forEach((t, n) => rank.set(t, n));
   let ownHome: Rect | null = null;
+  let ownSlot: Rect | null = null;
   for (const t of placed) {
     if (t.kind === "refuse") {
       const n = rank.get(t)!;
       refused.push({ id: targetId({ kind: "refuse", edge: t.edge, zone: t.zone, n }), edge: t.edge, zone: t.zone, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), reason: t.reason! });
       continue;
     }
-    // Home's own tile when no slot names it: `home:<id>` covers it (below).
+    // Home's own tile when no slot names it: `home:<id>` covers it (below). Named by the home slot, it still bounds
+    // `home:<id>` along the edge where an aim cut hands part of the own interval to a neighbor slot.
+    if (t.kind === "home" && t.order === 0 && t.id !== homeId) ownSlot = t.hit;
     if (t.kind === "home" && t.id === homeId) {
       if (t.order === 0) ownHome = t.hit;
       continue;
@@ -168,6 +173,11 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
     const thickens = thicknessChanges(now, result.layout);
     const room = t.slot && slotOverMoved(now, base, result.layout, t.slot, dragged, t.edge) ? { opensRoom: true as const, ...(atEdge ? { roomHold: EDGE_ROOM_HOLD } : {}), ...(thickens ? { roomHit: hull(t.hit, t.slot) } : {}) } : {};
     targets.push({ id: t.id, priority: t.priority, hit: t.hit, ...(t.hits ? { hits: t.hits } : {}), ...(t.slot ? { slot: t.slot } : {}), ...(t.marker ? { marker: t.marker } : {}), ...room, item: dragged, place: t.place!, after: () => result });
+  }
+  // (Its own rect within the slot's tile: the own rect as it is wherever no aim cut lies inside it.)
+  if (!ownHome && ownSlot) {
+    const o = now.items[dragged]?.rect;
+    ownHome = o ? meet(o, ownSlot) : null;
   }
   return { targets, refused, ownHome };
 }
@@ -256,9 +266,7 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
   // With a `showIn`, each result is solved itself: its lent items given back, the edge they showed in maybe gone with
   // the drop, and `solve`'s notes on a `showIn` it ignores.
   const showsIn = hidden.some((e) => e.showIn !== undefined);
-  return {
-    ...g,
-    targets: g.targets.map((t) => ({
+  const wrap = (t: DockDrop): DockDrop => ({
       ...t,
       after: (point, grab) => {
         const a = t.after(point, grab);
@@ -278,8 +286,8 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
         const layout = renumbered || showsIn || rezoned.size > 0 ? solveLanded(restored, dragged, prev) : a.layout;
         return { state: restored, layout };
       },
-    })),
-  };
+    });
+  return { ...g, targets: g.targets.map(wrap), ...(g.places ? { places: g.places.map(wrap) } : {}) };
 }
 
 function generateShown(state: DockState, dragged: string, options: DockDropOptions, hidden: readonly DockEdge[]): Generated {
@@ -392,7 +400,20 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   const bounds = stageOf(state);
   // A room's hold (`roomHit`) holds the target's hit as it ends up, its minimum included.
   const held = withMinHit(c, layered.targets, layered.refusals, zones).map((t) => (t.roomHit && t.slot ? { ...t, roomHit: hull(t.hit, t.slot) } : t));
-  return { targets: held, refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones };
+  // The places a drop lands that the pointer never reaches (a slot the aim cuts leave no stretch: another landing is
+  // nearer every pointer): no target, but a stop all the same (`stops`), at its landing.
+  const lostSet = new Set(lostIds);
+  const places: DockDrop[] = live
+    .flatMap((spec) =>
+      spec.slots
+        .filter((s) => lostSet.has(s.id) && s.ok && !s.home && s.place.kind === "gap" && !!s.result.layout.items[dragged])
+        .map((s): DockDrop => {
+          const landed = s.result.layout.items[dragged]!.rect;
+          return { id: s.id, priority: EDGE_KINDS[spec.kind].priority, hit: landed, slot: landed, marker: spec.marker(s), item: dragged, place: s.place, after: () => s.result };
+        }),
+    )
+    .filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i);
+  return { targets: held, refusals: layered.refusals.map((r) => ({ ...r, bounds })), lost: lostIds, zones, ...(places.length ? { places } : {}) };
 }
 
 /** The stage as a plain rect (a target's or a refusal's `bounds`). */
@@ -403,9 +424,9 @@ export function targets(state: DockState, dragged: string, options: DockDropOpti
 }
 
 /** The targets and refusals of one generation (`lanes()` reads both; internal to the package). */
-export function targetsAndRefusals(state: DockState, dragged: string, options: DockDropOptions = {}): { targets: DockDrop[]; refusals: DockRefusal[] } {
+export function targetsAndRefusals(state: DockState, dragged: string, options: DockDropOptions = {}): { targets: DockDrop[]; refusals: DockRefusal[]; places: DockDrop[] } {
   const g = generate(state, dragged, options);
-  return { targets: g.targets, refusals: g.refusals };
+  return { targets: g.targets, refusals: g.refusals, places: g.places ?? [] };
 }
 
 /**
@@ -457,9 +478,11 @@ export function lostSlots(state: DockState, dragged: string, options: DockDropOp
 const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3 };
 
 /**
- * `stops(state, id, options?)`: the places for "Move to ›" and the arrow keys, in reading order, from the same targets
- * (`home` and `none` left out): the left side outer to inner, the top bars, the bottom bars, the right side inner to
- * outer, floating last. Each stop is a target, so its `after` is the move.
+ * `stops(state, id, options?)`: the places for "Move to ›" and the arrow keys, in reading order (`home` and `none` left
+ * out): the left side outer to inner, the top bars, the bottom bars, the right side inner to outer, floating last. Stops
+ * are the places; the pointer takes the nearest. So a stop is every place the item lands, the targets and the gaps no
+ * pointer reaches (a landing nearer every pointer than theirs: their `hit` is their landing, no part of `targets()`).
+ * Its `after` is the move.
  *
  * Remembered per state: a state is an immutable value (every change returns a new one), so the stops of one item of one
  * state with the same options are solved once, and asking again (a menu redrawn, every group's list on each render) costs
@@ -492,11 +515,13 @@ function stopsKey(dragged: string, o: DockDropOptions): string {
     prev = layoutIds.get(o.previous) ?? nextLayoutId++;
     layoutIds.set(o.previous, prev);
   }
-  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null]);
+  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, o.grab ? [o.grab.x, o.grab.y] : null, o.pitch ?? null]);
 }
 
 function orderedStops(state: DockState, dragged: string, options: DockDropOptions): DockDrop[] {
-  const list = targets(state, dragged, options).filter((t) => t.place.kind !== "home" && t.place.kind !== "none");
+  // Every place the item lands, whether or not a pointer reaches it: the targets and the lost gaps' places.
+  const g = generate(state, dragged, options);
+  const list = [...g.targets, ...(g.places ?? [])].filter((t) => t.place.kind !== "home" && t.place.kind !== "none");
   const sideOf = (t: DockDrop): string => {
     const p = t.place;
     if (p.kind === "float") return "float";
@@ -512,8 +537,16 @@ function orderedStops(state: DockState, dragged: string, options: DockDropOption
     const rank = side === "float" ? 4 : SIDE_RANK[side]!;
     return side === "left" ? [rank, cx, cy] : side === "right" ? [rank, -cx, cy] : [rank, cy * (side === "bottom" ? -1 : 1), cx];
   };
+  // Two stops at one point of one edge: in the edge's order of places (zone, then index), a place no pointer reaches
+  // among the others as if it were a target.
+  const ZONE_RANK = { start: 0, center: 1, end: 2 } as const;
+  const inEdge = (a: DockDrop, b: DockDrop): number => {
+    const p = a.place;
+    const q = b.place;
+    return p.kind === "gap" && q.kind === "gap" && p.edge === q.edge ? ZONE_RANK[p.zone] - ZONE_RANK[q.zone] || p.at - q.at : 0;
+  };
   return list
     .map((t, i) => ({ t, i, k: key(t) }))
-    .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || a.i - b.i)
+    .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.k[2] - b.k[2] || inEdge(a.t, b.t) || a.i - b.i)
     .map((x) => x.t);
 }

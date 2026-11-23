@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { area, subtract } from "@n-uf/placement";
-import { liftItem, markUsed, moveTo, refusals, solve, targets, zoneTakes, type DockState, type DockItem, type DockLayout, type DockDrop, type Zone } from "../src";
+import { SPOT_PITCH, lanes, liftItem, markUsed, moveTo, parseTargetId, refusals, solve, stops, targets, zoneTakes, type DockState, type DockItem, type DockLayout, type DockDrop, type Zone } from "../src";
 import { lostSlots, opensEmpty, targetZones, zoneExtents } from "../src/targets";
 import type { Ownership } from "../src/targets/ownership";
 import { clipTiles } from "../src/targets/tiles";
@@ -15,6 +15,10 @@ import { modelState } from "./model-window";
 import { bar, byId, column, fixedKeepClear, form, group, panel, seeded, windowState } from "./fixture";
 
 type R = { x: number; y: number; width: number; height: number };
+/** A panel column (cut by halves of its panels), not a bar or a toolbar rail (cut by landings). */
+const byHalves = (e: { side: string; compact?: boolean }): boolean => (e.side === "left" || e.side === "right") && !e.compact;
+/** Two rects overlap along an edge's axis by more than half a pixel. */
+const overlapsAlong = (a: R, b: R, vertical: boolean): boolean => (vertical ? a.y < b.y + b.height - 0.5 && b.y < a.y + a.height - 0.5 : a.x < b.x + b.width - 0.5 && b.x < a.x + a.width - 0.5);
 /** Half-open, so two tiles that meet share no point. */
 const inside = (r: R, p: { x: number; y: number }): boolean => p.x >= r.x - 1e-9 && p.x < r.x + r.width - 1e-9 && p.y >= r.y - 1e-9 && p.y < r.y + r.height - 1e-9;
 /** A target's zone: its pieces (`hits`) when it has them, else its `hit`. */
@@ -65,6 +69,17 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
       const slotHome = all.some((t) => t.place.kind === "home" && !t.id.startsWith("home:"));
       const ts = all.filter((t) => !(slotHome && t.id.startsWith("home:")));
       const rs = refusals(s, id);
+      // The zone `lanes()` docks the item in at a point of an edge (home: its own zone), asked only where needed.
+      let laneRegions: ReturnType<typeof lanes> | null = null;
+      const laneZoneAt = (edgeId: string, pt: { x: number; y: number }): Zone | null => {
+        laneRegions ??= lanes(s, id);
+        const ln = laneRegions.lanes.find((l) => l.id === edgeId);
+        const a = ln?.axis === "x" ? pt.x : pt.y;
+        const sp = ln?.spots.find((x) => a >= x.along[0] && a <= x.along[1]);
+        if (!sp) return null;
+        const l = sp.home && !sp.slide ? now : sp.target.after(pt).layout;
+        return l.items[id]?.edge === edgeId ? (l.items[id]?.zone ?? "start") : null;
+      };
       // A rail drop strip owns its rect: every point in it maps to one rail target, never to a refusal or another target.
       // The other categories sample only outside the strips.
       const strips = [...new Map(all.filter((t) => t.strip).map((t) => [JSON.stringify(t.strip), t.strip!])).values()];
@@ -78,8 +93,29 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             const hits = [...ts.filter((t) => inTarget(t, pt)).map((t) => t.id), ...rs.filter((x) => inTarget(x, pt)).map((x) => x.id)];
             if (hits.length !== 1 || !hits[0]!.startsWith("rail:")) fail("strip-owned", `seed ${seed} drag ${id} at ${x.toFixed(0)},${y.toFixed(0)}: ${hits.join(", ") || "nothing"}`);
           }
-      // Every slot the filter keeps, with room in its zone, keeps a hit.
-      for (const x of lostSlots(s, id)) fail("lost-slot", `seed ${seed} drag ${id} ${x}`);
+      // Every slot the filter keeps, with room in its zone, keeps a hit; on a bar or a toolbar rail, where the pointer
+      // takes the nearest landing, a gap whose landing is never the nearest has none, and is a stop all the same: at
+      // every point along its edge another place's landing is at least as near.
+      const stopsNow = stops(s, id);
+      for (const x of lostSlots(s, id)) {
+        const p = parseTargetId(x);
+        const edge = p?.kind === "gap" ? s.edges.find((e) => e.id === p.edge) : undefined;
+        const lostStop = stopsNow.find((t) => t.id === x);
+        const le = edge && now.edges[edge.id];
+        if (edge && !byHalves(edge) && lostStop?.slot && le) {
+          const v = edge.side === "left" || edge.side === "right";
+          const span = (r: R): [number, number] => (v ? [r.y, r.y + r.height] : [r.x, r.x + r.width]);
+          const dAt = (r: R, q: number): number => Math.max(0, span(r)[0] - q, q - span(r)[1]);
+          const others = [...stopsNow.filter((t) => t.id !== x && t.place.kind === "gap" && t.place.edge === edge.id && t.slot).map((t) => t.slot!), ...(now.items[id]?.edge === edge.id ? [now.items[id]!.rect] : [])];
+          const [e0, e1] = span(le.rect);
+          let nearer: number | null = null;
+          for (let q = e0 + 0.5; q < e1 && nearer === null; q += 3) if (dAt(lostStop.slot, q) + 0.5 < Math.min(...others.map((r) => dAt(r, q)))) nearer = q;
+          if (nearer === null) continue;
+          fail("lost-slot", `seed ${seed} drag ${id} ${x}: its landing is the nearest at ${nearer.toFixed(1)}, yet no pointer reaches it`);
+          continue;
+        }
+        fail("lost-slot", `seed ${seed} drag ${id} ${x}`);
+      }
       // A target is a place a pointer can be: a zone under 1 px each way, or 1 px² in all, is as good as lost.
       for (const t of all) {
         const pieces = zoneOfT(t);
@@ -288,14 +324,19 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             if (!ext || along < ext.a || along >= ext.b || !inside(ownSeen.rect, pt) || !inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...fixedRects, ...others].some((r) => inside(r, pt))) continue;
             points++;
             const picked = targetAt(all, pt) as DockDrop | null;
-            const ownEdgeSlot = picked?.place.kind === "gap" && picked.place.edge === ownEdge.id;
+            // On a bar or a toolbar rail the pointer takes the nearest landing: beside the own place a gap of its edge
+            // is right where its landing is as near the point as the own rect, or overlaps it (the grab cuts there).
+            const dAlong = (r: R): number => (vertical ? Math.max(0, r.y - pt.y, pt.y - r.y - r.height) : Math.max(0, r.x - pt.x, pt.x - r.x - r.width));
+            const nearer = !byHalves(ownEdge) && !!picked?.slot && (dAlong(picked.slot) <= dAlong(ownRect) + 1 || overlapsAlong(picked.slot, ownRect, vertical));
+            const ownEdgeSlot = picked?.place.kind === "gap" && picked.place.edge === ownEdge.id && !nearer;
             if (!picked || picked.free || ownEdgeSlot) fail("beside-own-not-home", `seed ${seed} drag ${id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}${rs.some((r) => inTarget(r, pt)) ? " (refused)" : ""}`);
           }
       }
-      // Aim order: on every occupied edge that takes the kind, the item taken out, a point in the leading half of a
-      // remaining item means "before it" and one in its trailing half "after it". The pick there lands the item in that
-      // order among the edge's shown items, or is home where that order is the one seen now. A refusal is right only
-      // where no target of the edge makes that order.
+      // Aim order: on every occupied edge that takes the kind, the item taken out, a point over a remaining item picks a
+      // place beside it: in a panel column its leading half "before it" and its trailing half "after it"; on a bar or a
+      // toolbar rail whichever of the two lands nearer the point (the nearest landing). The pick there lands the item in
+      // that order among the edge's shown items, or is home where that order is the one seen now. A refusal is right
+      // only where no target of the edge makes that order.
       for (const e of s.edges) {
         const le = seen.edges[e.id];
         if (!e.accepts.includes(it.kind) || !le || le.folded || le.rides || !liftItem(s, id).edges.some((x) => x.id === e.id)) continue;
@@ -323,21 +364,45 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
             if (!inside(s.stage, pt) || inStrip(pt) || [...fixedKeepClear(s), ...fixedRects].some((r) => inside(r, pt))) return;
             points++;
             aimPoints++;
-            const i = n + half;
-            const aimed = [...others.slice(0, i), id, ...others.slice(i)];
+            const orderAt = (i: number): string[] => [...others.slice(0, i), id, ...others.slice(i)];
             const picked = targetAt(all, pt) as DockDrop | null;
             const at = `seed ${seed} drag ${id} ${half ? "after" : "before"} ${nb} on ${e.id} at ${pt.x.toFixed(0)},${pt.y.toFixed(0)}: ${picked?.id ?? "nothing"}`;
             const mine = (t: DockDrop | null): boolean => t?.place.kind === "gap" && t.place.edge === e.id;
             // Another edge owns the point (space ownership: an empty bar's band over a column's top, a column line's
             // band over a narrow column): its pick, not this edge's.
             if (picked && !picked.free && !mine(picked) && picked.place.kind !== "home") return;
-            if (aimed.join() === seenOrder.join()) {
-              if (picked?.place.kind !== "home") fail("aim-order", `${at} (want home)`);
+            // The aim: in a panel column the half (leading: before it; trailing: after it). On a bar or a toolbar rail
+            // the nearest landing of the two places beside the neighbor, either where they are as near or overlap
+            // (the grab decides there: `aimCut`).
+            const halves = (e.side === "left" || e.side === "right") && !e.compact;
+            const landings = (aimedOrder: readonly string[]): R[] =>
+              [...(aimedOrder.join() === seenOrder.join() && ownRect ? [ownRect] : []), ...ts.filter((t) => mine(t) && makes(t, aimedOrder, pt)).flatMap((t) => (t.after(pt).layout.items[id] ? [t.after(pt).layout.items[id]!.rect] : []))];
+            const p = vertical ? pt.y : pt.x;
+            const dist = (rs: readonly R[]): number => Math.min(...rs.map((r) => Math.max(0, along(r)[0] - p, p - along(r)[1])));
+            if (!halves) {
+              // The nearest landing of every place of the edge (its own rect for home): the pick's is one of the
+              // nearest, or overlaps one (two overlapping landings are cut at the grab).
+              const all = [...(ownRect && seenOrder.includes(id) ? [ownRect] : []), ...ts.filter((t) => mine(t) && t.slot).map((t) => t.slot!)];
+              const best = dist(all);
+              const nearest = all.filter((r) => dist([r]) <= best + 2);
+              // The pick's place is its order: of the places that make it (zones apart, home's own rect), the nearest.
+              const pickOrder = picked?.place.kind === "home" ? seenOrder : mine(picked) ? shownOn(picked!.after(pt).layout) : null;
+              const pickLandings = pickOrder ? landings(pickOrder) : [];
+              const overlapsNearest = pickLandings.some((l) => nearest.some((r) => along(r)[0] < along(l)[1] - 0.5 && along(l)[0] < along(r)[1] - 0.5));
+              // (An overlap is cut at the grab, kept within half a pitch of it: the pick's landing no further than that.)
+              if (!pickLandings.length || (dist(pickLandings) > best + 2 && !(overlapsNearest && dist(pickLandings) <= SPOT_PITCH / 2))) fail("aim-order", `${at} (its order's nearest landing ${pickLandings.length ? dist(pickLandings).toFixed(1) : "none"} px away, the nearest ${best.toFixed(1)} px)`);
               return;
             }
-            if (mine(picked) && makes(picked!, aimed, pt)) return;
+            const aims = [orderAt(n + half)];
+            const wants = aims.map((a) => a.join(" ")).join(" or ");
+            if (aims.some((a) => a.join() === seenOrder.join()) && picked?.place.kind === "home") return;
+            if (aims.every((a) => a.join() === seenOrder.join())) {
+              fail("aim-order", `${at} (want home)`);
+              return;
+            }
+            if (mine(picked) && aims.some((a) => makes(picked!, a, pt))) return;
             // Not this edge's slot of that order: right only where none of its targets makes the order.
-            if (mine(picked) || ts.some((t) => mine(t) && makes(t, aimed, pt))) fail("aim-order", `${at} (want ${aimed.join(" ")})`);
+            if (mine(picked) || aims.some((a) => a.join() !== seenOrder.join() && ts.some((t) => mine(t) && makes(t, a, pt)))) fail("aim-order", `${at} (want ${wants})`);
           });
         });
       }
@@ -384,8 +449,11 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           if (ownRect && inside(ownRect, pt)) {
             // Every target counts here, `home:<id>` too: a home slot elsewhere (the column line beside the item's own
             // column) needn't cover the own rect.
+            // On a bar or a toolbar rail the own place is home's up to the aim cut beside it: a gap of its own edge
+            // whose landing overlaps the own rect along the edge (the two cut at the grab) may hold the rest.
             const homeT = all.filter((t) => inTarget(t, pt));
-            if (!homeT.length || homeT.some((t) => t.place.kind !== "home") || hitR.length) fail("own-not-home", `${at}: ${[...homeT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ") || "nothing"}`);
+            const cutHere = (t: DockDrop): boolean => !byHalves(e) && t.place.kind === "gap" && t.place.edge === e.id && !!t.slot && overlapsAlong(t.slot, ownRect, vertical);
+            if (!homeT.length || homeT.some((t) => t.place.kind !== "home" && !cutHere(t)) || hitR.length) fail("own-not-home", `${at}: ${[...homeT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ") || "nothing"}`);
             continue;
           }
           const count = hitT.length + hitR.length;
@@ -402,6 +470,9 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           if (!one && !mineR[0]) continue;
           // Home's tile may run across zones: the stretches beside the item with no slot of their own are home's.
           if (one?.place.kind === "home") continue;
+          // On a bar or a toolbar rail the aim order cuts across zones by landings (`aimCut`): a gap of this edge may
+          // hold a point of another zone's extent, where `lanes()` (the one answer) docks there in that gap's zone.
+          if (one && !byHalves(e) && one.place.kind === "gap" && laneZoneAt(e.id, pt) === one.place.zone) continue;
           const oneZone = one ? edgeZoneOf(s, now, id, one).zone : (mineR[0]?.zone ?? null);
           if (oneZone !== null && zone !== null && oneZone !== zone) fail("other-zone", `${at} (${zone}): ${[...hitT.map((t) => t.id), ...hitR.map((x) => x.id)].join(", ")}`);
         }
@@ -756,13 +827,17 @@ describe("the target model's property check", () => {
     expect(between.slot).toEqual(between.after({ x: 15, y: views.y + 3 }).layout.items.zoom!.rect);
     expect(between.slot!.y).toBe(views.y);
     expect(between.slot!.height).toBe(zoom.height);
-    // The halves of Views: its upper half before it, its lower half after it (Zoom's own place: home).
+    // A toolbar takes the nearest landing: over Views, as long as Zoom, on either side of its middle, Views' place (Views
+    // moving on); Zoom's own place is home.
     expect(pick(s, "zoom", views.y + views.height / 2 - 1)!.id).toBe("gap:rail:start:1");
-    expect(pick(s, "zoom", views.y + views.height / 2 + 1)!.place.kind).toBe("home");
+    expect(pick(s, "zoom", views.y + views.height / 2 + 1)!.id).toBe("gap:rail:start:1");
+    expect(pick(s, "zoom", zoom.y + 3)!.place.kind).toBe("home");
     expect(pick(s, "zoom", tools.y + tools.height / 2 - 1)!.id).toBe("gap:rail:start:0");
-    // Views held between Tools and Zoom is home over its own rect and the facing halves of both neighbours.
-    for (const y of [tools.y + tools.height / 2 + 1, views.y + 10, zoom.y + zoom.height / 2 - 1]) expect(pick(s, "views", y)!.place.kind, `views at ${y}`).toBe("home");
-    expect(pick(s, "views", zoom.y + zoom.height / 2 + 1)!.id).toBe("gap:rail:start:2");
+    // Views held between Tools and Zoom is home over its own rect; over Zoom, as long as it, Zoom's place; over Tools'
+    // lower half, nearer the landing before Tools than its own place, before Tools.
+    for (const y of [views.y + 10, views.y + views.height - 10]) expect(pick(s, "views", y)!.place.kind, `views at ${y}`).toBe("home");
+    expect(pick(s, "views", zoom.y + zoom.height / 2 - 1)!.id).toBe("gap:rail:start:2");
+    expect(pick(s, "views", tools.y + tools.height / 2 + 1)!.id).toBe("gap:rail:start:0");
     // Across zones: Tools at the start, Views centred, Zoom at the end. Zoom over Views' upper half goes before it;
     // Tools over Views' upper half is home (its order would be the same), over the free stretch below Tools it
     // re-aligns into the centre zone.

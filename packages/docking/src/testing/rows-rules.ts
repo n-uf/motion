@@ -257,13 +257,17 @@ export const RULE_ROWS: readonly CaseRow[] = [
     expectDom: [{ select: "[data-drag-slot]", count: 0, note: "no slot over a body" }],
   },
   {
-    id: "R4-bar-gaps-split-at-the-middle",
-    title: "A bar's gaps split at its items' middles",
-    expect: "In a bar the band is the whole stretch up to the items' middles: left of Views' middle is the gap before it, right of it the gap after.",
+    id: "R4-bar-items-take-the-nearest-landing",
+    title: "A bar's items take the nearest landing",
+    expect:
+      "In a bar a toolbar takes the nearest landing: the gap before Views and the gap after it meet halfway between their landings (the one before it, Views moved on, and Zoom's own place). Over Views, as long as Zoom, it is the gap before it on either side of Views' middle; past the cut, Zoom's own place.",
     group: "bands",
     state: doc(),
-    gestures: [g.press("zoom"), g.at(100, 50), g.hold(), g.at(160, 50), g.hold()],
-    checkpoints: [{ at: 2, layout: { items: { views: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(8, 32, 200, 36) }, tools: { rect: r(416, 32, 200, 36) } }, order: { toolbar: ["zoom", "views", "tools"] } }, note: "left of Views' middle: before it" }],
+    gestures: [g.press("zoom"), g.at(100, 50), g.hold(), g.at(160, 50), g.hold(), g.at(260, 50), g.hold()],
+    checkpoints: [
+      { at: 2, layout: { items: { views: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(8, 32, 200, 36) }, tools: { rect: r(416, 32, 200, 36) } }, order: { toolbar: ["zoom", "views", "tools"] } }, note: "over Views' leading half: before it" },
+      { at: 4, layout: { items: { views: { rect: r(212, 32, 200, 36) }, zoom: { rect: r(8, 32, 200, 36) }, tools: { rect: r(416, 32, 200, 36) } }, order: { toolbar: ["zoom", "views", "tools"] } }, note: "over Views' trailing half, nearer the landing before it: still before it" },
+    ],
     expectLayout: { items: { views: { rect: r(8, 32, 200, 36) }, zoom: { rect: r(212, 32, 200, 36) }, tools: { rect: r(416, 32, 200, 36) } }, order: { toolbar: ["views", "zoom", "tools"] } },
   },
   {
@@ -385,18 +389,16 @@ export const RULE_ROWS: readonly CaseRow[] = [
       id: `R7-end-zone-pushes-fixed-behind-a-movable-${half}`,
       title: `Fixed items behind a movable one are pushed: Zoom's ${half} half`,
       expect: {
-        leading: "In a title bar whose end zone is State and Page (fixed) then Zoom, Tools let go over Zoom's leading half lands before Zoom (gap end:2): State and Page, placed only by Zoom's size, move left to make room.",
+        leading:
+          "In a title bar whose end zone is State and Page (fixed) then Zoom, Tools let go over Zoom's leading half takes the nearest landing, Zoom's place (gap end:3), as over its trailing half: Zoom, as long as Tools, moves left, and State and Page, placed only by Zoom's size, move left with it.",
         trailing: "The same title bar: Tools let go over Zoom's trailing half lands after Zoom (gap end:3), State, Page and Zoom moving left to make room.",
       }[half],
       group: "groups",
       state: titleEnd(["state", "page", "zoom"]),
       gestures: [g.press("tools"), g.at(half === "leading" ? 1050 : 1150, 16), g.hold(), g.release()],
       expectLayout: {
-        items:
-          half === "leading"
-            ? { tools: { edge: "titlebar", zone: "end", rect: r(800, 0, 200, 32) }, state: { rect: r(662, 0, 96, 32) }, page: { rect: r(758, 0, 42, 32) }, zoom: { rect: r(1000, 0, 200, 32) } }
-            : { tools: { edge: "titlebar", zone: "end", rect: r(1000, 0, 200, 32) }, state: { rect: r(662, 0, 96, 32) }, page: { rect: r(758, 0, 42, 32) }, zoom: { rect: r(800, 0, 200, 32) } },
-        order: { titlebar: half === "leading" ? ["title", "state", "page", "tools", "zoom"] : ["title", "state", "page", "zoom", "tools"] },
+        items: { tools: { edge: "titlebar", zone: "end", rect: r(1000, 0, 200, 32) }, state: { rect: r(662, 0, 96, 32) }, page: { rect: r(758, 0, 42, 32) }, zoom: { rect: r(800, 0, 200, 32) } },
+        order: { titlebar: ["title", "state", "page", "zoom", "tools"] },
       },
     }),
   ),

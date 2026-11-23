@@ -4,7 +4,7 @@
  * first form without pushing the title under its natural width, or that zone has no target).
  */
 import { describe, expect, it } from "vitest";
-import { refusals, solve, targets, type DockEdge, type DockState, type DockItem, type DockDrop } from "../src";
+import { lanes, refusals, solve, targets, type DockEdge, type DockState, type DockItem, type DockDrop } from "../src";
 import { zoneExtents } from "../src/targets";
 import { bar, byId, column, controls, group, panel, seeded, title, windowState } from "./fixture";
 
@@ -161,10 +161,11 @@ describe("a bar's zones by thirds", () => {
     expect(t!.hit.x + t!.hit.width).toBeLessThanOrEqual(ctl.x + 1e-6);
   });
 
-  it("every gap target of every bar zone has a hit inside its zone (its third, reaching over its cards), on the dragged item's own bar too", () => {
+  it("every gap target of every bar zone has a hit in its zone (its third, reaching over its cards), on the dragged item's own bar too; past it only by the aim cut", () => {
     for (let seed = 1; seed <= 200; seed++) {
       const s = barState(seed);
       const l = solve(s);
+      const laneOf = new Map<string, ReturnType<typeof lanes>>();
       for (const id of Object.keys(s.items).filter((k) => s.items[k]!.kind === "group")) {
         for (const t of targets(s, id)) {
           // Gaps (an empty bar's strips are thirds of the content, not of the bar).
@@ -178,7 +179,16 @@ describe("a bar's zones by thirds", () => {
           const a = k === 0 ? -Infinity : z.a;
           const b = k === 2 ? Infinity : z.b;
           if (!(t.hit.width > 0 && t.hit.height > 0)) throw new Error(`seed ${seed} ${id} ${t.id}: empty hit`);
-          if (t.hit.x < a - 1e-6 || t.hit.x + t.hit.width > b + 1e-6) throw new Error(`seed ${seed} ${id} ${t.id}: hit ${t.hit.x}..${t.hit.x + t.hit.width} outside its third ${a}..${b}`);
+          // A bar takes the nearest landing across zones (`aimCut`), and docks in the zone `lanes()` docks in there: a
+          // gap's hit runs past its third only where the lanes, the one answer, dock the item in that gap's zone.
+          const ln = (laneOf.get(id) ?? laneOf.set(id, lanes(s, id)).get(id)!).lanes.find((x) => x.id === e.id);
+          const y = t.hit.y + t.hit.height / 2;
+          for (let x = t.hit.x + 0.5; x < t.hit.x + t.hit.width; x += 4) {
+            if (x >= a && x <= b) continue;
+            const sp = ln?.spots.find((q) => x >= q.along[0] && x <= q.along[1]);
+            const got = sp ? (sp.home && !sp.slide ? l : sp.target.after({ x, y }).layout).items[id] : undefined;
+            if (got?.edge !== e.id || got.zone !== t.place.zone) throw new Error(`seed ${seed} ${id} ${t.id}: hit ${t.hit.x}..${t.hit.x + t.hit.width} past its third ${a}..${b} at ${x}, where the lanes dock it in ${got?.zone ?? "none"}`);
+          }
         }
       }
     }
@@ -198,10 +208,16 @@ describe("local targets: home over the item's own place and the gaps beside it, 
           if (t.place.kind !== "home" || !t.id.startsWith("gap:") || !mine) continue;
           const column = s.edges.find((e) => e.id === mine.edge)?.side === "left" || s.edges.find((e) => e.id === mine.edge)?.side === "right";
           const [a, b] = column ? [mine.rect.y, mine.rect.y + mine.rect.height] : [mine.rect.x, mine.rect.x + mine.rect.width];
-          const holds = (t.hits ?? [t.hit]).some((h) => (column ? h.y <= a + 1e-6 && h.y + h.height >= b - 1e-6 : h.x <= a + 1e-6 && h.x + h.width >= b - 1e-6));
-          if (!holds) throw new Error(`seed ${seed} ${id} ${t.id}: no piece of home's hit holds its place ${a}..${b}`);
+          // A bar takes the nearest landing: a gap of the own bar whose landing overlaps the own rect (the two cut at
+          // the grab, `aimCut`) may hold the part of it past the cut; home holds the rest.
+          const span = (h: { x: number; y: number; width: number; height: number }): [number, number] => (column ? [h.y, h.y + h.height] : [h.x, h.x + h.width]);
+          const cutters = ts.filter((o) => o.place.kind === "gap" && o.place.edge === mine.edge && !!o.slot && Math.min(span(o.slot)[1], b) - Math.max(span(o.slot)[0], a) > 0.5);
+          const pieces = [...(t.hits ?? [t.hit]), ...cutters.flatMap((o) => o.hits ?? [o.hit])].map(span).sort((p, q) => p[0] - q[0]);
+          let reach = a;
+          for (const [u, w] of pieces) if (u <= reach + 1e-6) reach = Math.max(reach, w);
+          if (reach < b - 1e-6) throw new Error(`seed ${seed} ${id} ${t.id}: no piece of home's hit holds its place ${a}..${b}`);
           for (const o of ts) {
-            if (o.free || o.place.kind === "home" || o.place.kind === "none") continue;
+            if (o.free || o.place.kind === "home" || o.place.kind === "none" || cutters.includes(o)) continue;
             const over = Math.min(o.hit.x + o.hit.width, mine.rect.x + mine.rect.width) - Math.max(o.hit.x, mine.rect.x) > 1e-6 && Math.min(o.hit.y + o.hit.height, mine.rect.y + mine.rect.height) - Math.max(o.hit.y, mine.rect.y) > 1e-6;
             if (over) throw new Error(`seed ${seed} ${id}: ${o.id} lies over its own rect`);
           }

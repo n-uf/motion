@@ -24,6 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
 import { liftItem, moveTo, type DockPlace } from "./changes";
+import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, cutsByHalves, grabShare, len, lo, metPastGrowing } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
@@ -31,10 +32,7 @@ import { parseTargetId, targetsAndRefusals } from "./targets";
 import { landedLayout, solveLanded } from "./targets/edges";
 import type { DropResult, DockRefusal, DockDrop, DockDropOptions } from "./targets/model";
 
-/** The pitch of the spots over a bar's free stretches, px: a quarter of a typical toolbar's length (158 px in the lab). */
-export const SPOT_PITCH = 40;
-/** How near a sliding spot's snap point a landing snaps to it, px (`DockLaneOptions.snapDistance`). */
-const SNAP_DISTANCE = 8;
+export { SPOT_PITCH };
 /** The grain of a sliding spot's free start, px: whole pixels (`LaneSlide.step`). */
 const STEP = 1;
 
@@ -221,9 +219,7 @@ export interface DockLaneOptions extends DockDropOptions {
  */
 export type EmptyLanes = "real" | "edge";
 
-const mid = (r: Rect, axis: Axis): number => (axis === "x" ? r.x + r.width / 2 : r.y + r.height / 2);
-const lo = (r: Rect, axis: Axis): number => (axis === "x" ? r.x : r.y);
-const len = (r: Rect, axis: Axis): number => (axis === "x" ? r.width : r.height);
+const mid = (r: Rect, axis: Axis): number => lo(r, axis) + len(r, axis) / 2;
 const hull = (a: Rect, b: Rect): Rect => {
   const x = Math.min(a.x, b.x);
   const y = Math.min(a.y, b.y);
@@ -456,7 +452,7 @@ export function rawSpot(base: Base, id: string): { readonly lane: string; readon
 
 function build(state: DockState, dragged: string, options: DockLaneOptions): Base {
   const seen = solve(state, options.previous ? { previous: options.previous } : {});
-  const { targets: ts, refusals: rs } = targetsAndRefusals(state, dragged, options);
+  const { targets: ts, refusals: rs, places } = targetsAndRefusals(state, dragged, options);
   // (Held, a movable grower is its natural length: `landedLayout`.)
   const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
@@ -468,7 +464,9 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   };
   // A virtual lane is keyed by the column it lies outside (or `$`, the side's inner end), not by its ring.
   const columnKey = (side: string, ring: number): string => state.edges.find((e) => e.side === side && e.column === true && e.ring === ring)?.id ?? "$";
-  for (const t of ts) {
+  // Every place the item lands: the targets and the places no tile reaches (`stops`), which the cuts below may leave
+  // no stretch either, as one rule (`aimCut`), but which still lie in the lane and draw their marks.
+  for (const t of [...ts, ...places]) {
     if (t.free) continue;
     const p = t.place;
     if (p.kind === "gap" || (p.kind === "home" && ownEdge)) {
@@ -506,7 +504,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
-  const halves = new Set(state.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
+  const halves = new Set(state.edges.filter(cutsByHalves).map((e) => e.id));
   // A growing fixed item's drawn length past its natural one (a title filling its bar) is free stretch for the marks, as
   // it is for pitched spots. A movable grower's is not: in the layout a frame draws (its release's commit) it has taken
   // that stretch, so a mark there would lie over it. Its growth is spare room for the drops (the targets count it at its
@@ -524,10 +522,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   // Where the pointer holds the item, as a share of its length now, along its own length only (its longer side): a
   // landing of another length along that axis is held at the same share; across the item, where the share says only
   // where across a thin rail or bar it was pressed, the middle.
-  const shareOf = (g: number | undefined, size: number): number => (g === undefined || !Number.isFinite(g) || size <= EPS ? 0.5 : clamp(g / size, 0, 1));
-  const w = own?.rect.width ?? 0;
-  const h = own?.rect.height ?? 0;
-  const share = { x: w >= h ? shareOf(options.grab?.x, w) : 0.5, y: h > w ? shareOf(options.grab?.y, h) : 0.5 };
+  const share = grabShare(own?.rect, options.grab);
   const built = [...byLane].map(([id, list]) => laneFrom(id, list, seen, seen, dragged, rs, halves.has(id), share, marking)).filter((l): l is DockLane => !!l);
   // Each lane's marks as seen: the window as seen is one layout (`marksIn`'s rule over it), the held item drawn nowhere.
   // `dockDrag`'s rest reads these.
@@ -681,15 +676,10 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
     // (A sliding spot's facing end: its landing flush against the neighbor between them.)
     const aLanding = lastOf(a);
     const bLanding = firstOf(b);
-    const aEnd = lo(aLanding, axis) + len(aLanding, axis);
-    const across = (aEnd + lo(bLanding, axis)) / 2;
     // Overlapping landings: at the grab, kept within half a pitch of their overlap (the pointer never further than that
     // from the landing it picks: two spots far apart that overlap a little cut near the overlap, as apart). Apart (a gap
-    // between them): halfway across the gap, the grab aside.
-    const overlap = lo(bLanding, axis) < aEnd - EPS;
-    const slack = Math.max(0, marking.pitch) / 2;
-    const atGrab = clamp(across + ((held - 0.5) * (len(aLanding, axis) + len(bLanding, axis))) / 2, lo(bLanding, axis) - slack, aEnd + slack);
-    const raw = shared ? mid(shared, axis) : overlap ? atGrab : across;
+    // between them): halfway across the gap, the grab aside. The one rule `targets()` cuts its tiles by (`aimCut`).
+    const raw = aimCut(aLanding, bLanding, axis, held, aimSlack(marking.pitch), shared);
     cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? bandStart), bandStart, bandEnd));
   }
   const spots: DockSpot[] = unique.flatMap((x, i) => {
@@ -702,7 +692,12 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
     id: x.id,
     along,
     landing: x.landing,
-    target: x.target,
+    // A sliding spot's target holds the pointer over its stretch only (its range of landings runs past the cuts either
+    // side, over the neighbors' stretches).
+    target:
+      x.slide && along[1] - along[0] > EPS
+        ? { ...x.target, hit: axis === "x" ? rect(along[0], x.target.hit.y, along[1] - along[0], x.target.hit.height) : rect(x.target.hit.x, along[0], x.target.hit.width, along[1] - along[0]) }
+        : x.target,
     ...(x.home ? { home: true as const } : {}),
     ...(x.pitched ? { pitched: true as const } : {}),
     ...(x.slide ? { slide: { from: x.slide.from, to: x.slide.to, snaps: x.slide.snaps, snapDistance: x.slide.snapDistance, step: x.slide.step } } : {}),
@@ -1100,6 +1095,11 @@ interface Stretch {
   readonly after: { readonly id: string; readonly r: Rect } | undefined;
   readonly a: number;
   readonly b: number;
+  /**
+   * Where the stretch begins past the neighbor before it as drawn (`a`, or past a growing neighbor's drawn length where
+   * `a` lies inside it, at its natural length): where a sliding spot's stretch of the lane starts.
+   */
+  readonly drawnA: number;
   /** The held item's length on a drop here (the form the drop leaves it in). */
   readonly w: number;
   /** A start dock follows a start item or the edge's start; an end dock precedes an end item or the edge's end. */
@@ -1187,7 +1187,10 @@ function stretches(state: DockState, dragged: string, options: DockLaneOptions, 
       const a = probe && (zones.includes("start") || !pushed(before, "before")) ? probe.a : seenEnds.a;
       const b = probe && (zones.includes("end") || !pushed(after, "after")) ? probe.b : seenEnds.b;
       const wi = probe?.w ?? w;
-      each({ before, after, a, b, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
+      // Where it begins as drawn: past a growing neighbor before it at its drawn length (its slack lies inside it, though
+      // a dock there may take that slack). A neighbor the drop steps down to a shorter form makes its room: `a` as is.
+      const drawnA = before && slack(before) > 0 ? Math.max(a, lo(before.r, axis) + len(before.r, axis) + gap) : a;
+      each({ before, after, a, b, drawnA, w: wi, zones, atOf, spaceAt: (zone, x0) => (zone === "start" ? x0 - a : b - (x0 + wi)) });
     }
   }
 }
@@ -1276,7 +1279,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
   const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
-  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
+  stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, drawnA, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;
     // (A stretch shorter than the item still offers its start, flush after the neighbor before it, where a dock there
     // lands: a point, below, as a pitched stretch's end gives it.)
@@ -1349,7 +1352,11 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
       };
       put(from);
       put(to);
-      for (const r of [...inside].sort((p, q) => (p.home ? -1 : q.home ? 1 : 0))) put(lo(r.landing, axis), r);
+      // Two docks at one start: the item's own place first, then the dock in the zone of the neighbor before the stretch
+      // (a drop flush after the last start-zone item stays in the start zone), as the tiles break it (`./targets/tiles`).
+      const beforeZone: Zone = (before && (state.items[before.id]?.align as Zone | undefined)) || "start";
+      const rank = (r: Raw): number => (r.home ? 0 : r.target.place.kind === "gap" && r.target.place.zone === beforeZone ? 1 : 2);
+      for (const r of [...inside].sort((p, q) => rank(p) - rank(q))) put(lo(r.landing, axis), r);
       // The item's own place wins near it: no other snap point within twice the snap distance of it, so every start
       // within the snap distance of home snaps home (a press, a wobble and a release is home).
       const homeAt = homeRaw ? lo(homeRaw.landing, axis) : undefined;
@@ -1425,7 +1432,9 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         target,
         hit: target.hit,
         ...(homeRaw ? { home: true as const } : {}),
-        slide: { from, to, snaps, snapDistance, step: STEP, first: at(from), last: at(to) },
+        // Its stretch of the lane is cut from its landing past the neighbor before it as drawn: a range that runs on into
+        // a growing neighbor's slack (a dock there takes it) still starts its stretch past that neighbor.
+        slide: { from, to, snaps, snapDistance, step: STEP, first: metPastGrowing(at(from), axis, drawnA, to), last: at(to) },
       });
     }
   });
