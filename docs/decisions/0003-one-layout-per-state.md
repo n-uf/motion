@@ -72,9 +72,11 @@ the frame and the commit alike. Taken: the second.
 
 ## Date
 
-2026-11-20, not yet released: it ships in the release after the docking migration (26.11.54), `@n-uf/docking` and
-`@n-uf/motion` together. The release is named here when it ships.
+2026-11-20, in release 26.11.55, `@n-uf/docking` and `@n-uf/motion` together.
 
-2026-11-21: `shown(frame)` names the drawn layout; guides are cut in it.
+2026-11-21: `shown(frame)` names the drawn layout; guides are cut in it (26.11.55).
 
-2026-11-21: a held place is named `held`.
+2026-11-21: a held place is named `held` (26.11.55).
+
+2026-11-22: a movable grower held on a bar is drawn at its natural length, the one named exception
+([0005](0005-growth-is-spare-room.md)); the tiling drag takes the same rule ([0009](0009-one-layout-per-tiling-place.md)).
