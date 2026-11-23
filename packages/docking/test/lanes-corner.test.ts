@@ -242,6 +242,12 @@ describe("lanes(): the corner clip loses no landing", () => {
       "s20|g0|pitched|0.02 bar:top: added bar:top/start/g2|$",
       "s20|g0|pitched|0.5 bar:top: lost bar:top/center/g2|$",
       "s20|g0|pitched|0.5 bar:top: added bar:top/start/g2|$",
+      // A sliding dock counts the dropped item as just used, as every drop does: in s2 the room a drop after g2 makes on
+      // the left bar is then longer than one start, so that place (the same neighbors) is a sliding spot, no plain dock.
+      "s2|g0|free|0.02 bar:left: lost bar:left/start/g2|$",
+      "s2|g0|free|0.02 bar:left: added bar:left/start/g2|$@slide",
+      "s2|g0|free|0.5 bar:left: lost bar:left/start/g2|$",
+      "s2|g0|free|0.5 bar:left: added bar:left/start/g2|$@slide",
     ]);
     expect(diff.filter((d) => !ONE_AIM_ORDER.has(d)).slice(0, 8)).toEqual([]);
     // (Every listed change still happens: none is stale.)
