@@ -45,12 +45,11 @@ layout per held place).
   `after`.
 - A host proves its own adapter with `tilingConformance(trees, options)`: the properties (`TILING_PROPERTIES`) over every
   subject of its trees and every held place, with counts and the first failures in words, and no test runner.
-- Not built yet: the hit half (targets in the base, pane parts as join targets, `placeOf`, the zone hold) and
-  `shown(frame)`. Until then a host hit-tests on its own and draws `after(held).layout` for a held place, the base for a
-  refused one.
+- The hit half, which place the pointer is over, is built since: targets on one fixed layout, pane parts as join
+  targets, the zone hold, and what a frame draws. See [0012](0012-one-zone-map-per-tiling-drag.md).
 - Guarded by placement's `test/tiling-drag.test.ts`, which runs `tilingConformance` over generated trees on the
   reference adapter (`splitTreeOps`), and the lab's Tiling drag page.
 
 ## Date
 
-2026-11-22, the layout half: on `live/motion`, not yet released.
+2026-11-22, the layout half: on `live/motion`, not yet released. The hit half followed on 2026-11-23 (0012).
