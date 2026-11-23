@@ -10,8 +10,10 @@ import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultState, edgeOf, floating, i
 import type { DragFeel, KindFeel } from "./feel";
 import { CODE_PRESETS } from "./code-presets";
 import { KIT_PRESETS } from "./kit-presets";
+import { SIDE_STRIP_PRESETS } from "./side-strip-presets";
 import { FIXED_PRESETS } from "./fixed-presets";
 import { KEEP_CLEAR_PRESETS } from "./keep-clear-presets";
+import { GROW_PRESETS } from "./grow-presets";
 import { LADDER_PRESETS } from "./ladder-presets";
 import { SPLIT_PRESETS } from "./split-presets";
 import { INTENT_PRESETS } from "./intent-presets";
@@ -311,7 +313,7 @@ function sweepState(edge: EdgeId, order: readonly ItemId[]): DockState {
  */
 export const PRESETS: readonly Preset[] = (() => {
   const as = (behavior: Behavior, ps: readonly Preset[]): Preset[] => ps.map((p) => ({ ...p, behavior }));
-  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", ONE_LAYOUT_PRESETS()), ...as("landing", CODE_PRESETS())];
+  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", ONE_LAYOUT_PRESETS()), ...as("landing", GROW_PRESETS()), ...as("landing", CODE_PRESETS())];
 })();
 
 function PUBLISHED_PRESETS(): Preset[] {
@@ -1785,6 +1787,7 @@ function PUBLISHED_PRESETS(): Preset[] {
   },
   ...RAIL_DOCK_PRESETS(),
   ...KIT_PRESETS(),
+  ...SIDE_STRIP_PRESETS(),
   ...FIXED_PRESETS(),
   ...KEEP_CLEAR_PRESETS(),
   ...INTENT_PRESETS(),

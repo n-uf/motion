@@ -24,8 +24,9 @@ export interface Frame {
 
 /**
  * The inset, or none with `insetWhen: "docked"` while nothing is docked beside the content: only a panel counts, in a
- * column or a rail (an item there, not closed, whose first column form is a panel's: open, header or rail). Bars,
- * toolbar groups and an anchor (it takes nothing) never do, wherever they sit.
+ * column or a rail (an item there, not closed, whose first column form is a panel's: open, header or rail; the item's
+ * `countsAsDocked` overrides that either way, `false` as a side strip says, `true` to count another form). Bars, toolbar
+ * groups and an anchor (it takes nothing) never do, wherever they sit.
  */
 export function insetOf(d: Draft): { inset: Inset; docked: boolean } {
   const { state } = d;

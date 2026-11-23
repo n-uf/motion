@@ -16,7 +16,9 @@
  *    re-solved at the user's size, clamped to `[max(cross.min, the widest open setter's cross.min), cross.max]`.
  * 4. **Zones.** When the items leave spare length (nothing grows), start items pack from the start, end items from the
  *    end (before the » entry) and center items sit centered on the edge's middle, moved only as far as they must to
- *    stay between the other two zones.
+ *    stay between the other two zones. On a bar (an edge that keeps lengths), a movable item in a form that grows takes
+ *    the free span: the zones are laid with every growing item at its natural length, then each free stretch goes to
+ *    the movable growers in the zones beside it (`zoneStarts` in `./solve/draft`).
  * 5. **Floats** are fitted inside the stage, clear of every docked item (fixed ones and » entries included), every bar
  *    and the chrome rects (`fitFloat`): the fixed ones, and the ones anchored to the content (`AnchoredKeepClear`),
  *    resolved once here, with the edges and the content final (`./solve/keep-clear`). An anchored float sits flush

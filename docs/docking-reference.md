@@ -468,7 +468,8 @@ windows), and a drag's held places reuse that work.
 item's own place at the lift, `{ lane, spot }`: the first spot `lanes()` marks `home`; absent for a float), `after(held)`,
 `landingOf(held)`, `spotsOf(spot)`, `shown(frame)` and `guides(frame)`. A held place, `DockHeld`, is `{ kind: "spot", spot, point }`,
 `{ kind: "float", point }` or null (rest). `after(held)` is a `DockAfter`: `state` (the dock state a release commits; a host stores
-it), `layout` (that dock state solved with `options.previous`, as the commit solves it), `landing` (the held item's rect
+it), `layout` (that dock state solved with `options.previous`, as the commit solves it, except a movable grower on a
+bar: its held layout draws it, and its bar's neighbors, at natural length; solving the state grows it), `landing` (the held item's rect
 there, or null), `marks` (every lane's, `DockLaneMark` = a `DockMark` with its `lane`, in that one layout) and, for a
 spot, `spots` (its lane's stretches cut in that layout). A fixed spot's `after` is solved once at the lift and
 remembered by id; a sliding spot's per start (`LaneSlide`'s rule: the same computation as `target.after(point, grab)`);
@@ -566,6 +567,15 @@ none has none of these effects.
   docked beside the content, that is an open panel column or a rail showing panels (an item whose first column form is
   `open`, `header` or `rail`, not closed). Only panels count: an anchor alone doesn't, and neither does a toolbar group
   in a side bar. With nothing docked, the content is the whole stage.
+- **`DockItem.countsAsDocked`**: whether the item counts as a docked panel for `insetWhen: "docked"`. Left out, the
+  rule above holds (not closed, not fixed, its first column form `open`, `header` or `rail`). The declaration overrides
+  it either way: `false` on a side strip, an item whose `open` column form only moves the content aside like a narrow
+  column and is no panel card, so that opened alone it leaves the inset off (the content is the stage's less the strip's
+  own width and the strip lies flush at the window's side); `true` on an item whose first form is none of those kinds, so
+  that it counts. A closed or fixed item never counts. With a docked panel open as well the inset is on, strip included,
+  as for any item. The strip is laid out like any other item; the declaration changes nothing else (the column room, the
+  float region and the `Frame` follow from whether the inset is on). It is a declaration like `pushable`:
+  `readDockState` takes it from `base`, `storeDockState` never writes it.
 - **`layout.columnRoom`** and the note **`no-column-room`** (`{ width, need }`): with `contentMin` and a dynamic column,
   whether one column at its minimum fits beside the content's minimum. Anchors and rails don't count: every column, an
   anchor included, can fold into its rail. A side toolbar bar that lays out an item does count: it never folds (unless it gives way), so its

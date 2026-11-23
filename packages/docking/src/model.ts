@@ -96,6 +96,15 @@ export interface DockItem {
    * `DockEdge.zoneAccepts`: `readDockState` takes it from `base`, `storeDockState` never writes it.
    */
   readonly pushable?: boolean;
+  /**
+   * Whether it counts as a docked panel for `DockState.insetWhen: "docked"` (the inset applies only while one is docked
+   * beside the content). Left out, the rule is the old one: not closed, not fixed, its first column form is `open`,
+   * `header` or `rail`. It overrides that either way: `false` on a side strip (a narrow column that only moves the
+   * content aside and is no panel card) leaves the inset off while it is open alone; `true` on an item whose first form
+   * is none of those kinds counts it. A closed or fixed item never counts. A declaration of the state like `pushable`:
+   * `readDockState` takes it from `base`, `storeDockState` never writes it.
+   */
+  readonly countsAsDocked?: boolean;
   /** Closed: it keeps its place in its edge (or its float rect) but takes no room and has no targets. */
   readonly closed?: boolean;
   /**
@@ -541,8 +550,10 @@ export interface DockState {
   /**
    * When `inset` applies (default `"always"`): `"docked"` keeps it only while a panel is docked beside the content (an
    * open panel column or a rail showing panels: a left or right edge that takes something, with an item that isn't
-   * closed or fixed and whose first column form is `open`, `header` or `rail`). Bars, toolbar groups and an anchor
-   * never count, wherever they sit; with no panel there, the content is the whole stage.
+   * closed or fixed and whose first column form is `open`, `header` or `rail`; the item's `countsAsDocked` overrides
+   * that either way: `false` for a side strip that only moves the content aside, `true` to count an item of another
+   * form). Bars, toolbar groups and an anchor never count, wherever they sit; with no panel there, the content is the
+   * whole stage.
    */
   readonly insetWhen?: "always" | "docked";
   /** Space after each left or right edge and each rail that takes room, toward the content, px (default 0). */

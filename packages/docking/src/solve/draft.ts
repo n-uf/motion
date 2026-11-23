@@ -3,8 +3,8 @@
  * far. `emit` draws one solved edge into it: its items placed by zone, their shapes, its notes and its edge layout.
  */
 import { EPS, rect, type Rect } from "@n-uf/placement";
-import { formMain, itemSteps, wrapLines, type StackFit, type StackForm, type StackInput } from "@n-uf/placement/stack";
-import { axisOf, controlsOf, foldedByOf, formsOf, zoneOf } from "../helpers";
+import { formMain, formMenu, itemSteps, wrapLines, type StackFit, type StackForm, type StackInput } from "@n-uf/placement/stack";
+import { axisOf, controlsOf, foldedByOf, formsOf, growsOnBar, zoneOf } from "../helpers";
 import type { DockEdge, DockState, DockEdgeLayout, DockItemLayout, DockLayout, DockNote, DockRailLayout, SolveOptions, Zone } from "../model";
 import type { EdgeSolve } from "./edge";
 import { cutOrder, finite, px } from "./order";
@@ -112,9 +112,10 @@ export function shapeOf(f: StackForm | undefined, r: Rect, axis: "column" | "row
 
 /**
  * The fit with zones packed: when the drawn items leave spare length, start items pack from the start, end items from
- * the end (before the » entry), center items centered between. Returns the main-axis start per id.
+ * the end (before the » entry), center items centered between; on a bar, the free stretches go to its movable growers.
+ * Returns the main-axis start and length per id.
  */
-function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { starts: Map<string, number>; lengths: Map<string, number> } {
+function zoneStarts(state: DockState, edge: DockEdge, fit: StackFit, input: StackInput): { starts: Map<string, number>; lengths: Map<string, number> } {
   const column = fit.axis === "column";
   const at = (r: Rect): number => (column ? r.y : r.x);
   const out = new Map<string, number>();
@@ -146,6 +147,24 @@ function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { start
         return !itemSteps(it) && f?.main.grows && len(p) > formMain(f, "natural", fit.cross) + EPS;
       });
   if (title) lengths.set(title.id, formMain(formsOf(state.items[title.id]!, "row")[title.form]!, "natural", fit.cross));
+  /**
+   * A bar's movable growers (`growsOnBar`): the zones are laid with every growing item at its natural length, then each
+   * stretch left free goes to the movable growers in the zones beside it (their growth from the fit their shares), so a
+   * grower takes its bar's free span and a centered item stays centered. A fixed grower keeps its natural length then.
+   */
+  const growers = drawn.filter((p) => growsOnBar(state, edge, p.id, p.form));
+  const growth = new Map<string, number>();
+  if (growers.length > 0) {
+    for (const p of drawn) {
+      const f = formsOf(state.items[p.id]!, column ? "column" : "row")[p.form];
+      if (!f || formMenu(f) || f.main.grows !== true) continue;
+      const n = formMain(f, "natural", fit.cross);
+      if (len(p) > n + EPS) {
+        growth.set(p.id, len(p) - n);
+        lengths.set(p.id, n);
+      }
+    }
+  }
   const used = drawn.reduce((sum, p) => sum + len(p), 0) + Math.max(0, drawn.length - 1) * gap;
   const spare = fit.length - start - end - menu - used;
   if (spare <= EPS) return { starts: out, lengths };
@@ -170,16 +189,49 @@ function zoneStarts(state: DockState, fit: StackFit, input: StackInput): { start
     }
   };
   const spaced = (ps: readonly { id: string }[]): number => total(ps) + ps.reduce((sum, p) => sum + room(p), 0);
-  lay(s, start, true);
-  const endStart = fit.length - end - menu - spaced(e);
-  lay(e, endStart, false);
-  const lo = start + spaced(s) + (s.length > 0 ? gap : 0);
-  const hi = endStart - (e.length > 0 ? gap : 0);
-  // Centered on the edge's middle (so a centered readout stays put while the other zones change), kept between them; in
-  // a title bar, where the middle isn't clear of the title and the trailing items, centered in the free span instead.
-  const mid = (fit.length - total(c)) / 2;
-  const clear = mid >= lo - EPS && mid + total(c) <= hi + EPS;
-  lay(c, title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))), false);
+  const barEnd = fit.length - end - menu;
+  /** Lays the three zones at the lengths now set; returns each non-empty zone's span along the edge, in order. */
+  const layZones = (centerAt?: number): { ps: readonly { id: string }[]; a: number; b: number }[] => {
+    lay(s, start, true);
+    const endStart = barEnd - spaced(e);
+    lay(e, endStart, false);
+    const lo = start + spaced(s) + (s.length > 0 ? gap : 0);
+    const hi = endStart - (e.length > 0 ? gap : 0);
+    // Centered on the edge's middle (so a centered readout stays put while the other zones change), kept between them; in
+    // a title bar, where the middle isn't clear of the title and the trailing items, centered in the free span instead.
+    const mid = (fit.length - total(c)) / 2;
+    const clear = mid >= lo - EPS && mid + total(c) <= hi + EPS;
+    const cAt = centerAt ?? (title && !clear ? Math.max(lo, (lo + hi - total(c)) / 2) : Math.max(lo, Math.min(mid, hi - total(c))));
+    lay(c, cAt, false);
+    const spans = [
+      { ps: s, a: start, b: start + spaced(s) },
+      { ps: c, a: cAt, b: cAt + total(c) },
+      { ps: e, a: endStart, b: endStart + spaced(e) },
+    ];
+    return spans.filter((z) => z.ps.length > 0);
+  };
+  const spans = layZones();
+  if (growers.length > 0) {
+    // Each free stretch (before the first zone, between two, after the last) goes to the movable growers beside it.
+    const mine = new Set(growers.map((p) => p.id));
+    const add = new Map<string, number>();
+    const give = (free: number, beside: readonly { id: string }[]): void => {
+      const takers = beside.filter((p) => mine.has(p.id));
+      if (free <= EPS || takers.length === 0) return;
+      const weights = takers.map((p) => growth.get(p.id) ?? 0);
+      const sum = weights.reduce((t, w) => t + w, 0);
+      takers.forEach((p, k) => add.set(p.id, (add.get(p.id) ?? 0) + free * (sum > EPS ? weights[k]! / sum : 1 / takers.length)));
+    };
+    give(spans[0]!.a - start, spans[0]!.ps);
+    for (let k = 0; k + 1 < spans.length; k++) give(spans[k + 1]!.a - spans[k]!.b - gap, [...spans[k]!.ps, ...spans[k + 1]!.ps]);
+    give(barEnd - spans[spans.length - 1]!.b, spans[spans.length - 1]!.ps);
+    if (add.size > 0) {
+      for (const [id, v] of add) lengths.set(id, lengths.get(id)! + v);
+      // The center zone keeps its place unless a grower in it took the stretches beside it (it then fills them).
+      const middle = spans.find((z) => z.ps === c);
+      layZones(middle && !c.some((p) => add.has(p.id)) ? middle.a : undefined);
+    }
+  }
   if (title && s[s.length - 1] === title) {
     // Nothing after the title in its zone: it grows into the room up to the next item.
     const next = [...c, ...e].map((p) => out.get(p.id)!);
@@ -195,7 +247,7 @@ export function emit(d: Draft, edge: DockEdge, r: Rect, solved: EdgeSolve, extra
   const column = axisOf(edge.side) === "column";
   const { stack } = solved;
   const thick = column ? r.width : r.height;
-  const { starts, lengths } = zoneStarts(state, stack, solved.input);
+  const { starts, lengths } = zoneStarts(state, edge, stack, solved.input);
   const toStage = (l: Rect, id?: string): Rect => {
     const s = id !== undefined ? starts.get(id) : undefined;
     const n = id !== undefined ? lengths.get(id) : undefined;

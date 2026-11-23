@@ -300,8 +300,12 @@ export const formsOf = (item: DockItem, axis: Orient): readonly StackForm[] => i
 export const controlsOf = (f: StackForm | undefined): { hidden: readonly string[]; tiers?: Readonly<Record<string, number>> } => ({ hidden: f?.hides ?? [], ...(f?.tiers ? { tiers: f.tiers } : {}) });
 
 const PANEL_FORMS: ReadonlySet<string> = new Set(["open", "header", "rail"]);
-/** A panel that counts as docked for `insetWhen: "docked"`: not closed, not fixed, its first column form a panel's (open, header or rail). */
-export const isDockingPanel = (item: DockItem): boolean => !item.closed && !item.fixed && PANEL_FORMS.has(formsOf(item, "column")[0]?.kind ?? "");
+/**
+ * A panel that counts as docked for `insetWhen: "docked"`: not closed, not fixed, and by default its first column form a
+ * panel's (open, header or rail). The item's `countsAsDocked` overrides that either way: `false` for a side strip,
+ * `true` for an item of another form.
+ */
+export const isDockingPanel = (item: DockItem): boolean => !item.closed && !item.fixed && (item.countsAsDocked ?? PANEL_FORMS.has(formsOf(item, "column")[0]?.kind ?? ""));
 
 /**
  * A left or right toolbar bar outside the inset (`isSideBar` with `outsideInset`). It lies outermost on its side,
@@ -327,6 +331,49 @@ export function isSideBar(state: DockState, e: DockEdge): boolean {
 
 /** A left or right column: a side edge that takes something, not a compact rail and not a toolbar bar (`isSideBar`). */
 export const isSideColumn = (state: DockState, e: DockEdge): boolean => (e.side === "left" || e.side === "right") && !e.compact && e.accepts.length > 0 && !isSideBar(state, e);
+
+/**
+ * An edge whose items keep their length and whose zones only align them: a top or bottom bar, a compact rail, a side
+ * toolbar bar. A panel column, where growing cards fill the edge, is not one.
+ */
+const keepsLengths =(state: DockState, e: DockEdge): boolean => e.compact === true || e.side === "top" || e.side === "bottom" || isSideBar(state, e);
+
+/**
+ * Whether `id`, drawn in its form `form` along `e`, is a movable grower on a bar: not fixed, on an edge that keeps
+ * lengths (`keepsLengths`), in a form that grows and isn't the » entry. Once placed it takes its bar's free span; for
+ * drop room and for a landing it counts at its natural length.
+ */
+export function growsOnBar(state: DockState, e: DockEdge, id: string, form: number): boolean {
+  const it = Object.hasOwn(state.items, id) ? state.items[id] : undefined;
+  if (!it || it.fixed || !keepsLengths(state, e)) return false;
+  const f = formsOf(it, axisOf(e.side))[form];
+  return !!f && f.main.grows === true && !formMenu(f);
+}
+
+/**
+ * `state` with every movable item on a bar (`keepsLengths`) declaring no growth along that bar: the window as it lies
+ * with each movable grower at its natural length, the drop room it counts in. With `only`, that item alone (a held
+ * grower's layout). The same object when none grows there. Where it lies is read as `solve` draws it: an item a hidden
+ * edge lends to a bar (`showIn`) lies on that bar (`viewOf`, `placingOf`).
+ */
+export function withoutBarGrowth(state: DockState, only?: string): DockState {
+  let items: Record<string, DockItem> | undefined;
+  const view = only !== undefined ? placingOf(state, only) : viewOf(state).view;
+  for (const e of view.edges) {
+    if (e.hidden === true || !keepsLengths(view, e)) continue;
+    const axis = axisOf(e.side);
+    for (const id of e.items) {
+      if (only !== undefined && id !== only) continue;
+      const it = Object.hasOwn(state.items, id) ? state.items[id] : undefined;
+      const forms = it?.forms[axis];
+      if (!it || it.fixed || !forms?.some((f) => f.main.grows === true)) continue;
+      const plain = forms.map((f) => (f.main.grows === true ? { ...f, main: { min: f.main.min, natural: f.main.natural } } : f));
+      items ??= { ...state.items };
+      items[id] = { ...it, forms: { ...it.forms, [axis]: plain } };
+    }
+  }
+  return items ? { ...state, items } : state;
+}
 
 /**
  * The orient a float of `item` takes when it names none: its `floatOrient`, else the axis of its first form (the first
