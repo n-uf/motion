@@ -570,6 +570,61 @@ const placeOf = (t: PaneTarget<string>, p: { x: number; y: number }, previous: s
 console.log(placeOf(targets[1]!, { x: 600, y: 10 }, null)); // pane:b:top
 ```
 
+### A tiling drag: one layout per held place (`tilingDrag`)
+
+`tilingDrag(tree, subject, options)` is the layout half of a drag on a split tree: what a frame holding a place draws,
+and what its release commits, are one layout. The hit half (targets, a pane's parts, `placeOf`) comes later; until then
+a host picks the held place itself.
+
+- **The adapter.** The host keeps its own tree type `T` and gives a `TilingTree<T, K>`: `split(tree)` (the tree as a
+  `Split` of the drawn panes, a stack standing in it as its active member), `stackOf(tree, pane)` (optional), and the
+  changes `release`, `beside`, `swap`, `join` (optional; without it every join is refused `join`) and `normalize`
+  (optional). Each is pure and returns a new tree, or the same one when nothing changes. `splitTreeOps<K>()` is the
+  reference adapter over `StackedSplit<K>` (`{ split, stacks? }`): a pane swap trades keys wherever each pane is, a join
+  makes `at` a stack (`stack:<at>`) when it is alone, and `normalize` turns a stack of one into its pane.
+- **Which tree each change takes.** `beside(released, …)` and `join(released, …)` take `release(tree, subject)`: the
+  subject leaves its old place first, so the place it lands in is measured and changed without it, and a stack never
+  holds it twice. `swap(tree, …)` takes the tree with the subject still in it: a swap exchanges two places, and the
+  subject's old place is where the partner goes.
+- **Options.** `ops`, `area`, `min` (the least pane width and height a side drop keeps), the `SplitOptions` the host
+  lays out with (`gap`, `handle`, `floor`, `fixed`, `fixedAcross`), and `still(pane)` for panes that take no drop.
+- **The subject.** `{ kind: "pane", pane }` (a member of a stack is torn out of it), or `{ kind: "stack", stack }` with
+  the stack as `stackOf` reported it at the lift, so `beside` and `join` have its members after its release.
+- **What it gives.** `lift` and `base` (each `{ tree, layout, splits }`: the lift tree, and the tree with the subject
+  released, laid out with `layoutSplitTree`); `home`, the gap the release leaves (the subject's lift rect when the
+  release takes a drawn pane away, null for a member torn out of a stack that stays drawn); and `after(held)` for
+  `{ kind: "home" }`, `{ kind: "swap", at }`, `{ kind: "beside", at, side }` and `{ kind: "join", at, index? }`, `at`
+  a pane drawn in the base. `after(held)` gives `{ held, tree, layout, splits, landing, moved, refusal }`: the tree a
+  release commits (normalized, but home's, which is the lift tree itself), its layout, the subject's rect there, every
+  other pane whose rect differs from the lift's (`{ pane, from, to }`), and the refusal or null. Each held place is
+  remembered: the same place gives the same object.
+- **Refusals.** `self`, `still`, `missing`, `join`, `room-along` / `room-across` (`{ need, have }`, px, from
+  `canSplitPane` on `at`'s base rect) and `fit` (`{ pane }`, from `dropFits` on the change's layout). A refused
+  place's `tree` and `layout` are the lift's, `landing` is null and nothing moves: its release commits nothing, and a
+  frame holding it draws the base.
+- **The draw rule, for now.** Nothing held, or a refused place: the base. A place held: `after(held).layout`. For a
+  swap the subject's old place reopens (the neighbor that grew into it at the lift gives the room back): the partner's
+  landing there is `after(swap).layout.get(partner)`, and a host may mark it (the lab draws a tinted wash with ⇄ and the
+  partner's name, with no frame) while the partner is still drawn where it is, as the subject's landing.
+- **Conformance.** `tilingConformance(trees, options)` runs the properties (`TILING_PROPERTIES`) on every subject of each
+  tree (`tilingSubjects`: each pane alone, each stack whole, each member torn out) and every held place: home is the
+  lift tree and the gap; home lies only over panes the release changed; every `after` is its tree laid out; a swap
+  exchanges the two rects and moves nothing else (not checked under per-child callbacks, which may move the ratios);
+  `beside` and `join` commit `normalize(change(release(tree)))`; a whole stack stays together; `normalize` is
+  idempotent on every `after`; and the drag never changes its tree. It returns `{ ok, failures, counts }`.
+
+```ts
+import { splitTreeOps, tilingDrag, type StackedSplit } from "@n-uf/placement/tiling";
+
+const tree: StackedSplit<string> = { split: { axis: "x", ratio: 0.4, a: { axis: "y", a: { pane: "a" }, b: { pane: "b" } }, b: { pane: "c" } } };
+const drag = tilingDrag(tree, { kind: "pane", pane: "a" }, { ops: splitTreeOps(), area: { x: 0, y: 0, width: 800, height: 500 }, min: 40 });
+console.log(drag.home); // { x: 0, y: 0, width: 320, height: 250 }: a's place, which b grows into in the base
+const swap = drag.after({ kind: "swap", at: "c" });
+console.log(swap.layout.get("c")); // { x: 0, y: 0, width: 320, height: 250 }: the partner lands in a's old place
+console.log(swap.moved.map((m) => m.pane)); // ["c"]: b is back where it was at the lift
+console.log(drag.after({ kind: "home" }).tree === tree); // true
+```
+
 ## Popup (`@n-uf/placement/popup`)
 
 `positionPopup(anchorRect, size, bounds, rule)` places a popup (a drop label, a menu, a tooltip) as Wayland's
