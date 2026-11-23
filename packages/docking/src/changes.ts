@@ -35,7 +35,7 @@
  */
 import { clampInto, type Rect, type Size } from "@n-uf/placement";
 import { fitResize, type ResizeEdges } from "./float-resize";
-import { axesOf, axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, placingOf, floatShape, floatSizeOf, floatSizesOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, zoneIn, zoneTakes } from "./helpers";
+import { axesOf, axisOf, columnFromTemplate, declaresFloatSizes, floatOrientOf, placingOf, floatShape, floatSizeOf, floatSizesOf, foldedIndex, formsOf, isHandFolded, isSideColumn, isSince, namesZone, railColumnOf, railModeOf, sizedByHand, zoneIn, zoneTakes } from "./helpers";
 import { solve } from "./solve";
 import { RAIL_MODES, type DockEdge, type FloatAnchorAt, type Orient, type RailMode, type DockState, type DockFloat, type DockItem, type Side, type Zone } from "./model";
 
@@ -462,9 +462,9 @@ export function orientFloat(state: DockState, id: string, to: Orient): DockState
   if (from === to) return state;
   // An item that declares no `floatSizes` turns as before the per-orient sizes: its rect kept as it is.
   if (!declaresFloatSizes(item)) return { ...state, floats: state.floats.map((g, k) => (k === i ? { ...g, orient: to } : g)) };
-  // The orient it leaves keeps the size it is drawn at where the user sizes it (a form that grows), so turning back
+  // The orient it leaves keeps the size it is drawn at where the user sizes it (`sizedByHand`), so turning back
   // restores that rect; a toolbar group's size is its form's, known without being kept.
-  const grows = formsOf(item, from)[0]?.main.grows === true;
+  const grows = sizedByHand(formsOf(item, from)[0]);
   const kept = withFloatSizes(item, grows && f.rect.width > 0 && f.rect.height > 0 ? { orient: from, size: { width: f.rect.width, height: f.rect.height } } : undefined);
   // The frame takes the size the new orient draws at, where its anchor (if any) already puts it: its place is kept.
   const size = drawnFloatSize(kept, { rect: { ...f.rect, ...floatSizeOf(kept, to) }, orient: to });

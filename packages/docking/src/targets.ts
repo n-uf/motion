@@ -73,10 +73,10 @@
  * The phases live in `./targets/`: `kinds` (`EDGE_KINDS`), `model` (the shapes), `filter` (the drag's context and
  * filter ii), `edges` and `virtual` (generation), `ownership` and `tiles` (filter iii and clipping).
  */
-import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Rect } from "@n-uf/placement";
+import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Point, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
-import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
+import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, growsOnBar, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
@@ -315,6 +315,12 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
     // Its size: the one given, else its float's where it lands in the orient it floats in, else the size for the orient it lands in.
     const wasOrient = was?.orient ?? floatOrientOf(item);
     const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
+    // A movable grower is pressed on its grown rect and floats at its natural size: the hand keeps its share of the item
+    // (`grab` over the rect as seen), so the float lies under the pointer as it is held.
+    const seenOwn = now.items[dragged];
+    const seenEdge = seenOwn?.edge ? state.edges.find((e) => e.id === seenOwn.edge) : undefined;
+    const grown = seenOwn && seenEdge && growsOnBar(state, seenEdge, dragged, seenOwn.form) && seenOwn.rect.width > 0 && seenOwn.rect.height > 0 ? seenOwn.rect : null;
+    const handOf = (g: Point | undefined): Point | undefined => (g && grown ? { x: clamp(g.x / grown.width, 0, 1) * size.width, y: clamp(g.y / grown.height, 0, 1) * size.height } : g);
     targets.push({
       id: targetId({ kind: "float", item: dragged }),
       priority: 3,
@@ -325,7 +331,7 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
       item: dragged,
       place: { kind: "float" },
       after(point, grab) {
-        const g = grab ?? { x: size.width / 2, y: size.height / 2 };
+        const g = handOf(grab) ?? { x: size.width / 2, y: size.height / 2 };
         // Where the pointer puts it, or with `floatFromHeld` where the held item is drawn, before the float is fitted.
         const raw = options.floatFromHeld ? heldRect(state, dragged, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
         const first = solve(markUsed(floatAt(state, dragged, raw, options.floatOrient), dragged), prev);
