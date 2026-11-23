@@ -181,10 +181,11 @@ describe("a sliding spot beside a growing neighbor", () => {
 
 /**
  * Points of the sweep where the two paths make one order but dock in different zones (the free room's zone rule, not yet
- * one answer): 22,559 over the scenes without a movable grower's toolbar (beside stretchable panels and a growing title
- * a sliding spot over the grower's slack docks where a landing there lands, the end zone mostly, where the tiles keep
- * the room's thirds; the rebase onto growth-off drop room alone took the count from 15,863 to 19,415), and 11,008 over
- * the three movable-grower toolbar scenes, for the same reason.
+ * one answer: the tiles keep the room's zone extents, thirds, where a sliding spot docks by its landing against the
+ * edge's middle). Every bar and rail scene contributes, growers or not: 14,304 over the plain rails and bars (the three
+ * rails of toolbars, the top bar of toolbars, the bottom bar of panels and a toolbar, and the lab's title bar), 8,255
+ * beside stretchable panels and a growing title (a sliding spot over the grower's slack docks where a landing there
+ * lands, the end zone mostly), and 11,008 over the three movable-grower toolbar scenes. None in a panel column.
  */
 const ZONE_ONLY_KNOWN = 33_567;
 
