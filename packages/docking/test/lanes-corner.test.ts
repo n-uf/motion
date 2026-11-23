@@ -235,14 +235,13 @@ describe("lanes(): the corner clip loses no landing", () => {
         for (const s of spots) if (!got.has(s)) diff.push(`${key} ${lane}: lost ${s}`);
         for (const s of got) if (!spots.includes(s)) diff.push(`${key} ${lane}: added ${s}`);
       }
-    // One aim order (the tiles cut by landings, as the lanes do): in s62 the free stretch after g3 is one place across
-    // its zones (one order), and the cut from the place before it, made by landings, hands the start zone's part to the
-    // center zone's dock.
+    // One aim order: in s20 a start-zone dock and a center dock land at one start after g2, and the dock in the zone
+    // beside the stretch (the start zone, g2's) is that spot now, in the lanes as in a sliding spot's snaps.
     const ONE_AIM_ORDER = new Set([
-      "s62|g1|pitched|0.02 bar:right: lost bar:right/start/g3|$",
-      "s62|g1|pitched|0.02 bar:right: added bar:right/center/g3|$",
-      "s62|g1|pitched|0.5 bar:right: lost bar:right/start/g3|$",
-      "s62|g1|pitched|0.5 bar:right: added bar:right/center/g3|$",
+      "s20|g0|pitched|0.02 bar:top: lost bar:top/center/g2|$",
+      "s20|g0|pitched|0.02 bar:top: added bar:top/start/g2|$",
+      "s20|g0|pitched|0.5 bar:top: lost bar:top/center/g2|$",
+      "s20|g0|pitched|0.5 bar:top: added bar:top/start/g2|$",
     ]);
     expect(diff.filter((d) => !ONE_AIM_ORDER.has(d)).slice(0, 8)).toEqual([]);
     // (Every listed change still happens: none is stale.)

@@ -179,15 +179,23 @@ describe("a bar's zones by thirds", () => {
           const a = k === 0 ? -Infinity : z.a;
           const b = k === 2 ? Infinity : z.b;
           if (!(t.hit.width > 0 && t.hit.height > 0)) throw new Error(`seed ${seed} ${id} ${t.id}: empty hit`);
-          // A bar takes the nearest landing across zones (`aimCut`), and docks in the zone `lanes()` docks in there: a
-          // gap's hit runs past its third only where the lanes, the one answer, dock the item in that gap's zone.
+          // A bar takes the nearest landing across zones (`aimCut`): a gap's hit runs past its third only where `lanes()`,
+          // the one answer, put the item in that gap's order (which zone docks it over free room is the zone extents'
+          // question still, not the aim order's).
           const ln = (laneOf.get(id) ?? laneOf.set(id, lanes(s, id)).get(id)!).lanes.find((x) => x.id === e.id);
           const y = t.hit.y + t.hit.height / 2;
+          const orderIn = (dl: ReturnType<typeof solve>): string =>
+            Object.entries(dl.items)
+              .filter(([, it]) => it.edge === e.id && !it.inMenu && !it.floating && it.rect.width >= 1)
+              .sort(([, p], [, q]) => p.rect.x - q.rect.x)
+              .map(([k]) => k)
+              .join(" ");
+          const want = orderIn(t.after({ x: 0, y }).layout);
           for (let x = t.hit.x + 0.5; x < t.hit.x + t.hit.width; x += 4) {
             if (x >= a && x <= b) continue;
             const sp = ln?.spots.find((q) => x >= q.along[0] && x <= q.along[1]);
-            const got = sp ? (sp.home && !sp.slide ? l : sp.target.after({ x, y }).layout).items[id] : undefined;
-            if (got?.edge !== e.id || got.zone !== t.place.zone) throw new Error(`seed ${seed} ${id} ${t.id}: hit ${t.hit.x}..${t.hit.x + t.hit.width} past its third ${a}..${b} at ${x}, where the lanes dock it in ${got?.zone ?? "none"}`);
+            const got = sp ? orderIn(sp.home && !sp.slide ? l : sp.target.after({ x, y }).layout) : "none";
+            if (got !== want) throw new Error(`seed ${seed} ${id} ${t.id}: hit ${t.hit.x}..${t.hit.x + t.hit.width} past its third ${a}..${b} at ${x}, where the lanes put it in ${got}, not ${want}`);
           }
         }
       }
