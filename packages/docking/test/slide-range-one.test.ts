@@ -2,10 +2,15 @@
  * One sliding range: a place over free room on a bar or a toolbar rail has one range of landings, whichever path reads
  * it. The tiles cut such a place from its range's first and last landings (`targets()`), and `lanes()` slides a spot
  * over the same range; both read it from `slideRange`. Per place (an edge and the neighbors either side), the tile
- * range's first landing starts at the lane slide's `from` and its last at its `to`, the item at its length there.
+ * range's first landing starts at the lane slide's `from` and its last at its `to`, the item at its length there, and
+ * both ends commit the place (the item between the same neighbors, the same items in the »).
+ *
+ * The other way round, every lane slide is a tile range but on an empty edge: there `targets()` offers the edge as its
+ * drop strips by zone (no slots, so no landing cuts and no range), while `lanes()` slides a spot along its whole length
+ * (decision 0010).
  */
 import { describe, expect, it } from "vitest";
-import { lanes, type DockItem, type DockLaneOptions, type DockState } from "../src";
+import { lanes, type DockItem, type DockLaneOptions, type DockLayout, type DockState } from "../src";
 import { tileSlides } from "../src/targets";
 import { byId, form, panel } from "./fixture";
 import { windows } from "./lift-windows";
@@ -47,6 +52,7 @@ function cases(): { name: string; state: DockState; dragged: string; options: Do
 describe("one sliding range", () => {
   it("per place, the tile range's first and last landings are the lane slide's from and to", () => {
     let matched = 0;
+    let reverseEmpty = 0;
     for (const c of cases())
       for (const pitch of PITCHES) {
         const options: DockLaneOptions = { ...c.options, ...(pitch === undefined ? {} : { pitch }), stretchPositions: "free" };
@@ -57,7 +63,14 @@ describe("one sliding range", () => {
             .filter((sp) => !!sp.slide)
             .map((sp) => [sp.target.id.replace(/^slide:/, ""), sp] as const),
         );
-        for (const r of tileSlides(c.state, c.dragged, options)) {
+        const ranges = tileSlides(c.state, c.dragged, options);
+        // Every lane slide is a tile range, but on an empty edge (its drop strips by zone).
+        for (const key of slides.keys()) {
+          const empty = key.endsWith(":^|$");
+          if (!empty) expect(ranges.some((r) => `${r.edge}:${r.before ?? "^"}|${r.after ?? "$"}` === key), `${at}: the lane slide ${key} is a tile range`).toBe(true);
+          else reverseEmpty++;
+        }
+        for (const r of ranges) {
           const key = `${r.edge}:${r.before ?? "^"}|${r.after ?? "$"}`;
           const sp = slides.get(key);
           expect(sp, `${at}: the tiles' range ${key} is a lane slide`).toBeDefined();
@@ -68,10 +81,26 @@ describe("one sliding range", () => {
           expect(r.to, `${at} ${key} to`).toBeCloseTo(sp!.slide!.to, 6);
           expect(lo(r.first), `${at} ${key} first landing`).toBeCloseTo(sp!.slide!.from, 6);
           expect(lo(r.last), `${at} ${key} last landing`).toBeCloseTo(sp!.slide!.to, 6);
+          // Both ends commit the place: the item between the same neighbors, the same items in the » as at rest.
+          const shown = (l: DockLayout): string[] =>
+            Object.entries(l.items)
+              .filter(([, it]) => it.edge === r.edge && !it.inMenu && !it.floating && it.rect.width > 0.01 && it.rect.height > 0.01)
+              .sort(([, p], [, q]) => lo(p.rect) - lo(q.rect))
+              .map(([id]) => id);
+          const menu = (l: DockLayout): string => Object.keys(l.items).filter((id) => l.items[id]!.inMenu).sort().join(" ");
+          const rest = sp!.target.after({ x: sp!.landing.x + 1, y: sp!.landing.y + 1 }, { x: 1, y: 1 }).layout;
+          for (const x0 of [r.from, r.to]) {
+            const l = sp!.target.after(vertical ? { x: sp!.landing.x + 1, y: x0 + 1 } : { x: x0 + 1, y: sp!.landing.y + 1 }, { x: 1, y: 1 }).layout;
+            const ids = shown(l);
+            const k = ids.indexOf(c.dragged);
+            expect(`${ids[k - 1] ?? "^"}|${ids[k + 1] ?? "$"} » ${menu(l)}`, `${at} ${key} commit at ${x0}`).toBe(`${r.before ?? "^"}|${r.after ?? "$"} » ${menu(rest)}`);
+          }
           matched++;
         }
       }
     // Places over free room on both paths, every scene kind among them.
     expect(matched).toBeGreaterThan(20);
+    // The empty edges' slides (the captured windows' empty side bars and rails) are the only ones with no tile range.
+    expect(reverseEmpty).toBeGreaterThan(0);
   });
 });
