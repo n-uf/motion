@@ -23,7 +23,7 @@
  */
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
-import { liftItem, moveTo, type DockPlace } from "./changes";
+import { liftItem, markUsed, moveTo, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, cutsByHalves, grabShare, len, lo } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
@@ -671,20 +671,34 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // order.
   const drawnItems = first.edge && halves ? new Map(onEdge(drawn, first.edge, dragged, axis).map((o) => [o.id, o.r])) : new Map<string, Rect>();
   const held = halves ? 0.5 : share[axis];
-  const cuts: number[] = [];
-  for (let i = 0; i + 1 < unique.length; i++) {
-    const a = unique[i]!;
-    const b = unique[i + 1]!;
+  const cutOf = (a: Raw, b: Raw): number => {
     const shared = a.next === b.before && a.next !== "$" ? drawnItems.get(a.next) : undefined;
     // (A sliding spot's facing end: its landing flush against the neighbor between them.)
-    const aLanding = lastOf(a);
-    const bLanding = firstOf(b);
     // Overlapping landings: at the grab, kept within half a pitch of their overlap (the pointer never further than that
     // from the landing it picks: two spots far apart that overlap a little cut near the overlap, as apart). Apart (a gap
     // between them): halfway across the gap, the grab aside. The one rule `targets()` cuts its tiles by (`aimCut`).
-    const raw = aimCut(aLanding, bLanding, axis, held, aimSlack(marking.pitch), shared);
-    cuts.push(clamp(Math.max(raw, cuts[i - 1] ?? bandStart), bandStart, bandEnd));
+    return aimCut(lastOf(a), firstOf(b), axis, held, aimSlack(marking.pitch), shared);
+  };
+  // On a bar or a toolbar rail a spot whose cut after it would lie before its cut before it is nearer no pointer (its
+  // stretch between the landing cuts is empty): it is left out of the cutting, and its neighbors cut between themselves,
+  // so it moves no other spot's cut. It keeps a spot with no stretch, at that cut. (Never the item's own place.)
+  const active = unique.map((_, i) => i);
+  for (let changed = !halves; changed; ) {
+    changed = false;
+    for (let k = 1; k + 1 < active.length; k++) {
+      const [p, q, r] = [unique[active[k - 1]!]!, unique[active[k]!]!, unique[active[k + 1]!]!];
+      if (!q.home && cutOf(q, r) < cutOf(p, q) - EPS) {
+        active.splice(k, 1);
+        changed = true;
+        break;
+      }
+    }
   }
+  const activeCuts: number[] = [];
+  for (let k = 0; k + 1 < active.length; k++) activeCuts.push(clamp(Math.max(cutOf(unique[active[k]!]!, unique[active[k + 1]!]!), activeCuts[k - 1] ?? bandStart), bandStart, bandEnd));
+  // The cut after each spot: an active one's own, a left-out one's the cut between its active neighbors.
+  const cuts: number[] = [];
+  for (let i = 0; i + 1 < unique.length; i++) cuts.push(activeCuts[active.findIndex((j) => j > i) - 1] ?? bandStart);
   const spots: DockSpot[] = unique.flatMap((x, i) => {
     const a = i === 0 ? bandStart : cuts[i - 1]!;
     const b = i === unique.length - 1 ? bandEnd : cuts[i]!;
@@ -1235,8 +1249,10 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
 
 /** The dock `place` on `run`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */
 function landsAt(state: DockState, dragged: string, run: StretchEdge, place: DockPlace, x0: number): { next: DockState; layout: DockLayout } | null {
-  const next = moveTo(state, dragged, place);
-  if (next === state) return null;
+  const moved = moveTo(state, dragged, place);
+  if (moved === state) return null;
+  // A dropped item counts as just used, as every target's drop does (`markUsed`).
+  const next = markUsed(moved, dragged);
   const layout = solveLanded(next, dragged, run.prev);
   const landed = layout.items[dragged];
   const { axis } = run;
