@@ -27,8 +27,8 @@ export const TILING_HIT_PROPERTIES = [
   "shown-under-pointer",
   /** At every frame of a gesture a release commits `after(held)`, else the lift tree; the base basis draws `after(held)` for a held place, the lift at home, the base with nothing held. */
   "shown-equals-landed",
-  /** On the subject's full-edge neighbour along an axis (the same bounds across it, nothing between) no side along that axis is offered, and the swap reaches both its ends along the axis. */
-  "neighbour-swaps",
+  /** On the subject's full-edge neighbor along an axis (the same bounds across it, nothing between) no side along that axis is offered, and the swap reaches both its ends along the axis. */
+  "neighbor-swaps",
   /** Every other pane keeps the five regions: a side at each edge, the swap in the middle. */
   "others-keep-five",
 ] as const;
@@ -131,10 +131,10 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       return null;
     };
     /**
-     * The second copy of the neighbour rule: the axis along which the lift pane `k` touches home edge to edge with the
+     * The second copy of the neighbor rule: the axis along which the lift pane `k` touches home edge to edge with the
      * same two bounds across it, no other lift pane between them; null otherwise (or with no home).
      */
-    const neighbourOf = (k: K): "x" | "y" | null => {
+    const neighborOf = (k: K): "x" | "y" | null => {
       const h = home;
       const r = drag.lift.layout.get(k);
       if (!h || !r) return null;
@@ -160,7 +160,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       if (basis === "lift" && home && pane === subjectDrawn) continue;
       const at = atOf(pane);
       if (at === null || options.still?.(at)) continue;
-      panes.push({ pane, at, rect, axis: neighbourOf(drag.lift.layout.has(pane) ? pane : at) });
+      panes.push({ pane, at, rect, axis: neighborOf(drag.lift.layout.has(pane) ? pane : at) });
     }
     /** The center rectangle, by its formula: the share of each axis (clamped), the floor, the device-pixel grid. */
     const centerOf = (r: Rect) => {
@@ -237,7 +237,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         refused ??= held;
       }
       if (pane.axis) {
-        // A full-edge neighbour: the swap across the middle share of the other axis, over the whole length; side strips
+        // A full-edge neighbor: the swap across the middle share of the other axis, over the whole length; side strips
         // across it, each the full length.
         const r = pane.rect;
         const c = centerOf(r);
@@ -312,7 +312,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       }
     }
 
-    // ---- neighbour-swaps and others-keep-five: a point deep in each side band (1 px in from the pane's edge, mid-way
+    // ---- neighbor-swaps and others-keep-five: a point deep in each side band (1 px in from the pane's edge, mid-way
     // along it) and the pane's middle, off parts and home. A place that is refused or gives the lift back is not asked.
     const offered = (h: TilingHeld<K>): boolean => live(h) && !givesLift(h);
     for (const pn of panes) {
@@ -334,12 +334,12 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         const along = where !== "center" && ((pn.axis === "y" && (where === "top" || where === "bottom")) || (pn.axis === "x" && (where === "left" || where === "right")));
         if (pn.axis) {
           if (along || where === "center") {
-            check("neighbour-swaps", got?.kind !== "beside" && (!offered(swap) || got?.kind === "swap"), () => `the full-edge neighbour ${String(pn.at)} (along ${pn.axis}) reads ${show(got)} at its ${where}`);
+            check("neighbor-swaps", got?.kind !== "beside" && (!offered(swap) || got?.kind === "swap"), () => `the full-edge neighbor ${String(pn.at)} (along ${pn.axis}) reads ${show(got)} at its ${where}`);
           }
           continue;
         }
         const want: TilingHeld<K> = where === "center" ? swap : { kind: "beside", at: pn.at, side: where };
-        // A pane narrower than the centre's floor has no band there: the point is in its middle.
+        // A pane narrower than the center's floor has no band there: the point is in its middle.
         if (offered(want) && regionOf(r, p) === where) check("others-keep-five", show(got) === show(want), () => `${String(pn.at)} reads ${show(got)} at its ${where}, expected ${show(want)}`);
       }
     }

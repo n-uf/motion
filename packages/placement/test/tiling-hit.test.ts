@@ -50,7 +50,7 @@ describe("hit on the lift (marks over the lift layout)", () => {
   const hit = d.hit("lift");
   const B = d.lift.layout.get("b")!;
 
-  it("a straight drag down from home over its full-edge neighbour below: home, its title bar, then swap over its whole height", () => {
+  it("a straight drag down from home over its full-edge neighbor below: home, its title bar, then swap over its whole height", () => {
     const seen: string[] = [];
     for (let y = 100; y <= 495; y += 2) {
       const r = at(hit, { x: B.x + B.width / 2, y });
@@ -61,7 +61,7 @@ describe("hit on the lift (marks over the lift layout)", () => {
     expect(seen).toEqual(["home", "join b", "swap b"]);
   });
 
-  it("across the neighbour its side bands stay sides: a sweep from left to right reads left, swap, right", () => {
+  it("across the neighbor its side bands stay sides: a sweep from left to right reads left, swap, right", () => {
     const seen: string[] = [];
     at(hit, { x: -500, y: -500 });
     for (let x = B.x + 1; x <= B.x + B.width - 1; x += 2) {
@@ -101,7 +101,7 @@ describe("hit on the lift (marks over the lift layout)", () => {
   });
 });
 
-describe("full-edge neighbours swap along their axis; other panes keep their sides", () => {
+describe("full-edge neighbors swap along their axis; other panes keep their sides", () => {
   const bottomOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height - 3 });
   const topOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + 30 });
 
@@ -136,13 +136,13 @@ describe("hit on the base (the landed layout drawn)", () => {
   const hit = d.hit("base");
   const B = d.base.layout.get("b")!;
 
-  it("home covers the neighbour that grew, and wins over it", () => {
+  it("home covers the neighbor that grew, and wins over it", () => {
     expect(hit.zone({ x: 50, y: 100 })).toBe("home");
     expect(B.y).toBe(0);
   });
 
   it("a held insert draws its landed layout from the first frame, and its release commits it", () => {
-    // b is a's full-edge neighbour, so its bottom band is the swap: the insert is taken in its left strip.
+    // b is a's full-edge neighbor, so its bottom band is the swap: the insert is taken in its left strip.
     const r = at(hit, { x: B.x + 4, y: B.y + B.height - 40 });
     expect(show(r.held)).toBe("beside b left");
     expect(r.mark).toBeNull();
