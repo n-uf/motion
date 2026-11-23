@@ -17,7 +17,7 @@ Status words on this page:
 | Tier | Answers | Owns | Knows nothing of |
 | --- | --- | --- | --- |
 | `@n-uf/motion` | *How things move* | Time (an injected clock, a frame loop in phases), values that animate (springs, tweens, the settle curve), gestures, the drag intent and the landing model (which place a drag holds, from the pointer's path and speed), and layout motion (many rects settling, the real item held under the pointer). | Any layout: it reads rects and lanes as plain data and never asks where something fits. |
-| `@n-uf/placement` | *Where things fit*, one edge or one area at a time | The shapes and their geometry, the drop-target shape (`Target`), one edge (the cut into bands, the fit of its items with their form ladders, its drop places, the float fit), panes dividing an area (order layouts, the split tree, the drop rules, and the layout half of a tiling drag, `tilingDrag`), and the popup positioner. | Time, pointers, a whole window. |
+| `@n-uf/placement` | *Where things fit*, one edge or one area at a time | The shapes and their geometry, the drop-target shape (`Target`), one edge (the cut into bands, the fit of its items with their form ladders, its drop places, the float fit), panes dividing an area (order layouts, the split tree, the drop rules, and a tiling drag, `tilingDrag`: its layout half and its hit half), and the popup positioner. | Time, pointers, a whole window. |
 | `@n-uf/docking` | *Where panels and toolbars dock* in one window | A window as one plain-data dock state (`DockState`): its edges, items, floats and keep-clear rects; `solve`, the changes, targets and refusals, lanes, the drag's layouts (`dockDrag`), storage, and the conformance rows. | Time and pointers: the landing model that drives its drag is motion's. |
 
 The host, the application that embeds them, draws, measures and owns the pointer events. Nothing in the three touches a
@@ -65,9 +65,9 @@ reads one layout too, fixed for the drag, so a held place changing the drawn lay
 | --- | --- | --- |
 | A held place | `DockHeld`: a lane's spot with the pointer, `{ kind: "spot", spot, point }`, the float at the pointer, `{ kind: "float", point }`, or null (rest). | `TilingHeld`: `home`, a `swap` with a pane, `beside` a pane on a side, or a `join` to a pane's stack at an index. |
 | `after(held)` | The dock state a release commits, its layout (solved with the drag's one `previous`, the layout at the lift), the landing, every lane's marks, a spot's stretches. | The tree a release commits, its layout (the adapter's `split(tree)` laid out by `layoutSplitTree`), the landing, every other pane it moves, or a refusal code. |
-| Hit-testing reads | The lanes' hit rects as seen at the lift; a held lane's stretches in that spot's own layout. | The base: the tree with the subject released, laid out once at the lift (the hit half that reads it is planned). |
-| The draw rule | `shown(frame)`: `after(frame.held).layout` while the frame's room is open; a float frame whose room is not open, and the Outline mode, draw the window at rest. | Built: a refused place, or nothing held, draws the base. Planned: `shown(frame)`, with home and a swap always opening their room. |
-| Guarded by | docking's `test/one-layout-sweep.test.ts`, `test/drag-after.test.ts`; the lab's `one-layout-*` presets | placement's `test/tiling-drag.test.ts`, `tilingConformance` |
+| Hit-testing reads | The lanes' hit rects as seen at the lift; a held lane's stretches in that spot's own layout. | One layout, laid out once at the lift and fixed for the drag (`drag.hit(basis)`): the base (the tree with the subject released) for a host that draws the landed layout, the lift (the subject's slot open) for a host that draws a mark. Built. |
+| The draw rule | `shown(frame)`: `after(frame.held).layout` while the frame's room is open; a float frame whose room is not open, and the Outline mode, draw the window at rest. | Built: `hit.drawn(read)`. On the base, `after(held)` as soon as a place is held, the lift at home, the base with nothing held or a refused place; on the lift, the lift and a mark that is a region of it (`read.mark`). |
+| Guarded by | docking's `test/one-layout-sweep.test.ts`, `test/drag-after.test.ts`; the lab's `one-layout-*` presets | placement's `test/tiling-drag.test.ts`, `tilingConformance`; `test/tiling-hit.test.ts`, `tilingHitConformance` |
 
 One exception is built and named: a movable grower held on a bar is drawn, with its bar's neighbors, at its natural
 length; solving the state it lands in grows it (see growth, below). Records: [0002](decisions/0002-held-marks-follow-the-drawn-edge.md),
@@ -80,7 +80,7 @@ Home is the held place whose release changes nothing.
 - **Tiling: home is the gap the release leaves.** It is the subject's lift rect when releasing the subject takes a drawn
   pane away (a pane alone, a whole stack), and null when it takes none (a member torn out of a stack that stays drawn).
   A torn member's own place is then an ordinary place: the join back at its index. Home lies only over base panes that
-  grew when the subject was released, and `after(home).tree` is the lift tree itself, never normalized. Built.
+  grew when the subject was released, and `after(home).tree` is the lift tree itself, never normalized. In the hit, home wins over everything beneath it, and any place whose release has the lift's arrangement (the side of the pane beside the subject that restores its order, a torn tab's own cell) reads as home. Built.
 - **Docking: home is the item's own spot at the lift** (`dockDrag(...).home`, `{ lane, spot }`; absent for a float). On
   a bar or a toolbar rail it is one landing for half a pitch around the item's place, and the landing model's lift zone
   (16 px around the press) keeps it: away and back to the press point is home. Built.
@@ -119,11 +119,11 @@ take `release(point, time)`, and `previewPlan` reads a frame of either.
 
 | Concept | Docking | Tiling |
 | --- | --- | --- |
-| The model | The landing model. `dockDrag(...)` is a `LandingGeometry` as it is: `createLandingModel({ ...drag, preview })` is the whole wiring. | The drag intent (panes are areas, not lanes of spots). Planned: `tilingDrag`'s targets and `placeOf` in the intent's shapes, pinned by a type check. |
-| Places | A lane per edge that takes the item (and virtual lanes: a new column's line, a declared rail); a spot per place a drop lands, with its landing and its stretch of the lane. | One body target per pane (its five regions: the center swaps, a side splits) and a join target per pane part (a title bar, a tab strip), all in the base. Planned; the regions themselves (`paneRegion`) are built. |
-| Which place the pointer is at | The aim cut along the lane (see growth), the hand rule ([0001](decisions/0001-the-hand-rule.md)), the gates. | The pane's region with its hysteresis, and a zone hold within one pane (a switch only after a set travel). Planned. |
-| A refusal | A refused stretch or a refused place outside every lane: "Can't go here", a release goes home. | A refusal code on `after(held)` (`self`, `still`, `missing`, `join`, `room-along`, `room-across`, `fit`); built. Planned: a refused place returned by `placeOf`, so a refused side of a pane needs no rect of its own. |
-| Home over other targets | The lift zone: within 16 px of the press the item's own lane holds. | Planned: precise parts (`aboveHome`) take the pointer over home everywhere but within the lift zone. |
+| The model | The landing model. `dockDrag(...)` is a `LandingGeometry` as it is: `createLandingModel({ ...drag, preview })` is the whole wiring. | The drag intent (panes are areas, not lanes of spots). `drag.hit(basis)` gives the targets in the intent's shape and `hit.intent` its options, pinned by a type check: `createDragIntent({ ...hit.intent, lift })` is the whole wiring. Built. |
+| Places | A lane per edge that takes the item (and virtual lanes: a new column's line, a declared rail); a spot per place a drop lands, with its landing and its stretch of the lane. | One body target per pane (its five regions: the center swaps, a side splits) and a join target per pane part (a title bar, a tab strip, a slot giving the index), all on the one fixed layout; home. A side of a pane takes an insert only for a new arrangement: on a run neighbor of the subject, the sides that repeat the lift or the swap are gone and the swap spans 0.56 across the run ([0012](decisions/0012-one-zone-map-per-tiling-drag.md)). Built. |
+| Which place the pointer is at | The aim cut along the lane (see growth), the hand rule ([0001](decisions/0001-the-hand-rule.md)), the gates. | The zone under the pointer on that one map, and one hold rule: the held place keeps its zone until the pointer is 6 px past its edge, and inside one pane until it is 24 px from where the place was taken, each at most a quarter of the zone. Built. |
+| A refusal | A refused stretch or a refused place outside every lane: "Can't go here", a release goes home. | A refusal code on `after(held)` (`self`, `still`, `missing`, `join`, `room-along`, `room-across`, `fit`). A place exists when it is not refused; a refused zone holds nothing and falls to the target beneath it, and `read(...).refused` names it, so a refused side of a pane needs no rect of its own. Built. |
+| Home over other targets | The lift zone: within 16 px of the press the item's own lane holds. | Home, the subject's lift rect, wins over everything beneath it (parts included), under the same hold rule as every zone; a place whose release gives the lift's arrangement reads as home. Built. |
 | Guides | `dockDrag(...).guides(frame)`: each lane's marks from the held place the frame names, through `guideRects` for cosmetics. | The landing and the panes `after(held)` moves (`moved`); the host draws them. |
 
 ## Decisions in force
@@ -141,3 +141,4 @@ take `release(point, time)`, and `previewPlan` reads a frame of either.
 | [0009](decisions/0009-one-layout-per-tiling-place.md) | One layout per held place of a tiling drag; home is the gap the release leaves. | Built (the layout half), on `live/motion` |
 | [0010](decisions/0010-three-layouts.md) | Three layouts, one job each: `room`, the landings, `shown`. | In progress |
 | [0011](decisions/0011-which-item-counts-as-docked.md) | Which item counts as docked is the item's declaration (`countsAsDocked`). | Built, on `live/motion` |
+| [0012](decisions/0012-one-zone-map-per-tiling-drag.md) | One zone map per tiling drag, and swap-only run neighbors. | Built (the hit half), on `live/motion` |

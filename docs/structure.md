@@ -37,7 +37,7 @@ Each entry is a file the package's `exports` map names; a published package poin
 | `@n-uf/motion/browser` | `packages/motion/browser.ts` | The browser clock, the reduced-motion query, the DOM writers. Not in the root. |
 | `@n-uf/placement` | `packages/placement/index.ts` | Shapes, geometry, `Side`, `Axis`, `Target`. |
 | `@n-uf/placement/stack` | `src/stack/index.ts` | One edge: cut, fit, ladders, dividers, drop places, float fit. |
-| `@n-uf/placement/tiling` | `src/tiling/index.ts` | Panes dividing an area, the drop rules, `tilingDrag` and its conformance run. |
+| `@n-uf/placement/tiling` | `src/tiling/index.ts` | Panes dividing an area, the drop rules, `tilingDrag` (its layout half and its hit half) and their conformance runs. |
 | `@n-uf/placement/popup` | `src/popup/index.ts` | The popup positioner. |
 | `@n-uf/docking` | `packages/docking/src/index.ts` | One model of a whole window. |
 | `@n-uf/docking/testing` | `src/testing/index.ts` | Conformance rows, landing rows, runners, reference hosts, type checks. |
@@ -99,7 +99,8 @@ flowchart BT
 - `src/tiling`: order layouts (`order.ts`), the split tree and its changes (`split.ts`), its layout (`layout.ts`), the
   drop rules (`drop.ts`), pane regions (`regions.ts`), targets (`targets.ts`), `giveWay`, `neighbor`, and the tiling
   drag: `drag.ts` (`tilingDrag`, `TilingTree`), `reference.ts` (`splitTreeOps`), `conformance.ts`
-  (`tilingConformance`).
+  (`tilingConformance`), `hit.ts` (the hit half: `drag.hit(basis)`, its zone map, hold rule and run-neighbor rule) and
+  `hit-conformance.ts` (`tilingHitConformance`). `regions.ts` also gives `paneRegionShapes`, the regions as polygons.
 - `src/popup`: the positioner.
 
 Each of `stack`, `tiling` and `popup` stands on the root alone, never on another (`stack-root-only`, `tiling-root-only`,
@@ -194,6 +195,8 @@ A conformance suite is shipped in a public entry, so a host runs it on its own i
   `createLandingHost`), the hand rule's bound (`handBound`), and the type checks `AssertLanding` and `AssertGeometry`.
 - **`@n-uf/placement/tiling`'s `tilingConformance`**: the tiling drag's properties (`TILING_PROPERTIES`) over every
   subject of a host's trees and every held place, on the host's own `TilingTree` adapter.
+- **`@n-uf/placement/tiling`'s `tilingHitConformance`**: the hit half's nine properties (`TILING_HIT_PROPERTIES`) over
+  every subject of a host's trees and both bases, on the same adapter, its `parts` included.
 
 The library's own tests run both on the reference implementations.
 
@@ -215,7 +218,7 @@ their public entries only.
 | Overview, Glossary | `src/pages/overview.html`, `glossary.html` | The tour, and the words every page and doc uses. |
 | Settle and tiling | `src/pages/tiling.html`, `src/main.ts` | A tiling stage whose windows are the items of one layout motion (master, dwindle, columns, grid), with the drop previews. |
 | Drag intent and previews | `src/shell/pages.ts`, `src/docwin/` | The drag intent's cases on the Document window. |
-| Tiling drag | `src/pages/tiling-drag.html`, `src/tiling-drag/` | A host of `tilingDrag` over the reference adapter, with presets (a held swap reopening the old place); which place the pointer holds is the page's own pick until the hit half is built. Headless: `window.__tilingDrag`. |
+| Tiling drag | `src/pages/tiling-drag.html`, `src/tiling-drag/` | A host of `tilingDrag` over the reference adapter, with presets (a held swap reopening the old place, a straight drag onto a neighbor); Snap to slot hit-tests the base and Indicator the lift, and which place the pointer holds is the library's (`drag.hit`). Headless: `window.__tilingDrag`. |
 | Document window | `src/pages/docwin.html`, `src/docwin/` | The reference host of `@n-uf/docking`: panels, toolbars and floats in a window; every conformance row plays on it, and its presets (one per rule: one layout, one preview, keep-clear, growers, the side strip, ...) are tried by a real mouse. |
 | Checks | `src/pages/checks.html`, `src/shell/checks.ts` | Runs the pages' scenarios; `window.__motionLab.runAll()` returns the results for a headless run. |
 
