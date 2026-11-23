@@ -5,10 +5,10 @@
 import { EPS, area, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
 import { SPOT_PITCH, aimCut, cutsByHalves } from "../aim";
-import { moveTo } from "../changes";
+import { markUsed, moveTo } from "../changes";
 import { axisOf, zoneOf } from "../helpers";
 import { ZONES, type DockLayout, type Zone } from "../model";
-import { distinctSlots, roomReason, solveLanded } from "./edges";
+import { distinctSlots, landedLayout, roomReason, solveLanded } from "./edges";
 import { targetId } from "./ids";
 import { EDGE_KINDS } from "./kinds";
 import { meet } from "./meet";
@@ -177,9 +177,9 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
   const slotSpans: Span[] = [];
   // On a bar or a toolbar rail with a home slot, what of the own interval home's stretch keeps (set by the landing cuts).
   let ownKept: Span[] | null = null;
-  // Where a slot's drop lands the item (its own rect for home, as home's drop lays it: a movable grower at its natural
+  // Where a slot's drop lands the item (its own rect for home, as home's `after` lays it: a movable grower at its natural
   // length): what the aim cuts read.
-  const ownRect = (homeSlot ?? slots.find((s) => s.home))?.result.layout.items[c.dragged]?.rect ?? c.now.items[c.dragged]?.rect ?? spec.own ?? undefined;
+  const ownRect = landedLayout(c.state, c.now, c.dragged, c.prev).items[c.dragged]?.rect ?? spec.own ?? undefined;
   /** Whether a slot's drop moves another item of the edge from where the lift leaves it (no drop into free room). */
   const movesOthers = (s: Slot): boolean =>
     Object.entries(c.base.items).some(([id, it]) => {
@@ -408,11 +408,12 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
             if (!zones.includes(zone)) continue;
             const space = zone === "start" ? x0 - a : b - (x0 + w);
             if (space < -EPS) continue;
-            const next = moveTo(c.state, c.dragged, { edge: spec.id, zone, at: atOf(zone), space: Math.max(0, space) });
-            if (next === c.state) continue;
-            const l = solveLanded(next, c.dragged, c.prev);
+            const moved = moveTo(c.state, c.dragged, { edge: spec.id, zone, at: atOf(zone), space: Math.max(0, space) });
+            if (moved === c.state) continue;
+            const l = solveLanded(markUsed(moved, c.dragged), c.dragged, c.prev);
             const it = l.items[c.dragged];
-            if (!it || it.inMenu || it.edge !== spec.id || Math.abs(span(it.rect)[0] - x0) > 1) continue;
+            // (It lands there as this place: the edge's items in its order.)
+            if (!it || it.inMenu || it.edge !== spec.id || Math.abs(span(it.rect)[0] - x0) > 1 || orderIn(l) !== order) continue;
             const kept = fixed.every(([id, f]) => {
               const now = l.items[id];
               return (now?.inMenu && itemSteps(c.state.items[id]!)) || (!!now && Math.abs(span(now.rect)[0] - span(f.rect)[0]) <= 1);
@@ -471,12 +472,27 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     // A place's facing landings: of its slots, the last landing faces the place after it, the first the place before.
     const facing = (run: readonly Stretch[], end: boolean): Rect =>
       run.map((r) => (end ? lastOf(r.s) : firstOf(r.s))).reduce((m, x) => (end ? (span(x)[1] > span(m)[1] ? x : m) : span(x)[0] < span(m)[0] ? x : m));
-    const cuts: number[] = [];
-    for (let i = 0; i + 1 < runs.length; i++) {
-      const raw = aimCut(facing(runs[i]!, true), facing(runs[i + 1]!, false), axis, c.share[axis], c.slack);
-      // In order, as `lanes()` keeps its cuts: never before the cut before it.
-      cuts.push(Math.max(raw, cuts[i - 1] ?? -Infinity));
+    const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => aimCut(facing(p, true), facing(q, false), axis, c.share[axis], c.slack);
+    // A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
+    // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.)
+    const active = runs.map((_, i) => i);
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (let k = 1; k + 1 < active.length; k++) {
+        const [p, q, r] = [runs[active[k - 1]!]!, runs[active[k]!]!, runs[active[k + 1]!]!];
+        if (!q.some((x) => x.s.home) && cutOf(q, r) < cutOf(p, q) - EPS) {
+          active.splice(k, 1);
+          changed = true;
+          break;
+        }
+      }
     }
+    const activeCuts: number[] = [];
+    // In order, as `lanes()` keeps its cuts: never before the cut before it.
+    for (let k = 0; k + 1 < active.length; k++) activeCuts.push(Math.max(cutOf(runs[active[k]!]!, runs[active[k + 1]!]!), activeCuts[k - 1] ?? -Infinity));
+    // The cut after each place: an active one's own, a left-out one's the cut between its active neighbors.
+    const cuts: number[] = [];
+    for (let i = 0; i + 1 < runs.length; i++) cuts.push(activeCuts[active.findIndex((j) => j > i) - 1]!);
     const spans: Span[] = [];
     runs.forEach((run, i) => {
       // The place's stretch: from the cut before it to the cut after it (its slots' pieces at the edge's ends).
