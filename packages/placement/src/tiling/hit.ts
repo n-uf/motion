@@ -8,6 +8,8 @@
  *   slot, not a still pane), its places the five regions of `paneRegion` (the center swaps, a side goes beside); one
  *   target per part the adapter declares on that pane (`TilingTree.parts`: a title bar, a tab strip), its place a join,
  *   a slot under the pointer giving the index; and home, the subject's lift rect, which wins over everything beneath it.
+ *   On the subject's full-edge neighbour along an axis (the same bounds across it, nothing between), the bands along
+ *   that axis are the swap's too: a side there would only reorder the two panes. Its bands across stay sides.
  * - **Places**: a place exists when `after(place).refusal` is null. A refused zone holds nothing and falls to the target
  *   beneath it (a refused part to the pane's body), never sideways. A place whose `after` equals the lift is home.
  * - **One hold rule, two measures**: the held place keeps its zone until the pointer is `edge` px past that zone's edge
@@ -24,7 +26,7 @@ import type { Point, Rect } from "../geometry";
 import type { Side } from "../side";
 import type { Target } from "../target";
 import type { TilingAfter, TilingHeld, TilingLaidOut, TilingTree } from "./drag";
-import { paneRegion, paneRegionShapes, type PaneRegion, type PaneRegionOptions } from "./regions";
+import { paneCenter, paneRegion, paneRegionShapes, type PaneRegion, type PaneRegionOptions } from "./regions";
 
 /** Which layout a drag hit-tests, fixed at the lift: the lift (a host that draws marks) or the base (a host that draws the landed layout). */
 export type TilingBasis = "lift" | "base";
@@ -188,6 +190,8 @@ interface PaneHit<K> {
   readonly body: TilingHitTarget<K>;
   readonly parts: readonly PartHit<K>[];
   readonly regions: Readonly<Record<PaneRegion, Place<K>>>;
+  /** A full-edge neighbour's map in its place: the swap rectangle, then the two side strips. Empty otherwise. */
+  readonly zones: readonly { readonly rect: Rect; readonly place: Place<K> }[];
 }
 
 const HOME: TilingHeld<never> = { kind: "home" };
@@ -323,6 +327,31 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     return v;
   };
 
+  /**
+   * The axis along which the pane `k` (drawn at the lift) is the subject's full-edge neighbour, or null: the two lift
+   * rects have the same bounds across that axis (the edge they share is the whole edge of each) and no other pane
+   * lies between them. Only when the release leaves a slot (home).
+   */
+  const neighbourAxis = (k: K): "x" | "y" | null => {
+    const s = home;
+    const r = lift.layout.get(k);
+    if (!s || !r) return null;
+    const same = (a: number, b: number): boolean => Math.abs(a - b) <= 0.5;
+    const clear = (gap: Rect): boolean =>
+      [...lift.layout].every(([q, b]) => q === k || q === subjectDrawn || Math.max(0, Math.min(b.x + b.width, gap.x + gap.width) - Math.max(b.x, gap.x)) * Math.max(0, Math.min(b.y + b.height, gap.y + gap.height) - Math.max(b.y, gap.y)) <= 0.5);
+    if (same(r.x, s.x) && same(r.width, s.width)) {
+      const y0 = Math.min(s.y + s.height, r.y + r.height);
+      const y1 = Math.max(s.y, r.y);
+      if (y1 >= y0 - 0.5 && clear({ x: s.x, y: y0, width: s.width, height: Math.max(0, y1 - y0) })) return "y";
+    }
+    if (same(r.y, s.y) && same(r.height, s.height)) {
+      const x0 = Math.min(s.x + s.width, r.x + r.width);
+      const x1 = Math.max(s.x, r.x);
+      if (x1 >= x0 - 0.5 && clear({ x: x0, y: s.y, width: Math.max(0, x1 - x0), height: s.height })) return "x";
+    }
+    return null;
+  };
+
   // The targets and their places, built once.
   const targets: TilingHitTarget<K>[] = [];
   const panes: PaneHit<K>[] = [];
@@ -335,7 +364,8 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     const body: TilingHitTarget<K> = { id: `pane:${key(pane)}`, priority: 2, hit: { ...rect }, pane, at };
     const parts: PartHit<K>[] = [];
     const regions = {} as Record<PaneRegion, Place<K>>;
-    const ph: PaneHit<K> = { body, parts, regions };
+    const zones: { rect: Rect; place: Place<K> }[] = [];
+    const ph: PaneHit<K> = { body, parts, regions, zones };
     const members = stackOf(laid.tree, pane)?.members ?? [pane];
     const indexOf = (i: number): number | undefined => (i < members.length ? members.slice(0, i).filter((m) => !ctx.inSubject(m)).length : undefined);
     const seen = new Set<string>();
@@ -364,10 +394,35 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
       ...(home ? [home] : []),
       ...parts.flatMap((p) => (live(p.place) ? [p.target.hit] : p.slots.filter((s) => live(s.place)).map((s) => s.rect))),
     ];
-    for (const region of ["center", ...SIDES] as const) {
-      const held: TilingHeld<K> = region === "center" ? { kind: "swap", at } : { kind: "beside", at, side: region };
-      const id = region === "center" ? `swap:${k}` : `beside:${region}:${k}`;
-      regions[region] = placeFor(id, held, ph, body.id, { poly: shapes[region], box: boxOf(shapes[region]), cuts: above });
+    // The subject's full-edge neighbour along an axis: a side along that axis would only reorder the two panes, which
+    // is the swap. Its map is one swap rectangle over its whole extent along the axis, between two side strips across.
+    const axis = neighbourAxis(lift.layout.has(pane) ? pane : at);
+    if (axis) {
+      const c = paneCenter(rect, regionOptions);
+      const strips: [Side, Rect][] =
+        axis === "y"
+          ? [
+              ["left", { x: rect.x, y: rect.y, width: c.left, height: rect.height }],
+              ["right", { x: rect.x + c.right, y: rect.y, width: rect.width - c.right, height: rect.height }],
+            ]
+          : [
+              ["top", { x: rect.x, y: rect.y, width: rect.width, height: c.top }],
+              ["bottom", { x: rect.x, y: rect.y + c.bottom, width: rect.width, height: rect.height - c.bottom }],
+            ];
+      const swapRect: Rect =
+        axis === "y"
+          ? { x: rect.x + c.left, y: rect.y, width: c.right - c.left, height: rect.height }
+          : { x: rect.x, y: rect.y + c.top, width: rect.width, height: c.bottom - c.top };
+      zones.push({ rect: swapRect, place: placeFor(`swap:${k}`, { kind: "swap", at }, ph, body.id, { poly: rectPoly(swapRect), box: swapRect, cuts: above }) });
+      for (const [side, r] of strips) {
+        zones.push({ rect: r, place: placeFor(`beside:${side}:${k}`, { kind: "beside", at, side }, ph, body.id, { poly: rectPoly(r), box: r, cuts: above }) });
+      }
+    } else {
+      for (const region of ["center", ...SIDES] as const) {
+        const held: TilingHeld<K> = region === "center" ? { kind: "swap", at } : { kind: "beside", at, side: region };
+        const id = region === "center" ? `swap:${k}` : `beside:${region}:${k}`;
+        regions[region] = placeFor(id, held, ph, body.id, { poly: shapes[region], box: boxOf(shapes[region]), cuts: above });
+      }
     }
     targets.push(body);
     panes.push(ph);
@@ -390,7 +445,7 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
       if (live(part.place)) return { place: part.place, refused: null };
       refused ??= part.place;
     }
-    const place = pane.regions[paneRegion(pane.body.hit, p, null, regionOptions)];
+    const place = pane.zones.length > 0 ? (pane.zones.find((z) => inside(z.rect, p)) ?? pane.zones[0]!).place : pane.regions[paneRegion(pane.body.hit, p, null, regionOptions)];
     return live(place) ? { place, refused: null } : { place: null, refused: refused ?? place };
   };
   const effective = (p: Place<K> | null): Place<K> | null => (p && homeLike(p) ? homePlace : p);

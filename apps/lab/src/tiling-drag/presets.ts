@@ -305,9 +305,9 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "indicator-straight-down",
-    title: "Indicator: a straight drag onto the pane below reads its bar, nothing, swap, insert below",
+    title: "Indicator: a straight drag onto the full-edge neighbour below reads its bar, then swap over its whole height",
     expected:
-      "Indicator. Lift 01 and move straight down over 02 in 2 px steps: home, then 02's bar (a join), then nothing (02's top band gives the lift back), then the swap, then below 02, each once; every pane stays at its lift rect, and every mark lies inside 02 as drawn.",
+      "Indicator. Lift 01 and move straight down over 02 (the same left and right edges) in 2 px steps: home, then 02's bar (a join), then the swap down to 02's bottom, each once; every pane stays at its lift rect, and every mark lies inside 02 as drawn.",
     setup: lifted("three", paneA, undefined, "indicator"),
     check: (h) => {
       const f = new Findings();
@@ -322,7 +322,7 @@ export const PRESETS: readonly Preset[] = [
         if (m) f.that(m.rect.y >= b.y - 0.5 && m.rect.y + m.rect.height <= b.y + b.height + 0.5, `a mark outside 02 at y ${y}: ${show(m.rect)}`);
         for (const [k, r] of drawn(h)) f.near(`pane ${k} at y ${y}`, r, d.drag.lift.layout.get(k));
       }
-      f.that(JSON.stringify(seen) === JSON.stringify(["home", "join", "home", "swap", "beside bottom"]), `read ${seen.join(" > ")}`);
+      f.that(JSON.stringify(seen) === JSON.stringify(["home", "join", "swap"]), `read ${seen.join(" > ")}`);
       f.said.push(seen.join(" > "));
       return f.verdict();
     },
@@ -330,18 +330,18 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "indicator-mark-is-a-region",
     title: "Indicator: the mark is a region of the lift layout, and the release commits the held place",
-    expected: "Indicator. Lift 01 and hold it at 02's bottom edge: the mark is 02's bottom half as drawn; no landing, no wash; released, the tree is after(beside bottom).tree.",
+    expected: "Indicator. Lift 01 and hold it at 02's left edge (02 is its full-edge neighbour, so only its left and right strips are sides): the mark is 02's left half as drawn; no landing, no wash; released, the tree is after(beside left).tree.",
     setup: lifted("three", paneA, (h) => {
       const b = h.drag!.drag.lift.layout.get("b")!;
-      h.pointTo({ x: b.x + b.width / 2, y: b.y + b.height - 6 });
+      h.pointTo({ x: b.x + 6, y: b.y + b.height / 2 });
     }, "indicator"),
     check: (h) => {
       const f = new Findings();
       const d = h.drag!;
       const b = d.drag.lift.layout.get("b")!;
-      f.that(d.held?.kind === "beside" && d.held.side === "bottom", `held ${JSON.stringify(d.held)}`);
+      f.that(d.held?.kind === "beside" && d.held.side === "left", `held ${JSON.stringify(d.held)}`);
       const el = mark(h, "mark");
-      f.near("the mark", el && styleRect(el), { x: b.x, y: b.y + b.height / 2, width: b.width, height: b.height / 2 });
+      f.near("the mark", el && styleRect(el), { x: b.x, y: b.y, width: b.width / 2, height: b.height });
       f.that(!mark(h, "landing") && !mark(h, "swap"), "a landing or a wash is drawn in Indicator for a side");
       const a = h.after()!;
       h.release();
