@@ -11,8 +11,10 @@ Unreleased entries live in `changes/` until a release joins them.
   top-left corner at the new size, where the caller's new form puts the spot the user pressed, such as a docking drag's
   `DockAfter.grab`) the item is held there from now on; without it the grab point keeps its share of the item, as
   before. It settles from where it is drawn to the pointer less `grab` at `size`, so the held point moves with the size
-  on that one settle. The same size with another grab now glides to it; the same size and grab do nothing. New:
-  `HeldDrag.grab`, where the pointer holds the item now.
+  on that one settle. The same size with another grab now glides to it; the same size and grab do nothing.
+- **Changed (breaking, type only): `HeldDrag.grab` is a new required member**, where the pointer holds the item now.
+  Code that only reads a `HeldDrag` is unaffected; a hand-built `HeldDrag` (a test double, a wrapper) must now
+  implement `grab`.
 
 ## 26.11.59
 
