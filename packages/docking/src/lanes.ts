@@ -505,12 +505,16 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
   const halves = new Set(state.edges.filter((e) => (e.side === "left" || e.side === "right") && !e.compact).map((e) => e.id));
-  // A growing item's drawn length past its natural one is free stretch for the marks, as it is for pitched spots.
+  // A growing fixed item's drawn length past its natural one (a title filling its bar) is free stretch for the marks, as
+  // it is for pitched spots. A movable grower's is not: in the layout a frame draws (its release's commit) it has taken
+  // that stretch, so a mark there would lie over it. Its growth is spare room for the drops (the targets count it at its
+  // natural length), and the frame that lands one beside it draws it given way, as the commit does.
   const marking: Marking = {
     pitch,
     natural: (id, axis) => {
-      const main = state.items[id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main;
-      return main?.grows ? main.natural : undefined;
+      const it = state.items[id];
+      const main = it?.forms[axis === "x" ? "row" : "column"]?.[0]?.main;
+      return it?.fixed && main?.grows ? main.natural : undefined;
     },
     gap: (edge) => nonNeg(state.edges.find((e) => e.id === edge)?.gap),
     crossing: (edge, over) => state.edges.filter((e) => e.id !== edge && byLane.has(e.id) && (over.edges[e.id]?.cross ?? 0) > EPS && axisOfEdge(e.id) !== axisOfEdge(edge)).map((e) => over.edges[e.id]!.rect),
