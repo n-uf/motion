@@ -58,15 +58,80 @@ describe("the hand's speed", () => {
     }
   });
 
-  it("a gap of 40 ms or more starts the hand again: the step over it is unknown and the span forgets what came before", () => {
+  it("a gap of 40 ms or more the pointer rested in starts the hand again: the step over it is unknown and the span forgets what came before", () => {
     const h = createHandSpeed();
     h.push({ x: 0, y: 0 }, 0);
     const at = feed(h, 0.5, 8, 8);
     expect(h.long).not.toBeNull();
-    h.push({ x: 0, y: at.y + 20 }, at.t + HAND_SPEED.gap);
+    // 8 px in 40 ms: under half the hand's 0.5 px/ms.
+    h.push({ x: 0, y: at.y + 8 }, at.t + HAND_SPEED.gap);
     expect(h.step).toBe(Infinity);
+    expect(h.speed).toBe(Infinity);
     expect(h.long).toBeNull();
     expect(h.steady).toBe(false);
+  });
+
+  it("a gap the pointer was seen standing still in is a rest, however far it moved across it", () => {
+    const h = createHandSpeed();
+    h.push({ x: 0, y: 0 }, 0);
+    const at = feed(h, 0.5, 8, 8);
+    h.hold(at.t + HAND_SPEED.still);
+    h.push({ x: 0, y: at.y + 0.5 * 48 }, at.t + 48);
+    expect(h.speed).toBe(Infinity);
+    expect(h.long).toBeNull();
+  });
+
+  it("a gap the pointer moved on through at about the hand's speed (frames the host lost) carries the hand on, the frames filled in", () => {
+    for (const dt of [8, 16]) {
+      const h = createHandSpeed();
+      h.push({ x: 0, y: 0 }, 0);
+      const at = feed(h, 1.5, dt, 12);
+      expect(h.steady).toBe(true);
+      // A repeated sample within the frame of the move is no rest.
+      h.hold(at.t + 3);
+      h.push({ x: 0, y: at.y + 1.5 * 64 }, at.t + 64);
+      // The gap's own step is never a slow step (it may end a rest), but the hand reads on across it.
+      expect(h.step, `${dt} ms`).toBe(Infinity);
+      expect(h.long, `${dt} ms`).toBeCloseTo(1.5, 6);
+      expect(h.speed, `${dt} ms`).toBeCloseTo(1.5, 6);
+      expect(h.steady, `${dt} ms`).toBe(true);
+    }
+  });
+
+  it("with no speed yet (a single sample before the gap) a gap is a rest", () => {
+    const h = createHandSpeed();
+    h.push({ x: 0, y: 0 }, 0);
+    h.push({ x: 0, y: 60 }, 50);
+    expect(h.speed).toBe(Infinity);
+  });
+
+  it("second copy: a gap is a rest exactly when the pointer was seen still for `still` ms in it or moved across it at under `carry` times the hand's speed", () => {
+    // The oracle, from the rule's words: the hand moves at a known `v` (its span full) before the gap.
+    const rests = (v: number, d: number, dt: number, heldFor: number | null): boolean => (heldFor !== null && heldFor >= HAND_SPEED.still) || d / dt < HAND_SPEED.carry * v;
+    let s = 99;
+    const rnd = (): number => (s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32;
+    const bad: string[] = [];
+    let rested = 0;
+    for (let run = 0; run < 2000; run++) {
+      const v = 0.2 + rnd() * 2.8;
+      const frame = rnd() < 0.5 ? 8 : 1000 / 60;
+      const gap = HAND_SPEED.gap + rnd() * 160;
+      // Across the gap: from standing still to twice the hand's speed, never a crawl (3 px or less reads as it is).
+      const d = Math.max(HAND_SPEED.slowStep + 1, rnd() * 2 * v * gap);
+      const heldFor = rnd() < 0.4 ? rnd() * gap : null;
+      const h = createHandSpeed();
+      h.push({ x: 0, y: 0 }, 0);
+      const at = feed(h, v, frame, 12);
+      if (heldFor !== null && heldFor > 0) h.hold(at.t + heldFor);
+      h.push({ x: 0, y: at.y + d }, at.t + gap);
+      const want = rests(v, d, gap, heldFor);
+      if (want) rested++;
+      if (Number.isFinite(h.speed) === want) bad.push(`v ${v.toFixed(2)}, ${frame.toFixed(1)} ms, gap ${gap.toFixed(0)} ms, ${d.toFixed(1)} px, held ${heldFor?.toFixed(0) ?? "-"}: ${want ? "a rest read as a lost stretch" : "a lost stretch read as a rest"}`);
+    }
+    // Both kinds are drawn.
+    expect(rested).toBeGreaterThan(400);
+    expect(rested).toBeLessThan(1600);
+    expect(bad).toEqual([]);
   });
 
   it("is steady only once it has read alike for half a span: a hand gathering speed out of a hesitation is not", () => {

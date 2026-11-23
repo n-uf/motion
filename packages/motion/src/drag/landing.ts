@@ -41,9 +41,12 @@ import type { LandingRegion } from "./region";
  * - **The hand's speed** (`createHandSpeed`, ./hand-speed) is the one estimate every gate that asks "fast or slow"
  *   reads: the slide count and its entry, the settle rule, the slow path. It reads a speed-up at once (the newest step)
  *   and a slow-down only once it has lasted its span (at least 48 ms and 5 steps), so a fling whose timestamps jitter
- *   never reads slow; a gap of 40 ms or more (a rest, a hesitation) starts the hand again, so a rest is never averaged
- *   into the next fling; and a slide counts only while the hand reads steady (not gathering speed). A host sampling
- *   slower than 25 Hz (every step a gap) slides into a touching lane only by its own gates. A lane that owns
+ *   never reads slow; a gap of 40 ms or more that was a rest (the pointer seen standing still in it, or moving across
+ *   it at less than half the hand's speed) starts the hand again, so a rest is never averaged into the next fling, while
+ *   a gap the pointer moved on through (frames the host lost) carries the hand on, its lost frames filled in, so a
+ *   dropped frame never loses a slide; a step across a gap is never a slow step; and a slide counts only while the hand
+ *   reads steady (not gathering speed), from where the pointer crossed into the lane. A host sampling slower than 25 Hz
+ *   (every step a gap, the hand with no speed yet) slides into a touching lane only by its own gates. A lane that owns
  *   its rect (`owns`: a rail drop strip at the window's side) takes the pointer inside it from any lane it overlaps, a
  *   held one too, once its own gate passes and only once the pointer came into it from outside since the lift. Within
  *   `margins.lift` of the lift point (`options.lift`, else the first point; fixed for the drag) an owning lane takes the
@@ -95,9 +98,11 @@ import type { LandingRegion } from "./region";
  * - **The pointer** is taken onto the stage by the model itself (past it by up to `edge`, onto its edge).
  *
  * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both. Call it at
- * least once more after the pointer stops (every frame does), so it can become still, and again with the same point
- * when a key changes. `release(point, time)` takes the release point as one more sample when it differs from the last.
- * When the state under the drag changes (a resize, a store change), hand the new geometry whole to `setGeometry`.
+ * least once more after the pointer stops, `rest` ms or more later (every frame does), so it can become still and a
+ * rest reads as one (a rest the model never sees is told from frames the host lost only by how far the pointer moved
+ * across it), and again with the same point when a key changes. `release(point, time)` takes the release point as one
+ * more sample when it differs from the last. When the state under the drag changes (a resize, a store change), hand the
+ * new geometry whole to `setGeometry`.
  */
 
 /** A place a drop in a lane lands: its stretch of the lane and its listed landing rect. Ids are stable across solves. */
@@ -346,6 +351,12 @@ function depthIn(lane: LandingLane, p: Point, stage: Rect): number {
       : [on(r.x, stage.x) ? Infinity : p.x - r.x, on(r.x + r.width, stage.x + stage.width) ? Infinity : r.x + r.width - p.x];
   return Math.max(0, Math.min(...sides));
 }
+const lerp = (a: Point, b: Point, u: number): Point => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u });
+/** Where the step from `a` (outside `r`) to `b` (inside it) crosses into `r`, as a share of the step (0 to 1). */
+function entryOf(r: Rect, a: Point, b: Point): number {
+  const enter = (from: number, to: number, lo: number, hi: number): number => (from < lo ? (lo - from) / (to - from) : from > hi ? (hi - from) / (to - from) : 0);
+  return Math.min(1, Math.max(0, enter(a.x, b.x, r.x, r.x + r.width), enter(a.y, b.y, r.y, r.y + r.height)));
+}
 const distanceTo = (r: Rect, p: Point): number => Math.hypot(Math.max(r.x - p.x, 0, p.x - (r.x + r.width)), Math.max(r.y - p.y, 0, p.y - (r.y + r.height)));
 const alongOf = (lane: LandingLane, p: Point): number => (lane.axis === "x" ? p.x : p.y);
 const acrossOf = (lane: LandingLane, p: Point): number => (lane.axis === "x" ? p.y : p.x);
@@ -402,7 +413,7 @@ export function createLandingModel(options: LandingOptions): LandingModel {
   let slowFrom: number | null = null;
   let lastStep = 0;
   /** The hand's speed (`createHandSpeed`): the one estimate every gate that asks "fast or slow" reads. */
-  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause) });
+  const hand = createHandSpeed({ gap: Math.min(HAND_SPEED.gap, gates.pause), still: Math.min(HAND_SPEED.still, gates.rest) });
   /** The keys the last `update` had: a release at a new point samples with them unless it names its own. */
   let lastKeys: DragKeys | undefined;
   /** Path inside each lane since the pointer last entered its rect. */
@@ -562,9 +573,10 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       step = Math.hypot(raw.x - moved.raw.x, raw.y - moved.raw.y) / Math.max(1, t - moved.t);
       moved = { raw, t };
       hand.push(raw, t);
-      // The step that ends a rest (a gap of 40 ms or `pause`, the smaller) says nothing about how the hand moves now:
-      // unknown, never a slow step (a fling out of a rest docks nowhere on its first frame), unless it is no longer than
-      // `HAND_SPEED.slowStep` (3) px (a hand creeping a pixel at a time, which is slow).
+      // The step across a gap (40 ms or `pause`, the smaller) may end a rest, so it says nothing about how the hand moves
+      // now: unknown, never a slow step (a fling out of a rest docks nowhere on its first frame), unless it is no longer
+      // than `HAND_SPEED.slowStep` (3) px (a hand creeping a pixel at a time, which is slow). The hand's speed reads
+      // across a gap the pointer moved on through (frames the host lost), so a slide through it counts on.
       step = hand.step;
       lastStep = step;
       // A fling (the hand reading faster than `slideSpeed`) unsettles it; it is slow again from the last sample before it
@@ -573,13 +585,15 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       if (Number.isFinite(sp) && sp > gates.slideSpeed) {
         flung = true;
         slowFrom = null;
-      } else if (!Number.isFinite(sp) || sp > gates.stepSpeed) slowFrom = null;
+      } else if (!Number.isFinite(sp) || !Number.isFinite(step) || sp > gates.stepSpeed) slowFrom = null;
       else slowFrom ??= before;
     } else if (moved) {
       const stage = base.stage;
       const onEdge = p.x <= stage.x || p.y <= stage.y || p.x >= stage.x + stage.width || p.y >= stage.y + stage.height;
       const since = t - moved.t;
       step = since >= gates.pause || (since >= gates.rest && (lastStep <= gates.stepSpeed || onEdge)) ? 0 : lastStep;
+      // The hand sees the pointer standing still: a gap it ends is a rest, whatever the pointer moves across it.
+      hand.hold(t);
       // Resting: the hand has been still since its last sample.
       slowFrom ??= moved.t;
     } else {
@@ -611,8 +625,9 @@ export function createLandingModel(options: LandingOptions): LandingModel {
     // enters doesn't count, nor a fast one), so a crossing at `stepSpeed` or faster never enters by path at any angle.
     // From a held lane, a touching lane counts the path along it and across it while the hand reads steady and no
     // faster than `slideSpeed` (`hand`): a brisk slide along it (across it at most a third as far as along) is no
-    // crossing. (The slow path counts a step at most `stepSpeed`, as the hand's speed reads it: a jittered fling never.)
-    const slow = Number.isFinite(hand.speed) ? hand.speed <= gates.stepSpeed : step <= gates.stepSpeed;
+    // crossing. (The slow path counts a step at most `stepSpeed`, as the hand's speed reads it: a jittered fling never;
+    // nor a step across a gap, which may end a rest, though the hand's speed reads across frames the host lost.)
+    const slow = Number.isFinite(step) && (Number.isFinite(hand.speed) ? hand.speed <= gates.stepSpeed : step <= gates.stepSpeed);
     for (const l of regions.lanes) {
       const was = from && strictlyIn(l.rect, from);
       const go = was ? Math.abs(alongOf(l, p) - alongOf(l, from)) : 0;
@@ -622,9 +637,16 @@ export function createLandingModel(options: LandingOptions): LandingModel {
       const s = slide.get(l.id);
       // Only a steady hand no faster than `slideSpeed` adds to the count: a fling (or a hand gathering speed out of a rest
       // or a hesitation, or one the speed can't read yet) adds nothing and resets nothing. So a fling never counts, even
-      // where its timestamps jitter, while a steady slide whose timestamps jitter keeps its count.
+      // where its timestamps jitter, while a steady slide whose timestamps jitter keeps its count. It counts from where
+      // the pointer crossed into the lane: the step that enters adds its part inside it, so a step the host lost frames
+      // of across the lane's edge counts what those frames would have.
       const counts = hand.steady && hand.speed <= gates.slideSpeed;
-      slide.set(l.id, !inL ? { along: 0, across: 0 } : counts ? { along: (s?.along ?? 0) + go, across: (s?.across ?? 0) + over } : (s ?? { along: 0, across: 0 }));
+      const u = !was && inL && from && fromRaw ? entryOf(l.rect, from, p) : 0;
+      const by =
+        was ? { along: go, across: over }
+        : u > 0 && from && fromRaw ? { along: Math.abs(alongOf(l, p) - alongOf(l, lerp(from, p, u))), across: Math.abs(acrossOf(l, raw) - acrossOf(l, lerp(fromRaw, raw, u))) }
+        : { along: 0, across: 0 };
+      slide.set(l.id, !inL ? { along: 0, across: 0 } : counts ? { along: (s?.along ?? 0) + by.along, across: (s?.across ?? 0) + by.across } : (s ?? { along: 0, across: 0 }));
       if (l.owns && !inL) cameIn.add(l.id);
     }
 
