@@ -25,8 +25,8 @@ Unreleased entries live in `changes/` until a release joins them.
   natural length, then each free stretch goes to the movable growers in the zones beside it (a start-zone grower the
   stretch after its zone, an end-zone one the stretch before, a center one fills the stretches on both sides), so a
   centered item that doesn't grow stays put. Its asked length on a bar (`DockItem.lengths.row`) is replaced by the free
-  span (it only weighs the shares where two growers border one stretch). A growing title on such a bar keeps its natural
-  length. No new field: `main.grows` says it.
+  span (it only weighs the shares where two growers border one stretch). A fixed grower on such a bar (a title, say)
+  keeps its natural length. No new field: `main.grows` says it.
 - Added: **for drop room a movable grower counts at its natural length**, as a growing title does: every drop-room
   reading of a bar (its zone extents, slot lines, cards, the dragged item's own place, an empty zone's probe, and
   `zoneExtents`) is taken in one layout, the window solved with every movable grower's growth off (once per drag), so
