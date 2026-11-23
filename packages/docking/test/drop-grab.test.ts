@@ -6,8 +6,8 @@
  *   rail, a side, a float, home, none), gives a finite `grab` from its `after()`, with no grab, a plain point or a function.
  * - **one reading:** a fixed spot's drop gives the grab `dockDrag(...).after(held)` gives for that spot, a sliding spot's
  *   and the float's too; and so does the target of `targets()` that is the spot's drop.
- * - **no glide:** on a bar, a held copy drawn at the pointer less the drop's grab, the pointer within the spot's stretch,
- *   lies within half a pitch of where the release lands it (along the bar).
+ * - **no glide:** an item that keeps its form and size moving from one bar's slot to another's, held at the press and
+ *   brought over the slot, is drawn at the pointer less the drop's grab: the release glides under half a pitch.
  * - **keys:** `stops()` and `lanes()` keep one result per `onGrabNote` callback (by identity), as they do per grab.
  */
 import { describe, expect, it } from "vitest";
