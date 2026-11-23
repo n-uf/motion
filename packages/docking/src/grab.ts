@@ -98,8 +98,21 @@ export function liftOf(state: DockState, seen: DockLayout, dragged: string, own:
   return { ...(home ? { home } : {}), ...(own ? { own } : {}), ...(grown ? { grown } : {}) };
 }
 
-/** `grab` (a host's, or none) as the one function, over `lift`. */
-export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
+/**
+ * A note on a host's grab function, given to `onGrabNote` (`DockLaneOptions`, `DockDropOptions`) once per function. The
+ * library reaches no console: a host passes the callback where it wants to hear (in development, say) and says it.
+ * `lift-drift`: asked again at the item's own form and size, the function gave `at`, more than 0.5 px from the press
+ * it gave at the lift (`press`): it isn't pure for the drag (it reads the pointer, the time or the page), and a held
+ * item seeded with its press jumps. Seed it from `dockDrag(...).after(null).grab` and keep the function pure.
+ */
+export interface DockGrabNote {
+  readonly code: "lift-drift";
+  readonly press: Point;
+  readonly at: Point;
+}
+
+/** `grab` (a host's, or none) as the one function, over `lift`; `onNote` hears of a function's drift from its press. */
+export function grabOf(lift: Lift, grab: DockGrab | undefined, onNote?: (note: DockGrabNote) => void): Grab {
   const host = typeof grab === "function" ? grab : undefined;
   const ask = (laid: DockItemLayout | undefined, size: Size): Point | undefined => {
     if (!host || !laid) return undefined;
@@ -119,7 +132,10 @@ export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
     // press it gave at the lift (a function that reads the pointer or the time doesn't, and its held item jumps).
     const asked = (laid: DockItemLayout | undefined, size: Size): Point | undefined => {
       const p = ask(laid, size);
-      if (p && press && atHome(laid, size) && Math.max(Math.abs(p.x - press.x), Math.abs(p.y - press.y)) > LIFT_SLACK) warnLift(host, press, p);
+      if (onNote && p && press && !noted.has(host) && atHome(laid, size) && Math.max(Math.abs(p.x - press.x), Math.abs(p.y - press.y)) > LIFT_SLACK) {
+        noted.add(host);
+        onNote({ code: "lift-drift", press, at: p });
+      }
       return p;
     };
     return (laid, size, rule) => asked(laid, size) ?? twin(laid, size, rule);
@@ -141,22 +157,8 @@ export function grabOf(lift: Lift, grab: DockGrab | undefined): Grab {
 
 /** How far (px, either way) a grab function's answer at the item's own form may stray from its press at the lift. */
 const LIFT_SLACK = 0.5;
-const warnedLift = new WeakSet<object>();
-
-/**
- * A development warning, once per function: asked again at the item's own form and size, a host's grab function gave
- * another point than the press it gave at the lift, so its held item jumps at the lift (the lift rule; decision 0013).
- * Silent where `process.env.NODE_ENV` is `"production"` and where no console exists. No DOM or Node type is read.
- */
-function warnLift(host: object, press: Point, again: Point): void {
-  if (warnedLift.has(host)) return;
-  const g = globalThis as { process?: { env?: Record<string, string | undefined> }; console?: { warn?: (...args: unknown[]) => void } };
-  if (g.process?.env?.NODE_ENV === "production") return;
-  warnedLift.add(host);
-  g.console?.warn?.(
-    `@n-uf/docking: the grab function gave (${again.x}, ${again.y}) at the item's own form and size, not the press it gave at the lift (${press.x}, ${press.y}). It must be pure for the drag and give the press there; seed the held item from dockDrag(...).after(null).grab.`,
-  );
-}
+/** The grab functions a note was given for: one note per function. */
+const noted = new WeakSet<object>();
 
 /** `grabOf` over one lift, remembering the last grab it resolved (by identity): a drag passes one grab every frame. */
 export function grabResolver(lift: Lift): (grab: DockGrab | undefined) => Grab {

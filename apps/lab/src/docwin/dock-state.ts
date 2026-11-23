@@ -70,6 +70,7 @@ import {
   type DockDrop,
   type DockDrag,
   type DockGrab,
+  type DockGrabNote,
   type DockHeld,
   type DockLaneMark,
 } from "@n-uf/docking";
@@ -733,7 +734,9 @@ export function createDocwin(o: DocwinOptions) {
   /** The settings a drag's `lanes()` / `targets()` calls run with now (what the Code view writes out). */
   const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
   /** A drag's targets; with the press's `grab`, cut by the same aim order as its lanes (`aimCut`). */
-  const targetsOf = (id: ItemId, grab?: DockGrab): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab } : {}) });
+  /** A grab function that strays from its press at the lift (`DockGrabNote`): the lab says so, once per function. */
+  const onGrabNote = (n: DockGrabNote): void => console.warn(`docwin: the grab function gave (${n.at.x}, ${n.at.y}) at the item's own form, not its press (${n.press.x}, ${n.press.y})`);
+  const targetsOf = (id: ItemId, grab?: DockGrab): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab, onGrabNote } : {}) });
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
   /**
@@ -743,7 +746,7 @@ export function createDocwin(o: DocwinOptions) {
    * positions (free: a sliding spot per free stretch; pitched: spots at the pitch).
    */
   function dragOf(id: ItemId, grab: DockGrab): DockDrag {
-    return dockDrag(ruled(), id, { ...reachOf(), grab, emptyLanes, pitch, stretchPositions, snapDistance });
+    return dockDrag(ruled(), id, { ...reachOf(), grab, onGrabNote, emptyLanes, pitch, stretchPositions, snapDistance });
   }
   /** The drag's targets from its lanes (one generation): every spot's drop, once by id, and the float. */
   function targetsFrom(regions: DockRegions): DockDrop[] {

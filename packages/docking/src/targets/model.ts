@@ -5,7 +5,7 @@
 import { EPS, type Point, type Rect, type Size } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import type { ColumnPlace, RailPlace } from "../changes";
-import type { DockGrab, Grab, Lift } from "../grab";
+import type { DockGrab, DockGrabNote, Grab, Lift } from "../grab";
 import type { DockEdge, Orient, DockState, DockLayout, DockItemLayout, Side, SolveOptions, Zone } from "../model";
 import type { LayKey } from "../solve";
 import type { EdgeKind } from "./kinds";
@@ -99,6 +99,11 @@ export interface DockDropOptions {
    * points the pointer holds in each, as `lanes()` cuts its spots (`aimCut`); default the item's middle.
    */
   readonly grab?: DockGrab;
+  /**
+   * Hears a note on a grab function (`DockGrabNote`), once per function: in development a host says it (the library
+   * reaches no console). Read once per lift; it changes no output.
+   */
+  readonly onGrabNote?: (note: DockGrabNote) => void;
   /**
    * The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`), as `DockLaneOptions.pitch`: half of it is how far
    * past the overlap of two overlapping landings their cut may lie (`aimCut`), for the tiles and the lanes alike.

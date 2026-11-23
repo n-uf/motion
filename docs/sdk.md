@@ -1140,7 +1140,7 @@ interface DockDrop extends Target {
   strip?: Rect;
   after(point: Point, grab?: DockGrab): DropResult;
 }
-interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[]; grab?: DockGrab; pitch?: number }
+interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[]; grab?: DockGrab; onGrabNote?: (note: DockGrabNote) => void; pitch?: number }
 interface DockEdge {
   id: string;
   side: Side;
@@ -1186,6 +1186,7 @@ interface DockEdgeLayout {
 interface DockFloat { id: string; rect: Rect; anchor?: FloatAnchorAt; orient?: Orient; since?: number; stays?: true }
 type DockGrab = Point | ((form: DockGrabForm, size: Size) => Point | undefined)
 interface DockGrabForm extends DockItemLayout { place: DockGrabPlace }
+interface DockGrabNote { code: "lift-drift"; press: Point; at: Point }
 type DockGrabPlace = { kind: "float"; } | { kind: "spot"; edge: string; } | { kind: "rail"; side: "left" | "right"; orient: Orient; }
 interface DockGuideFrame { held: DockHeld | null; room: boolean; guides: DockGuideRef[] }
 interface DockGuideRef { lane: string; held: DockHeld | null }
