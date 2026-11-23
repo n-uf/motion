@@ -5,7 +5,7 @@
  * and is expected to be red until the rule lands: the page never fakes it.
  */
 import { center, contains, overlap, type Point, type Rect } from "@n-uf/placement";
-import { ZONES, floatOrientOf, floatSizeOf, liftItem, moveTo, orientFloat, parseTargetId, railModeOf, reservedRect, resizeEdge, targetId, targets, type Place, type DockState, type DockDrop } from "@n-uf/docking";
+import { ZONES, floatOrientOf, floatSizeOf, liftItem, moveTo, orientFloat, parseTargetId, railModeOf, reservedRect, resizeEdge, targetId, targets, type Place, type DockState, type DockDrop, type DockLayout } from "@n-uf/docking";
 import { COL_MIN, DEFAULT_SIZE, MOVABLE, ages, defaultState, edgeOf, floating, isGroup, isSideEdge, put, type EdgeId, type ItemId } from "./model";
 import type { DragFeel, KindFeel } from "./feel";
 import { CODE_PRESETS } from "./code-presets";
@@ -313,7 +313,8 @@ function sweepState(edge: EdgeId, order: readonly ItemId[]): DockState {
  */
 export const PRESETS: readonly Preset[] = (() => {
   const as = (behavior: Behavior, ps: readonly Preset[]): Preset[] => ps.map((p) => ({ ...p, behavior }));
-  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", ONE_LAYOUT_PRESETS()), ...as("landing", GROW_PRESETS()), ...as("landing", CODE_PRESETS())];
+  // The aim-order sweep twice: by the tiles (published) and by the landing model over `lanes()` (landing), one rule.
+  return [...as("published", PUBLISHED_PRESETS()), ...as("published", LADDER_PRESETS()), ...as("landing", [AIM_ORDER_SWEEP("aim-order-sweep-landing", "the landing model over `lanes()`", SWEEP_EDGES.filter(([, e]) => e !== "left"), "on the rail, the top bar, the bottom bar and the title bar (the window's own rules keep no toolbar tray at a column's foot)")]), ...as("landing", SPLIT_PRESETS()), ...as("landing", ONE_PREVIEW_PRESETS()), ...as("landing", LANDING_PRESETS()), ...as("landing", ONE_LAYOUT_PRESETS()), ...as("landing", GROW_PRESETS()), ...as("landing", CODE_PRESETS())];
 })();
 
 function PUBLISHED_PRESETS(): Preset[] {
@@ -830,26 +831,42 @@ function PUBLISHED_PRESETS(): Preset[] {
       return { pass: bad.length === 0, now: `${seen.join("; ")}.${bad.length ? ` Broken: ${bad.join("; ")}.` : ""}` };
     },
   },
-  {
-    id: "aim-order-sweep",
-    title: "Aim at a toolbar's half: before or after it, on every edge, in every order",
-    expected:
-      "On the rail, the top bar, the bottom bar, the title bar and the left column's tray, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip in the leading half of another (entering from outside the window, and gliding straight from its place), lands right before it, and in its trailing half right after it (the item taken out first). Where that order is the one seen, it is home (\"Back to its place\") and nothing moves. A drop's slot is where it lands, at its landed size.",
+  AIM_ORDER_SWEEP("aim-order-sweep", "the tiles (`targets()`)"),
+  ...MORE_PUBLISHED_PRESETS(),
+  ];
+}
+
+/**
+ * The aim-order sweep, by either path: three toolbars in every order on one edge of each kind, each dropped over another's
+ * leading and trailing half. The rule both paths cut by (`aimCut`): a toolbar takes the nearest landing, so each drop
+ * lands at the place of the edge's order whose landing is nearest the pointer, either of two as near or overlapping
+ * (the grab decides there). Its `now` counts the drops whose nearest landing is not the half aimed at (the leading half
+ * "before", the trailing half "after").
+ */
+function AIM_ORDER_SWEEP(id: string, path: string, edges: readonly (readonly [string, EdgeId])[] = SWEEP_EDGES, where = "on the rail, the top bar, the bottom bar, the title bar and the left column's tray"): Preset {
+  return {
+    id,
+    title: `Aim at a toolbar: the nearest landing on a bar or a rail, halves in a column's tray, in every order, by ${path}`,
+    expected: `By ${path}: ${where}, with Tools, Views and Zoom in each of their 6 orders: each, dragged by mouse with its grip over the leading or the trailing half of another (entering from outside the window, and gliding straight from its place), lands, on a bar or a rail, at the place (the item taken out first) whose landing is nearest the pointer (toolbars take the nearest landing; where two are as near or overlap, either), and in a column's tray right before that toolbar over its leading half and right after it over its trailing half (a column takes its items by halves). Where that order is the one seen, it is home ("Back to its place") and nothing moves. A drop's slot is where it lands, at its landed size.`,
     setup: (c) => c.setState(sweepState("rail-left", SWEEP_GROUPS)),
     check(c) {
       const bad: string[] = [];
       const counts: string[] = [];
-      for (const [kind, edge] of SWEEP_EDGES) {
+      let flipped = 0;
+      for (const [kind, edge] of edges) {
+        // A panel column (its tray at its foot) is cut by halves, a bar or a rail by landings (`aimCut`).
+        const halves = (edge === "left" || edge === "right") && !edgeOf(sweepState(edge, SWEEP_GROUPS), edge).compact;
         let n = 0;
         const ok = { outside: 0, direct: 0 };
         const vertical = isSideEdge(edge);
         const along = (r: Rect): number => (vertical ? r.y : r.x);
         // The groups shown on the edge, in their order along it.
-        const shown = (): ItemId[] =>
+        const shownIn = (l: DockLayout): ItemId[] =>
           SWEEP_GROUPS.filter((g) => {
-            const p = c.layout.items[g];
+            const p = l.items[g];
             return p?.edge === edge && !p.inMenu && p.rect.width >= 1 && p.rect.height >= 1;
-          }).sort((a, b) => along(c.layout.items[a]!.rect) - along(c.layout.items[b]!.rect));
+          }).sort((a, b) => along(l.items[a]!.rect) - along(l.items[b]!.rect));
+        const shown = (): ItemId[] => shownIn(c.layout);
         for (const order of permutations(SWEEP_GROUPS)) {
           const base = sweepState(edge, order);
           c.setState(base);
@@ -866,8 +883,26 @@ function PUBLISHED_PRESETS(): Preset[] {
                 const r = rectOf(c, nb)!;
                 const f = half ? 0.75 : 0.25;
                 const to = vertical ? { x: r.x + r.width / 2, y: r.y + r.height * f } : { x: r.x + r.width * f, y: r.y + r.height / 2 };
-                const aimed = [...others.slice(0, k + half), id, ...others.slice(k + half)];
-                const home = aimed.join() === order.join();
+                const orderIn = (j: number): ItemId[] => [...others.slice(0, j), id, ...others.slice(j)];
+                // Every place in the edge's order (its own rect where it is the order seen, else the landings of the
+                // gaps that make it), and how far its nearest landing lies from the pointer along the edge (0 over it).
+                const p = along({ x: to.x, y: to.y, width: 0, height: 0 });
+                const end = (x: Rect): number => along(x) + (vertical ? x.height : x.width);
+                const landings = (aimedOrder: readonly ItemId[]): Rect[] => [
+                  ...(aimedOrder.join() === order.join() ? [own] : []),
+                  ...gaps(c, id).flatMap((t) => {
+                    const l = t.after(to).layout;
+                    return shownIn(l).join() === aimedOrder.join() && l.items[id] ? [l.items[id]!.rect] : [];
+                  }),
+                ];
+                const dist = (rs: readonly Rect[]): number => Math.min(...rs.map((x) => Math.max(0, along(x) - p, p - end(x))));
+                const places = others.map((_, j) => j).concat(others.length).map((j) => ({ j, rs: landings(orderIn(j)) }));
+                const best = Math.min(...places.map((q) => dist(q.rs)));
+                const nearest = places.filter((q) => dist(q.rs) <= best + 2);
+                // The nearest, and a place whose landing overlaps a nearest one (the two cut at the grab).
+                const near = halves ? [k + half] : places.filter((q) => nearest.includes(q) || q.rs.some((a) => nearest.some((b) => b.rs.some((x) => along(a) < end(x) - 0.5 && along(x) < end(a) - 0.5)))).map((q) => q.j);
+                if (!near.includes(k + half)) flipped++;
+                const aims = near.map(orderIn);
                 n++;
                 // Two ways in. By way of a point just outside the window, level with the point, then straight in across
                 // the edge's outer side: the tiles alone. And a direct glide from home: the intent's band about a held
@@ -881,11 +916,12 @@ function PUBLISHED_PRESETS(): Preset[] {
                   m.up();
                   const d = c.lastDrop;
                   const got = shown();
-                  const pass = home
-                    ? m.lifted && !!d && !d.committed && d.place === "home" && sameRect(d.preview, own) && got.join() === order.join()
-                    : m.lifted && !!d && d.committed && got.includes(id) && aimed.filter((x) => got.includes(x)).join() === got.join() && sameRect(d.preview, d.landed);
-                  if (pass) ok[way]++;
-                  else bad.push(`${kind} ${order.join(" ")} (${way}): ${id} ${half ? "after" : "before"} ${nb} → ${d?.target ?? "nothing"}, now ${got.join(" ")}, slot ${d?.preview ? say(d.preview) : "none"} vs landed ${d?.landed ? say(d.landed) : "none"}`);
+                  const lands = (aimed: readonly ItemId[]): boolean =>
+                    aimed.join() === order.join()
+                      ? m.lifted && !!d && !d.committed && d.place === "home" && sameRect(d.preview, own) && got.join() === order.join()
+                      : m.lifted && !!d && d.committed && got.includes(id) && aimed.filter((x) => got.includes(x)).join() === got.join() && sameRect(d.preview, d.landed);
+                  if (aims.some(lands)) ok[way]++;
+                  else bad.push(`${kind} ${order.join(" ")} (${way}): ${id} over ${nb}'s ${half ? "trailing" : "leading"} half (nearest ${aims.map((a) => a.join(" ")).join(" or ")}) → ${d?.target ?? "nothing"}, now ${got.join(" ")}, slot ${d?.preview ? say(d.preview) : "none"} vs landed ${d?.landed ? say(d.landed) : "none"}`);
                 }
               }
             });
@@ -894,9 +930,14 @@ function PUBLISHED_PRESETS(): Preset[] {
         counts.push(`${kind} ${ok.outside}/${n} from outside, ${ok.direct}/${n} direct`);
       }
       c.setState(sweepState("rail-left", SWEEP_GROUPS));
-      return { pass: bad.length === 0, now: `${counts.join(", ")}.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
+      return { pass: bad.length === 0, now: `${counts.join(", ")}; ${flipped} drops' nearest landing is not the half aimed at.${bad.length ? ` Broken: ${bad.slice(0, 12).join("; ")}${bad.length > 12 ? `; and ${bad.length - 12} more` : ""}.` : ""}` };
     },
-  },
+  };
+}
+
+/** The published cases after the aim-order sweep. */
+function MORE_PUBLISHED_PRESETS(): Preset[] {
+  return [
   {
     id: "toolbar-into-title-bar",
     title: "A toolbar into the title bar: over the title, the middle, by the controls",
@@ -1161,7 +1202,9 @@ function PUBLISHED_PRESETS(): Preset[] {
     check(c) {
       c.setState(stateWith((s) => put(s, "rail-left", ["zoom"])));
       const z = rectOf(c, "zoom")!;
-      const r = mouseDrag(c, "tools", { x: z.x + z.width / 2, y: z.y + z.height + 30 });
+      // 40 px below Zoom, where Tools' landing under Zoom is the nearer: 30 px below lies on the cut between its landing
+      // before Zoom and the one after (Tools is held across the rail at its middle, as far from either).
+      const r = mouseDrag(c, "tools", { x: z.x + z.width / 2, y: z.y + z.height + 40 });
       const d = c.lastDrop;
       const t = c.layout.items.tools;
       const order = c.layout.items.zoom && t ? c.layout.items.zoom.rect.y < t.rect.y : false;
