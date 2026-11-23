@@ -4,10 +4,10 @@
  */
 import { createLandingModel, type DragPreview, type LandingFrame, type LandingModel, type LandingOptions, type PlaceGuides } from "@n-uf/motion/drag";
 import type { Point } from "@n-uf/placement";
-import type { DockAfter, DockDrag, DockGuide } from "../src";
+import type { DockAfter, DockDrag, DockLaneMark } from "../src";
 
 /** A frame as a host draws it: the model's answer with its guides drawn. */
-export type DrawnFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockGuide[]; readonly named: LandingFrame["guides"] };
+export type DrawnFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockLaneMark[]; readonly named: LandingFrame["guides"] };
 
 export interface HostModel {
   readonly model: LandingModel;

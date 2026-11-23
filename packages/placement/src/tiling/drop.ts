@@ -3,8 +3,9 @@
  * docs/placement.md, Entry: tiling.
  */
 import type { Rect } from "../geometry";
+import type { Side } from "../side";
 import { layoutSplit, type SplitOptions } from "./layout";
-import type { PaneRegion, PaneSide } from "./regions";
+import type { PaneRegion } from "./regions";
 import { dropOnPane, panesOf, removePane, type Split } from "./split";
 
 /** The layout options a drop is judged under, and `min`: the least width and height, px, a pane must keep. */
@@ -55,7 +56,7 @@ export interface SplitRoomOptions {
  * gutter (`gap` plus `handle`), across it `min`. The rect is the pane's as the host measures it, where it will be
  * when the dragged pane is lifted out. `canDropOnPane`'s first rule, for a side.
  */
-export function canSplitPane(target: Rect, side: PaneSide, options: SplitRoomOptions): DropVerdict {
+export function canSplitPane(target: Rect, side: Side, options: SplitRoomOptions): DropVerdict {
   const min = px(options.min);
   const gutter = px(options.gap) + px(options.handle);
   const horizontal = side === "left" || side === "right";
@@ -70,7 +71,7 @@ export function canSplitPane(target: Rect, side: PaneSide, options: SplitRoomOpt
 /** What `dropFits` reads: the `min` (as in `DropOptions`) and the `side` of `at` the drop is on, for the reason. */
 export interface DropFitsOptions {
   readonly min: number;
-  readonly side: PaneSide;
+  readonly side: Side;
 }
 
 /**

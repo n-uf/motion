@@ -6,14 +6,14 @@
  * Plain data in and out, nothing module-global: two windows on one page are two states. No words, no time, no DOM.
  * What the shapes tell on their own (an edge's axis, an item's zone and forms, how it floats) is in `./helpers`.
  */
-import type { Rect, Size } from "@n-uf/placement";
+import type { Rect, Side, Size } from "@n-uf/placement";
 import type { CrossLimits, StackFit, StackForm, StackFormKind, StackNote } from "@n-uf/placement/stack";
 
 /** The host's kinds of item, such as "panel" and "group". An edge takes only the kinds it lists. */
 export type Kind = string;
 
-/** A side of the stage. Left and right edges are columns (they run down); top and bottom edges are bars (they run across). */
-export type Side = "top" | "right" | "bottom" | "left";
+/** `Side` and `Axis` are placement's, re-exported here: left and right edges are columns (they run down); top and bottom edges are bars (they run across). */
+export type { Axis, Side } from "@n-uf/placement";
 export const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 
 /** Where an item sits along its edge: packed from the start, centered in the spare length, or packed from the end. */

@@ -8,12 +8,12 @@
  * a boundary doesn't flicker. A region that takes no drop is the consumer's to answer with a null place.
  */
 import { clamp, type Point, type Rect, type Size } from "../geometry";
+import type { Side } from "../side";
 
-export type PaneSide = "top" | "right" | "bottom" | "left";
-export type PaneRegion = "center" | PaneSide;
+export type PaneRegion = "center" | Side;
 
 /** The sides in their tie-break order: at an exact diagonal the first wins (a corner resolves to `top`). */
-export const PANE_SIDES: readonly PaneSide[] = ["top", "right", "bottom", "left"];
+export const PANE_SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 
 export interface PaneRegionOptions {
   /** The center rectangle's share of each pane axis (0.05 to 0.95); `centerX` / `centerY` override one axis. */
@@ -62,7 +62,7 @@ export function paneCenter(size: Size, options: PaneRegionOptions = {}): PaneCen
 }
 
 /** How deep past the center a point is toward each side, as a share of that side's band (positive: in that band). */
-function depths(p: Point, c: PaneCenter): { side: PaneSide; depth: number }[] {
+function depths(p: Point, c: PaneCenter): { side: Side; depth: number }[] {
   return [
     { side: "top", depth: (c.top - p.y) / Math.max(c.top, 1) },
     { side: "right", depth: (p.x - c.right) / Math.max(c.width - c.right, 1) },

@@ -19,7 +19,7 @@
  */
 import type { DockState, Side, Zone } from "../model";
 
-type ColumnSide = "left" | "right";
+type ColumnSide = Extract<Side, "left" | "right">;
 
 /** A `DropPlace`, as much of it as an id reads (this module imports no more of the state, so `solve` may use it). */
 type PlaceLike =

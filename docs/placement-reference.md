@@ -591,6 +591,12 @@ The shapes (`Rect`, `Size`, `Point`: a rect is a top-left corner and a size, in 
 the same shape as `@n-uf/motion`'s) and the geometry every entry shares: `rect`, `overlap`, `clampInto`, `center`,
 `EPS`, `PLANE`, `area`, `overlaps`, `contains`, `clamp` and `subtract` (a rect less another, as disjoint rects).
 
+Two words for direction, declared once here: `Side` (`"top" | "right" | "bottom" | "left"`: a side of a stage or a
+pane) and `Axis` (`"x" | "y"`: `"x"` runs left to right, `"y"` top to bottom). `EdgeBand.side`, `MasterOptions.side`,
+`PaneRegion`, `PANE_SIDES`, a split's `axis` and the `axis` the `SplitOptions` callbacks take are these types, and
+`@n-uf/docking` re-exports both from its root; a narrower set is written in terms of `Side`
+(`Extract<Side, "left" | "right">`). There is no `BandSide` or `PaneSide`: they were `Side` under other names.
+
 The `Target` type (a drop target's shape, as `@n-uf/motion/drag` takes it) is exported here too, with its optional
 `hits` (every piece of a zone that isn't one rect; `hit` is the largest). The pick's rank, `pickRank` with
 `REFUSAL_RANK` (a refusal ranks after every priority 1 and 2 target and before priority 3; lower wins), is

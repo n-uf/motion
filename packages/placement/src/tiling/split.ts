@@ -3,8 +3,9 @@
  * with an `axis` divides along it (`"x"`: `a` left of `b`; `"y"`: `a` above `b`) at `ratio`; one without divides
  * along the rect's longer side in halves, which is dwindle (split along the longer side). Pure: trees in, trees out.
  */
+import type { Axis, Side } from "../side";
 import type { MasterOptions } from "./order";
-import type { PaneRegion, PaneSide } from "./regions";
+import type { PaneRegion } from "./regions";
 
 /**
  * A pane, or a split of its rect in two, `a` then `b`. A split takes its `axis` and its `ratio` (the first side's
@@ -17,7 +18,7 @@ export type Split<K> =
   | {
       readonly a: Split<K>;
       readonly b: Split<K>;
-      readonly axis?: "x" | "y";
+      readonly axis?: Axis;
       readonly ratio?: number;
       readonly gap?: number;
       readonly id?: string;
@@ -40,7 +41,7 @@ function mapPanes<K>(tree: Split<K>, fn: (pane: K) => Split<K>): Split<K> {
  * means the same whatever the pane's shape; no side splits along the longer side, `pane` second (dwindle). An empty
  * tree becomes `pane` alone; an `at` that isn't in the tree (or null) splits the whole tree, so no pane is lost.
  */
-export function splitPane<K>(tree: Split<K> | null, at: K | null, pane: K, side?: PaneSide): Split<K> {
+export function splitPane<K>(tree: Split<K> | null, at: K | null, pane: K, side?: Side): Split<K> {
   const fresh: Split<K> = { pane };
   const split = (node: Split<K>): Split<K> => {
     if (!side) return { a: node, b: fresh };
