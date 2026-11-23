@@ -24,14 +24,22 @@ import type { DockItemLayout, DockLayout, DockState, Orient } from "./model";
 
 /**
  * The place an item lies in, as a grab function reads it: a float; a spot on an edge (a bar, a panel column, a toolbar
- * rail); or a side's rail (a folded column's tile or a rail stop), with the rail's side and the axis its items lie along.
+ * rail; an item in its edge's » menu lies there too, its rect the menu entry's and `inMenu` set); or a side's rail (a
+ * folded column's tile or a rail stop), with the rail's side and the axis its items lie along.
  */
 export type DockGrabPlace =
   | { readonly kind: "float" }
   | { readonly kind: "spot"; readonly edge: string }
   | { readonly kind: "rail"; readonly side: "left" | "right"; readonly orient: Orient };
 
-/** What a grab function reads of a landing: the laid item's layout entry (its axis, form, form kind and rect) and the place it lies in. */
+/**
+ * What a grab function reads of a landing: the laid item's layout entry (`DockItemLayout`, as `solve` gives it in the
+ * landing's layout) and the place it lies in. A host may rely on `axis`, `form`, `formKind`, `rect`'s size, `place`,
+ * and where they are set `grip`, `rows`, `hidden`, `tiers`, `railTitle` and `inMenu`: what the item looks like there.
+ * Not on `rect`'s position (where the probe laid it, before the grab moves it), nor on `zone`, `foldedBy`, `folded`,
+ * `rides` and the other fields about the window around it: the same form and size must give the same point wherever
+ * the item lies.
+ */
 export interface DockGrabForm extends DockItemLayout {
   readonly place: DockGrabPlace;
 }
@@ -60,12 +68,15 @@ export interface Lift {
   readonly grown?: Rect;
 }
 
-/** The place `it` lies in. */
+/**
+ * The place `it` lies in: a rail where it is drawn on one, a spot on its edge where it is docked (in the edge's » menu
+ * too: `solve` lays a menu entry out with its edge), a float otherwise.
+ */
 function grabPlaceOf(it: DockItemLayout): DockGrabPlace {
   const side = it.rail ?? it.railTitle;
   if (side) return { kind: "rail", side, orient: it.axis };
-  if (it.floating || it.edge === undefined) return { kind: "float" };
-  return { kind: "spot", edge: it.edge };
+  if (!it.floating && it.edge !== undefined) return { kind: "spot", edge: it.edge };
+  return { kind: "float" };
 }
 
 const samePlace = (a: DockGrabPlace, b: DockGrabPlace): boolean =>
