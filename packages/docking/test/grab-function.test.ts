@@ -3,8 +3,9 @@
  * one-layout windows.
  *
  * - **undefined is the twin:** a function that gives `undefined` everywhere lands exactly as no grab, and one that gives
- *   the press point at the item's own form and size and `undefined` elsewhere lands exactly as that plain point: the
- *   library's twin answers for every form the host leaves open, on every held place (layout, landing, marks, grab).
+ *   the press point at the item's own form and size and `undefined` elsewhere lands as that plain point (pressed at the
+ *   middle and off it): the library's twin answers for every form the host leaves open, on every held place (layout,
+ *   landing, marks, lanes and the grab, the host's own answer standing at the item's own form).
  * - **the lift:** at rest (`after(null)`) the grab is the press point: a plain point's own, a function's at the item's
  *   own form and size.
  * - **every landing has a grab:** `DockAfter.grab` is a finite point on every held place, rest and float included.
@@ -37,6 +38,13 @@ function drags(): Drag[] {
   });
 }
 
+/** The same drag pressed 5 px in from the item's top-left corner: off its middle on both axes. */
+const offMiddle = (d: Drag): Drag => ({ ...d, press: { x: Math.min(5, d.own.rect.width / 2), y: Math.min(5, d.own.rect.height / 2) } });
+
+/** The place a layout entry lies in, as a grab function reads it. */
+const placeOf = (it: DockItemLayout): DockGrabForm["place"] =>
+  it.rail || it.railTitle ? { kind: "rail", side: (it.rail ?? it.railTitle)!, orient: it.axis } : !it.floating && it.edge !== undefined ? { kind: "spot", edge: it.edge } : { kind: "float" };
+
 const dragWith = (d: Drag, grab: unknown): DockDrag => dockDrag(d.w.state, d.w.dragged, { ...d.w.options, previous: d.w.previous, grab } as Parameters<typeof dockDrag>[2]);
 
 /** Each spot's held places (a fixed spot once, a sliding spot at its two ends and its middle) and a few float points. */
@@ -62,7 +70,7 @@ const atHome = (f: DockGrabForm, s: Size, own: DockItemLayout): boolean =>
   f.axis === own.axis &&
   f.form === own.form &&
   f.formKind === own.formKind &&
-  JSON.stringify(f.place) === JSON.stringify(own.rail || own.railTitle ? { kind: "rail", side: own.rail ?? own.railTitle, orient: own.axis } : own.edge !== undefined ? { kind: "spot", edge: own.edge } : { kind: "float" }) &&
+  JSON.stringify(f.place) === JSON.stringify(placeOf(own)) &&
   Math.abs(s.width - own.rect.width) < 1e-6 &&
   Math.abs(s.height - own.rect.height) < 1e-6;
 
@@ -75,21 +83,45 @@ const gripGrab = (d: Drag) => (f: DockGrabForm, s: Size): Point => (atHome(f, s,
 describe("the grab as a function of the laid form", () => {
   const all = drags();
 
-  it("a function giving undefined lands exactly as the plain point it leaves to the twin", () => {
+  it("a function giving undefined everywhere lands exactly as no grab", () => {
     let n = 0;
     for (const d of all) {
       const none = dragWith(d, undefined);
       const blank = dragWith(d, () => undefined);
-      const plain = dragWith(d, d.press);
-      const homeOnly = dragWith(d, (f: DockGrabForm, s: Size) => (atHome(f, s, d.own) ? d.press : undefined));
-      for (const held of [null, ...heldPlaces(plain)]) {
+      for (const held of [null, ...heldPlaces(none)]) {
         expect(drawn(blank.after(held)), `${d.w.name} ${JSON.stringify(held)}`).toBe(drawn(none.after(held)));
-        expect(drawn(homeOnly.after(held)), `${d.w.name} ${JSON.stringify(held)}`).toBe(drawn(plain.after(held)));
         n++;
       }
-      expect(JSON.stringify(homeOnly.regions.lanes)).toBe(JSON.stringify(plain.regions.lanes));
     }
     expect(n).toBeGreaterThan(1400);
+  });
+
+  it("a function giving the press at the item's own form and undefined elsewhere lands as that plain point, pressed at the middle or off it", () => {
+    let n = 0;
+    for (const d0 of all)
+      for (const d of [d0, offMiddle(d0)]) {
+        const plain = dragWith(d, d.press);
+        const homeOnly = dragWith(d, (f: DockGrabForm, s: Size) => (atHome(f, s, d.own) ? d.press : undefined));
+        expect(JSON.stringify(homeOnly.regions.lanes), d.w.name).toBe(JSON.stringify(plain.regions.lanes));
+        for (const held of [null, ...heldPlaces(plain)]) {
+          const [a, b] = [plain.after(held), homeOnly.after(held)];
+          const at = `${d.w.name} ${JSON.stringify(d.press)} ${JSON.stringify(held)}`;
+          // The plain-point path: the same layout, landing and marks on every held place.
+          expect(JSON.stringify({ layout: b.layout.items, landing: b.landing, marks: b.marks }), at).toBe(JSON.stringify({ layout: a.layout.items, landing: a.landing, marks: a.marks }));
+          // The grab too, but where the item lands in a lane in its own form: there the host's answer (the press) stands,
+          // and the twin's (the press's share along the item's length, the middle across it) differs only across.
+          const laid = b.layout.items[d.w.dragged];
+          const ownFormInLane = !!held && held.kind === "spot" && !!laid && !laid.floating && atHome({ ...laid, place: placeOf(laid) }, laid.rect, d.own);
+          if (!ownFormInLane) expect(b.grab, at).toEqual(a.grab);
+          else {
+            const long: "x" | "y" = d.own.rect.width >= d.own.rect.height ? "x" : "y";
+            expect(b.grab, at).toEqual(d.press);
+            expect(Math.abs(a.grab[long] - d.press[long]), at).toBeLessThan(1e-9);
+          }
+          n++;
+        }
+      }
+    expect(n).toBeGreaterThan(2800);
   });
 
   it("the lift gives the press point: a plain point's own, a function's at the item's own form and size", () => {
