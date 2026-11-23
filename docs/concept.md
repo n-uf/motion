@@ -149,3 +149,4 @@ take `release(point, time)`, and `previewPlan` reads a frame of either.
 | [0011](decisions/0011-which-item-counts-as-docked.md) | Which item counts as docked is the item's declaration (`countsAsDocked`). | Built, on `live/motion` |
 | [0012](decisions/0012-one-zone-map-per-tiling-drag.md) | One zone map per tiling drag, and swap-only run neighbors. | Built (the hit half), on `live/motion` |
 | [0013](decisions/0013-grab-as-a-function-of-the-form.md) | The grab is a function of the form the item is laid in; a plain point is the library's twin of it. | Built, on `live/motion` |
+| [0014](decisions/0014-a-frame-gap-is-not-a-rest.md) | A frame gap is not a rest: the hand carries on through frames the host lost. | In progress |
