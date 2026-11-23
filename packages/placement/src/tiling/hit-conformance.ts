@@ -7,7 +7,7 @@
 import type { Point, Rect } from "../geometry";
 import type { Side } from "../side";
 import { tilingDrag, type TilingDrag, type TilingDragOptions, type TilingHeld, type TilingSubject } from "./drag";
-import { TILING_HIT_DEFAULTS, TILING_NEIGHBOR_SWAP_SHARE, type TilingBasis, type TilingHitOptions, type TilingHitRead, type TilingHitTarget, type TilingHold } from "./hit";
+import { TILING_HIT_DEFAULTS, type TilingBasis, type TilingHit, type TilingHitOptions, type TilingHitRead, type TilingHitTarget, type TilingHold } from "./hit";
 import { layoutSplitTree } from "./layout";
 import { PANE_REGION_DEFAULTS } from "./regions";
 import type { Split } from "./split";
@@ -33,6 +33,10 @@ export const TILING_HIT_PROPERTIES = [
   "new-arrangement-sides",
   /** Every zone of every pane is convex: the midpoint of two points in one zone is in it too. */
   "zones-convex",
+  /** Judged once, on the lift tree: every pane has the same sides on the lift map and on the base map. */
+  "same-sides-both-maps",
+  /** Room does not change the map: with every room check passing, every pane has the same sides and every live place off the parts is the same place. */
+  "room-keeps-map",
 ] as const;
 
 export type TilingHitProperty = (typeof TILING_HIT_PROPERTIES)[number];
@@ -92,6 +96,10 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
   const reg = { ...PANE_REGION_DEFAULTS, ...hitOptions.regions };
   const stackOf = (t: T, k: K) => ops.stackOf?.(t, k) ?? null;
   const drawnAs = (t: T, k: K): K => stackOf(t, k)?.active ?? k;
+  const keyOf = hitOptions.key ?? String;
+  /** The sides a hit's map has on the pane `at`, as a word: a side's place exists only where its region does. */
+  const sidesOnMap = (h: TilingHit<T, K>, at: K): string =>
+    (["top", "right", "bottom", "left"] as const).filter((s) => h.place(`beside:${s}:${keyOf(at)}`) !== null).join(",");
   let n = 0;
   for (const tree of trees) {
     for (const subject of tilingSubjects(tree, options)) {
@@ -105,6 +113,32 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
           if (failures.length < limit) failures.push(`${p}: ${name}: ${why()}`);
         };
         runOne(drag, subject, basis, check, seeded(1 + n * 7919 + (basis === "base" ? 1 : 0)));
+        // room-keeps-map: the same drag with no minimum (every room check passes) has the same sides on every pane, and
+        // each live place at a point off the parts is the same place there.
+        const roomy = tilingDrag(tree, subject, { ...options, min: 0 });
+        const [tight, loose] = [drag.hit(basis, hitOptions), roomy.hit(basis, hitOptions)];
+        for (const t of tight.targets) {
+          if (t.part || t.home) continue;
+          check("room-keeps-map", sidesOnMap(tight, t.at) === sidesOnMap(loose, t.at), () => `${String(t.at)} has sides ${sidesOnMap(tight, t.at)}, with all the room ${sidesOnMap(loose, t.at)}`);
+        }
+        const rnd = seeded(7 + n * 131 + (basis === "base" ? 1 : 0));
+        for (let i = 0; i < 120; i++) {
+          const p = { x: area.x + rnd() * area.width, y: area.y + rnd() * area.height };
+          if (tight.targets.some((t) => t.part && inside(t.hit, p))) continue;
+          const z = tight.zone(p);
+          if (z === null || z === "home") continue;
+          check("room-keeps-map", loose.zone(p) === z, () => `at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${z}, with all the room ${loose.zone(p)}`);
+        }
+      }
+      // same-sides-both-maps: judged once on the lift tree, every pane has the same sides on the lift map and the base map.
+      const [onLift, onBase] = [drag.hit("lift", hitOptions), drag.hit("base", hitOptions)];
+      const name = `tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}`;
+      for (const t of onBase.targets) {
+        if (t.part || t.home || !onLift.targets.some((u) => !u.part && !u.home && u.at === t.at)) continue;
+        counts["same-sides-both-maps"].checked++;
+        if (sidesOnMap(onLift, t.at) === sidesOnMap(onBase, t.at)) continue;
+        counts["same-sides-both-maps"].failed++;
+        if (failures.length < limit) failures.push(`same-sides-both-maps: ${name}: ${String(t.at)} has ${sidesOnMap(onLift, t.at)} on the lift, ${sidesOnMap(onBase, t.at)} on the base`);
       }
     }
     n++;
@@ -211,8 +245,9 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const ratio = reg.pixelRatio > 0 ? reg.pixelRatio : 1;
       const alongGone = !sides.includes("top") || !sides.includes("bottom");
       const acrossGone = !sides.includes("left") || !sides.includes("right");
-      const sx = alongGone ? TILING_NEIGHBOR_SWAP_SHARE : (reg.centerX ?? reg.center);
-      const sy = acrossGone ? TILING_NEIGHBOR_SWAP_SHARE : (reg.centerY ?? reg.center);
+      // The ruling's swap share across a run neighbor, pinned here apart from the library's constant.
+      const sx = alongGone ? 0.56 : (reg.centerX ?? reg.center);
+      const sy = acrossGone ? 0.56 : (reg.centerY ?? reg.center);
       const cw = Math.min(r.width, Math.max(r.width * clamp(sx), Math.min(reg.centerMin, r.width)));
       const ch = Math.min(r.height, Math.max(r.height * clamp(sy), Math.min(reg.centerMin, r.height)));
       const g = (v: number): number => Math.round(v * ratio) / ratio;
