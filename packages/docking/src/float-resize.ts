@@ -8,7 +8,7 @@
  * result exactly where it is asked.
  */
 import type { Rect } from "@n-uf/placement";
-import { axisOf, keepClearFor, floatOrientOf, floatRegion, floatShape, formsOf } from "./helpers";
+import { axisOf, keepClearFor, floatOrientOf, floatRegion, floatShape, formsOf, sizedByHand } from "./helpers";
 import type { DockState, DockLayout } from "./model";
 import { solve } from "./solve";
 import { floatFloor, placeFloat } from "./solve/floats";
@@ -151,8 +151,9 @@ function fitAxis(start: number, length: number, b: { min: number; max: number; l
  * `"docked"` says so. Such a float never grows over what it covers: a dragged edge that lies inside an obstacle stays
  * where it is drawn (`"docked"`), so a resize never covers more than the float did. `limits` says which of these bound it.
  *
- * Null for anything but a float drawn at its first form when that form grows (a panel's card): a toolbar group's size
- * comes from its forms, and so does a folded float's bar. Pure: it solves the state once, for what is drawn now.
+ * Null for anything but a float drawn at its first form when that form is sized by hand (`sizedByHand`: a panel's
+ * card): a toolbar group's size comes from its forms (one that grows on a bar too), and so does a folded float's bar.
+ * Pure: it solves the state once, for what is drawn now.
  */
 export function fitResize(state: DockState, id: string, rect: Rect, moving: ResizeEdges): FloatResize | null {
   const f = state.floats.find((x) => x.id === id);
@@ -160,7 +161,7 @@ export function fitResize(state: DockState, id: string, rect: Rect, moving: Resi
   if (!f || !item || item.fixed) return null;
   const fo = f.orient ?? floatOrientOf(item);
   const form = formsOf(item, fo)[0];
-  if (floatShape(item, f).form !== 0 || (form && !form.main.grows)) return null;
+  if (floatShape(item, f).form !== 0 || (form && !sizedByHand(form))) return null;
   const l = solve(state);
   const drawn = l.items[id]?.rect;
   if (!drawn) return null;
