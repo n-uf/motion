@@ -291,6 +291,41 @@ describe("held drag: a new size mid-drag", () => {
     expect(item.drawn).toEqual(rect(257, 165, 30, 110));
   });
 
+  it("with a grab, held there in the new size; the held point moves with the size on one settle", () => {
+    const { s, item, held } = lifted();
+    expect(held.grab).toEqual({ x: 12, y: 15 });
+    // The caller's new form puts the pressed spot 15 px in and 6 down (its grip moved to the top).
+    expect(held.resize({ width: 30, height: 110 }, { x: 15, y: 6 })).toBe(true);
+    expect(held.grab).toEqual({ x: 15, y: 6 });
+    expect(held.held).toEqual(rect(185, 194, 30, 110));
+    const from = rect(188, 185, 120, 30);
+    const to = rect(185, 194, 30, 110);
+    const at = s.frames.length;
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.follow();
+      // A still pointer: the held point (the pointer less the drawn corner) and the size share one progress.
+      const d = item.drawn;
+      const p = (d.width - from.width) / (to.width - from.width);
+      expect((d.x - from.x) / (to.x - from.x)).toBeCloseTo(p, 6);
+      expect((d.y - from.y) / (to.y - from.y)).toBeCloseTo(p, 6);
+      expect((d.height - from.height) / (to.height - from.height)).toBeCloseTo(p, 6);
+    }
+    expect(item.drawn).toEqual(to);
+    expect(checkNoJumps(s.samples(at), OMEGA).failures).toEqual([]);
+  });
+
+  it("the same size with another grab glides to it; the same size and grab do nothing", () => {
+    const { s, item, held } = lifted();
+    expect(held.resize({ width: 120, height: 30 }, { x: 12, y: 15 })).toBe(false);
+    expect(held.resize({ width: 120, height: 30 }, { x: 40, y: 15 })).toBe(true);
+    for (let i = 0; i < 400 && held.returning; i++) {
+      s.clock.frame();
+      held.follow();
+    }
+    expect(item.drawn).toEqual(rect(160, 185, 120, 30));
+  });
+
   it("the same size again does nothing", () => {
     const { s, item, held } = lifted();
     const at = s.frames.length;
