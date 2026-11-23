@@ -15,6 +15,7 @@ import { modelState } from "./model-window";
 import { bar, byId, column, fixedKeepClear, form, group, panel, seeded, windowState } from "./fixture";
 
 type R = { x: number; y: number; width: number; height: number };
+const ORIGIN_PT = { x: 0, y: 0 };
 /** A panel column (cut by halves of its panels), not a bar or a toolbar rail (cut by landings). */
 const byHalves = (e: { side: string; compact?: boolean }): boolean => (e.side === "left" || e.side === "right") && !e.compact;
 /** Two rects overlap along an edge's axis by more than half a pixel. */
@@ -111,6 +112,17 @@ export function propertyCheck(seeds: readonly number[], flush = false, middle = 
           let nearer: number | null = null;
           for (let q = e0 + 0.5; q < e1 && nearer === null; q += 3) if (dAt(lostStop.slot, q) + 0.5 < Math.min(...others.map((r) => dAt(r, q)))) nearer = q;
           if (nearer === null) continue;
+          // (A free stretch over zones is one place in the edge's order: another zone's gap of that order holds it. Which
+          // zone docks it there is the zone extents' question, not the aim order's.)
+          const orderOf = (l: DockLayout): string =>
+            Object.entries(l.items)
+              .filter(([, it]) => it.edge === edge.id && !it.inMenu && !it.floating && it.rect.width >= 1 && it.rect.height >= 1)
+              .sort(([, a], [, b]) => span(a.rect)[0] - span(b.rect)[0])
+              .map(([k]) => k)
+              .join(" ");
+          const mineOrder = orderOf(lostStop.after(ORIGIN_PT).layout);
+          if (all.some((t) => t.place.kind === "gap" && t.place.edge === edge.id && orderOf(t.after(ORIGIN_PT).layout) === mineOrder)) continue;
+          if (mineOrder === orderOf(now) && all.some((t) => t.place.kind === "home")) continue;
           fail("lost-slot", `seed ${seed} drag ${id} ${x}: its landing is the nearest at ${nearer.toFixed(1)}, yet no pointer reaches it`);
           continue;
         }
@@ -838,15 +850,21 @@ describe("the target model's property check", () => {
     for (const y of [views.y + 10, views.y + views.height - 10]) expect(pick(s, "views", y)!.place.kind, `views at ${y}`).toBe("home");
     expect(pick(s, "views", zoom.y + zoom.height / 2 - 1)!.id).toBe("gap:rail:start:2");
     expect(pick(s, "views", tools.y + tools.height / 2 + 1)!.id).toBe("gap:rail:start:0");
-    // Across zones: Tools at the start, Views centred, Zoom at the end. Zoom over Views' upper half goes before it;
-    // Tools over Views' upper half is home (its order would be the same), over the free stretch below Tools it
-    // re-aligns into the centre zone.
+    // Across zones: Tools at the start, Views centred, Zoom at the end. Zoom over Views' upper half goes before it, over
+    // its lower half after it, its order kept (home, or the centre zone's place of that order: which zone docks it there
+    // is the zone extents' question); Tools over Views' upper half keeps its order too, over the free stretch below
+    // Tools it re-aligns into the centre zone.
     const z = rail({ views: "center", zoom: "end" });
     const zl = solve(z);
     const v = zl.items.views!.rect;
+    const order = (dl: DockLayout): string => ["tools", "views", "zoom"].sort((p, q) => dl.items[p]!.rect.y - dl.items[q]!.rect.y).join(" ");
+    const keeps = (id: string, y: number): string => {
+      const t = pick(z, id, y)!;
+      return t.place.kind === "home" ? order(zl) : order(t.after({ x: 15, y }).layout);
+    };
     expect(pick(z, "zoom", v.y + 3)!.id).toBe("gap:rail:center:0");
-    expect(pick(z, "zoom", v.y + v.height - 3)!.place.kind).toBe("home");
-    expect(pick(z, "tools", v.y + 3)!.place.kind).toBe("home");
+    expect(keeps("zoom", v.y + v.height - 3)).toBe(order(zl));
+    expect(keeps("tools", v.y + 3)).toBe(order(zl));
     expect(pick(z, "tools", v.y - 10)!.id).toBe("gap:rail:center:0");
   });
 
