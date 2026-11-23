@@ -379,8 +379,8 @@ export function floatSizesOf(item: DockItem): { row?: Size; column?: Size } | un
 
 /**
  * A float's size along `orient` (default `floatOrientOf`) when nothing else gives one: the item's `floatSizes` for that
- * orient, else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's
- * card has no natural float length) or the item has no form there.
+ * orient, else its first form's natural size along `orient`, or `DEFAULT_FLOAT_SIZE` when that form is sized by hand (a
+ * form that grows and shows a body, a panel's card, has no natural float length) or the item has no form there.
  */
 export function floatSizeOf(item: DockItem, orient: Orient = floatOrientOf(item)): Size {
   const own = item.floatSizes?.[orient];

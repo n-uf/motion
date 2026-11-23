@@ -624,7 +624,7 @@ A float that names no `orient` takes its item's: **`DockItem.floatOrient`** (`"r
 **`floatOrientOf(item)`**, the axis of the first form the item declares, so a toolbar group declared row first floats as
 a row. **`DockDropOptions.floatOrient`** overrides that for the drag's float target. A float's size is kept **per
 orient**, **`DockItem.floatSizes`** (`{ row?, column? }`). **`floatSizeOf(item, orient?)`** gives `floatSizes[orient]`,
-else the item's first form's natural size along `orient`, not 280 × 360; a form that grows and shows a body (a panel's card, `sizedByHand`) keeps `DEFAULT_FLOAT_SIZE` (280 × 360); a form that grows without one (a toolbar that grows on a bar) floats at its natural size. `floatAt` with a rect and a hand `resizeFloat` write
+else the item's first form's natural size along `orient`, not 280 × 360; a form that grows and shows a body (a panel's card) keeps `DEFAULT_FLOAT_SIZE` (280 × 360); a form that grows without one (a toolbar that grows on a bar) floats at its natural size. `floatAt` with a rect and a hand `resizeFloat` write
 the size for the orient the float is in; the drag's float target takes the size for the orient it lands in. Give a
 float `orient: "column"` (or the item `floatOrient: "column"`) to keep a row-first group vertical. **Per-orient sizes
 apply to items that declare `floatSizes`; others keep the stored rect** (`declaresFloatSizes(item)`): an item with no
@@ -690,7 +690,7 @@ preview is still the commit. Such a float never grows over what it covers: a dra
 stays where it is drawn (`"docked"`), so a resize never covers more than the float did, and a float clear of everything
 stops at the obstacle. It gives `{ rect, limits }`, `limits` naming what bound it:
 `"min"`, `"max"`, `"region"`, `"docked"`. It gives null for anything but a float drawn at a first form sized by hand (a
-panel's card, `sizedByHand`): a toolbar group's size (one that grows on a bar too) and a folded float's bar come from their forms. On commit (each move, or the
+form that grows and shows a body, a panel's card): a toolbar group's size (one that grows on a bar too) and a folded float's bar come from their forms. On commit (each move, or the
 release) `resizeFloat(state, id, rect, moving)` stores that same rect as the float's rect and the item's `floatSizes` for the
 float's orient, so the preview is the commit and the size survives `storeDockState`. `fitFloat` is the other half: it moves a float to a clear
 place and never resizes it.

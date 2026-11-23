@@ -133,7 +133,8 @@ export interface DockItem {
    * Its size as a float, per orient: `floatAt` with no rect uses the one for the orient it floats in, and a float drop or
    * a hand resize sets it for the orient the float is in, so a float turned to the other orient (`orientFloat`) takes that
    * orient's size and, turned back, its own again. Without one for an orient, a float takes its first form's natural size
-   * along that orient (`floatSizeOf`), or `DEFAULT_FLOAT_SIZE` when that form grows (a panel's card).
+   * along that orient (`floatSizeOf`), or `DEFAULT_FLOAT_SIZE` when that form is sized by hand (a form that grows and
+   * shows a body, a panel's card).
    */
   readonly floatSizes?: { readonly row?: Size; readonly column?: Size };
   /**
