@@ -3,8 +3,18 @@
  * whose tree is a `Split` use it as it is; a host with its own tree reads it as the worked example of each change.
  * See docs/placement.md, Entry: tiling.
  */
+import type { Rect } from "../geometry";
 import type { TilingStack, TilingSubject, TilingTree } from "./drag";
+import type { TilingPart } from "./hit";
 import { removePane, splitPane, type Split } from "./split";
+
+/** The reference adapter's parts: none by default. */
+export interface SplitTreeOpsOptions<K> {
+  /** A title bar's height along each pane's top, px: its one part (a join). Default 0: no parts. */
+  readonly bar?: number;
+  /** A stack's tab width per member, px (default 80): its bar's slots. */
+  readonly tab?: (member: K) => number;
+}
 
 /**
  * A split tree with stacks: `split` divides the area among the drawn panes, and each stack stands in it as its
@@ -41,10 +51,31 @@ const drawnOf = <K>(s: TilingSubject<K>): K => (s.kind === "pane" ? s.pane : s.s
  *   place; a whole stack trades its drawn place in the split with `at`'s;
  * - `join`: the subject's members go into `at`'s stack at `index` (default last; clamped), the first of them drawn; a
  *   pane `at` alone becomes a stack, its id `stack:<at>` (made unique);
- * - `normalize`: a stack of fewer than two members becomes its pane; the same object when there is none.
+ * - `normalize`: a stack of fewer than two members becomes its pane; the same object when there is none;
+ * - `parts` (with `options.bar`): a title bar along each pane's top, `bar` px high; a stack's bar has a slot per member,
+ *   left to right, each `tab(member)` px wide (default 80), cut at the bar's end.
  */
-export function splitTreeOps<K>(): TilingTree<StackedSplit<K>, K> {
+export function splitTreeOps<K>(options: SplitTreeOpsOptions<K> = {}): TilingTree<StackedSplit<K>, K> {
+  const bar = options.bar ?? 0;
+  const tab = options.tab ?? (() => 80);
   return {
+    ...(bar > 0
+      ? {
+          parts(t: StackedSplit<K>, pane: K, r: Rect): readonly TilingPart[] {
+            const rect: Rect = { x: r.x, y: r.y, width: r.width, height: Math.min(bar, r.height) };
+            const stack = stacksOf(t).find((s) => s.members.includes(pane));
+            if (!stack) return [{ key: "bar", rect }];
+            const slots: Rect[] = [];
+            let x = rect.x;
+            for (const m of stack.members) {
+              const width = Math.max(0, Math.min(tab(m), rect.x + rect.width - x));
+              slots.push({ x, y: rect.y, width, height: rect.height });
+              x += width;
+            }
+            return [{ key: "bar", rect, slots }];
+          },
+        }
+      : {}),
     split: (t) => t.split,
     stackOf: (t, pane) => stacksOf(t).find((s) => s.members.includes(pane)) ?? null,
     release(t, s) {

@@ -99,6 +99,24 @@ function toward(p: Point, region: PaneRegion, by: number, c: PaneCenter): Point 
 }
 
 /**
+ * The five regions of `pane` as convex polygons, in the same coordinates as `pane`: the center rectangle, and each side's
+ * trapezoid from the pane's two corners on that side to the center's two nearest corners. They are the regions
+ * `paneRegion` names (no hysteresis): a point inside one, off its shared edges, is in that region.
+ */
+export function paneRegionShapes(pane: Rect, options: PaneRegionOptions = {}): Readonly<Record<PaneRegion, readonly Point[]>> {
+  const c = options.paneCenter ?? paneCenter(pane, options);
+  const at = (x: number, y: number): Point => ({ x: pane.x + x, y: pane.y + y });
+  const [w, h] = [c.width, c.height];
+  return {
+    center: [at(c.left, c.top), at(c.right, c.top), at(c.right, c.bottom), at(c.left, c.bottom)],
+    top: [at(0, 0), at(w, 0), at(c.right, c.top), at(c.left, c.top)],
+    right: [at(w, 0), at(w, h), at(c.right, c.bottom), at(c.right, c.top)],
+    bottom: [at(w, h), at(0, h), at(c.left, c.bottom), at(c.right, c.bottom)],
+    left: [at(0, h), at(0, 0), at(c.left, c.top), at(c.left, c.bottom)],
+  };
+}
+
+/**
  * The drop region of `pane` (in the same coordinates as `point`) the point is in. With a `previous` region, the point
  * has to be `hysteresis` px past that region's boundary before the region changes: no time-based debounce, only
  * geometry. A host that has measured the center itself passes it as `options.paneCenter`; the same center gives the

@@ -8,11 +8,13 @@
  * place. Geometry has one source: the adapter gives the tree as a `Split` (`split`), and the library lays it out with
  * `layoutSplitTree` under the drag's options (`SplitOptions` plus `min`, as `canDropOnPane` takes them).
  *
- * The hit half (targets, a pane's parts, `placeOf`) is not here yet. See docs/placement.md, Entry: tiling.
+ * The hit half, which place the pointer is over, is `hit(basis)`: built once per drag on one fixed layout (./hit).
+ * See docs/placement.md, Entry: tiling.
  */
 import { EPS, type Rect } from "../geometry";
 import type { Side } from "../side";
 import { canSplitPane, dropFits, type DropOptions } from "./drop";
+import { createTilingHit, type TilingBasis, type TilingHit, type TilingHitOptions, type TilingPart } from "./hit";
 import { layoutSplitTree, type SplitGeometry } from "./layout";
 import { panesOf, type Split } from "./split";
 
@@ -70,6 +72,12 @@ export interface TilingTree<T, K> {
   join?(released: T, subject: TilingSubject<K>, at: K, index?: number): T;
   /** Commit-time reconciliation: part of every `after` but home's, so what a frame draws is what a release stores. Default: none. */
   normalize?(tree: T): T;
+  /**
+   * The parts of the drawn pane `pane` that take a join (a title bar, a tab strip), laid on `rect`, its rect in `tree`
+   * laid out: declared geometry, with any size the host measured once at the lift (a tab's width, by member). Read once
+   * per drag by `TilingDrag.hit`. Leave it out when no pane has one: a join is then never under the pointer.
+   */
+  parts?(tree: T, pane: K, rect: Rect): readonly TilingPart[];
 }
 
 /** What `tilingDrag` reads: the adapter, the stage, and the layout options (`SplitOptions` plus `min`, the least pane width and height a drop keeps). */
@@ -148,6 +156,12 @@ export interface TilingDrag<T, K> {
   readonly home: Rect | null;
   /** THE layout of `held`. Remembered per held place: the same place gives the same object. */
   after(held: TilingHeld<K>): TilingAfter<T, K>;
+  /**
+   * The drag's hit half on `basis`, built now from that one layout and fixed for the drag: `"lift"` for a host that
+   * draws marks over the lift, `"base"` for one that draws the held place's landed layout. Call it once, at the lift;
+   * each call is a hit of its own, with its own hold.
+   */
+  hit(basis: TilingBasis, options?: TilingHitOptions<K>): TilingHit<T, K>;
 }
 
 const sameRect = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) <= EPS && Math.abs(a.y - b.y) <= EPS && Math.abs(a.width - b.width) <= EPS && Math.abs(a.height - b.height) <= EPS;
@@ -266,5 +280,8 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     return a;
   };
 
-  return { subject, lift, base, home, after };
+  const hit = (basis: TilingBasis, hitOptions?: TilingHitOptions<K>): TilingHit<T, K> =>
+    createTilingHit({ ops, lift, base, home, subjectKey, inSubject, ...(options.still ? { still: options.still } : {}), after }, basis, hitOptions);
+
+  return { subject, lift, base, home, after, hit };
 }
