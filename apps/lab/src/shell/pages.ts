@@ -7,8 +7,8 @@
  * give the header's Reset button its own reset. A docking case is no page: it is a Document window case, or a
  * conformance row of `@n-uf/docking/testing`.
  *
- * The groups: Overview, Motion (two pages: settle and tiling, and the drag intent on the Document window), the
- * Document window (the one Reference host) and Checks.
+ * The groups: Overview, Motion (two pages: settle and tiling, and the drag intent on the Document window), Placement
+ * (a tiling drag's one layout per held place), the Document window (the one Reference host) and Checks.
  */
 
 import type { PageDef } from "./page-defs";
@@ -67,6 +67,20 @@ export const PAGES: readonly PageDef[] = [
       "<code>@n-uf/motion/drag</code>'s intent, on the Document window: the indicator shows once the pointer slows down or holds still, waits a 150 ms switch delay before it switches, and a release lands where it showed. Drag a panel by its header or a toolbar by its grip; the cases wobble on a border, flick, cross a border slowly and let go inside a slot's band. With the Snap preview the held item settles into its place once the room is made, and back onto the pointer when it flies off. Pick the drop preview (Outline, Placeholder, Snap) at the top of the page: it changes how the landing is shown, never where it is.",
     ...docwin,
     view: INTENT,
+  },
+  {
+    id: "placement/tiling-drag",
+    group: "placement",
+    nav: "Tiling drag",
+    title: "Tiling drag: one layout per held place",
+    line: "A pane held over a swap reopens its old place for the partner, marked by a tinted wash with ⇄; what the held frame shows is exactly what the release commits.",
+    about:
+      "<code>@n-uf/placement/tiling</code>'s <code>tilingDrag(tree, subject, options)</code> over the reference adapter <code>splitTreeOps</code>: the base (the tree with the subject released), home (the gap the release leaves) and <code>after(held)</code>, THE layout of each held place. A frame holding a place draws <code>after(held).layout</code>, and the release commits <code>after(held).tree</code>. For a swap the subject's old place reopens (the neighbor that grew into it at the lift gives the room back), and the partner's landing there is a tinted wash with ⇄ and its name, with no frame. Off the target, or over a refused place, the frame is the base again. Which place the pointer holds is the page's own pick for now (home, a title bar for a join, a pane's middle for a swap, an edge for a side). Headless: <code>window.__tilingDrag</code>.",
+    markup: raw(() => import("../pages/tiling-drag.html?raw")),
+    load: () => Promise.all([import("../tiling-drag/tiling-drag.css"), import("../tiling-drag/tiling-drag")]),
+    module: "tiling-drag",
+    reset: "#td-reset",
+    wide: true,
   },
   {
     id: "docwin",
