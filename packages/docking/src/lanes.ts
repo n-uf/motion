@@ -498,7 +498,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   };
   // Where the pointer holds the item along each spot's lane: the grab in the form of each of its end landings (the
   // twin of a press point: along the item's own length its share, across it the middle). Read once per raw spot.
-  const grab = grabOf(lift, options.grab);
+  const grab = grabOf(lift, options.grab, options.onGrabNote);
   const heldAt = new WeakMap<Raw, readonly [number, number]>();
   const held: Held = (r, end) => {
     let both = heldAt.get(r);

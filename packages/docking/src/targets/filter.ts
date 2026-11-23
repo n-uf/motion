@@ -107,7 +107,7 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     sound: soundness(state, base, dragged),
     lay: layKeys(state),
     lift,
-    grab: grabOf(lift, options.grab),
+    grab: grabOf(lift, options.grab, options.onGrabNote),
     ...(own ? { own } : {}),
     slack: aimSlack(options.pitch),
     slideRanges: new Map(),
