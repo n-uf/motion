@@ -50,7 +50,7 @@ describe("hit on the lift (marks over the lift layout)", () => {
   const hit = d.hit("lift");
   const B = d.lift.layout.get("b")!;
 
-  it("a straight drag down from home over its full-edge neighbor below: home, its title bar, then swap over its whole height", () => {
+  it("a straight drag down from home over its run neighbor below: home, its title bar, then swap over its whole height", () => {
     const seen: string[] = [];
     for (let y = 100; y <= 495; y += 2) {
       const r = at(hit, { x: B.x + B.width / 2, y });
@@ -101,11 +101,11 @@ describe("hit on the lift (marks over the lift layout)", () => {
   });
 });
 
-describe("full-edge neighbors swap along their axis; other panes keep their sides", () => {
+describe("run neighbors swap along their run; other panes keep their sides", () => {
   const bottomOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height - 3 });
   const topOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + 30 });
 
-  it("equal bounds (a over b, the same left and right): b's bottom band is the swap", () => {
+  it("a run neighbor (a over b in one column): b's bottom band is the swap, on both maps", () => {
     const d = tilingDrag(three, pane("a"), opts());
     for (const basis of ["lift", "base"] as const) {
       const hit = d.hit(basis);
@@ -113,7 +113,7 @@ describe("full-edge neighbors swap along their axis; other panes keep their side
     }
   });
 
-  it("unequal bounds (a over b and c side by side): b's bands stay sides", () => {
+  it("a row next to the subject (a over b and c side by side): no run neighbor, b's bands stay sides", () => {
     const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "a" }, b: { axis: "x", ratio: 0.5, a: { pane: "b" }, b: { pane: "c" } } } };
     const hit = tilingDrag(t, pane("a"), opts()).hit("lift");
     const B = hit.laid.layout.get("b")!;
@@ -169,7 +169,7 @@ describe("hit on the base (the landed layout drawn)", () => {
   });
 
   it("a held insert draws its landed layout from the first frame, and its release commits it", () => {
-    // b is a's full-edge neighbor, so its bottom band is the swap: the insert is taken in its left strip.
+    // b is a's run neighbor, so its bottom band is the swap: the insert is taken in its left strip.
     const r = at(hit, { x: B.x + 4, y: B.y + B.height - 40 });
     expect(show(r.held)).toBe("beside b left");
     expect(r.mark).toBeNull();
