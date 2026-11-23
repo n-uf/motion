@@ -25,8 +25,10 @@ a function type kept apart from the point type with two code paths, and a functi
   `HeldDrag.grab`).
 - **The form argument is the laid item's layout entry** (`DockItemLayout`: axis, form, form kind, rect) plus the place
   it really lies in (`place`: a float, a spot on an edge, or a side's rail with the rail's side and orient). No "home"
-  place: at the lift the item lies where it lies. `size` is the laid rect's size; for a sliding spot, the size the item
-  takes in its stretch.
+  place: at the lift the item lies where it lies. `size` is the laid rect's size; for a sliding spot, the item's own
+  length on that edge (its length in the stretch, not the stretch's) by its landing's cross. A grip at the far end is
+  therefore read at that length: for a movable grower, which takes the bar's free span once placed, at its natural
+  length, so the far-end grip sits at the natural end and the grown part lies past it.
 - **One path.** At the lift a plain point becomes the twin function. The twin gives back what each kind of landing used
   before: the press itself at the item's own form and size; in a float the press in px (a movable grower pressed on its
   grown rect keeps its share of it); on a spot or a rail, along the item's own length the press's share, across it the
