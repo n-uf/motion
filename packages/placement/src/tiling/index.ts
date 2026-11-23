@@ -31,13 +31,13 @@ export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type Sp
 export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, paneRegionShapes, type PaneCenter, type PaneRegion, type PaneRegionOptions } from "./regions";
 export {
   TILING_HIT_DEFAULTS,
-  TILING_NEIGHBOR_SWAP_SHARE,
   type TilingBasis,
   type TilingHit,
   type TilingHitFrame,
   type TilingHitIntent,
   type TilingHitOptions,
   type TilingHitRead,
+  type TilingHitRegions,
   type TilingHitTarget,
   type TilingHold,
   type TilingMark,

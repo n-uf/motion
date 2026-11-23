@@ -45,9 +45,10 @@ export interface TilingDrag<T, K> {
   /** THE layout of `held`. Remembered per held place: the same place gives the same object. */
   after(held: TilingHeld<K>): TilingAfter<T, K>;
   /**
-   * The drag's hit half on `basis`, built now from that one layout and fixed for the drag: `"lift"` for a host that
-   * draws marks over the lift, `"base"` for one that draws the held place's landed layout. Call it once, at the lift;
-   * each call is a hit of its own, with its own hold.
+   * The drag's hit half on `basis`, built from that one layout and fixed for the drag: `"lift"` for a host that draws
+   * marks over the lift, `"base"` for one that draws the held place's landed layout. Remembered per basis, as `after` is
+   * per place: every call on one basis gives the same hit, with its one hold, and the first call's options stand. A
+   * fresh hold is the pure `hit.hold(state, point)`.
    */
   hit(basis: TilingBasis, options?: TilingHitOptions<K>): TilingHit<T, K>;
 }
@@ -171,8 +172,14 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
   /** The tree a change makes, whatever room it has: `normalize(swap(tree))`, or `normalize(beside(release(tree)))`. */
   const changeOf = (held: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }): T =>
     normalize(held.kind === "swap" ? ops.swap(tree, subject, held.at) : ops.beside(base.tree, subject, held.at, held.side, { kind: "half" }));
-  const hit = (basis: TilingBasis, hitOptions?: TilingHitOptions<K>): TilingHit<T, K> =>
-    createTilingHit({ ops, lift, base, home, subjectKey, inSubject, ...(options.still ? { still: options.still } : {}), after, lay, changeOf }, basis, hitOptions);
+  // One hit per basis, remembered like `after`: the first call's options stand, and a host that asks again gets the
+  // same hit (and its hold).
+  const hits = new Map<TilingBasis, TilingHit<T, K>>();
+  const hit = (basis: TilingBasis, hitOptions?: TilingHitOptions<K>): TilingHit<T, K> => {
+    let h = hits.get(basis);
+    if (!h) hits.set(basis, (h = createTilingHit({ ops, lift, base, home, subjectKey, inSubject, ...(options.still ? { still: options.still } : {}), after, lay, changeOf }, basis, hitOptions)));
+    return h;
+  };
 
   return { subject, lift, base, home, after, hit };
 }

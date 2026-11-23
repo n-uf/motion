@@ -139,7 +139,9 @@ export class Host {
     const at = drag.lift.layout.get(drawnAs(this.tree, keyOf(subject)))!;
     const p = pointer ?? { x: at.x + at.width / 2, y: at.y + BAR / 2 };
     const hit = drag.hit(this.preview === "snap" ? "base" : "lift");
-    const intent = createDragIntent<TilingHitTarget<string>>({ ...hit.intent, lift: p });
+    // The hit's options are the intent's whole wiring: no home (the hit holds it), and no `lift` (it gates only
+    // spring-loaded targets, which a tiling drag has none of).
+    const intent = createDragIntent<TilingHitTarget<string>>({ ...hit.intent });
     const read: TilingHitRead<string> = { held: null, refused: null, mark: null };
     this.drag = { drag, hit, intent, subject, grab: { x: p.x - at.x, y: p.y - at.y }, pointer: p, read, held: null };
     this.pointTo(p);

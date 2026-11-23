@@ -19,24 +19,39 @@ export const TILING_HIT_PROPERTIES = [
   "fixed-map",
   /** The place at a point is the one a second copy of the rule names: home inside its rect, a part over the body, a slot over its part, else the pane's region; a refused zone falls to the one beneath; a place that gives the lift back is home. */
   "zone-rule",
-  /** A still pointer changes nothing; a path within the edge measure of the held zone, or inside its pane within the travel measure of where it was taken, never changes the place; a straight sweep meets each place but home (which shows nothing) at most once. */
-  "hold-rule",
-  /** A place is offered exactly when `after(place).refusal` is null; over a refused zone nothing is held and the refusal is named. */
+  /** A still pointer changes nothing: the same point again reads the same frame. */
+  "stillness",
+  /**
+   * A path within the edge measure of the held zone's visible part, or inside its pane (not over home) within the travel
+   * measure of where it was taken, never changes the place; and a point past both (over home's rim on the base included,
+   * where a zone runs on beneath home) reads the zone map.
+   */
+  "hold-measures",
+  /** A straight sweep meets each place but home (which shows nothing) at most once. */
+  "one-pass",
+  /** A place on the map is offered exactly when `after(place).refusal` is null (a side the run-neighbor rule removed is neither); over a refused zone nothing is held and the refusal is named. */
   "existence",
   /** Every place whose release gives the lift back reads as home, and its release commits the lift tree. */
   "lift-equals-home",
-  /** Lift basis: the mark contains the pointer and lies inside the target pane as drawn. Base basis: the landing contains the pointer for every insert and join (swaps whose landing lies beside the pointer are counted, not failed). */
+  /** With no hold: lift basis, the mark contains the pointer and lies inside the target pane as drawn; base basis, the landing contains the pointer for every insert and join (swaps whose landing lies beside the pointer are counted, not failed). */
   "shown-under-pointer",
   /** At every frame of a gesture a release commits `after(held)`, else the lift tree; the base basis draws `after(held)` for a held place, the lift at home, the base with nothing held. */
   "shown-equals-landed",
-  /** A side of a pane takes an insert exactly when that insert gives a new arrangement: neither the lift's nor the swap's (by a second copy of the arrangement). */
+  /**
+   * Among panes with the subject's bounds across its run, a side takes an insert exactly when that insert gives a new
+   * arrangement, neither the lift's nor the swap's; a pane with other bounds across (a fixed length) keeps its sides. A
+   * second copy judges it from the lift tree and the lift rects only, never the basis, and both bases are checked
+   * against it, so a pane has the same sides on both.
+   */
   "new-arrangement-sides",
   /** Every zone of every pane is convex: the midpoint of two points in one zone is in it too. */
   "zones-convex",
-  /** Judged once, on the lift tree: every pane has the same sides on the lift map and on the base map. */
-  "same-sides-both-maps",
-  /** Room does not change the map: with every room check passing, every pane has the same sides and every live place off the parts is the same place. */
-  "room-keeps-map",
+  /**
+   * Room does not move the map: the same drag with every room check passing (`min: 0`) has the same sides on every
+   * pane, every point reads the same place where both are live, and where a place is refused the point falls to the
+   * target beneath (nothing, or a part's pane body), never to a neighboring zone.
+   */
+  "room-free-map",
 ] as const;
 
 export type TilingHitProperty = (typeof TILING_HIT_PROPERTIES)[number];
@@ -46,12 +61,17 @@ export interface TilingHitConformance {
   readonly ok: boolean;
   readonly failures: readonly string[];
   readonly counts: Readonly<Record<TilingHitProperty, { readonly checked: number; readonly failed: number }>>;
+  /**
+   * The rows the ruling counts rather than fails, all on the base basis, where a frame draws the landed layout. Two
+   * kinds of row, three counters: a swap whose landing lies beside the pointer, and an insert or join that moves other
+   * panes, of which some also land beside the pointer.
+   */
   readonly reported: {
-    /** Base basis: a held swap whose landing does not contain the pointer (a pane that moved at the lift, hit at its base rect). */
+    /** A held swap whose landing does not contain the pointer: the partner moved at the lift, and the swap is hit at its base rect. */
     readonly swapsBeside: number;
-    /** Base basis: an insert or join whose layout moves a pane other than its target (floors, fixed lengths). */
+    /** An insert or join whose layout moves a pane other than its target (a floor, a fixed length, a master split laid out anew). */
     readonly insertsMoveOthers: number;
-    /** Of those, the ones whose landing does not contain the pointer. */
+    /** Of `insertsMoveOthers`, the ones whose landing does not contain the pointer. */
     readonly insertsMoveOthersBeside: number;
   };
 }
@@ -91,14 +111,16 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
   const reported = { swapsBeside: 0, insertsMoveOthers: 0, insertsMoveOthersBeside: 0 };
   const edge = hitOptions.edge ?? TILING_HIT_DEFAULTS.edge;
   const travel = hitOptions.travel ?? TILING_HIT_DEFAULTS.travel;
-  const share = hitOptions.share ?? TILING_HIT_DEFAULTS.share;
+  const cap = hitOptions.cap ?? TILING_HIT_DEFAULTS.cap;
+  // The ruling's swap share across a run neighbor, pinned here as a literal apart from the library's default.
+  const neighborSwap = hitOptions.neighborSwap ?? 0.56;
   const reg = { ...PANE_REGION_DEFAULTS, ...hitOptions.regions };
   const stackOf = (t: T, k: K) => ops.stackOf?.(t, k) ?? null;
   const drawnAs = (t: T, k: K): K => stackOf(t, k)?.active ?? k;
   const keyOf = hitOptions.key ?? String;
   /** The sides a hit's map has on the pane `at`, as a word: a side's place exists only where its region does. */
   const sidesOnMap = (h: TilingHit<T, K>, at: K): string =>
-    (["top", "right", "bottom", "left"] as const).filter((s) => h.place(`beside:${s}:${keyOf(at)}`) !== null).join(",");
+    (["top", "right", "bottom", "left"] as const).filter((s) => h.heldOf(`beside:${s}:${keyOf(at)}`) !== null).join(",");
   let n = 0;
   for (const tree of trees) {
     for (const subject of tilingSubjects(tree, options)) {
@@ -107,29 +129,38 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       for (const basis of ["lift", "base"] as const) {
         const check = checkFor(`${name}, ${basis}`);
         runOne(drag, subject, basis, check, seeded(1 + n * 7919 + (basis === "base" ? 1 : 0)));
-        // room-keeps-map: the same drag with no minimum (every room check passes) has the same sides on every pane, and
-        // each live place at a point off the parts is the same place there.
+        // room-free-map: the same drag with no minimum (every room check passes) has the same sides on every pane; a
+        // point reads the same place where both are live; where the tight drag refuses a place, the point falls to the
+        // target beneath (nothing, or for a part the region of its pane's body), never to a neighboring zone.
         const roomy = tilingDrag(tree, subject, { ...options, min: 0 });
         const [tight, loose] = [drag.hit(basis, hitOptions), roomy.hit(basis, hitOptions)];
         for (const t of tight.targets) {
           if (t.part || t.home) continue;
-          check("room-keeps-map", sidesOnMap(tight, t.at) === sidesOnMap(loose, t.at), () => `${String(t.at)} has sides ${sidesOnMap(tight, t.at)}, with all the room ${sidesOnMap(loose, t.at)}`);
+          check("room-free-map", sidesOnMap(tight, t.at) === sidesOnMap(loose, t.at), () => `${String(t.at)} has sides ${sidesOnMap(tight, t.at)}, with all the room ${sidesOnMap(loose, t.at)}`);
         }
         const rnd = seeded(7 + n * 131 + (basis === "base" ? 1 : 0));
-        for (let i = 0; i < 120; i++) {
-          const p = { x: area.x + rnd() * area.width, y: area.y + rnd() * area.height };
-          if (tight.targets.some((t) => t.part && inside(t.hit, p))) continue;
-          const z = tight.zone(p);
-          if (z === null || z === "home") continue;
-          check("room-keeps-map", loose.zone(p) === z, () => `at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${z}, with all the room ${loose.zone(p)}`);
+        const samples: Point[] = [];
+        for (let i = 0; i < 120; i++) samples.push({ x: area.x + rnd() * area.width, y: area.y + rnd() * area.height });
+        for (const t of tight.targets) if (t.part) for (let i = 0; i < 4; i++) samples.push({ x: t.hit.x + rnd() * t.hit.width, y: t.hit.y + rnd() * t.hit.height });
+        for (const p of samples) {
+          const [z, wide] = [tight.placeAt(p), loose.placeAt(p)];
+          if (z === wide) continue;
+          const onPart = tight.targets.find((t) => t.part && inside(t.hit, p));
+          const h = z === null ? null : tight.heldOf(z);
+          // Where the two differ, the tight place is refused there: nothing, or (over a part) its pane's body beneath.
+          const beneath = z === null || (!!onPart && !!h && h.kind !== "home" && h.kind !== "join" && h.at === onPart.at);
+          const wideHeld = wide === null ? null : loose.heldOf(wide);
+          const refusedHere = wideHeld === null || wideHeld.kind === "home" || drag.after(wideHeld).refusal !== null;
+          check("room-free-map", beneath && refusedHere, () => `at ${p.x.toFixed(1)},${p.y.toFixed(1)}: ${z}, with all the room ${wide}`);
         }
       }
-      // same-sides-both-maps: judged once on the lift tree, every pane has the same sides on the lift map and the base map.
+      // new-arrangement-sides, across the bases: the copy judges sides from the lift alone, so a pane has the same
+      // sides on the lift map and the base map.
       const [onLift, onBase] = [drag.hit("lift", hitOptions), drag.hit("base", hitOptions)];
       const check = checkFor(name);
       for (const t of onBase.targets) {
         if (t.part || t.home || !onLift.targets.some((u) => !u.part && !u.home && u.at === t.at)) continue;
-        check("same-sides-both-maps", sidesOnMap(onLift, t.at) === sidesOnMap(onBase, t.at), () => `${String(t.at)} has ${sidesOnMap(onLift, t.at)} on the lift, ${sidesOnMap(onBase, t.at)} on the base`);
+        check("new-arrangement-sides", sidesOnMap(onLift, t.at) === sidesOnMap(onBase, t.at), () => `${String(t.at)} has ${sidesOnMap(onLift, t.at)} on the lift, ${sidesOnMap(onBase, t.at)} on the base`);
       }
     }
     n++;
@@ -236,9 +267,9 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const ratio = reg.pixelRatio > 0 ? reg.pixelRatio : 1;
       const alongGone = !sides.includes("top") || !sides.includes("bottom");
       const acrossGone = !sides.includes("left") || !sides.includes("right");
-      // The ruling's swap share across a run neighbor, pinned here apart from the library's constant.
-      const sx = alongGone ? 0.56 : (reg.centerX ?? reg.center);
-      const sy = acrossGone ? 0.56 : (reg.centerY ?? reg.center);
+      // A run neighbor's swap share across the run (the copy's own literal default, above).
+      const sx = alongGone ? neighborSwap : (reg.centerX ?? reg.center);
+      const sy = acrossGone ? neighborSwap : (reg.centerY ?? reg.center);
       const cw = Math.min(r.width, Math.max(r.width * clamp(sx), Math.min(reg.centerMin, r.width)));
       const ch = Math.min(r.height, Math.max(r.height * clamp(sy), Math.min(reg.centerMin, r.height)));
       const g = (v: number): number => Math.round(v * ratio) / ratio;
@@ -325,8 +356,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
     };
     const expectedPlace = (e: Expect): TilingHeld<K> | null => (e.raw && givesLift(e.raw) ? HOME : e.raw);
     const placeAt = (p: Point): TilingHeld<K> | null => {
-      const id = hit.zone(p);
-      return id === null ? null : hit.place(id);
+      const id = hit.placeAt(p);
+      return id === null ? null : hit.heldOf(id);
     };
 
     // ---- Driving the hit as an intent with the hit's tuning does: the target the held place is on shows.
@@ -343,7 +374,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
     const samples: Point[] = [];
     for (let i = 0; i < 300; i++) samples.push(randomPoint(area));
     for (const t of hit.targets) for (let i = 0; i < 6; i++) samples.push(randomPoint(t.hit));
-    const zonesBefore = samples.map((p) => hit.zone(p));
+    const zonesBefore = samples.map((p) => hit.placeAt(p));
 
     // ---- zone-rule, existence, lift-equals-home, shown-under-pointer: point by point, from nothing held.
     for (const p of samples) {
@@ -418,9 +449,9 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         const b = randomPoint(pn.rect);
         const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
         if (!free(a) || !free(b) || !free(m)) continue;
-        const za = hit.zone(a);
-        if (za === null || za === "home" || za !== hit.zone(b)) continue;
-        check("zones-convex", hit.zone(m) === za, () => `${za} at ${a.x.toFixed(1)},${a.y.toFixed(1)} and ${b.x.toFixed(1)},${b.y.toFixed(1)}, ${hit.zone(m)} between`);
+        const za = hit.placeAt(a);
+        if (za === null || za === "home" || za !== hit.placeAt(b)) continue;
+        check("zones-convex", hit.placeAt(m) === za, () => `${za} at ${a.x.toFixed(1)},${a.y.toFixed(1)} and ${b.x.toFixed(1)},${b.y.toFixed(1)}, ${hit.placeAt(m)} between`);
       }
     }
 
@@ -445,7 +476,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         checkFrame(p, r);
         // Stillness: the same point again reads the same.
         const again = [frame(p), frame(p)];
-        check("hold-rule", again.every((x) => JSON.stringify(x) === JSON.stringify(r)), () => `a still pointer at ${p.x.toFixed(1)},${p.y.toFixed(1)} changed ${show(r.held)} to ${again.map((x) => show(x.held)).join(", ")}`);
+        check("stillness", again.every((x) => JSON.stringify(x) === JSON.stringify(r)), () => `a still pointer at ${p.x.toFixed(1)},${p.y.toFixed(1)} changed ${show(r.held)} to ${again.map((x) => show(x.held)).join(", ")}`);
       }
     }
     // One pass: a straight sweep meets each place at most once (the pure hold, so the stateful one is left alone). Home
@@ -463,7 +494,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         if (state && met[met.length - 1] !== state.place) met.push(state.place);
       }
       const twice = met.filter((m, i) => m !== "home" && met.indexOf(m) !== i);
-      check("hold-rule", twice.length === 0, () => `a sweep from ${a.x.toFixed(0)},${a.y.toFixed(0)} to ${b.x.toFixed(0)},${b.y.toFixed(0)} met ${met.join(" > ")}`);
+      check("one-pass", twice.length === 0, () => `a sweep from ${a.x.toFixed(0)},${a.y.toFixed(0)} to ${b.x.toFixed(0)},${b.y.toFixed(0)} met ${met.join(" > ")}`);
     }
     // Wobble: within the edge measure of the held zone, or inside its pane within the travel measure, the place stays.
     for (let k = 0; k < 12; k++) {
@@ -473,8 +504,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const start = hit.hold(null, a);
       if (!start) continue;
       const box = e.box;
-      const ex = Math.min(edge, share * box.width);
-      const ey = Math.min(edge, share * box.height);
+      const ex = Math.min(edge, cap * box.width);
+      const ey = Math.min(edge, cap * box.height);
       const zoneOf = (p: Point): string => show(expectedPlace(expectAt(p)));
       const want = show(e.raw);
       const path: Point[] = [];
@@ -487,10 +518,10 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         path.push({ x: z.x + Math.cos(ang) * ex * len, y: z.y + Math.sin(ang) * ey * len });
       }
       // And points inside the pane (not over home) within the travel measure of the start.
-      const tb = hit.place(start.place)?.kind === "join" ? null : box;
+      const tb = hit.heldOf(start.place)?.kind === "join" ? null : box;
       if (tb) {
-        const rx = Math.min(travel, share * tb.width);
-        const ry = Math.min(travel, share * tb.height);
+        const rx = Math.min(travel, cap * tb.width);
+        const ry = Math.min(travel, cap * tb.height);
         for (let i = 0; i < 10; i++) {
           const ang = rnd() * Math.PI * 2;
           const len = Math.sqrt(rnd()) * 0.9;
@@ -501,14 +532,44 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       let state: TilingHold | null = start;
       for (const p of path) {
         state = hit.hold(state, p);
-        check("hold-rule", state?.place === start.place, () => `${want} taken at ${a.x.toFixed(1)},${a.y.toFixed(1)} went to ${state ? show(hit.place(state.place)) : "nothing"} at ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
+        check("hold-measures", state?.place === start.place, () => `${want} taken at ${a.x.toFixed(1)},${a.y.toFixed(1)} went to ${state ? show(hit.heldOf(state.place)) : "nothing"} at ${p.x.toFixed(1)},${p.y.toFixed(1)}`);
         if (state?.place !== start.place) break;
       }
+    }
+    // The upper bound: a place taken at one point and kept at another is within the edge measure of where its zone shows
+    // on the map (probed every half pixel), or within the travel measure (at most `travel` px per axis) of where it was
+    // taken. Past both the point reads the map. Probed at random pairs and, with a home, in home's rim, where a zone may
+    // run on beneath home: home wins there, so a place is measured from its visible part alone.
+    const shows = (p: Point, place: string): boolean => {
+      for (let dx = -edge; dx <= edge; dx += 0.5) for (let dy = -edge; dy <= edge; dy += 0.5) if (hit.placeAt({ x: p.x + dx, y: p.y + dy }) === place) return true;
+      return false;
+    };
+    const rim: Point[] = [];
+    if (home && home.width > 2 * edge && home.height > 2 * edge) {
+      const d = Math.min(edge / 2, 2);
+      for (const f of [0.15, 0.5, 0.85]) {
+        rim.push({ x: home.x + home.width * f, y: home.y + d }, { x: home.x + home.width * f, y: home.y + home.height - d });
+        rim.push({ x: home.x + d, y: home.y + home.height * f }, { x: home.x + home.width - d, y: home.y + home.height * f });
+      }
+    }
+    let probed = 0;
+    const pairs: [Point, Point][] = [];
+    for (const p of rim) for (let i = 0; i < 4; i++) pairs.push([randomPoint(area), p]);
+    for (let i = 0; i < 40; i++) pairs.push([randomPoint(area), randomPoint(area)]);
+    for (const [q, p] of pairs) {
+      const taken = hit.hold(null, q);
+      if (!taken || taken.place === "home") continue;
+      const kept = hit.hold(taken, p);
+      if (kept?.place !== taken.place || hit.placeAt(p) === taken.place) continue;
+      // Over home the travel measure never keeps a place.
+      if (!(home && inside(home, p)) && Math.abs(p.x - taken.from.x) < travel && Math.abs(p.y - taken.from.y) < travel) continue;
+      if (probed++ >= 24) break;
+      check("hold-measures", shows(p, taken.place), () => `${taken.place} taken at ${q.x.toFixed(1)},${q.y.toFixed(1)} is kept at ${p.x.toFixed(1)},${p.y.toFixed(1)}, past both measures (the map reads ${hit.placeAt(p)})`);
     }
 
     // ---- fixed-map: the targets are the lift's, and the zone map never moved.
     check("fixed-map", hit.targets === targetsAtLift && Object.isFrozen(hit.targets) && JSON.stringify(hit.targets) === snapshot, () => "the targets changed during the drag");
-    const zonesAfter = samples.map((p) => hit.zone(p));
+    const zonesAfter = samples.map((p) => hit.placeAt(p));
     const moved = zonesAfter.findIndex((z, i) => z !== zonesBefore[i]);
     check("fixed-map", moved < 0, () => `the zone at ${samples[moved]!.x.toFixed(1)},${samples[moved]!.y.toFixed(1)} changed from ${zonesBefore[moved]} to ${zonesAfter[moved]}`);
     // Holding every other place, then nothing, then a point: the place there is what nothing held gives.
@@ -522,8 +583,8 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       for (const q of probes) {
         frame(at);
         const r = fresh(q);
-        const z = hit.zone(q);
-        check("fixed-map", show(r.held) === show(z === null ? null : hit.place(z)), () => `after holding the place at ${at.x.toFixed(1)},${at.y.toFixed(1)}, the point ${q.x.toFixed(1)},${q.y.toFixed(1)} reads ${show(r.held)}, nothing held gives ${z}`);
+        const z = hit.placeAt(q);
+        check("fixed-map", show(r.held) === show(z === null ? null : hit.heldOf(z)), () => `after holding the place at ${at.x.toFixed(1)},${at.y.toFixed(1)}, the point ${q.x.toFixed(1)},${q.y.toFixed(1)} reads ${show(r.held)}, nothing held gives ${z}`);
       }
     }
   }
