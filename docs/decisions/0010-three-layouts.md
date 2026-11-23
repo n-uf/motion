@@ -1,7 +1,7 @@
 # 0010: Three layouts, one job each
 
-*In progress: decided 2026-11-22 and built on a branch, not yet on `live/motion`. The Consequences say what holds on
-`live/motion` meanwhile.*
+*Decided 2026-11-22. The aim order is on `live/motion`; the marks part is in progress (the Consequences say what holds
+meanwhile).*
 
 A docking drag reads three layouts, and every question has exactly one of them: `room` says which places exist and fit,
 the landings say where one place's aim meets the next, and `shown(frame)` is what is drawn.
@@ -36,12 +36,16 @@ The rule that toolbars take the nearest place and panel columns take halves is n
 - Two conformance rows change their expectation: a toolbar over a neighbor of its own length stays before it on either
   side of its middle (the nearest landing), and a drop over a fixed item at a zone's end lands where its nearest landing
   is.
-- On `live/motion` meanwhile: `targets()` cuts a toolbar's neighbor at its middle while `lanes()` cuts by landings, and a
-  growing fixed title's slack is free room for the marks, so a box is drawn over the grown part of the title instead of
-  at most a line.
-- Guarded, on the branch, by docking's target-model and sweep tests (the aim-order property) and the lab's aim-order
-  sweeps by the tiles and by the landing model.
+- Crossed cuts: a place whose cut after it would lie before its cut before it is nearer no pointer. It is left out of
+  the cutting (its neighbors cut between themselves, so it moves no other cut) and has no stretch, though it stays a
+  stop; never the item's own place. Both paths cut through the one helper (`crossFreeCuts`).
+- The used count: every landing, and the room a drop over free room makes, is read with the dropped item counted as just
+  used (`markUsed`), as its commit counts it, on both paths.
+- In progress, the marks part: a growing fixed title's slack is still free room for the marks, so a box is drawn over
+  the grown part of the title instead of at most a line.
+- Guarded by docking's target-model and sweep tests (the aim-order property) and the lab's aim-order sweeps by the tiles
+  and by the landing model.
 
 ## Date
 
-2026-11-22, in progress. The release is named here when it ships.
+2026-11-22. In progress: the marks part only. The release is named here when it ships.

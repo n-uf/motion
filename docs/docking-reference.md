@@ -736,7 +736,7 @@ is passed as `fresh`:
 | Keep open | `keepItem` + `fresh: [id]` |
 | open a closed item | `openItem`: it counts as fresh by itself beside items that stayed open in its edge. Into an edge whose items were all closed it comes back as it was (its column may stay folded by give-way); to show it regardless, `openItem` + `markUsed` + `fresh: [id]`, as for expanding |
 
-**Targets.** `targets(state, id, { previous, endReach, floatSize, floatOrient })` gives `DockDrop`s: placement's `Target` shape plus `item`, `place` and `after`, and the fields a drag intent reads for
+**Targets.** `targets(state, id, { previous, endReach, floatSize, floatOrient, grab, pitch })` gives `DockDrop`s: placement's `Target` shape plus `item`, `place` and `after`, and the fields a drag intent reads for
 spring-loaded rails and rooms that open (`arm`, `armedHit`, `opensRoom`, `roomHold`, `roomHit`), which `DockDrop` carries
 and placement's `Target` does not. A `DockDrop` is also the shape `@n-uf/motion/drag` takes:
 
@@ -752,7 +752,8 @@ the hit regions split at the midpoints of the remaining panels. A toolbar tray a
 like its column. On a bar or a toolbar rail a toolbar takes the nearest landing (`options.pitch`, as `lanes()`', sets how
 far past an overlap the cut may move: half of it): the hit regions of the places right before and right after a neighbor split halfway across the gap between
 their two landings, or, where the two overlap (the neighbor shorter than the item), where the item is held
-(`options.grab`, a share of the item's length as held, default its middle). Over a neighbor as long as the item, the
+(`options.grab`, the press's offset from the item's top left as it is now, px, constant for the drag: its share along
+the item's own length counts; default the item's middle). Over a neighbor as long as the item, the
 item takes its place. Each landing lies in the layout its own drop commits (a movable grower as that commit draws it,
 given way), and a place over free room cuts from its range's ends, the room its drop makes; the places follow one
 another in the order of their landings, whatever their zones. Which places exist is read in the room, growth off; no
@@ -1101,7 +1102,8 @@ gives `base` back with an `error`.
 | `ColumnPlace` | `{ kind: "column", side, ring }`: a new dynamic column on a left or right `side` at `ring` (`Infinity` is the side's inner end). |
 | `RailPlace` | `{ kind: "rail", side, ring }`: a new column holding the item folded by hand, so it shows in the side's rail. |
 | `FloatPlace` | `{ kind: "float", rect?, anchor? }`: floating at `rect`, or, with none, at its last size anchored to the content; `anchor` is a name or `{ at, dx?, dy? }`. |
-| `DockLaneOptions` | The options of `lanes` and `dockDrag`: `DockDropOptions` (`previous`, `endReach` default 0, `floatSize`, `floatFromHeld`, `floatOrient`, `fresh`) and `pitch` (default `SPOT_PITCH`, 40 px), `stretchPositions` (`"free"`, the default, or `"pitched"`), `snapDistance` (8 px), `grab` (where the pointer holds the item, from its top left corner) and `emptyLanes`. |
+| `DockDropOptions` | The options of `targets`, `refusals` and `stops`: `previous`, `endReach` (default 0), `floatSize`, `floatFromHeld`, `floatOrient`, `fresh`, `grab` (where the pointer holds the item, from its top left corner as it is now, px: the press's, constant for the drag; default the item's middle) and `pitch` (default `SPOT_PITCH`, 40 px). On a bar or a toolbar rail `grab` and `pitch` set where two overlapping landings are cut: at the grab, within half a pitch of their overlap (`aimCut`, the "Aim order" above). |
+| `DockLaneOptions` | The options of `lanes` and `dockDrag`: every `DockDropOptions` field (`grab` and `pitch` included, as documented there), plus `stretchPositions` (`"free"`, the default, or `"pitched"`), `snapDistance` (8 px) and `emptyLanes`. Here `pitch` also spaces pitched spots (0 or less turns them off) and, under `"free"`, only sets the sampling step that checks a stretch's range. |
 | `EmptyLanes` | `"real"` (the default) or `"edge"`: how an empty lane's marks draw it, a box at the size it will take or a thin striped strip (`HATCH_EDGE`) on its window side. Where it lands is the same either way. |
 | `StoredDockState` | The stored form: `{ v: 1, edges, floats, items, railModes? }`, plain JSON-safe data. `railModes` says per side how its rails show their items. |
 | `StoredDockStateEdge` | `{ id, side, ring, items, size?, column? }`: an edge's order of items and its `size`; `column: true` marks a dynamic column, read back from the side's template even when `base` lacks it. |
