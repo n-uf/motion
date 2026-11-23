@@ -101,6 +101,41 @@ describe("tilingDrag: a held place keeps its zone as drawn", () => {
     expect(d.holds(left, { x: 330, y: 250 }, drawn)).toBe(false);
   });
 
+  describe("a column where the subject's slot is twice the partner's height", () => {
+    // a 0–333 over b 333–500. On the base b fills the column (centre 165–335); drawn, b's centre is 388–444, so its top
+    // band (333–388) lies between the two centres.
+    const tall: StackedSplit<string> = { split: { axis: "x", ratio: 0.4, a: { axis: "y", ratio: 2 / 3, a: { pane: "a" }, b: { pane: "b" } }, b: { pane: "c" } } };
+    const dragTall = (): TilingDrag<StackedSplit<string>, string> => tilingDrag(tall, { kind: "pane", pane: "a" }, opts());
+    const swapB = JSON.stringify({ kind: "swap", at: "b" });
+
+    it("the slow path from b's upper part down through its drawn middle stays a swap, frame to frame", () => {
+      const d = dragTall();
+      const drawn = d.lift.layout; // the old place reopened, b in its own slot
+      let held: string | null = null;
+      const seen: string[] = [];
+      for (let y = 300; y <= 440; y += 1) {
+        held = step(d, held, { x: 160, y }, drawn);
+        seen.push(held === null ? "none" : JSON.stringify(d.heldOf(held)));
+      }
+      expect(new Set(seen)).toEqual(new Set([swapB]));
+    });
+
+    it("the band facing the reopened place holds; every other band lets go, so insert below stays reachable", () => {
+      const d = dragTall();
+      const drawn = d.lift.layout;
+      const swap: TilingHeld<string> = { kind: "swap", at: "b" };
+      expect(d.holds(swap, { x: 160, y: 350 }, drawn)).toBe(true); // b's top band, against a's slot
+      expect(d.holds(swap, { x: 5, y: 415 }, drawn)).toBe(false); // b's left band
+      expect(d.holds(swap, { x: 160, y: 490 }, drawn)).toBe(false); // b's bottom band
+      expect(d.heldOf(step(d, d.placeOf(d.targets[0]!, { x: 160, y: 300 }, null), { x: 160, y: 490 }, drawn)!)).toEqual({ kind: "beside", at: "b", side: "bottom" });
+    });
+
+    it("a side's band never takes the facing band: only a swap does", () => {
+      const d = dragTall();
+      expect(d.holds({ kind: "beside", at: "b", side: "bottom" }, { x: 160, y: 350 }, d.lift.layout)).toBe(false);
+    });
+  });
+
   it("home, a join, and a pane not drawn hold nowhere", () => {
     const d = dragA();
     const p = { x: 160, y: 375 };
