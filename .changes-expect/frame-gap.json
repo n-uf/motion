@@ -1,0 +1,26 @@
+[
+ {
+  "package": "motion",
+  "kind": "landing-frames",
+  "case": "landing-lane-to-lane",
+  "reason": "a touching lane's slide counts from where the pointer crossed into the lane, so the across part of the step that entered the top bar counts: the across-at-most-a-third-of-along check wants more along, and the bar takes over 3 frames later (decision 0014)"
+ },
+ {
+  "package": "motion",
+  "kind": "landing-frames",
+  "case": "landing-lane-to-lane [pitched]",
+  "reason": "a touching lane's slide counts from where the pointer crossed into the lane, so the across part of the step that entered the top bar counts: the across-at-most-a-third-of-along check wants more along, and the bar takes over 3 frames later (decision 0014)"
+ },
+ {
+  "package": "motion",
+  "kind": "landing-frames",
+  "case": "landing-across-items",
+  "reason": "a touching lane's slide counts from where the pointer crossed into the lane, so the across part of the step that entered the top bar counts: the across-at-most-a-third-of-along check wants more along, and the bar takes over 1 frame later (decision 0014)"
+ },
+ {
+  "package": "motion",
+  "kind": "landing-frames",
+  "case": "landing-across-items [pitched]",
+  "reason": "a touching lane's slide counts from where the pointer crossed into the lane, so the across part of the step that entered the top bar counts: the across-at-most-a-third-of-along check wants more along, and the bar takes over 1 frame later (decision 0014)"
+ }
+]
