@@ -208,7 +208,7 @@ export interface DockLaneOptions extends DockDropOptions {
    * On a bar or a toolbar rail the cut between two overlapping landings lies halfway between the points the pointer
    * would hold in each (the grab in each landing's own form), kept within half a pitch of their overlap, so a pointer
    * back at its press point picks the item's own place; landings with a gap between them (either side of a long
-   * neighbor) are cut halfway across it whatever the grab, so the pointer is at the landing it picks (R12). Panel
+   * neighbor) are cut halfway across it whatever the grab, so the pointer is at the landing it picks. Panel
    * columns take a panel by halves of what is drawn either way. Where another lane's band overlaps the press point (an
    * empty bar's band over a rail's end) that lane can still take the pointer first.
    */
