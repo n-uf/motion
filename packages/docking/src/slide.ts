@@ -64,7 +64,7 @@ export function givesWay(
 }
 
 /** A growing item's length in `r` past its natural one (a title filling the bar): spare room a dock beside it can take. */
-export function slackOf(state: DockState, id: string, axis: Axis, r: Rect): number {
+function slackOf(state: DockState, id: string, axis: Axis, r: Rect): number {
   const main = state.items[id]?.forms[axis === "x" ? "row" : "column"]?.[0]?.main;
   return main?.grows ? Math.max(0, len(r, axis) - main.natural) : 0;
 }
@@ -176,13 +176,13 @@ export function landsAt(se: SlideEdge, place: DockPlace, x0: number): { next: Do
 }
 
 /** A landing of a sliding range: the dock that puts the item's start at a point, and what it commits. */
-export interface SlideLanding {
+interface SlideLanding {
   readonly place: DockPlace;
   readonly result: DropResult;
 }
 
 /** The dock that lands the item's start at `x0` in `room`, in the zone nearer the edge's middle first, or null. */
-export function slideLand(se: SlideEdge, room: SlideRoom, x0: number): SlideLanding | null {
+function slideLand(se: SlideEdge, room: SlideRoom, x0: number): SlideLanding | null {
   const near: Zone = x0 + room.w / 2 < se.middle ? "start" : "end";
   for (const zone of [near, near === "start" ? ("end" as const) : ("start" as const)]) {
     if (!room.zones.includes(zone)) continue;
