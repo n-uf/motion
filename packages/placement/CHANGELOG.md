@@ -5,6 +5,16 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.57
+
+- **Added: `Side` and `Axis` in the root.** `Side` is `"top" | "right" | "bottom" | "left"` and `Axis` is `"x" | "y"`, the
+  two words every entry and `@n-uf/docking` share. `EdgeBand.side`, `MasterOptions.side`, `PaneRegion`, `PANE_SIDES`,
+  `canSplitPane`, `DropFitsOptions.side` and `splitPane` take `Side`; a split's `axis` and the `axis` argument of
+  `SplitOptions`' `fixed`, `fixedAcross` and `floor` are `Axis`. The values are the same strings as before: no layout,
+  place or id changes.
+- **Removed (breaking): `BandSide` (`./stack`) and `PaneSide` (`./tiling`).** Both were `Side` under another name. A host
+  that imported either imports `Side` from `@n-uf/placement` instead (one-line rename; the type is the same set).
+
 ## 26.11.56
 
 - `./stack`, **added: `fitFloat(want, stage, avoid, { stay: true })`** (`FloatFitOptions`): the float is only moved
