@@ -104,22 +104,25 @@ export interface SlideRoom {
   /**
    * The place's commit as `placeOf` reads it, where a dock with no space lands between the two (`slideRoom`'s probe):
    * a landing counts for the place only where its own commit is this place. Undefined where no such dock lands: the
-   * room is read as the lift leaves it, and every landing in it counts.
+   * room is read as the lift leaves it, and every landing in it counts. (Not read from the lift instead: a drop that
+   * sends a neighbor to the » commits another place than the lift shows, and pitched spots land there all the same.)
    */
   readonly place?: string;
 }
 
 /**
  * Which place a layout commits on `se`'s edge: the edge's shown items in order (the dragged one among them) and the
- * items in the », so a landing that pushes a neighbor into the » or reorders the edge is another place.
+ * edge's » items, so a landing that pushes a neighbor into the » or reorders the edge is another place. A fixed item
+ * that steps is no part of it, shown or in the »: `landsAt` keeps it where it was or lets it step to the » for a dock.
  */
 function placeOf(se: SlideEdge, l: DockLayout): string {
+  const counts = (id: string): boolean => !(se.state.items[id]?.fixed && itemSteps(se.state.items[id]!));
   const shown = Object.entries(l.items)
-    .filter(([, it]) => it.edge === se.e.id && !it.inMenu && !it.floating && it.rect.width > EPS && it.rect.height > EPS)
+    .filter(([id, it]) => counts(id) && it.edge === se.e.id && !it.inMenu && !it.floating && it.rect.width > EPS && it.rect.height > EPS)
     .sort(([, p], [, q]) => lo(p.rect, se.axis) - lo(q.rect, se.axis))
     .map(([id]) => id);
   const menu = Object.entries(l.items)
-    .filter(([, it]) => it.inMenu)
+    .filter(([id, it]) => counts(id) && it.inMenu && it.edge === se.e.id)
     .map(([id]) => id)
     .sort();
   return `${shown.join(" ")} » ${menu.join(" ")}`;
