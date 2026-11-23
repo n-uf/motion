@@ -23,7 +23,7 @@
  */
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
-import { liftItem, markUsed, moveTo, type DockPlace } from "./changes";
+import { liftItem, moveTo, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, rangeTries } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
@@ -1234,10 +1234,8 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
 
 /** The dock `place` on `run`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */
 function landsAt(state: DockState, dragged: string, run: StretchEdge, place: DockPlace, x0: number): { next: DockState; layout: DockLayout } | null {
-  const moved = moveTo(state, dragged, place);
-  if (moved === state) return null;
-  // A dropped item counts as just used, as every target's drop does (`markUsed`).
-  const next = markUsed(moved, dragged);
+  const next = moveTo(state, dragged, place);
+  if (next === state) return null;
   const layout = solveLanded(next, dragged, run.prev);
   const landed = layout.items[dragged];
   const { axis } = run;
