@@ -18,6 +18,10 @@ interface OnePreset {
   readonly id: string;
   readonly title: string;
   readonly expected: string;
+  /** The rule this case waits for (`Preset.lacks`) */
+  readonly lacks?: string;
+  /** Not settled yet: reported `pending` while it fails (`Preset.pending`) */
+  readonly pending?: boolean;
   setup(c: Docwin): void;
   check(c: Docwin): Verdict;
 }
@@ -402,6 +406,32 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
         said.push(`${EMPTY_BAR.name}: floats at ${say(landed?.rect)}`);
       },
     ),
+    // (with no expectation yet: it reports what a release gives and stays pending until the rule for this speed is set)
+    {
+      id: "one-preview-early-release-rail-24px",
+      title: "A toolbar flicked at 24 px a frame onto the empty left window-edge rail: let go at once, and after 80 ms at rest",
+      expected:
+        "Not set yet. A toolbar driven at 1.5 px/ms (24 px a 16 ms frame) to the empty left window-edge rail's place and let go at once, then again resting 80 ms there first: the case reports where each release puts it (a float, home, or the rail) and the rect drawn at the release.",
+      lacks: "the early-release rule at 24 px a frame onto an empty rail: float, home or the rail",
+      pending: true,
+      setup: fresh,
+      check(c) {
+        const said: string[] = [];
+        const rail = PLACES[2]!;
+        for (const [name, ms] of [["let go at once", 0], ["rested 80 ms", 80]] as const) {
+          const r = go(c, rail, FAST, ms);
+          if (!r) {
+            said.push(`${name}: no empty left window-edge rail here`);
+            continue;
+          }
+          const it = c.layout.items[rail.id];
+          const where = !r.drop?.committed ? "home" : it?.floating ? "a float" : `the ${it?.edge ?? "?"} edge`;
+          said.push(`${name}: ${where} at ${say(it?.rect)}, drawn at the release ${say(shownAtRelease(r.trace))}`);
+        }
+        // (never a pass while it has no expectation)
+        return { pass: false, now: `${said.join("; ")}.` };
+      },
+    },
     preset(
       "one-preview-over-docked",
       "Over another panel's body a panel docks by halves; only content that takes no drop returns it",
