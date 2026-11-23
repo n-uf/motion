@@ -7,8 +7,10 @@
 import type { Point, Rect } from "../geometry";
 import type { Side } from "../side";
 import { tilingDrag, type TilingDrag, type TilingDragOptions, type TilingHeld, type TilingSubject } from "./drag";
-import { TILING_HIT_DEFAULTS, type TilingBasis, type TilingHitOptions, type TilingHitRead, type TilingHitTarget, type TilingHold } from "./hit";
+import { TILING_HIT_DEFAULTS, TILING_NEIGHBOR_SWAP_SHARE, type TilingBasis, type TilingHitOptions, type TilingHitRead, type TilingHitTarget, type TilingHold } from "./hit";
+import { layoutSplitTree } from "./layout";
 import { PANE_REGION_DEFAULTS } from "./regions";
+import type { Split } from "./split";
 import { tilingSubjects } from "./conformance";
 
 /** The properties, by name (each is a key of `TilingHitConformance.counts`). */
@@ -27,10 +29,10 @@ export const TILING_HIT_PROPERTIES = [
   "shown-under-pointer",
   /** At every frame of a gesture a release commits `after(held)`, else the lift tree; the base basis draws `after(held)` for a held place, the lift at home, the base with nothing held. */
   "shown-equals-landed",
-  /** On the subject's full-edge neighbor along an axis (the same bounds across it, nothing between) no side along that axis is offered, and the swap reaches both its ends along the axis. */
-  "neighbor-swaps",
-  /** Every other pane keeps the five regions: a side at each edge, the swap in the middle. */
-  "others-keep-five",
+  /** A side of a pane takes an insert exactly when that insert gives a new arrangement: neither the lift's nor the swap's (by a second copy of the arrangement). */
+  "new-arrangement-sides",
+  /** Every zone of every pane is convex: the midpoint of two points in one zone is in it too. */
+  "zones-convex",
 ] as const;
 
 export type TilingHitProperty = (typeof TILING_HIT_PROPERTIES)[number];
@@ -130,82 +132,115 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       }
       return null;
     };
-    /**
-     * The second copy of the neighbor rule: the axis along which the lift pane `k` touches home edge to edge with the
-     * same two bounds across it, no other lift pane between them; null otherwise (or with no home).
-     */
-    const neighborOf = (k: K): "x" | "y" | null => {
-      const h = home;
-      const r = drag.lift.layout.get(k);
-      if (!h || !r) return null;
-      const eq = (a: number, b: number): boolean => Math.abs(a - b) < 0.5;
-      const others = [...drag.lift.layout].filter(([q]) => q !== k && q !== subjectDrawn).map(([, b]) => b);
-      // Column: equal left and right bounds; between them the open band from the upper one's bottom to the lower one's top.
-      if (eq(r.x, h.x) && eq(r.x + r.width, h.x + h.width)) {
-        const [upper, lower] = r.y < h.y ? [r, h] : [h, r];
-        const from = upper.y + upper.height;
-        const to = lower.y;
-        if (to >= from - 0.5 && !others.some((b) => b.y < to && b.y + b.height > from && b.x < h.x + h.width && b.x + b.width > h.x)) return "y";
-      }
-      if (eq(r.y, h.y) && eq(r.y + r.height, h.y + h.height)) {
-        const [left, right] = r.x < h.x ? [r, h] : [h, r];
-        const from = left.x + left.width;
-        const to = right.x;
-        if (to >= from - 0.5 && !others.some((b) => b.x < to && b.x + b.width > from && b.y < h.y + h.height && b.y + b.height > h.y)) return "x";
-      }
-      return null;
+    // The second copy of the arrangement: every pane in reading order of its runs, a stack as its members, sizes dropped.
+    // A split's axis is its own, else read off its two halves' panes as laid out; a split along its parent's axis joins
+    // the parent's run; a master split stands apart.
+    const flatOf = (t: T): string => {
+      const placed = layoutSplitTree(ops.split(t), area, options).panes;
+      const keysIn = (n: Split<K>): K[] => ("pane" in n ? [n.pane] : [...keysIn(n.a), ...keysIn(n.b)]);
+      const box = (n: Split<K>) => {
+        const rs = keysIn(n).map((k) => placed.get(k)).filter((r): r is Rect => !!r);
+        return { x0: Math.min(...rs.map((r) => r.x)), x1: Math.max(...rs.map((r) => r.x + r.width)) };
+      };
+      const dir = (n: Exclude<Split<K>, { readonly pane: K }>): "x" | "y" => {
+        if (n.axis) return n.axis;
+        const [a, b] = [box(n.a), box(n.b)];
+        return a.x1 <= b.x0 + 0.5 || b.x1 <= a.x0 + 0.5 ? "x" : "y";
+      };
+      const items = (n: Split<K>, d: "x" | "y" | null): string[] => {
+        if ("pane" in n) {
+          const s = stackOf(t, n.pane);
+          return [s ? `<${s.members.map(String).join(" ")}>` : String(n.pane)];
+        }
+        if (n.master) return [`M${JSON.stringify(n.master)}{${items(n.a, null).join(";")}|${items(n.b, null).join(";")}}`];
+        const own = dir(n);
+        if (own === d) return [...items(n.a, own), ...items(n.b, own)];
+        return [`${own}{${[...items(n.a, own), ...items(n.b, own)].join(";")}}`];
+      };
+      const s = ops.split(t);
+      return s ? items(s, null).join(";") : "";
     };
-    const panes: { pane: K; at: K; rect: Rect; axis: "x" | "y" | null }[] = [];
+    const liftFlat = flatOf(drag.lift.tree);
+    const changed = (h: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }): T => {
+      const t = h.kind === "swap" ? ops.swap(drag.lift.tree, subject, h.at) : ops.beside(ops.release(drag.lift.tree, subject), subject, h.at, h.side, { kind: "half" });
+      return ops.normalize ? ops.normalize(t) : t;
+    };
+    /**
+     * The second copy of the rule, by result: a side exists exactly when its insert gives a new arrangement, neither the
+     * lift's nor the swap's. Checked by the drag's own rule only where it judges (a whole child of a run next to the
+     * subject); the copy asks it of every pane.
+     */
+    const sidesOf = (at: K): Side[] => {
+      const swap = flatOf(changed({ kind: "swap", at }));
+      return (["top", "right", "bottom", "left"] as Side[]).filter((side) => {
+        const f = flatOf(changed({ kind: "beside", at, side }));
+        return f !== liftFlat && f !== swap;
+      });
+    };
+    const panes: { pane: K; at: K; rect: Rect; sides: Side[] }[] = [];
     for (const [pane, rect] of laid.layout) {
       if (basis === "lift" && home && pane === subjectDrawn) continue;
       const at = atOf(pane);
       if (at === null || options.still?.(at)) continue;
-      panes.push({ pane, at, rect, axis: neighborOf(drag.lift.layout.has(pane) ? pane : at) });
+      panes.push({ pane, at, rect, sides: sidesOf(at) });
     }
-    /** The center rectangle, by its formula: the share of each axis (clamped), the floor, the device-pixel grid. */
-    const centerOf = (r: Rect) => {
+    /** The center rectangle, by its formula: the share of each axis (clamped), the floor, the device-pixel grid; a side gone toward a pane's edge reaches it. */
+    const centerOf = (r: Rect, sides: readonly Side[] = ["top", "right", "bottom", "left"]) => {
       const clamp = (v: number): number => Math.min(0.95, Math.max(0.05, v));
       const ratio = reg.pixelRatio > 0 ? reg.pixelRatio : 1;
-      const cw = Math.min(r.width, Math.max(r.width * clamp(reg.centerX ?? reg.center), Math.min(reg.centerMin, r.width)));
-      const ch = Math.min(r.height, Math.max(r.height * clamp(reg.centerY ?? reg.center), Math.min(reg.centerMin, r.height)));
+      const alongGone = !sides.includes("top") || !sides.includes("bottom");
+      const acrossGone = !sides.includes("left") || !sides.includes("right");
+      const sx = alongGone ? TILING_NEIGHBOR_SWAP_SHARE : (reg.centerX ?? reg.center);
+      const sy = acrossGone ? TILING_NEIGHBOR_SWAP_SHARE : (reg.centerY ?? reg.center);
+      const cw = Math.min(r.width, Math.max(r.width * clamp(sx), Math.min(reg.centerMin, r.width)));
+      const ch = Math.min(r.height, Math.max(r.height * clamp(sy), Math.min(reg.centerMin, r.height)));
       const g = (v: number): number => Math.round(v * ratio) / ratio;
-      return { l: r.x + g((r.width - cw) / 2), t: r.y + g((r.height - ch) / 2), r: r.x + g((r.width + cw) / 2), b: r.y + g((r.height + ch) / 2) };
+      return {
+        l: sides.includes("left") ? r.x + g((r.width - cw) / 2) : r.x,
+        t: sides.includes("top") ? r.y + g((r.height - ch) / 2) : r.y,
+        r: sides.includes("right") ? r.x + g((r.width + cw) / 2) : r.x + r.width,
+        b: sides.includes("bottom") ? r.y + g((r.height + ch) / 2) : r.y + r.height,
+        // The edges a side that exists is cut at (the band it would have had).
+        cl: r.x + g((r.width - cw) / 2),
+        ct: r.y + g((r.height - ch) / 2),
+        cr: r.x + g((r.width + cw) / 2),
+        cb: r.y + g((r.height + ch) / 2),
+      };
     };
-    /** The region of `r` the point is in, as trapezoids from the pane's corners to the center's; null on a shared edge. */
-    const regionOf = (r: Rect, p: Point): "center" | Side | null => {
-      const c = centerOf(r);
+    /**
+     * The region of `r` the point is in: the center (reaching the pane's edge where a side is gone), else a side that
+     * exists and the point lies past the center toward, two such sides parted by the diagonal from the pane's corner to
+     * the center's; null on a shared edge.
+     */
+    const regionOf = (r: Rect, p: Point, sides: readonly Side[] = ["top", "right", "bottom", "left"]): "center" | Side | null => {
+      const c = centerOf(r, sides);
       if (p.x >= c.l && p.x <= c.r && p.y >= c.t && p.y <= c.b) return "center";
+      const past = sides.filter((s) => (s === "top" ? p.y < c.ct : s === "bottom" ? p.y > c.cb : s === "left" ? p.x < c.cl : p.x > c.cr));
+      if (past.length === 1) return past[0]!;
       const [x0, y0, x1, y1] = [r.x, r.y, r.x + r.width, r.y + r.height];
-      const quads: [Side, Point[]][] = [
-        ["top", [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: c.r, y: c.t }, { x: c.l, y: c.t }]],
-        ["right", [{ x: x1, y: y0 }, { x: x1, y: y1 }, { x: c.r, y: c.b }, { x: c.r, y: c.t }]],
-        ["bottom", [{ x: x1, y: y1 }, { x: x0, y: y1 }, { x: c.l, y: c.b }, { x: c.r, y: c.b }]],
-        ["left", [{ x: x0, y: y1 }, { x: x0, y: y0 }, { x: c.l, y: c.t }, { x: c.l, y: c.b }]],
-      ];
-      return quads.find(([, q]) => inQuad(q, p))?.[0] ?? null;
+      const quads: Record<Side, Point[]> = {
+        top: [{ x: x0, y: y0 }, { x: x1, y: y0 }, { x: c.cr, y: c.ct }, { x: c.cl, y: c.ct }],
+        right: [{ x: x1, y: y0 }, { x: x1, y: y1 }, { x: c.cr, y: c.cb }, { x: c.cr, y: c.ct }],
+        bottom: [{ x: x1, y: y1 }, { x: x0, y: y1 }, { x: c.cl, y: c.cb }, { x: c.cr, y: c.cb }],
+        left: [{ x: x0, y: y1 }, { x: x0, y: y0 }, { x: c.cl, y: c.ct }, { x: c.cl, y: c.cb }],
+      };
+      return past.find((s) => inQuad(quads[s], p)) ?? null;
     };
     /** The bounding box of a region of `r`. */
-    const regionBox = (r: Rect, region: "center" | Side): Rect => {
-      const c = centerOf(r);
+    const regionBox = (r: Rect, region: "center" | Side, sides?: readonly Side[]): Rect => {
+      const c = centerOf(r, sides);
       if (region === "center") return { x: c.l, y: c.t, width: c.r - c.l, height: c.b - c.t };
-      if (region === "top") return { x: r.x, y: r.y, width: r.width, height: c.t - r.y };
-      if (region === "bottom") return { x: r.x, y: c.b, width: r.width, height: r.y + r.height - c.b };
-      if (region === "left") return { x: r.x, y: r.y, width: c.l - r.x, height: r.height };
-      return { x: c.r, y: r.y, width: r.x + r.width - c.r, height: r.height };
+      if (region === "top") return { x: r.x, y: r.y, width: r.width, height: c.ct - r.y };
+      if (region === "bottom") return { x: r.x, y: c.cb, width: r.width, height: r.y + r.height - c.cb };
+      if (region === "left") return { x: r.x, y: r.y, width: c.cl - r.x, height: r.height };
+      return { x: c.cr, y: r.y, width: r.x + r.width - c.cr, height: r.height };
     };
     const live = (h: TilingHeld<K>): boolean => h.kind === "home" || drag.after(h).refusal === null;
+    /** A live place whose release has the lift's arrangement (by the copy's own flattening). */
     const givesLift = (h: TilingHeld<K>): boolean => {
       if (h.kind === "home") return true;
       const a = drag.after(h);
-      if (a.refusal) return false;
-      if (a.layout.size !== drag.lift.layout.size) return false;
-      for (const [k, r] of a.layout) {
-        if (!sameRect(r, drag.lift.layout.get(k))) return false;
-        const x = stackOf(a.tree, k);
-        const y = stackOf(drag.lift.tree, k);
-        if (!!x !== !!y || (x && y && (x.active !== y.active || x.members.join("\u0000") !== y.members.join("\u0000")))) return false;
-      }
-      return true;
+      return !a.refusal && (a.tree === drag.lift.tree || flatOf(a.tree) === liftFlat);
     };
     interface Expect {
       /** The live place on top at the point, before home-likeness; null over nothing or a refused zone. */
@@ -236,25 +271,10 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
         if (live(held)) return { raw: held, refused: null, box: part.rect, pane, tie: false };
         refused ??= held;
       }
-      if (pane.axis) {
-        // A full-edge neighbor: the swap across the middle share of the other axis, over the whole length; side strips
-        // across it, each the full length.
-        const r = pane.rect;
-        const c = centerOf(r);
-        const lo = pane.axis === "y" ? p.x < c.l : p.y < c.t;
-        const hi = pane.axis === "y" ? p.x > c.r : p.y > c.b;
-        const side: Side | null = lo ? (pane.axis === "y" ? "left" : "top") : hi ? (pane.axis === "y" ? "right" : "bottom") : null;
-        const held: TilingHeld<K> = side ? { kind: "beside", at: pane.at, side } : { kind: "swap", at: pane.at };
-        const box: Rect =
-          pane.axis === "y"
-            ? side === "left" ? { x: r.x, y: r.y, width: c.l - r.x, height: r.height } : side === "right" ? { x: c.r, y: r.y, width: r.x + r.width - c.r, height: r.height } : { x: c.l, y: r.y, width: c.r - c.l, height: r.height }
-            : side === "top" ? { x: r.x, y: r.y, width: r.width, height: c.t - r.y } : side === "bottom" ? { x: r.x, y: c.b, width: r.width, height: r.y + r.height - c.b } : { x: r.x, y: c.t, width: r.width, height: c.b - c.t };
-        return live(held) ? { raw: held, refused: null, box, pane, tie: false } : { raw: null, refused: refused ?? held, box: null, pane, tie: false };
-      }
-      const region = regionOf(pane.rect, p);
+      const region = regionOf(pane.rect, p, pane.sides);
       if (region === null) return { raw: null, refused: null, box: null, pane, tie: true };
       const held: TilingHeld<K> = region === "center" ? { kind: "swap", at: pane.at } : { kind: "beside", at: pane.at, side: region };
-      return live(held) ? { raw: held, refused: null, box: regionBox(pane.rect, region), pane, tie: false } : { raw: null, refused: refused ?? held, box: null, pane, tie: false };
+      return live(held) ? { raw: held, refused: null, box: regionBox(pane.rect, region, pane.sides), pane, tie: false } : { raw: null, refused: refused ?? held, box: null, pane, tie: false };
     };
     const expectedPlace = (e: Expect): TilingHeld<K> | null => (e.raw && givesLift(e.raw) ? HOME : e.raw);
     const placeAt = (p: Point): TilingHeld<K> | null => {
@@ -312,35 +332,45 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       }
     }
 
-    // ---- neighbor-swaps and others-keep-five: a point deep in each side band (1 px in from the pane's edge, mid-way
-    // along it) and the pane's middle, off parts and home. A place that is refused or gives the lift back is not asked.
-    const offered = (h: TilingHeld<K>): boolean => live(h) && !givesLift(h);
+    // ---- new-arrangement-sides: at a point 1 px in from the middle of each of a pane's edges (off parts and home), a
+    // side insert shows exactly when its insert gives a new arrangement (the copy's `sidesOf`); where it does not, no
+    // insert of that side is offered there.
     for (const pn of panes) {
       const r = pn.rect;
       if (r.width < 4 || r.height < 4) continue;
       const partRects = (ops.parts?.(laid.tree, pn.pane, r) ?? []).map((q) => q.rect);
       const free = (p: Point): boolean => !(home && inside(home, p)) && !partRects.some((q) => inside(q, p));
-      const swap: TilingHeld<K> = { kind: "swap", at: pn.at };
-      const points: [Side | "center", Point][] = [
+      const probes: [Side, Point][] = [
         ["top", { x: r.x + r.width / 2, y: r.y + 1 }],
         ["bottom", { x: r.x + r.width / 2, y: r.y + r.height - 1 }],
         ["left", { x: r.x + 1, y: r.y + r.height / 2 }],
         ["right", { x: r.x + r.width - 1, y: r.y + r.height / 2 }],
-        ["center", { x: r.x + r.width / 2, y: r.y + r.height / 2 }],
       ];
-      for (const [where, p] of points) {
+      for (const [side, p] of probes) {
         if (!free(p)) continue;
         const got = placeAt(p);
-        const along = where !== "center" && ((pn.axis === "y" && (where === "top" || where === "bottom")) || (pn.axis === "x" && (where === "left" || where === "right")));
-        if (pn.axis) {
-          if (along || where === "center") {
-            check("neighbor-swaps", got?.kind !== "beside" && (!offered(swap) || got?.kind === "swap"), () => `the full-edge neighbor ${String(pn.at)} (along ${pn.axis}) reads ${show(got)} at its ${where}`);
-          }
-          continue;
+        const want: TilingHeld<K> = { kind: "beside", at: pn.at, side };
+        const isSide = got?.kind === "beside" && got.side === side;
+        if (pn.sides.includes(side)) {
+          // A pane narrower than the center's floor has no band there: the point is in its middle.
+          if (live(want) && regionOf(r, p, pn.sides) === side) check("new-arrangement-sides", isSide, () => `${String(pn.at)} reads ${show(got)} at its ${side} edge, a new arrangement`);
+        } else {
+          check("new-arrangement-sides", !isSide, () => `${String(pn.at)} offers its ${side} insert, which gives the ${flatOf(changed(want as { kind: "beside"; at: K; side: Side })) === liftFlat ? "lift's" : "swap's"} arrangement`);
         }
-        const want: TilingHeld<K> = where === "center" ? swap : { kind: "beside", at: pn.at, side: where };
-        // A pane narrower than the center's floor has no band there: the point is in its middle.
-        if (offered(want) && regionOf(r, p) === where) check("others-keep-five", show(got) === show(want), () => `${String(pn.at)} reads ${show(got)} at its ${where}, expected ${show(want)}`);
+      }
+    }
+    // ---- zones-convex: two points in one zone of a pane (off parts and home) have their midpoint in it too.
+    for (const pn of panes) {
+      const partRects = (ops.parts?.(laid.tree, pn.pane, pn.rect) ?? []).map((q) => q.rect);
+      const free = (p: Point): boolean => !(home && inside(home, p)) && !partRects.some((q) => inside(q, p));
+      for (let k = 0; k < 24; k++) {
+        const a = randomPoint(pn.rect);
+        const b = randomPoint(pn.rect);
+        const m = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        if (!free(a) || !free(b) || !free(m)) continue;
+        const za = hit.zone(a);
+        if (za === null || za === "home" || za !== hit.zone(b)) continue;
+        check("zones-convex", hit.zone(m) === za, () => `${za} at ${a.x.toFixed(1)},${a.y.toFixed(1)} and ${b.x.toFixed(1)},${b.y.toFixed(1)}, ${hit.zone(m)} between`);
       }
     }
 

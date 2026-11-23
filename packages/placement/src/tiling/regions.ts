@@ -32,9 +32,14 @@ export interface PaneRegionOptions {
    * reads it; its `width` and `height` are the pane's own size for the hold toward the middle.
    */
   readonly paneCenter?: PaneCenter;
+  /**
+   * The sides that exist (default: all four). A point is in the center unless it lies past the center's edge toward a
+   * side that exists: a side left out gives its whole strip to the center, which then reaches the pane's edge there.
+   */
+  readonly sides?: readonly Side[];
 }
 
-export const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "paneCenter">> = { center: 0.34, centerMin: 24, hysteresis: 6, pixelRatio: 1 };
+export const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "paneCenter" | "sides">> = { center: 0.34, centerMin: 24, hysteresis: 6, pixelRatio: 1 };
 
 /** The center rectangle of a pane of `size`, in pane-local px (origin at the pane's top-left corner). */
 export interface PaneCenter {
@@ -71,12 +76,12 @@ function depths(p: Point, c: PaneCenter): { side: Side; depth: number }[] {
   ];
 }
 
-/** The region a pane-local point is in, by position alone. */
-function rawRegion(p: Point, c: PaneCenter): PaneRegion {
-  if (p.x >= c.left && p.x <= c.right && p.y >= c.top && p.y <= c.bottom) return "center";
+/** The region a pane-local point is in, by position alone: the side it is deepest past the center toward, of the sides that exist. */
+function rawRegion(p: Point, c: PaneCenter, sides?: readonly Side[]): PaneRegion {
   let best: PaneRegion = "center";
   let deepest = 0;
   for (const d of depths(p, c)) {
+    if (sides && !sides.includes(d.side)) continue;
     if (d.depth > deepest) {
       deepest = d.depth;
       best = d.side;
@@ -99,20 +104,27 @@ function toward(p: Point, region: PaneRegion, by: number, c: PaneCenter): Point 
 }
 
 /**
- * The five regions of `pane` as convex polygons, in the same coordinates as `pane`: the center rectangle, and each side's
+ * The regions of `pane` as convex polygons, in the same coordinates as `pane`: the center rectangle, and each side's
  * trapezoid from the pane's two corners on that side to the center's two nearest corners. They are the regions
- * `paneRegion` names (no hysteresis): a point inside one, off its shared edges, is in that region.
+ * `paneRegion` names (no hysteresis): a point inside one, off its shared edges, is in that region. A side left out of
+ * `options.sides` has no polygon (empty); the center reaches the pane's edge there, and a neighboring side's polygon
+ * takes the corner toward it.
  */
 export function paneRegionShapes(pane: Rect, options: PaneRegionOptions = {}): Readonly<Record<PaneRegion, readonly Point[]>> {
   const c = options.paneCenter ?? paneCenter(pane, options);
   const at = (x: number, y: number): Point => ({ x: pane.x + x, y: pane.y + y });
   const [w, h] = [c.width, c.height];
+  const has = (s: Side): boolean => !options.sides || options.sides.includes(s);
+  const l = has("left") ? c.left : 0;
+  const r = has("right") ? c.right : w;
+  const t = has("top") ? c.top : 0;
+  const b = has("bottom") ? c.bottom : h;
   return {
-    center: [at(c.left, c.top), at(c.right, c.top), at(c.right, c.bottom), at(c.left, c.bottom)],
-    top: [at(0, 0), at(w, 0), at(c.right, c.top), at(c.left, c.top)],
-    right: [at(w, 0), at(w, h), at(c.right, c.bottom), at(c.right, c.top)],
-    bottom: [at(w, h), at(0, h), at(c.left, c.bottom), at(c.right, c.bottom)],
-    left: [at(0, h), at(0, 0), at(c.left, c.top), at(c.left, c.bottom)],
+    center: [at(l, t), at(r, t), at(r, b), at(l, b)],
+    top: has("top") ? [at(0, 0), at(w, 0), has("right") ? at(c.right, c.top) : at(w, c.top), has("left") ? at(c.left, c.top) : at(0, c.top)] : [],
+    right: has("right") ? [at(w, 0), at(w, h), has("bottom") ? at(c.right, c.bottom) : at(c.right, h), has("top") ? at(c.right, c.top) : at(c.right, 0)] : [],
+    bottom: has("bottom") ? [at(w, h), at(0, h), has("left") ? at(c.left, c.bottom) : at(0, c.bottom), has("right") ? at(c.right, c.bottom) : at(w, c.bottom)] : [],
+    left: has("left") ? [at(0, h), at(0, 0), has("top") ? at(c.left, c.top) : at(c.left, 0), has("bottom") ? at(c.left, c.bottom) : at(c.left, h)] : [],
   };
 }
 
@@ -125,8 +137,8 @@ export function paneRegionShapes(pane: Rect, options: PaneRegionOptions = {}): R
 export function paneRegion(pane: Rect, point: Point, previous: PaneRegion | null = null, options: PaneRegionOptions = {}): PaneRegion {
   const c = options.paneCenter ?? paneCenter(pane, options);
   const p = { x: point.x - pane.x, y: point.y - pane.y };
-  const raw = rawRegion(p, c);
+  const raw = rawRegion(p, c, options.sides);
   const by = Math.max(0, options.hysteresis ?? PANE_REGION_DEFAULTS.hysteresis);
   if (previous === null || by === 0 || previous === raw) return raw;
-  return rawRegion(toward(p, previous, by, c), c) === previous ? previous : raw;
+  return rawRegion(toward(p, previous, by, c), c, options.sides) === previous ? previous : raw;
 }

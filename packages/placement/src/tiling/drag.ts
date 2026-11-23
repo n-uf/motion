@@ -280,8 +280,11 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     return a;
   };
 
+  /** The tree a change makes, whatever room it has: `normalize(swap(tree))`, or `normalize(beside(release(tree)))`. */
+  const changeOf = (held: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }): T =>
+    normalize(held.kind === "swap" ? ops.swap(tree, subject, held.at) : ops.beside(base.tree, subject, held.at, held.side, { kind: "half" }));
   const hit = (basis: TilingBasis, hitOptions?: TilingHitOptions<K>): TilingHit<T, K> =>
-    createTilingHit({ ops, lift, base, home, subjectKey, inSubject, ...(options.still ? { still: options.still } : {}), after }, basis, hitOptions);
+    createTilingHit({ ops, lift, base, home, subjectKey, inSubject, ...(options.still ? { still: options.still } : {}), after, lay, changeOf }, basis, hitOptions);
 
   return { subject, lift, base, home, after, hit };
 }
