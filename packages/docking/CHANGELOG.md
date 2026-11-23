@@ -7,6 +7,45 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.58
+
+- Fixed: **no guide lies over a movable grower while another item is held beside it.** The marks read a grower as the
+  frame draws it: in a held place's layout, its release's commit, it has taken its bar's free stretch, so the box and
+  hatch of the place after it are cut there, not where its natural length ends. A growing fixed title's slack stays free
+  room for the marks, as before. Drop room still counts a grower at its natural length.
+- Fixed: **a movable grower floats at its natural size, under the hand.** A form that grows without a body (a toolbar
+  that grows on a bar) is not sized by hand (`sizedByHand`: a form that grows and shows a body, a panel's card): its
+  float takes its `floatSizes` or its natural size, never `DEFAULT_FLOAT_SIZE` or a rect left from its grown length, and
+  `fitResize` and `orientFloat` treat it as a toolbar group: a float of a movable toolbar grower is not resizable by hand
+  (`fitResize` gives null), since its size comes from its forms. A float of it keeps the hand's share of the grown rect
+  it was pressed on, so it lies under the pointer, and every frame of its drag lands as its release commits.
+- Added: **a movable item that grows takes its bar's free span.** An item that isn't fixed, drawn in a form with
+  `main.grows` on a bar (a top or bottom bar, a compact rail, a side toolbar bar; never a panel column, whose cards grow
+  as before), no longer just takes the fit's spare length end to end: the zones are laid with every growing item at its
+  natural length, then each free stretch goes to the movable growers in the zones beside it (a start-zone grower the
+  stretch after its zone, an end-zone one the stretch before, a center one fills the stretches on both sides), so a
+  centered item that doesn't grow stays put. Its asked length on a bar (`DockItem.lengths.row`) is replaced by the free
+  span (it only weighs the shares where two growers border one stretch). A growing title on such a bar keeps its natural
+  length. No new field: `main.grows` says it.
+- Added: **for drop room a movable grower counts at its natural length**, as a growing title does: every drop-room
+  reading of a bar (its zone extents, slot lines, cards, the dragged item's own place, an empty zone's probe, and
+  `zoneExtents`) is taken in one layout, the window solved with every movable grower's growth off (once per drag), so
+  what its growth pushes along (a toolbar after it in its zone) counts where it would lie without it. The targets,
+  refusals and zone extents beside a grower are those of the same state with the growth off (a center drop beside it
+  is no longer lost, a bar with a centered fixed item takes it).
+- Added: **dragged, a movable grower previews and lands at its natural length.** Its drop layouts (a target's `after`,
+  `dockDrag`'s `after(held)` and its `landing`, a lane spot's landing, the held item's size) are the drop's state solved
+  with its growth off: it and its bar's neighbors lie at its natural length, with no hole in its zone, and solving the
+  state grows it. This is the one exception to "a held frame and its commit read one layout". States with no movable
+  grower on a bar lay out, target and land exactly as before.
+- Added: **`DockItem.countsAsDocked`, so a side strip no longer switches on the inset of `insetWhen: "docked"`.** The
+  declaration says whether an item counts as a docked panel; left out, the old rule holds (not closed, not fixed, its first
+  column form `open`, `header` or `rail`). It overrides that either way: `false` on a narrow column that only moves the
+  content aside leaves the inset off while it is open alone, so the content is the stage's less the strip's width and the
+  strip lies flush at the window's side; `true` counts an item of another form. With a docked panel open as well the
+  inset is on, as before. It is a declaration like `pushable`: `readDockState` takes it from `base`, `storeDockState`
+  never writes it. A state that declares none lays out exactly as before.
+
 ## 26.11.57
 
 - **Keep-clear rects anchored to the layout's content** (new, additive). A `DockState.keepClear` entry may now be
