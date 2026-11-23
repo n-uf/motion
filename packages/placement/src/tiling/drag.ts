@@ -8,18 +8,13 @@
  * place. Geometry has one source: the adapter gives the tree as a `Split` (`split`), and the library lays it out with
  * `layoutSplitTree` under the drag's options (`SplitOptions` plus `min`, as `canDropOnPane` takes them).
  *
- * The hit half, for panes: `targetsOn(layout)` (one target per pane of the layout the frame draws; `targets` on the
- * base), `placeOf` (the held place within a target, in the intent's shape) and `heldOf` (the held place a place id
- * names). A pane's parts (a title bar, a tab strip) are not here yet.
- * See docs/placement.md, Entry: tiling.
+ * The hit half (targets, a pane's parts, `placeOf`) is not here yet. See docs/placement.md, Entry: tiling.
  */
-import { EPS, type Point, type Rect } from "../geometry";
+import { EPS, type Rect } from "../geometry";
 import type { Side } from "../side";
 import { canSplitPane, dropFits, type DropOptions } from "./drop";
 import { layoutSplitTree, type SplitGeometry } from "./layout";
-import { PANE_SIDES, paneRegion, type PaneRegion, type PaneRegionOptions } from "./regions";
 import { panesOf, type Split } from "./split";
-import { paneTargets, type PaneTarget } from "./targets";
 
 /** A stack as the adapter reports it: its id, its members in order, and the member it is drawn as. */
 export interface TilingStack<K> {
@@ -82,12 +77,8 @@ export interface TilingDragOptions<T, K> extends DropOptions<K> {
   readonly ops: TilingTree<T, K>;
   /** The stage the tree is laid out in, px. */
   readonly area: Rect;
-  /** Panes that take no drop (a swap, a side or a join on one is refused `"still"`, and they have no target). Default: none. */
+  /** Panes that take no drop (a swap, a side or a join on one is refused `"still"`). Default: none. */
   readonly still?: (pane: K) => boolean;
-  /** A pane's drop regions (center share, floor, hysteresis), as `paneRegion` takes them. Default: its defaults. */
-  readonly regions?: PaneRegionOptions;
-  /** A pane's key in its target's id (`pane:<key>`), unique across the panes; default `String`. */
-  readonly key?: (pane: K) => string;
 }
 
 /** A held place of a drag: where a release now lands. `at` is always a pane drawn in the base. */
@@ -157,23 +148,6 @@ export interface TilingDrag<T, K> {
   readonly home: Rect | null;
   /** THE layout of `held`. Remembered per held place: the same place gives the same object. */
   after(held: TilingHeld<K>): TilingAfter<T, K>;
-  /** The drop targets on the base: `targetsOn(base.layout)`. */
-  readonly targets: readonly PaneTarget<K>[];
-  /**
-   * Every pane of `layout` that takes a drop as a drop target in the intent's shape: priority 2, its `hit` the pane's
-   * rect there, its id `pane:<key>`. The subject's own slot (its pane, or the slot it is drawn in at the lift) and
-   * still panes have none. Hit-test on the layout the frame draws, so a zone is where it is seen: the base when the
-   * others close the gap, the lift layout (`lift.layout`) when nothing moves until the release.
-   */
-  targetsOn(layout: ReadonlyMap<K, Rect>): PaneTarget<K>[];
-  /**
-   * The place within `target` the pointer is at, judged at the target's own `hit` (the intent's `placeOf`): the
-   * pane's center is a swap, a side band a side drop (`paneRegion`, `previous` held for its hysteresis). Null where
-   * that place is refused. A place id is opaque: `heldOf` reads it.
-   */
-  placeOf(target: PaneTarget<K>, point: Point, previous: string | null): string | null;
-  /** The held place a place id from `placeOf` names, or null. */
-  heldOf(place: string): TilingHeld<K> | null;
 }
 
 const sameRect = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) <= EPS && Math.abs(a.y - b.y) <= EPS && Math.abs(a.width - b.width) <= EPS && Math.abs(a.height - b.height) <= EPS;
@@ -292,34 +266,5 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     return a;
   };
 
-  // The hit half: one target per pane of a layout, five places each (the center and the four sides), named once per pane.
-  const key = options.key ?? String;
-  const liftOwn = drawnAs(tree, subjectKey);
-  const targetsOn = (layout: ReadonlyMap<K, Rect>): PaneTarget<K>[] =>
-    paneTargets(layout, { key }).filter((t) => t.pane !== liftOwn && !inSubject(t.pane) && !options.still?.(t.pane));
-  const targets = targetsOn(base.layout);
-  const heldAt = (pane: K, region: PaneRegion): TilingHeld<K> => (region === "center" ? { kind: "swap", at: pane } : { kind: "beside", at: pane, side: region });
-  const regionOf = (held: TilingHeld<K>): PaneRegion | null => (held.kind === "swap" ? "center" : held.kind === "beside" ? held.side : null);
-  const places = new Map<string, TilingHeld<K>>();
-  const placeIds = new Map<K, Map<PaneRegion, string>>();
-  for (const pane of new Set([...base.layout.keys(), ...lift.layout.keys()])) {
-    const ids = new Map<PaneRegion, string>();
-    for (const region of ["center", ...PANE_SIDES] as const) {
-      const id = `pane:${key(pane)}/${region}`;
-      ids.set(region, id);
-      places.set(id, heldAt(pane, region));
-    }
-    placeIds.set(pane, ids);
-  }
-  const heldOf = (place: string): TilingHeld<K> | null => places.get(place) ?? null;
-
-  const placeOf = (target: PaneTarget<K>, point: Point, previous: string | null): string | null => {
-    const was = previous === null ? null : heldOf(previous);
-    const prev = was && was.kind !== "home" && was.at === target.pane ? regionOf(was) : null;
-    const id = placeIds.get(target.pane)?.get(paneRegion(target.hit, point, prev, options.regions));
-    if (id === undefined) return null;
-    return after(places.get(id)!).refusal ? null : id;
-  };
-
-  return { subject, lift, base, home, after, targets, targetsOn, placeOf, heldOf };
+  return { subject, lift, base, home, after };
 }
