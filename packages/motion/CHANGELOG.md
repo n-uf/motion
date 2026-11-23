@@ -5,6 +5,13 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.59
+
+- `./drag`, **changed (additive): `createDragIntent`'s `home` is optional.** Leave it out when the targets hold the
+  item's own place themselves, as a tiling drag's hit does (`hit.intent` passes none): the pointer has left home from
+  the first sample, `atHome` is never true, a release lands on what is under the pointer and `moveHome` does nothing.
+  An intent with a `home` works as before.
+
 ## 26.11.58
 
 No changes in `@n-uf/motion`. Released in step with `@n-uf/placement` and `@n-uf/docking`, which share the version.

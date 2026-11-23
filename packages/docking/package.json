@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/docking",
-  "version": "26.11.58",
+  "version": "26.11.59",
   "description": "Where panels and toolbars dock: a window's bars, rails, columns, items and floats solved into a layout, with the drop places, refusals and lanes of every drag. Pure state in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "docking",

@@ -1,6 +1,6 @@
 {
   "name": "@n-uf/placement",
-  "version": "26.11.58",
+  "version": "26.11.59",
   "description": "Where things fit: the stage cut into edge bands, the items along one edge fitted with their forms, one edge's drop places, floats kept clear, panes tiled and popups positioned. Pure geometry in, rects out. No DOM, no framework, no motion.",
   "keywords": [
     "layout",
