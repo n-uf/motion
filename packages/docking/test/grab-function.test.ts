@@ -9,12 +9,17 @@
  * - **the lift:** at rest (`after(null)`) the grab is the press point: a plain point's own, a function's at the item's
  *   own form and size.
  * - **every landing has a grab:** `DockAfter.grab` is a finite point on every held place, rest and float included.
- * - **the grip under the pointer:** where a function places the grip in each form, a float that lands unclamped lies
- *   with that grip under the pointer, and a sliding spot's landing starts at the pointer less the grip along the lane
- *   wherever it isn't clamped or snapped; the grab reported is the function's in the form laid there.
+ * - **the grip under the pointer:** where a function places the grip in each form, a float lies with that grip under
+ *   the pointer wherever the plain-point path aimed with the same grab lies there, and is that path's clamp elsewhere
+ *   (never skipped); a sliding spot's landing starts at the pointer less the grip along the lane, to the grain, wherever
+ *   it isn't clamped or snapped; the grab reported is the function's in the form laid there.
+ * - **end to end:** a held item (`@n-uf/motion/layout`'s `holdItem`) seeded from `after(null).grab` lies where the item
+ *   is at the lift, and resized with each landing's `DockAfter.grab` (`HeldDrag.resize(size, grab)`) is drawn at the
+ *   pointer less it: an unclamped float's release glides nowhere, a sliding spot's only across its lane.
  * - **a still pointer settles:** through a landing model, with the pointer still, the frame after next equals the next
  *   frame (its held place, landing, grab and held copy).
  */
+import { holdItem, type LayoutItem } from "@n-uf/motion/layout";
 import { describe, expect, it } from "vitest";
 import type { Point, Rect, Size } from "@n-uf/placement";
 import { dockDrag, solve, type DockAfter, type DockDrag, type DockGrabForm, type DockHeld, type DockItemLayout } from "../src";
@@ -152,6 +157,7 @@ describe("the grab as a function of the laid form", () => {
 
   it("where the function puts the grip, an unclamped float and an unclamped sliding landing lie with it under the pointer", () => {
     let floats = 0;
+    let clamped = 0;
     let slides = 0;
     for (const d of all) {
       const fn = gripGrab(d);
@@ -162,9 +168,19 @@ describe("the grab as a function of the laid form", () => {
         if (!a.landing || !laid) continue;
         const want = fn({ ...laid, place: laid.floating ? { kind: "float" } : { kind: "spot", edge: laid.edge ?? "" } }, { width: laid.rect.width, height: laid.rect.height });
         if (held.kind === "float") {
-          const r = a.landing;
-          // Unclamped: the float lies where the pointer less the grab puts it (nothing fitted it elsewhere).
-          if (Math.abs(r.x + a.grab.x - held.point.x) > 0.5 || Math.abs(r.y + a.grab.y - held.point.y) > 0.5) continue;
+          // Where the pointer less the grab puts it (`raw`). Whether the float fits there is the float fit's (keep-clear,
+          // the stage, the content's insets): asked of the plain-point path aimed with the same grab. Where that lands it
+          // at `raw` (unclamped), the function's landing must lie there too, the grip under the pointer; where it fits it
+          // elsewhere (clamped), the function's landing must be that same clamp. Never skipped.
+          const raw = { x: held.point.x - a.grab.x, y: held.point.y - a.grab.y, width: a.landing.width, height: a.landing.height };
+          const clampedTo = dragWith(d, a.grab).after(held).landing;
+          const at = `${d.w.name} float at ${JSON.stringify(held.point)}`;
+          if (!clampedTo || Math.abs(clampedTo.x - raw.x) > 1e-6 || Math.abs(clampedTo.y - raw.y) > 1e-6) {
+            expect(a.landing, at).toEqual(clampedTo);
+            clamped++;
+            continue;
+          }
+          expect([a.landing.x, a.landing.y], at).toEqual([raw.x, raw.y]);
           expect([a.grab.x, a.grab.y], `${d.w.name} float`).toEqual([want.x, want.y]);
           floats++;
           continue;
@@ -179,11 +195,58 @@ describe("the grab as a function of the laid form", () => {
         const aim = p - a.grab[ax];
         // Clamped at a range end or snapped to a snap point: not at the hand by design.
         if (aim < from + 1 || aim > to - 1 || spot.slide.snaps.some((q) => Math.abs(q - aim) <= spot.slide!.snapDistance + 1)) continue;
+        // A free start lands on the sliding spot's grain (`LaneSlide.step`, whole pixels): rounded to the nearest, so at
+        // most half a step from the pointer less the grab, never more.
         expect(Math.abs(start - aim), `${d.w.name} ${held.spot}`).toBeLessThanOrEqual(spot.slide.step / 2 + 1e-6);
         expect(a.grab[ax], `${d.w.name} ${held.spot}`).toBeCloseTo(want[ax], 6);
         slides++;
       }
     }
+    expect(floats).toBeGreaterThan(100);
+    expect(clamped).toBeGreaterThan(0);
+    expect(slides).toBeGreaterThan(150);
+  });
+
+  it("end to end: a held item seeded from after(null).grab and resized with each landing's grab lies where it lands", () => {
+    let floats = 0;
+    let slides = 0;
+    for (const d of all)
+      for (const dd of [d, offMiddle(d)]) {
+        const drag = dragWith(dd, gripGrab(dd));
+        // A held item over a layout item that moves at once (`@n-uf/motion/layout`'s settle is its own test's).
+        const item = { id: "held", drawn: { ...dd.own.rect } } as { id: string; drawn: Rect };
+        const to = (r: Rect): void => void (item.drawn = { ...r });
+        const held = holdItem(Object.assign(item, { target: item.drawn, moveTo: to, retarget: to, hold: to, jumpTo: to }) as unknown as LayoutItem, drag.after(null).grab);
+        const press = { x: dd.own.rect.x + dd.press.x, y: dd.own.rect.y + dd.press.y };
+        held.move(press);
+        // The lift: held where it lies, no jump.
+        expect(held.held, dd.w.name).toEqual(dd.own.rect);
+        for (const h of heldPlaces(drag)) {
+          const a = drag.after(h);
+          if (!a.landing) continue;
+          held.move(h.point);
+          held.resize({ width: a.landing.width, height: a.landing.height }, a.grab);
+          held.follow();
+          const at = `${dd.w.name} ${JSON.stringify(h)}`;
+          // Drawn at the pointer less the landing's grab, at its size.
+          expect(item.drawn, at).toEqual({ x: h.point.x - a.grab.x, y: h.point.y - a.grab.y, width: a.landing.width, height: a.landing.height });
+          const lane = h.kind === "spot" ? drag.regions.lanes.find((l) => l.spots.some((s) => s.id === h.spot)) : undefined;
+          const spot = lane?.spots.find((s) => h.kind === "spot" && s.id === h.spot);
+          if (h.kind === "float") {
+            // Where nothing fitted it elsewhere, it lands where it is drawn: the release glides nowhere.
+            if (Math.abs(a.landing.x - item.drawn.x) > 1e-6 || Math.abs(a.landing.y - item.drawn.y) > 1e-6) continue;
+            expect(held.land(a.landing), at).toEqual(a.landing);
+            floats++;
+          } else if (lane && spot?.slide) {
+            // Along the lane it lands where it is drawn, to the sliding grain, unless clamped or snapped.
+            const ax = lane.axis;
+            const aim = (ax === "x" ? h.point.x : h.point.y) - a.grab[ax];
+            if (aim < Math.min(spot.slide.from, spot.slide.to) + 1 || aim > Math.max(spot.slide.from, spot.slide.to) - 1 || spot.slide.snaps.some((q) => Math.abs(q - aim) <= spot.slide!.snapDistance + 1)) continue;
+            expect(Math.abs((ax === "x" ? a.landing.x : a.landing.y) - (ax === "x" ? item.drawn.x : item.drawn.y)), at).toBeLessThanOrEqual(spot.slide.step / 2 + 1e-6);
+            slides++;
+          }
+        }
+      }
     expect(floats).toBeGreaterThan(100);
     expect(slides).toBeGreaterThan(150);
   });
