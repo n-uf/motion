@@ -634,7 +634,10 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   // A sliding spot lies in order by its first landing (at its stretch's start), and cuts by its landing at either end.
   const firstOf = (r: Raw): Rect => r.slide?.first ?? r.landing;
   const lastOf = (r: Raw): Rect => r.slide?.last ?? r.landing;
-  const sorted = [...list].sort((a, b) => mid(firstOf(a), axis) - mid(firstOf(b), axis) || (a.home ? -1 : b.home ? 1 : 0));
+  // At one landing the item's own place first, then the dock in the zone of the neighbor before it (a drop flush after the
+  // last start-zone item stays in the start zone), as a sliding spot's snap points break it.
+  const besideZone = (r: Raw): number => (r.target.place.kind === "gap" && r.target.place.zone === (seen.items[r.before]?.zone ?? "start") ? 0 : 1);
+  const sorted = [...list].sort((a, b) => mid(firstOf(a), axis) - mid(firstOf(b), axis) || (a.home ? -1 : b.home ? 1 : 0) || besideZone(a) - besideZone(b));
   // On a bar or a toolbar rail the item's own place is one landing for half a pitch around it: another spot landing
   // that near (a center dock beside a place near the middle) is home's, so away and back to the press point is home.
   const homeAt = halves ? undefined : list.find((r) => r.home)?.landing;
