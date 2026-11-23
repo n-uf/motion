@@ -9,6 +9,10 @@
  *   the two landings, so the pointer is at the landing it picks. Where the two landings overlap (the neighbor between
  *   them shorter than the item), the cut is made where the item is held (`grab`): halfway between the points the pointer
  *   would hold in each, kept within `slack` of their overlap.
+ *
+ * Each landing lies in the layout its own drop commits (a growing neighbor as that commit draws it, given way); a place
+ * over free room cuts from its range's ends, the room its drop makes. Which places exist is read in the room, growth
+ * off; no cut is read from insertion lines, as drawn or with the growth off; what is drawn is `shown(frame)`.
  */
 import { EPS, clamp, type Axis, type Point, type Rect } from "@n-uf/placement";
 import type { DockEdge } from "./model";
@@ -47,16 +51,6 @@ export function grabShare(own: Rect | undefined, grab: Point | undefined): { rea
   return { x: w >= h ? shareOf(grab?.x, w) : 0.5, y: h > w ? shareOf(grab?.y, h) : 0.5 };
 }
 
-/**
- * The landing past a growing neighbor as the pointer meets it: `landing` (a drop's landing beside the neighbor, which may
- * start inside it, at its natural length, where the drop takes its slack) moved on to start where the neighbor ends as
- * drawn (`drawnStart`, past its gap), but no later than `latestStart` (the item still fits before what follows). A cut
- * is made with this landing, so the place before the neighbor keeps the pointer over the neighbor as drawn.
- */
-export function metPastGrowing(landing: Rect, axis: Axis, drawnStart: number, latestStart: number): Rect {
-  const start = Math.max(lo(landing, axis), Math.min(drawnStart, latestStart));
-  return axis === "x" ? { ...landing, x: start } : { ...landing, y: start };
-}
 
 /**
  * The cut along `axis` between two adjacent places, `a` before `b`, by their landings (`a`'s facing its end, `b`'s its

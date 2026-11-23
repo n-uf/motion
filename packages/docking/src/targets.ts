@@ -82,7 +82,7 @@ import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLa
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { cutsByHalves } from "./aim";
-import { distinctSlots, edgeSpec, landedLayout, solveLanded } from "./targets/edges";
+import { edgeSpec, landedLayout, solveLanded } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./targets/kinds";
@@ -323,12 +323,10 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   const homeHit = homeRectOf(c, null);
   // (On a bar or a toolbar rail whose landing cuts hand the whole own interval to other places, home's tiles are its
   // slot's stretch: no tile over its own place.)
-  if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0 || (t.kind === "home" && t.edge === homeEdge.id)))
+  if (ownRect && homeEdge && homeHit && !tiles.some((t) => t.order === 0 || (t.kind === "home" && t.edge === homeEdge.id && !!t.spec?.edge && !cutsByHalves(t.spec.edge))))
     tiles.push({ edge: homeEdge.id, spec: null, edgeKind: edgeKindOf(state, homeEdge), vertical: axisOf(homeEdge.side) === "column", zone: zoneOf(item), order: 0, kind: "home", id: targetId({ kind: "home", item: dragged }), priority: 1, place: { kind: "home" }, hit: homeHit, keep: null });
   // The hits lie on screen: clear of the keep-clear rects of the layout seen now.
   const placed = clipTiles(tiles, own, keepClearFor(state, now, "targets"), lost);
-  const dbgR = (r: Rect): string => `${r.x.toFixed(0)},${r.y.toFixed(0)} ${r.width.toFixed(0)}x${r.height.toFixed(0)}`;
-  if ((globalThis as any).process?.env?.DBG_CLIP) (globalThis as any).console.log("CLIP in", tiles.filter((t) => t.edge === "edge").map((t) => `${t.kind}:${t.id}@${t.order} ${dbgR(t.hit)}`).join(" ; "), "\nCLIP out", placed.filter((t) => t.edge === "edge").map((t) => `${t.kind}:${t.id} ${dbgR(t.hit)}`).join(" ; "));
   const { targets, refused, ownHome } = emit(c, placed);
   const homeAfter = (): DropResult => ({ state, layout: landedLayout(state, now, dragged, c.prev) });
 
@@ -419,11 +417,10 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   // nearer every pointer): no target, but a stop all the same (`stops`), at its landing. On a bar or a toolbar rail,
   // every place that fits in the room: one whose stretch clipping left under a pixel too.
   const lostSet = new Set(lostIds);
-  const targetIds = new Set(held.map((t) => t.id));
   const places: DockDrop[] = live
     .flatMap((spec) =>
-      (spec.edge && !cutsByHalves(spec.edge) ? distinctSlots(c, spec.slots).filter((s) => !targetIds.has(s.id)) : spec.slots.filter((s) => lostSet.has(s.id)))
-        .filter((s) => s.ok && !s.home && s.place.kind === "gap" && !!s.result.layout.items[dragged])
+      spec.slots
+        .filter((s) => lostSet.has(s.id) && s.ok && !s.home && s.place.kind === "gap" && !!s.result.layout.items[dragged])
         .map((s): DockDrop => {
           const landed = s.result.layout.items[dragged]!.rect;
           return { id: s.id, priority: EDGE_KINDS[spec.kind].priority, hit: landed, slot: landed, marker: spec.marker(s), item: dragged, place: s.place, after: () => s.result };

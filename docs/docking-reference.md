@@ -348,7 +348,11 @@ drag of `id`:
   it whatever the grab, so the pointer is at the landing it picks. Across the item, and in a lane across
   its length (a rail toolbar over a bar), the middle counts, as without a grab. Without it the item's middle is the
   grab, and a toolbar pressed near one end can come back to a free-stretch spot beside its own place. Panel columns cut
-  by halves whatever the grab. One case it doesn't settle: where another lane's band overlaps the press point (an
+  by halves whatever the grab. Three layouts, one job each (as `targets()`' tiles): which places exist and fit is
+  read in the room, growth off; where a cut lies is halfway between landings, each in the layout its own drop commits
+  (a sliding spot's at its range's ends, the room its drop makes, a grower beside it at its natural length), never from
+  insertion lines, drawn or growth off; what is drawn is `shown(frame)`. A place has a stretch where its cuts leave
+  one; it lacks one only where its landing is another place's. One case it doesn't settle: where another lane's band overlaps the press point (an
   empty bar's band over the end of a rail that is not drawn), that lane can take the pointer first. Every cut lies inside its lane, in
   order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
@@ -357,9 +361,9 @@ drag of `id`:
   - A `box` over each free stretch the item fits in. Beside the held item, the room left of its stretch is a box from
     a pitch on a bar or a toolbar rail (`:before` or `:after` the item in its id, so it keeps it while the item glides).
     A growing fixed item there (a title filling its bar) counts at its natural length, so its slack is free room: the
-    box lies over the grown part of the title. A movable grower is read as the layout draws it, so no box lies over it.
-    Decided, not built: every grower read as `shown(frame)` draws it, so beside a growing title the guide is cut in the
-    drawn layout and shows a line at most ([decision 0010](decisions/0010-three-layouts.md), in progress).
+    box lies over the grown part of the title. A movable grower does not: before entry the guide beside it is cut in
+    the shown layout (`shown(frame)`), where it covers its own slack, so that place shows a line at most. Decided, not
+    built for the title: every grower read as `shown(frame)` draws it ([decision 0010](decisions/0010-three-layouts.md)).
   - A neighbor gives way when the item lands in the room beside it: it moves away from the room, leaves the lane (the
     menu, a float), or steps down to a shorter form than it has now. "Now" is the layout the marks are drawn in, one
     layout: as seen, or a held place's (where a neighbor already drawn stepped down gives way no further, and one the
@@ -747,7 +751,12 @@ the hit regions split at the midpoints of the remaining panels. A toolbar tray a
 like its column. On a bar or a toolbar rail a toolbar takes the nearest landing (`options.pitch`, as `lanes()`', sets how
 far past an overlap the cut may move: half of it): the hit regions of the places right before and right after a neighbor split halfway across the gap between
 their two landings, or, where the two overlap (the neighbor shorter than the item), where the item is held
-(`options.grab`, default its middle). Over a neighbor as long as the item, the item takes its place. Where that aim gives
+(`options.grab`, a share of the item's length as held, default its middle). Over a neighbor as long as the item, the
+item takes its place. Each landing lies in the layout its own drop commits (a movable grower as that commit draws it,
+given way), and a place over free room cuts from its range's ends, the room its drop makes; the places follow one
+another in the order of their landings, whatever their zones. Which places exist is read in the room, growth off; no
+cut is read from insertion lines. A place has a hit where its stretch between the cuts is non-empty; one whose landing
+is another's has none (a stop all the same). Where that aim gives
 the order the edge has now, the target is home (no slot elsewhere): in a panel column home covers the item's own rect
 and the facing halves of its two neighbors, even a neighbor in another zone; on a bar or a toolbar rail, its own rect up
 to the cut beside it. That holds for **cards**, items whose bodies are drop places (toolbar groups, and panels under
