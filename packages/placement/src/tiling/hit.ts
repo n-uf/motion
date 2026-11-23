@@ -8,7 +8,7 @@
  *   slot, not a still pane), its places the five regions of `paneRegion` (the center swaps, a side goes beside); one
  *   target per part the adapter declares on that pane (`TilingTree.parts`: a title bar, a tab strip), its place a join,
  *   a slot under the pointer giving the index; and home, the subject's lift rect, which wins over everything beneath it.
- *   On the subject's full-edge neighbour along an axis (the same bounds across it, nothing between), the bands along
+ *   On the subject's full-edge neighbor along an axis (the same bounds across it, nothing between), the bands along
  *   that axis are the swap's too: a side there would only reorder the two panes. Its bands across stay sides.
  * - **Places**: a place exists when `after(place).refusal` is null. A refused zone holds nothing and falls to the target
  *   beneath it (a refused part to the pane's body), never sideways. A place whose `after` equals the lift is home.
@@ -190,7 +190,7 @@ interface PaneHit<K> {
   readonly body: TilingHitTarget<K>;
   readonly parts: readonly PartHit<K>[];
   readonly regions: Readonly<Record<PaneRegion, Place<K>>>;
-  /** A full-edge neighbour's map in its place: the swap rectangle, then the two side strips. Empty otherwise. */
+  /** A full-edge neighbor's map in its place: the swap rectangle, then the two side strips. Empty otherwise. */
   readonly zones: readonly { readonly rect: Rect; readonly place: Place<K> }[];
 }
 
@@ -328,11 +328,11 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
   };
 
   /**
-   * The axis along which the pane `k` (drawn at the lift) is the subject's full-edge neighbour, or null: the two lift
+   * The axis along which the pane `k` (drawn at the lift) is the subject's full-edge neighbor, or null: the two lift
    * rects have the same bounds across that axis (the edge they share is the whole edge of each) and no other pane
    * lies between them. Only when the release leaves a slot (home).
    */
-  const neighbourAxis = (k: K): "x" | "y" | null => {
+  const neighborAxis = (k: K): "x" | "y" | null => {
     const s = home;
     const r = lift.layout.get(k);
     if (!s || !r) return null;
@@ -394,9 +394,9 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
       ...(home ? [home] : []),
       ...parts.flatMap((p) => (live(p.place) ? [p.target.hit] : p.slots.filter((s) => live(s.place)).map((s) => s.rect))),
     ];
-    // The subject's full-edge neighbour along an axis: a side along that axis would only reorder the two panes, which
+    // The subject's full-edge neighbor along an axis: a side along that axis would only reorder the two panes, which
     // is the swap. Its map is one swap rectangle over its whole extent along the axis, between two side strips across.
-    const axis = neighbourAxis(lift.layout.has(pane) ? pane : at);
+    const axis = neighborAxis(lift.layout.has(pane) ? pane : at);
     if (axis) {
       const c = paneCenter(rect, regionOptions);
       const strips: [Side, Rect][] =

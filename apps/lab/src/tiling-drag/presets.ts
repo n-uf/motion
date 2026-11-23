@@ -305,7 +305,7 @@ export const PRESETS: readonly Preset[] = [
   },
   {
     id: "indicator-straight-down",
-    title: "Indicator: a straight drag onto the full-edge neighbour below reads its bar, then swap over its whole height",
+    title: "Indicator: a straight drag onto the full-edge neighbor below reads its bar, then swap over its whole height",
     expected:
       "Indicator. Lift 01 and move straight down over 02 (the same left and right edges) in 2 px steps: home, then 02's bar (a join), then the swap down to 02's bottom, each once; every pane stays at its lift rect, and every mark lies inside 02 as drawn.",
     setup: lifted("three", paneA, undefined, "indicator"),
@@ -330,7 +330,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "indicator-mark-is-a-region",
     title: "Indicator: the mark is a region of the lift layout, and the release commits the held place",
-    expected: "Indicator. Lift 01 and hold it at 02's left edge (02 is its full-edge neighbour, so only its left and right strips are sides): the mark is 02's left half as drawn; no landing, no wash; released, the tree is after(beside left).tree.",
+    expected: "Indicator. Lift 01 and hold it at 02's left edge (02 is its full-edge neighbor, so only its left and right strips are sides): the mark is 02's left half as drawn; no landing, no wash; released, the tree is after(beside left).tree.",
     setup: lifted("three", paneA, (h) => {
       const b = h.drag!.drag.lift.layout.get("b")!;
       h.pointTo({ x: b.x + 6, y: b.y + b.height / 2 });
