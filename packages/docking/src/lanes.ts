@@ -24,7 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
 import { liftItem, markUsed, moveTo, type DockPlace } from "./changes";
-import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, cutsByHalves, grabShare, len, lo } from "./aim";
+import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, rangeTries } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
@@ -681,24 +681,9 @@ function laneFrom(id: string, list: readonly Raw[], drawn: DockLayout, seen: Doc
   };
   // On a bar or a toolbar rail a spot whose cut after it would lie before its cut before it is nearer no pointer (its
   // stretch between the landing cuts is empty): it is left out of the cutting, and its neighbors cut between themselves,
-  // so it moves no other spot's cut. It keeps a spot with no stretch, at that cut. (Never the item's own place.)
-  const active = unique.map((_, i) => i);
-  for (let changed = !halves; changed; ) {
-    changed = false;
-    for (let k = 1; k + 1 < active.length; k++) {
-      const [p, q, r] = [unique[active[k - 1]!]!, unique[active[k]!]!, unique[active[k + 1]!]!];
-      if (!q.home && cutOf(q, r) < cutOf(p, q) - EPS) {
-        active.splice(k, 1);
-        changed = true;
-        break;
-      }
-    }
-  }
-  const activeCuts: number[] = [];
-  for (let k = 0; k + 1 < active.length; k++) activeCuts.push(clamp(Math.max(cutOf(unique[active[k]!]!, unique[active[k + 1]!]!), activeCuts[k - 1] ?? bandStart), bandStart, bandEnd));
-  // The cut after each spot: an active one's own, a left-out one's the cut between its active neighbors.
-  const cuts: number[] = [];
-  for (let i = 0; i + 1 < unique.length; i++) cuts.push(activeCuts[active.findIndex((j) => j > i) - 1] ?? bandStart);
+  // so it moves no other spot's cut. It keeps a spot with no stretch, at that cut. (Never the item's own place; in a
+  // panel column, none.) The tiles cut the same way (`crossFreeCuts`).
+  const cuts = crossFreeCuts(unique.length, (i, j) => cutOf(unique[i]!, unique[j]!), (i) => halves || !!unique[i]!.home, bandStart, bandEnd);
   const spots: DockSpot[] = unique.flatMap((x, i) => {
     const a = i === 0 ? bandStart : cuts[i - 1]!;
     const b = i === unique.length - 1 ? bandEnd : cuts[i]!;
@@ -1310,9 +1295,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         return null;
       };
       // The range: the landings that land where aimed, at its ends and every `sample` px between.
-      const tries = [a];
-      for (let x0 = a + sample; x0 < b - w - EPS; x0 += sample) tries.push(x0);
-      if (b - w > a + EPS) tries.push(b - w);
+      const tries = rangeTries(a, b, w, sample);
       const ok = tries.map((x0) => ({ x0, hit: land(x0) })).filter((t) => t.hit);
       if (ok.length === 0) return;
       const from = ok[0]!.x0;
