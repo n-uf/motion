@@ -3,7 +3,7 @@
 Every public entry of the three packages, with its exported functions, constants and types: names, parameters and
 return shapes, condensed. It is generated from the code: the `exports` map of each package's `package.json` names the
 entries, and each entry file's exports are read with the TypeScript compiler, so the names and signatures here are the
-code's at `eaea729c`. What each export does, and the rules behind it, are on the design pages
+code's at `5357398e`. What each export does, and the rules behind it, are on the design pages
 ([motion.md](./motion.md), [placement.md](./placement.md), [docking.md](./docking.md)) and the reference pages; how
 the packages and their folders fit is [structure.md](./structure.md); the concept across the three is
 [concept.md](./concept.md).

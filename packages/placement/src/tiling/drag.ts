@@ -30,7 +30,10 @@ export interface TilingDragOptions<T, K> extends DropOptions<K> {
   readonly still?: (pane: K) => boolean;
 }
 
-/** A drag of one subject: its base, its home, and the one layout of each held place. */
+/**
+ * A drag of one subject: its base, its home, and the one layout of each held place. Built per drag: its `after` and its
+ * hits (with their hold) are remembered for that drag alone, so a drag cancelled and lifted again takes a new one.
+ */
 export interface TilingDrag<T, K> {
   readonly subject: TilingSubject<K>;
   /** The tree at the lift, laid out: what is drawn before the drag, and what a release on home commits. */
