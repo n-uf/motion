@@ -59,9 +59,6 @@ export interface DockAfter extends DropResult {
   readonly spots?: readonly DockSpot[];
 }
 
-/** A place guide as a frame draws it: a lane's mark in the layout its guide stands for. */
-export type DockGuide = DockLaneMark;
-
 /** One lane a frame shows guides for, with the held place its guide stands for (`@n-uf/motion/drag`'s `LandingGuideRef`). */
 export interface DockGuideRef {
   readonly lane: string;
@@ -103,8 +100,8 @@ export interface DockDrag {
    * commits. A null held place is rest. A host that draws no room for a spot (a mode that never makes one) passes room false.
    */
   shown(frame: Pick<DockGuideFrame, "held" | "room">): DockLayout;
-  /** The guides of a frame, cut in `shown(frame)`: each lane's marks from the held place it names, the Near lane's winning where they meet. */
-  guides(frame: DockGuideFrame): DockGuide[];
+  /** The guides of a frame (a lane's marks as the frame draws them), cut in `shown(frame)`: each lane's marks from the held place it names, the Near lane's winning where they meet. */
+  guides(frame: DockGuideFrame): DockLaneMark[];
 }
 
 /** A box piece a cut at the landing leaves this short or shorter along its lane is no room: not drawn, px. */
@@ -239,7 +236,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   };
   const shownLayout = (frame: Pick<DockGuideFrame, "held" | "room">): DockLayout => screenOf(frame).layout;
 
-  const guides = (frame: DockGuideFrame): DockGuide[] => {
+  const guides = (frame: DockGuideFrame): DockLaneMark[] => {
     if (frame.guides.length === 0) return [];
     const held = after(frame.held);
     const screen = screenOf(frame);

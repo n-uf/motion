@@ -21,7 +21,7 @@
  * their ring. Remembered per state and options. The one layout of each held place of the drag (a held frame and its commit)
  * is `dockDrag`'s (./drag), built on these.
  */
-import { EPS, area, clamp, rect, subtract, type Point, type Rect, type Size } from "@n-uf/placement";
+import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
 import { liftItem, moveTo, type DockPlace } from "./changes";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
@@ -139,7 +139,7 @@ export interface DockLane {
   readonly id: string;
   readonly rect: Rect;
   /** The axis its spots run along. */
-  readonly axis: "x" | "y";
+  readonly axis: Axis;
   readonly spots: readonly DockSpot[];
   readonly refused: readonly LaneRefusal[];
   /**
@@ -220,7 +220,6 @@ export interface DockLaneOptions extends DockDropOptions {
  */
 export type EmptyLanes = "real" | "edge";
 
-type Axis = "x" | "y";
 const mid = (r: Rect, axis: Axis): number => (axis === "x" ? r.x + r.width / 2 : r.y + r.height / 2);
 const lo = (r: Rect, axis: Axis): number => (axis === "x" ? r.x : r.y);
 const len = (r: Rect, axis: Axis): number => (axis === "x" ? r.width : r.height);
@@ -401,7 +400,7 @@ export function baseOf(state: DockState, dragged: string, options: DockLaneOptio
 /** A lane's id with its marks in one layout. */
 export interface LaneMarks {
   readonly lane: string;
-  readonly axis: "x" | "y";
+  readonly axis: Axis;
   readonly marks: readonly DockMark[];
 }
 

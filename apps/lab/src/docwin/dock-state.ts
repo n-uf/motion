@@ -69,11 +69,11 @@ import {
   type DockRefusalTarget,
   type DockDrop,
   type DockDrag,
-  type DockGuide,
+  type DockLaneMark,
 } from "@n-uf/docking";
 
 /** A landing frame as the window draws it: the model's answer, its guides drawn by the drag. */
-export type DrawnLandingFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockGuide[] };
+export type DrawnLandingFrame = Omit<LandingFrame, "guides"> & { readonly guides: readonly DockLaneMark[] };
 
 /** What the drag intent picks among: the DockState's targets and its refusals (`refuse: true`, never held or shown). */
 type Pick = DockDrop | DockRefusalTarget;
@@ -826,7 +826,7 @@ export function createDocwin(o: DocwinOptions) {
    * which already leave out every item drawn there and the landing), with only the host's cosmetics added: inside the
    * window, a box inset 2 px, a line 2 px across the lane, the thin kinds kept clear of the panels' content.
    */
-  function guidesNow(drawn: readonly DockGuide[], held: Held | null = null, heldLane: string | null = null): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
+  function guidesNow(drawn: readonly DockLaneMark[], held: Held | null = null, heldLane: string | null = null): { id: string; r: Rect; kind: "line" | "box" | "hatch"; lane: string }[] {
     if (drawn.length === 0) return [];
     // 2 px clear of the window's edges and corners, measured from the window's inside (its 1 px border takes the
     // stage's last px each side), and a thin strip clear of the panels' content (`guideRects`, below).
@@ -857,7 +857,7 @@ export function createDocwin(o: DocwinOptions) {
     // held copy, which the drag already fits clear of it in the drop's layout.
     for (const c of drawnNow.layout.keepClear ?? []) if (c.for === "all") textClear.push({ rect: c.rect, clearance: 0, kinds: ["line", "hatch", "box"] });
     const copy = held ? [{ rect: held.drawn.value, clearance: heldLane ? 3 : 0 }, ...(held.preview ? [{ rect: held.preview, clearance: 2 }] : [])] : [];
-    const place = (gs: readonly DockGuide[], clear: readonly { rect: Rect; clearance: number }[]) =>
+    const place = (gs: readonly DockLaneMark[], clear: readonly { rect: Rect; clearance: number }[]) =>
       guideRects(
         gs.map((g) => ({ id: g.id, lane: g.lane, kind: g.kind, rect: g.rect })),
         { inside, inset: 2, clear: [...textClear, ...clear] },

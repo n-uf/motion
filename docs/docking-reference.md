@@ -476,7 +476,7 @@ a float's for the last pointer. Rest is the window as seen with `lanes()`' marks
 the draw rule of docs/docking.md ("What a held frame draws"), which `shown(frame)` reads. `landingOf(held)` is
 `after(held).landing`; `spotsOf(spot)` is a spot's lane's stretches in its own layout. `guides(frame)` takes a landing
 frame (`DockGuideFrame`: its `held`, its `room` (the landing model's `LandingFrame.room`) and its `guides`,
-`{ lane, held }` each) and gives its guides (`DockGuide`), cut in `shown(frame)`: each
+`{ lane, held }` each) and gives its guides (`DockLaneMark[]`), cut in `shown(frame)`: each
 lane's marks in the layout of the held place it names; a lane drawn on screen less the landing the pointer would take in
 it (a box part 8 px or shorter that cut leaves is dropped); a lane the screen doesn't draw in the layout that creates
 it (the Near lane's would-land held place's; any other's one spot's, its room whole, giving up where it meets a lane drawn

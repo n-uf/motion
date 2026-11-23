@@ -3,7 +3,7 @@
  * (the dragged pane inserted at an index, see `orderTargets`).
  */
 import type { Rect } from "../geometry";
-import type { PaneSide } from "./regions";
+import type { Side } from "../side";
 
 /**
  * How a layout spaces its panes: `gap` px between neighbors (default 0), `ratio` the master's share (default 0.5),
@@ -23,7 +23,7 @@ export interface TileOptions {
  */
 export interface MasterOptions {
   readonly count?: number;
-  readonly side?: PaneSide;
+  readonly side?: Side;
 }
 
 /** What the order layouts take: `TileOptions` and the master area's `count` and `side` (`columns` and `grid` ignore them). */

@@ -1,6 +1,6 @@
 /** Shared helpers of the tiling tests: seeded random split trees and the checks every layout has to pass. */
-import { overlap, type Rect } from "../index";
-import type { PaneSide, Split } from "../src/tiling";
+import { overlap, type Rect, type Side } from "../index";
+import type { Split } from "../src/tiling";
 import { seeded, shuffle } from "./stack-fixture";
 
 export { seeded };
@@ -20,7 +20,7 @@ export interface TreeShape {
   readonly noRatio?: number;
 }
 
-const SIDES: readonly PaneSide[] = ["left", "right", "top", "bottom"];
+const SIDES: readonly Side[] = ["left", "right", "top", "bottom"];
 
 /** A random tree over panes 0..n-1 (shuffled). */
 export function randomTree(rnd: () => number, n: number, shape: TreeShape = {}): Split<number> {

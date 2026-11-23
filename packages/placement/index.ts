@@ -24,4 +24,5 @@ export {
   type Rect,
   type Size,
 } from "./src/geometry";
+export type { Axis, Side } from "./src/side";
 export type { Target } from "./src/target";

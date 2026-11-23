@@ -3,6 +3,7 @@
  * have an id. See docs/placement.md, Entry: tiling.
  */
 import type { Rect } from "../geometry";
+import type { Axis } from "../side";
 import { masterCount, masterRatio, masterStack, type MasterOptions, type TileOptions } from "./order";
 import { panesOf, type Split } from "./split";
 
@@ -49,9 +50,9 @@ export interface MinLength {
  *   chooses one for a pane.
  */
 export interface SplitOptions<K> extends TileOptions {
-  readonly fixed?: (child: Split<K>, axis: "x" | "y") => FixedLength | undefined;
-  readonly fixedAcross?: (child: Split<K>, axis: "x" | "y") => number | undefined;
-  readonly floor?: (child: Split<K>, axis: "x" | "y", split: Split<K>) => MinLength;
+  readonly fixed?: (child: Split<K>, axis: Axis) => FixedLength | undefined;
+  readonly fixedAcross?: (child: Split<K>, axis: Axis) => number | undefined;
+  readonly floor?: (child: Split<K>, axis: Axis, split: Split<K>) => MinLength;
 }
 
 /** A laid-out split: the box it divides, its axis and ratio in effect, and the strip between its two sides. */

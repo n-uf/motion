@@ -1,10 +1,10 @@
 /** ./tiling, the room rule of a drop: `canSplitPane`, whether a pane's rect can take another on a side. */
 import { describe, expect, it } from "vitest";
-import type { Rect } from "../index";
-import { canSplitPane, type PaneSide } from "../src/tiling";
+import type { Rect, Side } from "../index";
+import { canSplitPane } from "../src/tiling";
 import { seeded } from "./tiling-fixture";
 
-const SIDES: readonly PaneSide[] = ["top", "right", "bottom", "left"];
+const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 const pane = (width: number, height: number): Rect => ({ x: 40, y: 60, width, height });
 
 describe("canSplitPane", () => {

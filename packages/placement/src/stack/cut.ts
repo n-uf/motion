@@ -17,14 +17,12 @@
  * See docs/placement.md, Entry: stack.
  */
 import { rect, type Rect } from "../geometry";
-
-/** A side of the stage. */
-export type BandSide = "top" | "right" | "bottom" | "left";
+import type { Side } from "../side";
 
 /** One band of the cut. */
 export interface EdgeBand {
   readonly id: string;
-  readonly side: BandSide;
+  readonly side: Side;
   /** Its size across (a top band's height, a left band's width), px. */
   readonly size: number;
   /** Space after it before the next band on that side, px (default 0); taken only when the band takes some room. */

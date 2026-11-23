@@ -1,7 +1,7 @@
 /** ./tiling, master and stack: the count and side of the master area, its ratio clamp, and a split that lays out so. */
 import { describe, expect, it } from "vitest";
-import { area as areaOf, type Rect } from "../index";
-import { layoutSplit, layoutSplitTree, masterStack, orderTargets, type PaneSide, type Split } from "../src/tiling";
+import { area as areaOf, type Rect, type Side } from "../index";
+import { layoutSplit, layoutSplitTree, masterStack, orderTargets, type Split } from "../src/tiling";
 import { randomTree, same, seeded, unsound } from "./tiling-fixture";
 
 const AREA: Rect = { x: 0, y: 0, width: 1000, height: 600 };
@@ -164,7 +164,7 @@ describe("where the master options live", () => {
 });
 
 describe("master and stack, seeded sweeps", () => {
-  const SIDES: PaneSide[] = ["left", "right", "top", "bottom"];
+  const SIDES: Side[] = ["left", "right", "top", "bottom"];
 
   it("every pane is inside the area, none is negative, no two overlap; with no gap they cover it", () => {
     const rnd = seeded(61);

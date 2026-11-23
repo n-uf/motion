@@ -1,7 +1,7 @@
 /** ./tiling, the fit rule of a drop: `dropFits`, both panes at least min in a layout the host already projected. */
 import { describe, expect, it } from "vitest";
-import type { Rect } from "../index";
-import { dropFits, dropOnPane, layoutSplit, type PaneSide } from "../src/tiling";
+import type { Rect, Side } from "../index";
+import { dropFits, dropOnPane, layoutSplit } from "../src/tiling";
 import { randomTree, seeded } from "./tiling-fixture";
 
 const AREA: Rect = { x: 0, y: 0, width: 1000, height: 600 };
@@ -40,7 +40,7 @@ describe("dropFits", () => {
 
   it("seeded sweep: on the layout dropOnPane makes it answers by the two panes' sizes alone", () => {
     const rnd = seeded(515);
-    const SIDES: readonly PaneSide[] = ["top", "right", "bottom", "left"];
+    const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
     let ok = 0;
     let refused = 0;
     for (let i = 0; i < 600; i++) {
