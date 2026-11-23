@@ -12,8 +12,9 @@ import type { LayoutItem } from "./motion";
  * - {@link HeldDrag.cancel}: let go with no drop: it glides home from where it was let go.
  * - {@link HeldDrag.preview}: the three drop previews, per frame: indicator and gap keep the item under the pointer
  *   (gap with the caller's room open), snap glides it into the slot; leaving glides it back to the pointer.
- * - {@link HeldDrag.resize}: the item takes a new size mid-drag (its content laid out anew by the caller): it settles
- *   to it from where it is drawn, the size revealed (never stretched), and is held 1:1 again once there.
+ * - {@link HeldDrag.resize}: the item takes a new size mid-drag (its content laid out anew by the caller), held at the
+ *   caller's `grab` in it where given: it settles to it from where it is drawn, the size revealed (never stretched),
+ *   and is held 1:1 again once there.
  */
 export interface HeldDrag {
   /** Where the pointer is (null before the first move). */
@@ -41,13 +42,17 @@ export interface HeldDrag {
    */
   preview(plan: { readonly snapItem: boolean }, slot: Rect | null): "snapped" | "left" | null;
   /**
-   * Hold it at `size` from now on (the caller has laid its content out for that size). The grab point keeps its share
-   * of the item, so the pointer stays on the same spot of it; the item settles from where it is drawn to its new held
-   * rect (its size revealed, never stretched), then is held 1:1 again ({@link HeldDrag.follow} once a frame). In a
-   * slot it stays there, taking the new size when it leaves. The same size again does nothing; returns true on a
-   * change.
+   * Hold it at `size` from now on (the caller has laid its content out for that size), the pointer holding it at `grab`
+   * (px from the top-left corner at that size: where the caller's new form puts the spot the user pressed, a docking
+   * drag's `DockAfter.grab`). Without `grab` the grab point keeps its share of the item. The item settles from where it
+   * is drawn to its new held rect, the pointer less `grab` at `size` (its size revealed, never stretched): the held
+   * point moves with the size on that one settle, so a still pointer sees both arrive together. Then it is held 1:1
+   * again ({@link HeldDrag.follow} once a frame). In a slot it stays there, taking the new size when it leaves. The same
+   * size and grab again do nothing; returns true on a change.
    */
-  resize(size: { readonly width: number; readonly height: number }): boolean;
+  resize(size: { readonly width: number; readonly height: number }, grab?: Point): boolean;
+  /** Where the pointer holds the item now, px from its top-left corner at the held size (the lift's, or the last resize's). */
+  readonly grab: Point;
   /** Let go into `slot`: returns the release rect, where the landing starts. */
   land(slot: Rect): Rect;
   /** Let go with no drop: glides `home` from the release rect, which it returns. */
@@ -124,9 +129,14 @@ export function holdItem(item: LayoutItem, grab: Point): HeldDrag {
       follow();
       return change;
     },
-    resize(next) {
-      if (Math.abs(next.width - size.width) < 0.01 && Math.abs(next.height - size.height) < 0.01) return false;
-      at = { x: size.width ? (at.x / size.width) * next.width : 0, y: size.height ? (at.y / size.height) * next.height : 0 };
+    get grab() {
+      return { x: at.x, y: at.y };
+    },
+    resize(next, grab) {
+      const sameSize = Math.abs(next.width - size.width) < 0.01 && Math.abs(next.height - size.height) < 0.01;
+      if (sameSize && (!grab || (Math.abs(grab.x - at.x) < 0.01 && Math.abs(grab.y - at.y) < 0.01))) return false;
+      // The caller's grab in the new form, else the old one's share of the item.
+      at = grab ? { x: grab.x, y: grab.y } : { x: size.width ? (at.x / size.width) * next.width : 0, y: size.height ? (at.y / size.height) * next.height : 0 };
       size = { width: next.width, height: next.height };
       if (!snapped && pointer) {
         returning = true;
