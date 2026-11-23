@@ -3,7 +3,7 @@
 Every public entry of the three packages, with its exported functions, constants and types: names, parameters and
 return shapes, condensed. It is generated from the code: the `exports` map of each package's `package.json` names the
 entries, and each entry file's exports are read with the TypeScript compiler, so the names and signatures here are the
-code's at `063a6fbe`. What each export does, and the rules behind it, are on the design pages
+code's at `22b03459`. What each export does, and the rules behind it, are on the design pages
 ([motion.md](./motion.md), [placement.md](./placement.md), [docking.md](./docking.md)) and the reference pages; how
 the packages and their folders fit is [structure.md](./structure.md); the concept across the three is
 [concept.md](./concept.md).
@@ -879,23 +879,28 @@ neighbor<K>(rects: ReadonlyMap<K, Rect>, from: K, direction: Direction): K | nul
 orderTargets<K>(arrange: OrderLayout, panes: K[], dragged: K, area: Rect, options?: OrderOptions): OrderTarget<K>[]
 paneCenter(size: Size, options?: PaneRegionOptions): PaneCenter
 paneRegion(pane: Rect, point: Point, previous?: PaneRegion | null, options?: PaneRegionOptions): PaneRegion
+paneRegionShapes(pane: Rect, options?: PaneRegionOptions): Readonly<Record<PaneRegion, Point[]>>
 panesOf<K>(tree: Split<K> | null): K[]
 paneTargets<K>(layout: ReadonlyMap<K, Rect>, options?: PaneTargetsOptions<K>): PaneTarget<K>[]
 removePane<K>(tree: Split<K> | null, pane: K): Split<K> | null
 splitFromOrder<K>(panes: K[]): Split<K> | null
 splitPane<K>(tree: Split<K> | null, at: K | null, pane: K, side?: Side): Split<K>
-splitTreeOps<K>(): TilingTree<StackedSplit<K>, K>
+splitTreeOps<K>(options?: SplitTreeOpsOptions<K>): TilingTree<StackedSplit<K>, K>
 swapPanes<K>(tree: Split<K> | null, x: K, y: K): Split<K> | null
 tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragOptions<T, K>, limit?: number): TilingConformance
 tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: TilingDragOptions<T, K>): TilingDrag<T, K>
+tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDragOptions<T, K>, hitOptions?: TilingHitOptions<K>, limit?: number): TilingHitConformance
 tilingSubjects<T, K>(tree: T, options: Pick<TilingDragOptions<T, K>, "ops">): TilingSubject<K>[]
 ```
 
 Constants:
 
 ```ts
-const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "paneCenter">>
+const PANE_REGION_DEFAULTS: Required<Omit<PaneRegionOptions, "centerX" | "centerY" | "paneCenter" | "sides">>
 const PANE_SIDES: Side[]
+const TILING_HIT_DEFAULTS: { edge: number; travel: number; share: number; }
+const TILING_HIT_PROPERTIES: ["fixed-map", "zone-rule", "hold-rule", "existence", "lift-equals-home", "shown-under-pointer", "shown-equals-landed", "new-arrangement-sid…
+const TILING_NEIGHBOR_SWAP_SHARE: 0.56
 const TILING_PROPERTIES: ["home-is-lift", "home-is-the-gap", "home-over-changed", "one-layout", "swap-exchanges", "swap-trades-slots", "swap-keeps-stack-mates", "su…
 ```
 
@@ -914,7 +919,7 @@ type OrderOptions = TileOptions & MasterOptions
 interface OrderTarget<K> extends Target { index: number; layout: ReadonlyMap<K, Rect> }
 interface PaneCenter { width: number; height: number; left: number; top: number; right: number; bottom: number }
 type PaneRegion = "center" | Side
-interface PaneRegionOptions { center?: number; centerX?: number; centerY?: number; centerMin?: number; hysteresis?: number; pixelRatio?: number; paneCenter?: PaneCenter }
+interface PaneRegionOptions { center?: number; centerX?: number; centerY?: number; centerMin?: number; hysteresis?: number; pixelRatio?: number; paneCenter?: PaneCenter; sides?: Side[] }
 interface PaneTarget<K> extends Target { pane: K }
 interface PaneTargetsOptions<K> { except?: K; key?: (pane: K) => string }
 interface Rect { x: number; y: number; width: number; height: number }
@@ -927,15 +932,53 @@ interface SplitOptions<K> extends TileOptions {
   floor?: (child: Split<K>, axis: Axis, split: Split<K>) => MinLength;
 }
 interface SplitRoomOptions { min: number; gap?: number; handle?: number }
+interface SplitTreeOpsOptions<K> { bar?: number; tab?: (member: K) => number }
 interface StackedSplit<K> { split: Split<K> | null; stacks?: TilingStack<K>[] }
 interface TileOptions { gap?: number; ratio?: number; handle?: number }
 interface TilingAfter<T, K> extends TilingLaidOut<T, K> { held: TilingHeld<K>; refusal: TilingRefusal<K> | null; landing: Rect | null; moved: TilingMove<K>[] }
+type TilingBasis = "lift" | "base"
 interface TilingConformance { ok: boolean; failures: string[]; counts: Readonly<Record<"home-is-lift" | "home-is-the-gap" | "home-… }
-interface TilingDrag<T, K> { subject: TilingSubject<K>; lift: TilingLaidOut<T, K>; base: TilingLaidOut<T, K>; home: Rect | null; after(held: TilingHeld<K>): TilingAfter<T, K> }
+interface TilingDrag<T, K> {
+  subject: TilingSubject<K>;
+  lift: TilingLaidOut<T, K>;
+  base: TilingLaidOut<T, K>;
+  home: Rect | null;
+  after(held: TilingHeld<K>): TilingAfter<T, K>;
+  hit(basis: TilingBasis, options?: TilingHitOptions<K>): TilingHit<T, K>;
+}
 interface TilingDragOptions<T, K> extends DropOptions<K> { ops: TilingTree<T, K>; area: Rect; still?: (pane: K) => boolean }
 type TilingHeld<K> = { kind: "home"; } | { kind: "swap"; at: K; } | { kind: "beside"; at: K; side: Side; } | { kind: "join"; at: K; index?: number; }
+interface TilingHit<T, K> {
+  basis: TilingBasis;
+  laid: TilingLaidOut<T, K>;
+  home: Rect | null;
+  targets: TilingHitTarget<K>[];
+  intent: TilingHitIntent<K>;
+  zone(point: Point): string | null;
+  hold(state: TilingHold | null, point: Point): TilingHold | null;
+  place(id: string): TilingHeld<K> | null;
+  placeOf(target: TilingHitTarget<K>, point: Point, previous?: string | null): string | null;
+  read(frame: TilingHitFrame<TilingHitTarget<K>>, point: Point): TilingHitRead<K>;
+  drawn(read: TilingHitRead<K>): TilingLaidOut<T, K>;
+  release(read: TilingHitRead<K>): TilingAfter<T, K>;
+}
+interface TilingHitConformance {
+  ok: boolean;
+  failures: string[];
+  counts: Readonly<Record<"fixed-map" | "zone-rule" | "hold-rule" | "…;
+  reported: { swapsBeside: number; insertsMoveOthers: number; insertsMo…;
+}
+interface TilingHitFrame<T> { shown: T | null }
+interface TilingHitIntent<K> { home: Rect; tuning: { aimSpeed: number; dwell: number; switchHold: number; room…; placeOf: (target: TilingHitTarget<K>, point: Point, previous: string… }
+interface TilingHitOptions<K> { regions?: PaneRegionOptions; key?: (pane: K) => string; edge?: number; travel?: number; share?: number }
+type TilingHitProperty = (typeof TILING_HIT_PROPERTIES)[number]
+interface TilingHitRead<K> { held: TilingHeld<K> | null; refused: TilingHeld<K> | null; mark: TilingMark<K> | null }
+interface TilingHitTarget<K> extends Target { pane: K; at: K; part?: string; home?: true }
+interface TilingHold { place: string; at: Point }
 interface TilingLaidOut<T, K> { tree: T; layout: ReadonlyMap<K, Rect>; splits: ReadonlyMap<string, SplitGeometry> }
+type TilingMark<K> = { kind: "side"; at: K; side: Side; rect: Rect; } | { kind: "swap"; at: K; rect: Rect; wash: Rect | null; } | { kind: "join"; at: K; rect: Rect; slot: Rect | null; }
 interface TilingMove<K> { pane: K; from: Rect; to: Rect }
+interface TilingPart { key: string; rect: Rect; slots?: Rect[] }
 type TilingProperty = (typeof TILING_PROPERTIES)[number]
 type TilingRefusal<K> = { code: "self" | "still" | "missing" | "join"; } | { code: "room-along" | "room-across"; need: number; have: number; } | { code: "fit"; pane: K; }
 type TilingSize = { kind: "half"; }
@@ -949,6 +992,7 @@ interface TilingTree<T, K> {
   swap(tree: T, subject: TilingSubject<K>, at: K): T;
   join?(released: T, subject: TilingSubject<K>, at: K, index?: number): T;
   normalize?(tree: T): T;
+  parts?(tree: T, pane: K, rect: Rect): TilingPart[];
 }
 ```
 
@@ -1096,7 +1140,7 @@ interface DockDrop extends Target {
   strip?: Rect;
   after(point: Point, grab?: Point): DropResult;
 }
-interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[] }
+interface DockDropOptions { previous?: DockLayout; endReach?: number; floatSize?: Size; floatFromHeld?: boolean; floatOrient?: Orient; fresh?: string[]; grab?: Point; pitch?: number }
 interface DockEdge {
   id: string;
   side: Side;
@@ -1505,3 +1549,4 @@ interface WinOptions {
 }
 interface WinSpec { card: { min: number; max: number; }; gap: number; pad: number; rail: number; contentMin: { width: number; height: number; }; barMain: number }
 ```
+
