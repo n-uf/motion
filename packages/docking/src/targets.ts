@@ -77,7 +77,7 @@
 import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Point, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
-import { grabKey, grabResolver, sameForm, samePoint, sizeOf } from "./grab";
+import { aimOnce, grabKey, grabResolver, sizeOf } from "./grab";
 import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type DockItemLayout, type Zone } from "./model";
 import { solve } from "./solve";
@@ -355,21 +355,14 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
       item: dragged,
       place: { kind: "float" },
       after(point, grab) {
-        const fn = grabs(grab);
-        const laid = probeForm();
         // Where the pointer puts it, or with `floatFromHeld` where the held item is drawn, before the float is fitted.
         const aimed = (g: Point): { raw: Rect; first: DockLayout } => {
           const raw = options.floatFromHeld ? heldRect(state, dragged, size, point, g) : rect(point.x - g.x, point.y - g.y, size.width, size.height);
           return { raw, first: solve(markUsed(floatAt(state, dragged, raw, options.floatOrient), dragged), prev) };
         };
-        let g = fn(laid, size, "float");
-        let { raw, first } = aimed(g);
-        // Fitted in another form than the probe's: aimed once more with the grab in that form, never again.
-        const firstLaid = first.items[dragged];
-        if (laid && firstLaid && !sameForm(firstLaid, laid)) {
-          const again = fn(firstLaid, sizeOf(firstLaid.rect), "float");
-          if (!samePoint(again, g)) ({ raw, first } = aimed((g = again)));
-        }
+        // Aimed with the grab in the probe's form; fitted in another form, re-aimed at most once (`aimOnce`).
+        const { result, grab: g } = aimOnce(grabs(grab), "float", { laid: probeForm(), size }, aimed, (a) => a.first.items[dragged], (l) => sizeOf(l.rect));
+        const { raw, first } = result;
         const fitted = first.items[dragged]?.rect;
         const at = fitted ?? raw;
         const placed = (x: number, y: number, stays: boolean): DropResult => {

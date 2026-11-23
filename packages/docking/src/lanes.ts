@@ -24,7 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, len, lo, zoneIn } from "./aim";
-import { grabKey, grabOf, grabResolver, liftOf, sameForm, sizeOf, type DockGrab, type Grab } from "./grab";
+import { aimOnce, grabKey, grabOf, grabResolver, liftOf, sizeOf, type DockGrab, type Grab } from "./grab";
 import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockState, DockLayout, DockItemLayout, Zone } from "./model";
@@ -1290,8 +1290,8 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         return p && p.kind === "gap" ? p : land(rest)?.place;
       })();
       const landing = homeRaw ? homeRaw.landing : (restResult.layout.items[dragged]?.rect ?? at(rest));
-      // The grab in the form the item takes in the stretch (its listed landing's form, at the stretch's length `w`), read
-      // once per grab; a landing that lies in another form is aimed once more with the grab in that form, never again.
+      // The grab in the form the item takes in the stretch (its listed landing's form, at its own length there, `w`, by
+      // its landing's cross); a landing that lies in another form is aimed once more (`aimOnce`), never again.
       const restLaid: DockItemLayout | undefined = restResult.layout.items[dragged];
       const cross = restLaid?.rect ?? landing;
       const inStretch = axis === "x" ? { width: w, height: cross.height } : { width: cross.width, height: w };
@@ -1310,19 +1310,14 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         item: dragged,
         place: { kind: "gap", edge: e.id, zone: restPlace?.zone ?? zones[0]!, at: restPlace?.at ?? atOf(zones[0]!), ...(restPlace?.space ? { space: restPlace.space } : {}) },
         after: (point: Point, grab?: DockGrab) => {
-          const fn = grabs(grab);
           const p = axis === "x" ? point.x : point.y;
-          let g = fn(restLaid, inStretch, "lane");
-          let x0 = startAt(p - g[axis]);
-          let r = commitAt(x0);
-          const laid = r.layout.items[dragged];
-          if (restLaid && laid && !sameForm(laid, restLaid)) {
-            // The probe lies in another form: the grab in that form; along the lane, aimed once more where it moved.
-            const again = fn(laid, sizeOf(laid.rect), "lane");
-            if (Math.abs(again[axis] - g[axis]) > EPS) r = commitAt((x0 = startAt(p - again[axis])));
-            g = again;
-          }
-          return withGrab(r, g, x0);
+          // The start the pointer less the grab puts it at, and what that commits; re-aimed at most once (`aimOnce`).
+          const aimAt = (g: Point): { x0: number; r: DropResult } => {
+            const x0 = startAt(p - g[axis]);
+            return { x0, r: commitAt(x0) };
+          };
+          const { result, grab: g } = aimOnce(grabs(grab), "lane", { laid: restLaid, size: inStretch }, aimAt, (a) => a.r.layout.items[dragged], (l) => sizeOf(l.rect));
+          return withGrab(result.r, g, result.x0);
         },
       };
       const zone = zones[0]!;
