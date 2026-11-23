@@ -6,7 +6,13 @@
  * (which takes groups), its stored `align` unchanged. Docking the held group right after it, the center dock (after it
  * in the center) and the end dock (first in the end, before the end-zone neighbor) land at one start, the end group
  * pushed against the center one. The center dock wins, as the zone the neighbor lies in; read from `align` ("start")
- * neither dock's zone would match it, and the tie would fall to their order.
+ * neither dock's zone would match it, and the tie would fall to their order. (That is `laneFrom`'s reading. The sliding
+ * spot's snap rank reads the same zone, but no scene puts two docks other than home at one start inside a range: they
+ * meet only where a zone's group is pushed against its neighbor, which leaves no spare length, so no range past a pixel.)
+ *
+ * The takeover spots read it too: the item takes the place of a neighbor of the zone it lies in. A group stored as
+ * `align: "end"` on a bar whose end zone takes only panels lies in the start zone, so the held item takes its place at
+ * its start, as for any start-zone neighbor.
  */
 import { describe, expect, it } from "vitest";
 import { lanes, solve, targets, type DockItem, type DockState } from "../src";
@@ -37,5 +43,25 @@ describe("the zone of the neighbor before a landing is where it lies", () => {
     expect(committed.items.g!.zone).toBe("center");
     const endDock = targets(state, "g").find((t) => t.id === "gap:bar:end:0")!;
     expect(endDock.after({ x: 0, y: 0 }, { x: 0, y: 0 }).layout.items.g!.rect.x).toBeCloseTo(spot.landing.x, 6);
+  });
+
+  it("x, stored align end, lies in the start zone: the held item takes its place at its start, pitched and free", () => {
+    const s: DockState = {
+      stage: { x: 0, y: 0, width: 800, height: 400 },
+      edges: [bar("bar", "top", 0, ["p", "x"], { accepts: ["panel", "group"], zoneAccepts: { start: ["group"], end: ["panel"] }, cross: { min: 31, max: 31, rail: 31 }, gap: 4, pad: { start: 8, end: 8 } })],
+      // x keeps 60 px before it, so its start is no landing of the plain dock after p.
+      items: byId([tb("p", 120), tb("x", 200, { align: "end", space: 60 }), tb("g", 150)]),
+      floats: [{ id: "g", rect: { x: 100, y: 200, width: 150, height: 31 } }],
+      floatKinds: ["group", "panel"],
+    };
+    const seen = solve(s);
+    expect(seen.items.x!.zone).toBe("start");
+    for (const stretchPositions of ["pitched", "free"] as const) {
+      const lane = lanes(s, "g", { stretchPositions }).lanes.find((l) => l.id === "bar")!;
+      const takeover = lane.spots.find((sp) => sp.id === "bar/start/p|x@in:x");
+      expect(takeover, stretchPositions).toBeDefined();
+      expect(takeover!.landing.x, stretchPositions).toBeCloseTo(seen.items.x!.rect.x, 6);
+      expect(takeover!.target.place, stretchPositions).toEqual({ kind: "gap", edge: "bar", zone: "start", at: 1 });
+    }
   });
 });
