@@ -27,6 +27,12 @@
   the slack is reachable: the place after it starts halfway from the landing before the neighbor. The tiles order
   places by their landings, not by their zone pieces, so where a grower moves a landing past another place's (a center
   dock beside stretchable panels), both paths agree. A place is unreachable only where its landing is another's.
+- **A place whose cuts cross moves no other cut.** Where a place's cut after it would lie before its cut before it (a
+  sliding spot where the item lands in a shorter form, between two docks that overlap), it is nearer no pointer: both
+  paths leave it out of the cutting, its neighbors cut between themselves, and it keeps a spot with no stretch (a stop).
+  Before, the lanes kept their cuts in order by pushing the next cut on, so the place after the crossed one started late.
+- **A sliding or pitched spot's drop counts the item as just used**, as every target's drop does, so its commit and the
+  tile's for the same place agree on which neighbor the » takes.
 - **The grab's share reads the held item.** `targets()` reads `DockDropOptions.grab` as a share of the item's length as
   held (a movable grower at its natural length), as `lanes()` does.
 - **Stops list every place that fits on a bar.** A slot of a bar or a toolbar rail whose stretch clipping left under a

@@ -352,7 +352,8 @@ drag of `id`:
   read in the room, growth off; where a cut lies is halfway between landings, each in the layout its own drop commits
   (a sliding spot's at its range's ends, the room its drop makes, a grower beside it at its natural length), never from
   insertion lines, drawn or growth off; what is drawn is `shown(frame)`. A place has a stretch where its cuts leave
-  one; it lacks one only where its landing is another place's. One case it doesn't settle: where another lane's band overlaps the press point (an
+  one; it lacks one only where its landing is another place's, or where its cut after it would lie before its cut before
+  it (left out of the cutting, it moves no other cut). One case it doesn't settle: where another lane's band overlaps the press point (an
   empty bar's band over the end of a rail that is not drawn), that lane can take the pointer first. Every cut lies inside its lane, in
   order. A spot's `others` keys where its drop draws every item but
   the held one: a change between two spots with the same key moves only the held item, so a model gates only changes
