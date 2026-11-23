@@ -9,5 +9,7 @@
   { "package": "docking", "kind": "case-layout", "case": "R7-end-zone-pushes-fixed-behind-a-movable-leading", "reason": "over Zoom's leading half Tools takes the nearest landing, Zoom's place, as over its trailing half" },
   { "package": "docking", "kind": "case-solve", "case": "R4-bar-gaps-split-at-the-middle", "reason": "row renamed R4-bar-items-take-the-nearest-landing" },
   { "package": "docking", "kind": "case-solve", "case": "R4-bar-items-take-the-nearest-landing", "reason": "the renamed R4 row" },
-  { "package": "motion", "kind": "landing-frames", "case": "landing-across-items*", "reason": "the free stretch after c is one place across its zones; the cut by landings hands its start-zone part to the center zone's spot (same order, another zone)" }
+  { "package": "docking", "kind": "stops", "case": "real window, empty side rails", "reason": "stops list every place the item lands: the bottom bar's end-zone gap, which no tile reached before either, is a stop now (no stop is lost or moved)" },
+  { "package": "docking", "kind": "stops", "case": "empty-corners.json, views", "reason": "the same: the bottom bar's end-zone gap is a stop now" },
+  { "package": "docking", "kind": "stops", "case": "columns-corner.json, g2", "reason": "the same: the bottom bar's end-zone gap is a stop now" }
 ]
