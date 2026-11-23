@@ -502,7 +502,9 @@ or a function `(form: DockGrabForm, size: Size) => Point | undefined`, constant 
   rest) with `place` (`DockGrabPlace`): `{ kind: "float" }`, `{ kind: "spot", edge }` (a bar, a panel column or a
   toolbar rail), or `{ kind: "rail", side, orient }` (a side's rail: a folded column's tile or a rail stop). It is the
   place the item lies in, at the lift too: there is no home place. `size` is the laid rect's size; on a sliding spot
-  the size the item takes in its stretch (the range's length along the lane, its landing's across). The point it gives
+  the item's own length on that edge (its length in the stretch, not the stretch's length) by its landing's cross. So
+  a grip at the far end is read at that length: a movable grower, which takes the bar's free span once placed, is read
+  at its natural length, and a far-end grip sits at its natural end with the grown part past it. The point it gives
   is in that rect's own coordinates, kept inside `[0, size]`.
 - **Its rules.** At the item's own form and size it gives the press point (`after(null).grab`, what a host seeds
   `holdItem` with). It is pure for the drag: no pointer, time or page reads; one closure per drag, keyed by identity in
