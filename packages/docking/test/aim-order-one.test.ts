@@ -9,12 +9,15 @@ import { describe, expect, it } from "vitest";
 import { targetAt } from "@n-uf/motion/drag";
 import type { Point } from "@n-uf/placement";
 import { lanes, solve, targets, type DockDrop, type DockItem, type DockLayout, type DockState } from "../src";
+import { aimCut, aimSlack, grabShare } from "../src/aim";
 import { byId, column, controls, form, panel, title } from "./fixture";
 
 /** A toolbar: `len` px along a bar or a rail. */
 const tb = (id: string, len: number, more: Partial<DockItem> = {}): DockItem => ({ id, kind: "group", used: 1, forms: { row: [form("row", len, len, 32), form("menu", 0, 0, 0)], column: [form("icons", len, len, 28), form("menu", 0, 0, 0)] }, ...more });
 /** A panel whose header stretches along a bar (it takes the bar's spare length). */
 const stretchy = (id: string, used: number): DockItem => ({ ...panel(id, used), forms: { ...panel(id, used).forms, row: [form("header", 120, 160, 28, { grows: true }), form("menu", 0, 0, 0)] } });
+/** A movable toolbar that grows along a bar or a rail: it takes the free span after its zone. */
+const growing = (id: string, len: number, more: Partial<DockItem> = {}): DockItem => ({ ...tb(id, len, more), forms: { row: [form("row", len - 20, len, 32, { grows: true }), form("menu", 0, 0, 0)], column: [form("icons", len - 20, len, 28, { grows: true }), form("menu", 0, 0, 0)] } });
 const STAGE = { x: 0, y: 0, width: 1080, height: 640 };
 const rail = (items: string[], list: DockItem[]): DockState => ({
   stage: STAGE,
@@ -43,6 +46,10 @@ export const SCENES: readonly Scene[] = [
   ["a bottom bar of two panels and a toolbar", bar("bottom", ["p", "q", "g"], [panel("p", 1), panel("q", 2), tb("g", 120)])],
   ["a bottom bar of two stretchable panels and a toolbar", bar("bottom", ["p", "q", "g"], [stretchy("p", 1), stretchy("q", 2), tb("g", 120)])],
   ["a bottom bar of two stretchable panels and a toolbar at the end", bar("bottom", ["p", "q", "g"], [stretchy("p", 1), stretchy("q", 2), tb("g", 120, { align: "end" })])],
+  // Movable growers: the gap beside a grown toolbar stays a place, and its slack is reachable (a landing lies in it).
+  ["a top bar of a toolbar, a growing toolbar and a toolbar at the end", bar("top", ["a", "t", "c"], [tb("a", 120), growing("t", 200), tb("c", 120, { align: "end" })])],
+  ["a top bar of three leading toolbars, the middle one growing", bar("top", ["a", "t", "c"], [tb("a", 120), growing("t", 200), tb("c", 120)])],
+  ["a rail of a growing toolbar and a toolbar", rail(["t", "b"], [growing("t", 120), tb("b", 102)])],
   ["a panel column of three", columnOf(["p", "q", "r"], [panel("p", 1), panel("q", 2), panel("r", 3)])],
   ["a title bar of two toolbars, a growing title and controls", titleBar()],
   ["a column's tray: two panels, three toolbars at its foot", tray()],
@@ -146,7 +153,7 @@ export function aimOrderDiffs(scenes: readonly Scene[] = SCENES): { points: numb
 }
 
 describe("a sliding spot beside a growing neighbor", () => {
-  it("starts its stretch past the neighbor as drawn, not inside it at its natural length", () => {
+  it("cuts from its range's first landing inside the neighbor's slack, which a drop there takes: halfway from the landing before", () => {
     const s = titleBar();
     const seen = solve(s);
     const title = seen.items.title!.rect;
@@ -154,24 +161,32 @@ describe("a sliding spot beside a growing neighbor", () => {
     const lane = lanes(s, "a", { grab }).lanes.find((l) => l.id === "edge")!;
     const slide = lane.spots.find((sp) => sp.slide)!;
     const before = lane.spots[lane.spots.indexOf(slide) - 1]!;
-    // The title fills the bar (drawn far past its natural 160 px); the slide's range starts inside it.
+    // The title fills the bar (drawn far past its natural 160 px); the slide's range starts inside it, where a drop
+    // lands at the hand and the title gives way.
     expect(title.width).toBeGreaterThan(400);
     expect(slide.slide!.from).toBeLessThan(title.x + title.width);
-    // Its stretch is cut from its landing met past the title as drawn (the latest the item fits before the controls),
-    // halfway from the landing before the title: well past the title's natural end.
-    const latest = seen.items.controls!.rect.x - 200;
-    expect(slide.along[0]).toBeCloseTo((before.landing.x + before.landing.width + latest) / 2, 6);
-    expect(slide.along[0]).toBeGreaterThan(title.x + 160);
-    // Over the title's text the place before the title holds, by both paths.
-    const pt = { x: title.x + 150, y: title.y + title.height / 2 };
-    expect(pt.x >= before.along[0] && pt.x <= before.along[1]).toBe(true);
+    const first = slide.target.after({ x: slide.slide!.from + grab.x, y: title.y + 16 }, grab).layout;
+    expect(first.items.a!.rect.x).toBeCloseTo(slide.slide!.from, 6);
+    // So the cut is the aim cut between the landing before the title and that first landing (they overlap: at the grab),
+    // no cut from the title as drawn.
+    const firstLanding = { ...slide.landing, x: slide.slide!.from };
+    expect(slide.along[0]).toBeCloseTo(aimCut(before.landing, firstLanding, "x", grabShare(seen.items.a!.rect, grab).x, aimSlack(undefined)), 6);
+    expect(slide.along[0]).toBeLessThan(title.x + title.width);
+    // Over the title's slack both paths take the place after the title.
+    const pt = { x: slide.along[0] + 10, y: title.y + title.height / 2 };
     const tile = targetAt(targets(s, "a", { grab }), pt) as DockDrop | null;
-    expect(orderOn(tile!.after(pt, grab).layout, "edge")).toBe(orderOn(before.target.after(pt, grab).layout, "edge"));
+    expect(orderOn(tile!.after(pt, grab).layout, "edge")).toBe(orderOn(slide.target.after(pt, grab).layout, "edge"));
   });
 });
 
-/** Points of the sweep where the two paths make one order but dock in different zones (the free room's zone rule). */
-const ZONE_ONLY_KNOWN = 15_863;
+/**
+ * Points of the sweep where the two paths make one order but dock in different zones (the free room's zone rule, not yet
+ * one answer): 22,559 over the scenes without a movable grower's toolbar (beside stretchable panels and a growing title
+ * a sliding spot over the grower's slack docks where a landing there lands, the end zone mostly, where the tiles keep
+ * the room's thirds; the rebase onto growth-off drop room alone took the count from 15,863 to 19,415), and 11,008 over
+ * the three movable-grower toolbar scenes, for the same reason.
+ */
+const ZONE_ONLY_KNOWN = 33_567;
 
 describe("one aim order", () => {
   it("the landing path and the tile path put the item on the same side of every neighbor, for every pointer", () => {

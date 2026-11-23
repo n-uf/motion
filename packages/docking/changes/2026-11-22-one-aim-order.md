@@ -19,10 +19,18 @@
   `stops()` still lists it, at its landing, so "Move to ›" and the arrow keys keep every place they had.
 - **A sliding spot's target holds its stretch.** Its `hit` now runs over the spot's stretch of the lane, not over its
   whole range of landings, which ran into the neighbors' stretches.
-- **A sliding spot's stretch starts past its neighbor as drawn.** Beside a growing neighbor (a title, a stretchable
-  panel) a free stretch's range of landings may start inside it, at its natural length, where a dock takes its slack.
-  The spot is now met past the neighbor as drawn (`metPastGrowing`: where it ends, or the latest the item still fits),
-  in `lanes()` and in the tiles alike, so the place before the neighbor keeps the pointer over the neighbor.
+- **Three layouts, one job each.** On a bar or a toolbar rail which places exist and fit is read in the room, growth
+  off (the gap beside a grown row stays a place); where the aim cut between two places lies is halfway between their
+  landings, each in the layout its own drop commits (a grower as that commit draws it), in the tiles and the lanes
+  alike, never from insertion lines; what is drawn is `shown(frame)`. A place over free room cuts from its range's
+  ends, the room its drop makes, so beside a growing neighbor (a title, a stretchable panel) whose slack a dock takes,
+  the slack is reachable: the place after it starts halfway from the landing before the neighbor. The tiles order
+  places by their landings, not by their zone pieces, so where a grower moves a landing past another place's (a center
+  dock beside stretchable panels), both paths agree. A place is unreachable only where its landing is another's.
+- **The grab's share reads the held item.** `targets()` reads `DockDropOptions.grab` as a share of the item's length as
+  held (a movable grower at its natural length), as `lanes()` does.
+- **Stops list every place that fits on a bar.** A slot of a bar or a toolbar rail whose stretch clipping left under a
+  pixel is a stop too, as one the aim cuts leave none.
 - Changed (breaking for conformance): the row `R4-bar-gaps-split-at-the-middle` is renamed
   `R4-bar-items-take-the-nearest-landing` (a toolbar over a neighbor of its length stays before it on either side of
   its middle); `R7-end-zone-pushes-fixed-behind-a-movable-leading` now expects the drop after Zoom, as the trailing row

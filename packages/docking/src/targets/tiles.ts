@@ -455,7 +455,6 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     const inMenu = !!c.now.items[c.dragged]?.inMenu;
     const lands = all.filter((r) => (r.s.ok || r.s.home) && !!landingOf(r.s) && !(inMenu && r.s.home));
     const sorted = [...lands].sort((p, q) => mid(firstOf(p.s)) - mid(firstOf(q.s)) || (p.s.home ? -1 : q.s.home ? 1 : 0) || besideZone(p.s) - besideZone(q.s) || p.a - q.a);
-    if ((globalThis as any).process?.env?.DBG_TILES) (globalThis as any).console.log("PRE", sorted.map((r) => `${r.s.id}${r.s.home ? "(h)" : ""}${ownStretch.includes(r) ? "(own)" : ""} ${r.a.toFixed(1)}..${r.b.toFixed(1)} line ${r.s.line.toFixed(1)} [${orderOf(r.s)}]`).join(" ; "));
     // Whether two slots land the item at one rect along the edge.
     const sameAt = (p: Slot, q: Slot): boolean => span(landingOf(p)!).every((x, n) => Math.abs(x - span(landingOf(q)!)[n]!) < 0.5);
     const runs: Stretch[][] = [];
@@ -496,8 +495,10 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       if (cn - cp > EPS) spans.push([cp, cn]);
     });
     for (const r of dropped) r.a = r.b;
+    // Every place that fits takes part in the cuts: one that ends with no hit (here, or under a pixel once clipped) is
+    // lost, a stop all the same (`stops`). (Lost ids that a target carries are dropped later.)
+    for (const r of lands) if (r.s.ok && !r.s.home) lost.push(r.s.id);
     if (ownStretch[0]) ownKept = ownStretch[0].b - ownStretch[0].a > EPS ? [[ownStretch[0].a, ownStretch[0].b]] : [];
-    if ((globalThis as any).process?.env?.DBG_TILES) (globalThis as any).console.log("DBG", spec.id, runs.map((run) => run.map((r) => `${r.s.id}${r.s.home ? "(h)" : ""} ${r.a.toFixed(1)}..${r.b.toFixed(1)} L${span(landingOf(r.s)!)[0].toFixed(0)}`).join(" + ")).join(" | "), "cuts", cuts.map((x) => x.toFixed(1)).join(","), "dropped", dropped.map((r) => r.s.id).join(","));
     // A refused slot's stretch keeps only what no place's stretch takes.
     for (const r of all.filter((x) => !lands.includes(x))) {
       const left = less([[r.a, r.b]], spans).filter(([u, w]) => w - u > EPS);
