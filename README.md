@@ -30,7 +30,7 @@ npm i @n-uf/motion
 ## @n-uf/placement: where things fit
 
 The stage cut into bands, the items along one edge fitted with their forms, one edge's drop places, floats kept
-clear, panes tiled (with one layout per held place of a tiling drag, `tilingDrag`) and popups positioned. Pure
+clear, panes tiled (with one layout per held place of a tiling drag and the place under its pointer, `tilingDrag`) and popups positioned. Pure
 functions over plain data.
 
 ```sh
