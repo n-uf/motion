@@ -142,3 +142,40 @@ export function grabKey(grab: DockGrab | undefined): readonly [number, number] |
 
 /** Whether two points are one, within `EPS` each way. */
 export const samePoint = (a: Point, b: Point): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
+
+/**
+ * A landing at the hand aimed with the grab, re-aimed at most once (internal; a float's and a sliding spot's rule).
+ * `aim(g)` lands the item with the pointer holding it at `g`; `laidOf` reads the item's entry in a landing; `first` is
+ * the form the grab is read in first (the probe's) with the size it is read at, `sizeIn` the size of another form.
+ *
+ * - Aimed with the grab in the first form. Landed in that form (or with nothing to compare): that landing.
+ * - Landed in another form: the grab in that form. The same grab, or a landing aimed with it that keeps that form (the
+ *   new form holds under its own grab): that landing, the item switching form.
+ * - Aimed with it, the item falls back to the first form (a fold threshold: each form's grab lands it in the other):
+ *   the form stays, the landing aimed with the new form's grab and lying in the first form; otherwise the first landing.
+ *
+ * Never a third aim. The grab given back is always the one of the form the landing shows, so the held copy (at the
+ * pointer less it) shows that form's grip under the pointer. Along a pointer sweep across a threshold the form switches
+ * once, where the new form holds: in the band where neither holds, the form the item had (no flip-flop), and nothing is
+ * remembered from frame to frame, so a release commits what the frame shows.
+ */
+export function aimOnce<R>(
+  fn: Grab,
+  rule: GrabRule,
+  first: { readonly laid: DockItemLayout | undefined; readonly size: Size },
+  aim: (g: Point) => R,
+  laidOf: (r: R) => DockItemLayout | undefined,
+  sizeIn: (laid: DockItemLayout) => Size,
+): { readonly result: R; readonly grab: Point } {
+  const g0 = fn(first.laid, first.size, rule);
+  const r1 = aim(g0);
+  const l1 = laidOf(r1);
+  if (!first.laid || !l1 || sameForm(l1, first.laid)) return { result: r1, grab: g0 };
+  const g1 = fn(l1, sizeIn(l1), rule);
+  if (samePoint(g1, g0)) return { result: r1, grab: g1 };
+  const r2 = aim(g1);
+  const l2 = laidOf(r2);
+  if (l2 && sameForm(l2, l1)) return { result: r2, grab: g1 };
+  if (l2 && sameForm(l2, first.laid)) return { result: r2, grab: g0 };
+  return { result: r1, grab: g1 };
+}

@@ -37,11 +37,14 @@ a function type kept apart from the point type with two code paths, and a functi
 - **No memo of the function's answers.** Purity is the host's contract: the same form and size give the same point for
   the whole drag, with no reads of the pointer, the time or the page. The host keeps one closure per drag; the lift's
   memo keys a function by its identity.
-- **A float** is aimed with the grab in the float's form (a probe: the float laid at its size). Fitted in another form,
-  it is aimed once more with the grab in that form, never again.
-- **A sliding spot** lands at the pointer less the grab along the lane, with the grab in the form the item takes in the
-  stretch. Where that landing lies in another form, it is aimed once more with the grab in that form, never again. The
-  part across the lane moves nothing in the landing; the held frame uses it.
+- **A float** is aimed with the grab in the float's form (a probe: the float laid at its size). **A sliding spot** lands
+  at the pointer less the grab along the lane, with the grab in the form the item takes in the stretch; the part across
+  the lane moves nothing in the landing, and the held frame uses it.
+- **One re-aim, and a band at a fold threshold.** Where a landing lies in another form than the grab was read in, it is
+  aimed once more with the grab in that form, never again. The item switches form only where the new form holds under
+  its own grab; where each form's grab lands it in the other (a fold threshold), the form it had stays. The grab given
+  back is always the grab of the form the landing shows. Nothing is remembered from frame to frame: the band is the
+  same both ways, so a release commits what the frame shows, and along a pointer sweep the form switches once.
 - **A fixed spot** doesn't move to honor the grab: its slot belongs to the dock order. Its aim distance is measured from
   the pointer less the grab in that candidate's own form: the cut between two overlapping landings lies halfway between
   the points the pointer would hold in each. A release into a fixed slot glides by design.

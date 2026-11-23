@@ -519,7 +519,9 @@ or a function `(form: DockGrabForm, size: Size) => Point | undefined`, constant 
   the rail strips' push, which aims again with the grab it landed with. A sliding spot's start is the pointer less the
   grab along the lane (in the form the item takes in the stretch), clamped and snapped as before; across the lane the
   lane decides. Either, where its landing lies in another form than the grab was read in, is aimed once more with the
-  grab in that form, never again. A fixed spot (a dock, a column line, a rail tile or stop) lands at its slot whatever
+  grab in that form, never again: the item switches form only where the new form holds under its own grab, and where
+  each form's grab lands it in the other (a fold threshold) the form it had stays; the grab given back is the shown
+  form's. Nothing carries from frame to frame, so the band is the same both ways and a release commits what is shown. A fixed spot (a dock, a column line, a rail tile or stop) lands at its slot whatever
   the grab. The aim cut between two overlapping landings is halfway between the points the pointer would hold in each,
   the grab read in each landing's own form (`aimCut(a, b, axis, heldA, heldB, slack)`); a panel column cuts by halves.
 - **What comes back.** `DockAfter.grab` is a point on every held place: a float's and a sliding spot's the grab they
