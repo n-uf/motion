@@ -83,7 +83,7 @@ const samePlace = (a: DockGrabPlace, b: DockGrabPlace): boolean =>
   a.kind === b.kind && (a.kind !== "spot" || a.edge === (b as typeof a).edge) && (a.kind !== "rail" || (a.side === (b as typeof a).side && a.orient === (b as typeof a).orient));
 
 /** Whether two layout entries lie in one form: one place, axis, form and form kind. */
-export function sameForm(a: DockItemLayout, b: DockItemLayout): boolean {
+function sameForm(a: DockItemLayout, b: DockItemLayout): boolean {
   return a.axis === b.axis && a.form === b.form && a.formKind === b.formKind && samePlace(grabPlaceOf(a), grabPlaceOf(b));
 }
 
@@ -183,7 +183,7 @@ export function grabKey(grab: DockGrab | undefined): readonly [number, number] |
 }
 
 /** Whether two points are one, within `EPS` each way. */
-export const samePoint = (a: Point, b: Point): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
+const samePoint = (a: Point, b: Point): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
 
 /**
  * A landing at the hand aimed with the grab, re-aimed at most once (internal; a float's and a sliding spot's rule).
