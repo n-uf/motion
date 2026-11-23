@@ -23,7 +23,7 @@
  */
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { itemSteps } from "@n-uf/placement/stack";
-import { liftItem, moveTo, type DockPlace } from "./changes";
+import { liftItem, markUsed, moveTo, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, grabShare, len, lo, rangeTries } from "./aim";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
@@ -1168,9 +1168,10 @@ function stretches(state: DockState, dragged: string, options: DockLaneOptions, 
       const probe = ((): { a: number; b: number; w: number; layout: DockLayout } | null => {
         const zone = zones[0];
         if (!zone) return null;
-        const next = moveTo(state, dragged, { edge: e.id, zone, at: atOf(zone), space: 0 });
-        if (next === state) return null;
-        const l = solveLanded(next, dragged, prev);
+        const moved = moveTo(state, dragged, { edge: e.id, zone, at: atOf(zone), space: 0 });
+        if (moved === state) return null;
+        // (A dropped item counts as just used, as every drop does: the room is the one its commit makes.)
+        const l = solveLanded(markUsed(moved, dragged), dragged, prev);
         const landed = l.items[dragged];
         if (!landed || landed.inMenu || landed.edge !== e.id) return null;
         const n = neighbors(l, e.id, dragged, axis);
@@ -1234,8 +1235,10 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
 
 /** The dock `place` on `run`'s edge, if it lands the item's start at `x0` (within 1 px) with every fixed item kept. */
 function landsAt(state: DockState, dragged: string, run: StretchEdge, place: DockPlace, x0: number): { next: DockState; layout: DockLayout } | null {
-  const next = moveTo(state, dragged, place);
-  if (next === state) return null;
+  const moved = moveTo(state, dragged, place);
+  if (moved === state) return null;
+  // A dropped item counts as just used, as every target's drop does (`markUsed`): one model on both paths.
+  const next = markUsed(moved, dragged);
   const layout = solveLanded(next, dragged, run.prev);
   const landed = layout.items[dragged];
   const { axis } = run;

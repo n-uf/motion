@@ -31,6 +31,12 @@
   sliding spot where the item lands in a shorter form, between two docks that overlap), it is nearer no pointer: both
   paths leave it out of the cutting, its neighbors cut between themselves, and it keeps a spot with no stretch (a stop).
   Before, the lanes kept their cuts in order by pushing the next cut on, so the place after the crossed one started late.
+- Changed (behavior): **a sliding or pitched dock counts the dropped item as just used**, as every target's drop
+  already did ("a dropped item counts as just used"): one model on both paths. So on a full bar, after a slide, the
+  neighbor that gives way is the one the solver gives up first for the freshly used item: the least used goes to the »
+  where a neighbor used to step down to a shorter form to make a single start (a toolbar dropped beside two others on a
+  bar with room for only two keeps the bar, and the least used of the two moves to the »). A slide's commit and the
+  tile's for the same place now agree on which neighbor that is.
 - **The grab's share reads the held item.** `targets()` reads `DockDropOptions.grab` as a share of the item's length as
   held (a movable grower at its natural length), as `lanes()` does.
 - **Stops list every place that fits on a bar.** A slot of a bar or a toolbar rail whose stretch clipping left under a
