@@ -1,12 +1,12 @@
 /**
  * The Tiling drag page's presets, in the lab's preset format (docs/lab-checks.md): each sets the page up, plays its
- * gesture through the host (the lab's own pick over the base, as a pointer would) and checks the page as drawn, in the
- * DOM, against `after(held)`, within 1 px.
+ * gesture through the host (the pointer through the drag intent, the place by the library's hit) and checks the page as
+ * drawn, in the DOM, against `after(held)` (Snap to slot) or the lift and its mark (Indicator), within 1 px.
  */
 import type { Point, Rect } from "@n-uf/placement";
 import type { TilingSubject } from "@n-uf/placement/tiling";
 import { off, styleRect } from "../shared/geometry";
-import { nameOf, type Host, type TreeId } from "./host";
+import { nameOf, type Host, type Preview, type TreeId } from "./host";
 
 export interface Verdict {
   readonly pass: boolean;
@@ -32,7 +32,7 @@ function drawn(h: Host): Map<string, Rect> {
   for (const el of h.stage.querySelectorAll<HTMLElement>(".td-pane[data-pane]")) out.set(el.dataset.pane!, styleRect(el));
   return out;
 }
-const mark = (h: Host, kind: "swap" | "landing"): HTMLElement | null => h.stage.querySelector<HTMLElement>(`[data-mark="${kind}"]`);
+const mark = (h: Host, kind: "swap" | "landing" | "mark"): HTMLElement | null => h.stage.querySelector<HTMLElement>(`[data-mark="${kind}"]`);
 
 /** A check's findings: what went wrong, and what it found on the way. */
 class Findings {
@@ -81,10 +81,11 @@ function noFrame(el: HTMLElement, f: Findings): void {
 
 const paneA: TilingSubject<string> = { kind: "pane", pane: "a" };
 
-/** A preset's setup: start from `tree`, lift `subject`, then hold with `then` (the pointer moved over the base). */
+/** A preset's setup: start from `tree` in `preview` (default Snap to slot), lift `subject`, then move the pointer with `then`. */
 const lifted =
-  (tree: TreeId, subject: TilingSubject<string> | ((h: Host) => TilingSubject<string>), then?: (h: Host) => void) =>
+  (tree: TreeId, subject: TilingSubject<string> | ((h: Host) => TilingSubject<string>), then?: (h: Host) => void, preview: Preview = "snap") =>
   (h: Host): void => {
+    h.setPreview(preview);
     h.setTree(tree);
     h.lift(typeof subject === "function" ? subject(h) : subject);
     then?.(h);
@@ -217,7 +218,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "home-commits-nothing",
     title: "Held at home, the frame is the lift and the release changes nothing",
-    expected: "Lift 01 and hold it over its own old place: home is held, every pane is drawn at its lift rect, the landing is 01's old place, no wash; released, the tree is the same object as before.",
+    expected: "Lift 01 and hold it over its own old place: home is held, every pane is drawn at its lift rect, 01's old place open, no landing and no wash; released, the tree is the same object as before.",
     setup: lifted("three", paneA, (h) => h.pointTo(mid(h.drag!.drag.home!))),
     check: (h) => {
       const f = new Findings();
@@ -235,7 +236,7 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "torn-tab-no-gap",
     title: "A tab torn out of a stack leaves no gap, and joins back by its bar",
-    expected: "Tear 04 out of the stack: home is null and the base is the lift layout. Over the stack's middle the swap is refused (self) and the frame is the base; over the stack's bar it joins (after the last tab), and the release commits after(join).tree with 04 drawn.",
+    expected: "Tear 04 out of the stack: home is null and the base is the lift layout. Over the stack's middle the swap is refused (self): nothing is held, the refusal is named and the frame is the base; over the stack's bar past its tabs it joins (after the last tab), and the release commits after(join).tree with 04 drawn.",
     setup: lifted("stacked", { kind: "pane", pane: "d" }),
     check: (h) => {
       const f = new Findings();
@@ -243,7 +244,7 @@ export const PRESETS: readonly Preset[] = [
       f.that(d.drag.home === null, `home ${show(d.drag.home)}`);
       for (const [k, r] of d.drag.lift.layout) f.near(`base ${k}`, d.drag.base.layout.get(k), r);
       overMiddle(h, "c");
-      f.that(h.after()?.refusal?.code === "self", `over the stack: ${JSON.stringify(h.after()?.refusal)}`);
+      f.that(d.held === null && d.read.refused?.kind === "swap", `over the stack: held ${JSON.stringify(d.held)}, refused ${JSON.stringify(d.read.refused)}`);
       f.that(h.stage.dataset.refused === "self", "the stage does not show the refusal");
       frameIsAfter(h, f);
       at(h, "c", 0.5, 8);
@@ -256,13 +257,14 @@ export const PRESETS: readonly Preset[] = [
   {
     id: "refused-side-draws-rest",
     title: "A side with no room is refused, and the frame stays at rest",
-    expected: "One narrow: lift 03 and hold it at 01's right edge: 01 is too narrow for two panes (room-along); the frame is the base (02 fills the column), no landing, no wash; released, nothing changes.",
+    expected: "One narrow: lift 03 and hold it at 01's right edge: 01 is too narrow for two panes (room-along), so that zone holds nothing and names the refusal; the frame is the base (02 fills the column), no landing, no wash; released, nothing changes.",
     setup: lifted("narrow", { kind: "pane", pane: "c" }, (h) => at(h, "a", -4, 0.5)),
     check: (h) => {
       const f = new Findings();
       const d = h.drag!;
-      const a = h.after();
-      f.that(d.held?.kind === "beside" && d.held.side === "right", `held ${JSON.stringify(d.held)}`);
+      const refused = d.read.refused;
+      const a = refused ? d.drag.after(refused) : null;
+      f.that(d.held === null && refused?.kind === "beside" && refused.side === "right", `held ${JSON.stringify(d.held)}, refused ${JSON.stringify(refused)}`);
       f.that(a?.refusal?.code === "room-along", `refusal ${JSON.stringify(a?.refusal)}`);
       f.near("02 (the base)", drawn(h).get("b"), d.drag.base.layout.get("b"));
       frameIsAfter(h, f);
@@ -298,6 +300,52 @@ export const PRESETS: readonly Preset[] = [
       f.that(d.held?.kind === "join" && d.held.at === "c", `held ${JSON.stringify(d.held)}`);
       releaseCommits(h, f, "join");
       f.that(JSON.stringify(h.tree.stacks) === JSON.stringify([{ id: "stack:c", members: ["c", "a"], active: "a" }]), `stacks ${JSON.stringify(h.tree.stacks)}`);
+      return f.verdict();
+    },
+  },
+  {
+    id: "indicator-straight-down",
+    title: "Indicator: a straight drag onto the pane below reads its bar, nothing, swap, insert below",
+    expected:
+      "Indicator. Lift 01 and move straight down over 02 in 2 px steps: home, then 02's bar (a join), then nothing (02's top band gives the lift back), then the swap, then below 02, each once; every pane stays at its lift rect, and every mark lies inside 02 as drawn.",
+    setup: lifted("three", paneA, undefined, "indicator"),
+    check: (h) => {
+      const f = new Findings();
+      const d = h.drag!;
+      const b = d.drag.lift.layout.get("b")!;
+      const seen: string[] = [];
+      for (let y = b.y - 60; y <= b.y + b.height - 2; y += 2) {
+        h.pointTo({ x: b.x + b.width / 2, y });
+        const s = d.held ? (d.held.kind === "home" ? "home" : `${d.held.kind}${d.held.kind === "beside" ? ` ${d.held.side}` : ""}`) : "nothing";
+        if (seen[seen.length - 1] !== s) seen.push(s);
+        const m = d.read.mark;
+        if (m) f.that(m.rect.y >= b.y - 0.5 && m.rect.y + m.rect.height <= b.y + b.height + 0.5, `a mark outside 02 at y ${y}: ${show(m.rect)}`);
+        for (const [k, r] of drawn(h)) f.near(`pane ${k} at y ${y}`, r, d.drag.lift.layout.get(k));
+      }
+      f.that(JSON.stringify(seen) === JSON.stringify(["home", "join", "home", "swap", "beside bottom"]), `read ${seen.join(" > ")}`);
+      f.said.push(seen.join(" > "));
+      return f.verdict();
+    },
+  },
+  {
+    id: "indicator-mark-is-a-region",
+    title: "Indicator: the mark is a region of the lift layout, and the release commits the held place",
+    expected: "Indicator. Lift 01 and hold it at 02's bottom edge: the mark is 02's bottom half as drawn; no landing, no wash; released, the tree is after(beside bottom).tree.",
+    setup: lifted("three", paneA, (h) => {
+      const b = h.drag!.drag.lift.layout.get("b")!;
+      h.pointTo({ x: b.x + b.width / 2, y: b.y + b.height - 6 });
+    }, "indicator"),
+    check: (h) => {
+      const f = new Findings();
+      const d = h.drag!;
+      const b = d.drag.lift.layout.get("b")!;
+      f.that(d.held?.kind === "beside" && d.held.side === "bottom", `held ${JSON.stringify(d.held)}`);
+      const el = mark(h, "mark");
+      f.near("the mark", el && styleRect(el), { x: b.x, y: b.y + b.height / 2, width: b.width, height: b.height / 2 });
+      f.that(!mark(h, "landing") && !mark(h, "swap"), "a landing or a wash is drawn in Indicator for a side");
+      const a = h.after()!;
+      h.release();
+      f.that(h.tree === a.tree, "the release did not commit after(beside).tree");
       return f.verdict();
     },
   },

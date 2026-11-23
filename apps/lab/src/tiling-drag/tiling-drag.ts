@@ -8,7 +8,7 @@
 import type { LabRun, ScenarioFilter } from "../shared/hooks";
 import { passes } from "../shared/hooks";
 import { onReset } from "../shell/api";
-import { Host, type TreeId } from "./host";
+import { Host, type Preview, type TreeId } from "./host";
 import { PRESETS, type Preset, type Verdict } from "./presets";
 
 const $ = <T extends HTMLElement>(id: string): T => document.getElementById(id) as T;
@@ -28,7 +28,20 @@ for (const b of treeButtons) {
   });
 }
 
+const previewButtons = [...document.querySelectorAll<HTMLButtonElement>("#td-previews [data-preview]")];
+function showPreview(which: Preview): void {
+  for (const b of previewButtons) b.setAttribute("aria-checked", String(b.dataset.preview === which));
+}
+for (const b of previewButtons) {
+  b.addEventListener("click", () => {
+    host.setPreview(b.dataset.preview as Preview);
+    showPreview(host.preview);
+  });
+}
+
 function reset(): void {
+  host.setPreview("snap");
+  showPreview("snap");
   host.setTree("three");
   showTree("three");
 }
@@ -56,6 +69,7 @@ function run(p: Preset): Verdict {
   try {
     p.setup(host);
     showTree(host.start);
+    showPreview(host.preview);
     v = p.check(host);
   } catch (e) {
     v = { pass: false, now: `threw: ${String(e)}` };

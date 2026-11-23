@@ -33,6 +33,10 @@
 .td-landing[data-kind="swap"] { background: color-mix(in srgb, var(--td-swap) 14%, var(--td-pane)); border: 1.5px solid color-mix(in srgb, var(--td-swap) 55%, transparent); color: color-mix(in srgb, var(--win-text) 35%, transparent); }
 .td-landing:not([data-kind="swap"]) { background: var(--signal-soft); border: 1.5px dashed var(--signal); }
 
+/* Indicator's mark: a region of the lift layout (a side's half, a swap's or a join's outline, a tab's cell). */
+.td-mark { position: absolute; box-sizing: border-box; border-radius: 8px; pointer-events: none; background: var(--signal-soft); border: 1.5px solid var(--signal); z-index: 1; }
+.td-mark[data-kind="swap"] { background: transparent; border-color: color-mix(in srgb, var(--td-swap) 70%, transparent); }
+
 /* The held pane: at the pointer, over everything. */
 .td-held { position: absolute; box-sizing: border-box; border: 2px solid var(--accent); border-radius: 8px; background: var(--td-pane); color: var(--win-text); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22); opacity: 0.96; pointer-events: none; z-index: 2; }
 .td-held .td-pane-bar { color: var(--win-muted); }
