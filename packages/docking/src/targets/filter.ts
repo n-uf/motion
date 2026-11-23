@@ -105,6 +105,7 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     // (Held, a movable grower is its natural length, as `lanes()` reads the grab: `landedLayout`.)
     share: grabShare(landedLayout(state, now, dragged, prev).items[dragged]?.rect, options.grab),
     slack: aimSlack(options.pitch),
+    slideRanges: new Map(),
   };
   return { c, item, prev };
 }
