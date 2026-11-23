@@ -70,7 +70,7 @@ describe("tilingDrag: a held place keeps its zone as drawn", () => {
     expect(d.holds(swapB, { x: 160, y: 490 }, drawn)).toBe(false);
   });
 
-  it("the operator's path: from b's upper part down through its drawn middle, it stays a swap, frame to frame", () => {
+  it("a held swap kept from b's upper part down through its drawn middle, frame to frame", () => {
     const d = dragA();
     const drawn = d.lift.layout;
     let held: string | null = null;
