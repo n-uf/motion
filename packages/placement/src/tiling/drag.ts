@@ -174,7 +174,9 @@ export interface TilingDrag<T, K> {
   /**
    * Whether `held` keeps the pointer at `point`: the point is in the held place's own zone at the rect the frame draws
    * its pane at (`drawn`, keyed as the base is), the same region rule, the held region kept for its hysteresis. For a
-   * swap that is the partner's centre where it is drawn; for a side, that side's band. While it holds, the place stays
+   * swap that is the partner's centre where it is drawn, and the partner's band that touches the reopened place (home):
+   * a drop there would only rebuild the subject's own place, so it is the swap's too; for a side, that side's band.
+   * Every other band of the partner lets go. While it holds, the place stays
    * held whatever the base says there; once it doesn't, the next place is acquired on the base (`targets`, `placeOf`).
    * Home is the intent's own rule, and a join's zone is a pane part: neither holds here (false).
    */
@@ -327,7 +329,19 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     const region = regionOf(held);
     if (region === null || held.kind === "home") return false;
     const r = drawn.get(held.at);
-    return !!r && contains(r, point, 0) && paneRegion(r, point, region, options.regions) === region;
+    if (!r || !contains(r, point, 0)) return false;
+    const at = paneRegion(r, point, region, options.regions);
+    return at === region || (held.kind === "swap" && at !== "center" && touchesHome(r, at));
+  };
+
+  /** Whether `side` of `r` touches home: home lies against that edge, across at most one gutter, and overlaps it along it. */
+  const touchesHome = (r: Rect, side: Side): boolean => {
+    if (!home) return false;
+    const reach = px(options.gap) + px(options.handle) + 1;
+    const across = side === "top" ? r.y - (home.y + home.height) : side === "bottom" ? home.y - (r.y + r.height) : side === "left" ? r.x - (home.x + home.width) : home.x - (r.x + r.width);
+    const along =
+      side === "top" || side === "bottom" ? Math.min(r.x + r.width, home.x + home.width) - Math.max(r.x, home.x) : Math.min(r.y + r.height, home.y + home.height) - Math.max(r.y, home.y);
+    return across >= -EPS && across <= reach && along > EPS;
   };
 
   return { subject, lift, base, home, after, targets, placeOf, heldOf, holds };
