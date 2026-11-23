@@ -50,7 +50,7 @@ describe("hit on the lift (marks over the lift layout)", () => {
   const hit = d.hit("lift");
   const B = d.lift.layout.get("b")!;
 
-  it("a straight drag down from home over the pane below: home, home (its top band gives the lift back), swap, insert below, each once", () => {
+  it("a straight drag down from home over its full-edge neighbour below: home, its title bar, then swap over its whole height", () => {
     const seen: string[] = [];
     for (let y = 100; y <= 495; y += 2) {
       const r = at(hit, { x: B.x + B.width / 2, y });
@@ -58,16 +58,28 @@ describe("hit on the lift (marks over the lift layout)", () => {
       if (seen[seen.length - 1] !== s) seen.push(s);
       if (r.mark) expect(r.mark.rect.y >= B.y - 1e-6 && r.mark.rect.y + r.mark.rect.height <= B.y + B.height + 1e-6).toBe(true);
     }
-    expect(seen).toEqual(["home", "join b", "home", "swap b", "beside b bottom"]);
+    expect(seen).toEqual(["home", "join b", "swap b"]);
+  });
+
+  it("across the neighbour its side bands stay sides: a sweep from left to right reads left, swap, right", () => {
+    const seen: string[] = [];
+    at(hit, { x: -500, y: -500 });
+    for (let x = B.x + 1; x <= B.x + B.width - 1; x += 2) {
+      const s = show(at(hit, { x, y: B.y + B.height / 2 + 20 }).held);
+      if (seen[seen.length - 1] !== s) seen.push(s);
+    }
+    expect(seen).toEqual(["beside b left", "swap b", "beside b right"]);
   });
 
   it("the mark is a region of the lift layout: a side's half, a swap's outline and the wash in home", () => {
+    at(hit, { x: -500, y: -500 });
     const r = at(hit, { x: B.x + B.width / 2, y: B.y + B.height / 2 });
     expect(r.mark).toEqual({ kind: "swap", at: "b", rect: B, wash: d.home });
-    const s = at(hit, { x: B.x + B.width / 2, y: B.y + B.height - 4 });
-    expect(s.mark).toEqual({ kind: "side", at: "b", side: "bottom", rect: { x: B.x, y: B.y + B.height / 2, width: B.width, height: B.height / 2 } });
+    at(hit, { x: -500, y: -500 });
+    const s = at(hit, { x: B.x + 4, y: B.y + B.height / 2 });
+    expect(s.mark).toEqual({ kind: "side", at: "b", side: "left", rect: { x: B.x, y: B.y, width: B.width / 2, height: B.height } });
     expect(hit.drawn(s)).toBe(d.lift);
-    expect(hit.release(s)).toBe(d.after({ kind: "beside", at: "b", side: "bottom" }));
+    expect(hit.release(s)).toBe(d.after({ kind: "beside", at: "b", side: "left" }));
   });
 
   it("every pane is a target on the lift, also one the base would cover with home", () => {
@@ -79,11 +91,43 @@ describe("hit on the lift (marks over the lift layout)", () => {
     let prev = show(at(hit, { x, y: 100 }).held);
     for (let y = 100; y <= 495; y += 1) {
       const now = show(at(hit, { x, y }).held);
+      // The gutter left past home's 6 px edge is 2 px here (gap 8): a ±3 px wobble can't stay in it, so it is not one.
+      if (now !== prev && now === "nothing") prev = now;
       if (now !== prev) {
         for (const dy of [0, 3, -3, 2, -2, 1, 0]) expect(show(at(hit, { x, y: y + dy }).held)).toBe(now);
         prev = now;
       }
     }
+  });
+});
+
+describe("full-edge neighbours swap along their axis; other panes keep their sides", () => {
+  const bottomOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + r.height - 3 });
+  const topOf = (r: Rect): Point => ({ x: r.x + r.width / 2, y: r.y + 30 });
+
+  it("equal bounds (a over b, the same left and right): b's bottom band is the swap", () => {
+    const d = tilingDrag(three, pane("a"), opts());
+    for (const basis of ["lift", "base"] as const) {
+      const hit = d.hit(basis);
+      expect(show(hit.place(hit.zone(bottomOf(hit.laid.layout.get("b")!))!))).toBe("swap b");
+    }
+  });
+
+  it("unequal bounds (a over b and c side by side): b's bands stay sides", () => {
+    const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "a" }, b: { axis: "x", ratio: 0.5, a: { pane: "b" }, b: { pane: "c" } } } };
+    const hit = tilingDrag(t, pane("a"), opts()).hit("lift");
+    const B = hit.laid.layout.get("b")!;
+    expect(show(hit.place(hit.zone(bottomOf(B))!))).toBe("beside b bottom");
+    expect(show(hit.place(hit.zone(topOf(B))!))).toBe("beside b top");
+  });
+
+  it("not adjacent (a over b over c, a dragged over c): above c is a side, not a swap", () => {
+    const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.34, a: { pane: "a" }, b: { axis: "y", ratio: 0.5, a: { pane: "b" }, b: { pane: "c" } } } };
+    const hit = tilingDrag(t, pane("a"), opts()).hit("lift");
+    const C = hit.laid.layout.get("c")!;
+    expect(show(hit.place(hit.zone(topOf(C))!))).toBe("beside c top");
+    const B = hit.laid.layout.get("b")!;
+    expect(show(hit.place(hit.zone(bottomOf(B))!))).toBe("swap b");
   });
 });
 
@@ -98,8 +142,9 @@ describe("hit on the base (the landed layout drawn)", () => {
   });
 
   it("a held insert draws its landed layout from the first frame, and its release commits it", () => {
-    const r = at(hit, { x: B.x + B.width / 2, y: B.y + B.height - 4 });
-    expect(show(r.held)).toBe("beside b bottom");
+    // b is a's full-edge neighbour, so its bottom band is the swap: the insert is taken in its left strip.
+    const r = at(hit, { x: B.x + 4, y: B.y + B.height - 40 });
+    expect(show(r.held)).toBe("beside b left");
     expect(r.mark).toBeNull();
     expect(hit.drawn(r)).toBe(d.after(r.held!));
     expect(hit.release(r)).toBe(d.after(r.held!));
