@@ -4,8 +4,7 @@
  * See docs/placement.md, Entry: tiling.
  */
 import type { Rect } from "../geometry";
-import type { TilingStack, TilingSubject, TilingTree } from "./drag";
-import type { TilingPart } from "./hit";
+import type { TilingPart, TilingStack, TilingSubject, TilingTree } from "./tree";
 import { removePane, splitPane, type Split } from "./split";
 
 /** The reference adapter's parts: none by default. */

@@ -121,14 +121,31 @@ export function tilingSubjects<T, K>(tree: T, options: Pick<TilingDragOptions<T,
 }
 
 /**
+ * A property run's tally: per property how many checks ran and failed, the first `limit` failures in words, and a
+ * check for one case, its name leading each failure. Shared by the drag's and the hit's conformance. @internal
+ */
+export function propertyTally<P extends string>(properties: readonly P[], limit: number) {
+  const counts = Object.fromEntries(properties.map((p) => [p, { checked: 0, failed: 0 }])) as Record<P, { checked: number; failed: number }>;
+  const failures: string[] = [];
+  const checkFor =
+    (name: string) =>
+    (p: P, ok: boolean, why: () => string): void => {
+      counts[p].checked++;
+      if (ok) return;
+      counts[p].failed++;
+      if (failures.length < limit) failures.push(`${p}: ${name}: ${why()}`);
+    };
+  return { counts, failures, checkFor };
+}
+
+/**
  * Runs every property on every subject of every tree (`tilingSubjects`) and every held place of its drag: home, and for
  * each pane drawn in the base a swap, the four sides and a join (last and first). Trees are taken as committed ones,
  * so `normalize` (if any) must leave them as they are. Gives the first `limit` failures (default 20) in words.
  */
 export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragOptions<T, K>, limit = 20): TilingConformance {
   const { ops, area } = options;
-  const counts = Object.fromEntries(TILING_PROPERTIES.map((p) => [p, { checked: 0, failed: 0 }])) as Record<TilingProperty, { checked: number; failed: number }>;
-  const failures: string[] = [];
+  const { counts, failures, checkFor } = propertyTally(TILING_PROPERTIES, limit);
   const norm = (t: T): T => (ops.normalize ? ops.normalize(t) : t);
   const lay = (t: T) => layoutSplitTree(ops.split(t), area, options).panes;
   const drawnAs = (t: T, k: K): K => ops.stackOf?.(t, k)?.active ?? k;
@@ -141,13 +158,7 @@ export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragO
   for (const tree of trees) {
     const snapshot = copy(tree);
     for (const subject of tilingSubjects(tree, options)) {
-      const name = `tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}`;
-      const check = (p: TilingProperty, ok: boolean, why: () => string): void => {
-        counts[p].checked++;
-        if (ok) return;
-        counts[p].failed++;
-        if (failures.length < limit) failures.push(`${p}: ${name}: ${why()}`);
-      };
+      const check = checkFor(`tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}`);
       const drag = tilingDrag(tree, subject, options);
       const key = subject.kind === "pane" ? subject.pane : subject.stack.active;
       const liftOf = (k: K): Rect | undefined => drag.lift.layout.get(drag.lift.layout.has(k) ? k : drawnAs(tree, k));

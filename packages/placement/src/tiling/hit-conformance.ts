@@ -4,14 +4,14 @@
  * copy of it written here (the center by its formula, the side regions as trapezoids), never the library's own call.
  * See docs/placement.md, Entry: tiling, "A tiling drag's hit half".
  */
-import type { Point, Rect } from "../geometry";
+import { contains, type Point, type Rect } from "../geometry";
 import type { Side } from "../side";
 import { tilingDrag, type TilingDrag, type TilingDragOptions, type TilingHeld, type TilingSubject } from "./drag";
 import { TILING_HIT_DEFAULTS, type TilingBasis, type TilingHit, type TilingHitOptions, type TilingHitRead, type TilingHitTarget, type TilingHold } from "./hit";
 import { layoutSplitTree } from "./layout";
 import { PANE_REGION_DEFAULTS } from "./regions";
 import type { Split } from "./split";
-import { tilingSubjects } from "./conformance";
+import { propertyTally, tilingSubjects } from "./conformance";
 
 /** The properties, by name (each is a key of `TilingHitConformance.counts`). */
 export const TILING_HIT_PROPERTIES = [
@@ -68,7 +68,7 @@ function seeded(seed: number): () => number {
   };
 }
 
-const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 const within = (a: Rect, b: Rect, e = 1e-6): boolean => a.x >= b.x - e && a.y >= b.y - e && a.x + a.width <= b.x + b.width + e && a.y + a.height <= b.y + b.height + e;
 const sameRect = (a: Rect | undefined, b: Rect | undefined, e = 1e-3): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= e && Math.abs(a.y - b.y) <= e && Math.abs(a.width - b.width) <= e && Math.abs(a.height - b.height) <= e;
@@ -87,8 +87,7 @@ function inQuad(q: readonly Point[], p: Point): boolean {
  */
 export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDragOptions<T, K>, hitOptions: TilingHitOptions<K> = {}, limit = 20): TilingHitConformance {
   const { ops, area } = options;
-  const counts = Object.fromEntries(TILING_HIT_PROPERTIES.map((p) => [p, { checked: 0, failed: 0 }])) as Record<TilingHitProperty, { checked: number; failed: number }>;
-  const failures: string[] = [];
+  const { counts, failures, checkFor } = propertyTally(TILING_HIT_PROPERTIES, limit);
   const reported = { swapsBeside: 0, insertsMoveOthers: 0, insertsMoveOthersBeside: 0 };
   const edge = hitOptions.edge ?? TILING_HIT_DEFAULTS.edge;
   const travel = hitOptions.travel ?? TILING_HIT_DEFAULTS.travel;
@@ -104,14 +103,9 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
   for (const tree of trees) {
     for (const subject of tilingSubjects(tree, options)) {
       const drag = tilingDrag(tree, subject, options);
+      const name = `tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}`;
       for (const basis of ["lift", "base"] as const) {
-        const name = `tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}, ${basis}`;
-        const check = (p: TilingHitProperty, ok: boolean, why: () => string): void => {
-          counts[p].checked++;
-          if (ok) return;
-          counts[p].failed++;
-          if (failures.length < limit) failures.push(`${p}: ${name}: ${why()}`);
-        };
+        const check = checkFor(`${name}, ${basis}`);
         runOne(drag, subject, basis, check, seeded(1 + n * 7919 + (basis === "base" ? 1 : 0)));
         // room-keeps-map: the same drag with no minimum (every room check passes) has the same sides on every pane, and
         // each live place at a point off the parts is the same place there.
@@ -132,13 +126,10 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       }
       // same-sides-both-maps: judged once on the lift tree, every pane has the same sides on the lift map and the base map.
       const [onLift, onBase] = [drag.hit("lift", hitOptions), drag.hit("base", hitOptions)];
-      const name = `tree ${n}, ${subject.kind === "pane" ? `pane ${String(subject.pane)}` : `stack ${subject.stack.id}`}`;
+      const check = checkFor(name);
       for (const t of onBase.targets) {
         if (t.part || t.home || !onLift.targets.some((u) => !u.part && !u.home && u.at === t.at)) continue;
-        counts["same-sides-both-maps"].checked++;
-        if (sidesOnMap(onLift, t.at) === sidesOnMap(onBase, t.at)) continue;
-        counts["same-sides-both-maps"].failed++;
-        if (failures.length < limit) failures.push(`same-sides-both-maps: ${name}: ${String(t.at)} has ${sidesOnMap(onLift, t.at)} on the lift, ${sidesOnMap(onBase, t.at)} on the base`);
+        check("same-sides-both-maps", sidesOnMap(onLift, t.at) === sidesOnMap(onBase, t.at), () => `${String(t.at)} has ${sidesOnMap(onLift, t.at)} on the lift, ${sidesOnMap(onBase, t.at)} on the base`);
       }
     }
     n++;

@@ -23,27 +23,17 @@
  *
  * See docs/placement.md, Entry: tiling, "A tiling drag's hit half".
  */
-import type { Point, Rect } from "../geometry";
+import { contains, type Point, type Rect } from "../geometry";
 import type { Axis, Side } from "../side";
 import type { Target } from "../target";
-import type { TilingAfter, TilingHeld, TilingLaidOut, TilingTree } from "./drag";
 import { paneRegion, paneRegionShapes, type PaneRegion, type PaneRegionOptions } from "./regions";
 import { panesOf, type Split } from "./split";
+import type { TilingAfter, TilingHeld, TilingLaidOut, TilingTree } from "./tree";
+
+export type { TilingPart } from "./tree";
 
 /** Which layout a drag hit-tests, fixed at the lift: the lift (a host that draws marks) or the base (a host that draws the landed layout). */
 export type TilingBasis = "lift" | "base";
-
-/**
- * A part of a pane that takes a join, as the adapter declares it on the pane's rect (`TilingTree.parts`): a title bar,
- * a tab strip. `slots`, when given, are rects within it; the slot under the pointer gives the join's index: slot `i`
- * stands before the `i`-th member of the pane's stack in the tree the part was declared on (the pane itself when it
- * is alone). Over the part but no slot, the join has no index (the adapter's default: last).
- */
-export interface TilingPart {
-  readonly key: string;
-  readonly rect: Rect;
-  readonly slots?: readonly Rect[];
-}
 
 /** A hit target, in `@n-uf/motion/drag`'s target shape. */
 export interface TilingHitTarget<K> extends Target {
@@ -211,7 +201,7 @@ const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
 /** No home for the intent: a rect no point is in. */
 const NO_HOME: Rect = { x: -Infinity, y: -Infinity, width: 0, height: 0 };
 
-const inside = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 const rectPoly = (r: Rect): Point[] => [
   { x: r.x, y: r.y },
   { x: r.x + r.width, y: r.y },
