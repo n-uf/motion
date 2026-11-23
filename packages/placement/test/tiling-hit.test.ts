@@ -42,7 +42,7 @@ describe("tilingDrag: targets and places on the base", () => {
     expect(d.targets.map((t) => t.id)).toEqual(["pane:B"]);
   });
 
-  it("the centre is a swap, a band a side drop; heldOf reads the id, and an unknown id is null", () => {
+  it("the center is a swap, a band a side drop; heldOf reads the id, and an unknown id is null", () => {
     const d = dragA();
     const b = d.targets[0]!;
     expect(name(d, d.placeOf(b, { x: 160, y: 250 }, null))).toBe("swap b");
@@ -83,13 +83,13 @@ describe("tilingDrag: targets on the layout a frame draws", () => {
       if (runs.at(-1)?.place !== place) runs.push({ place, from: y });
     }
     expect(runs.map((r) => r.place)).toEqual(["beside b top", "swap b", "beside b bottom"]);
-    // Each switch is at b's drawn centre edge (34 % of its height, about the middle), the region before held 6 px past it.
-    const centreTop = b.y + b.height * 0.33;
-    const centreBottom = b.y + b.height * 0.67;
-    expect(runs[1]!.from).toBeGreaterThan(centreTop);
-    expect(runs[1]!.from).toBeLessThanOrEqual(Math.ceil(centreTop) + 7);
-    expect(runs[2]!.from).toBeGreaterThan(centreBottom);
-    expect(runs[2]!.from).toBeLessThanOrEqual(Math.ceil(centreBottom) + 7);
+    // Each switch is at b's drawn center edge (34 % of its height, about the middle), the region before held 6 px past it.
+    const centerTop = b.y + b.height * 0.33;
+    const centerBottom = b.y + b.height * 0.67;
+    expect(runs[1]!.from).toBeGreaterThan(centerTop);
+    expect(runs[1]!.from).toBeLessThanOrEqual(Math.ceil(centerTop) + 7);
+    expect(runs[2]!.from).toBeGreaterThan(centerBottom);
+    expect(runs[2]!.from).toBeLessThanOrEqual(Math.ceil(centerBottom) + 7);
   });
 
   it("place ids name the same place whichever layout the target came from", () => {
