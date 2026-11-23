@@ -10,7 +10,7 @@
  * (decision 0010).
  */
 import { describe, expect, it } from "vitest";
-import { lanes, type DockItem, type DockLaneOptions, type DockLayout, type DockState } from "../src";
+import { lanes, solve, type DockItem, type DockLaneOptions, type DockLayout, type DockState } from "../src";
 import { tileSlides } from "../src/targets";
 import { byId, form, panel } from "./fixture";
 import { windows } from "./lift-windows";
@@ -64,9 +64,13 @@ describe("one sliding range", () => {
             .map((sp) => [sp.target.id.replace(/^slide:/, ""), sp] as const),
         );
         const ranges = tileSlides(c.state, c.dragged, options);
-        // Every lane slide is a tile range, but on an empty edge (its drop strips by zone).
+        // Every lane slide is a tile range, but on an empty edge (its drop strips by zone): one that shows no item but the
+        // held one.
+        const seen = solve(c.state);
+        const othersOn = (edge: string): number =>
+          Object.entries(seen.items).filter(([id, it]) => id !== c.dragged && it.edge === edge && !it.inMenu && !it.floating && it.rect.width > 0.01 && it.rect.height > 0.01).length;
         for (const key of slides.keys()) {
-          const empty = key.endsWith(":^|$");
+          const empty = othersOn(key.slice(0, key.lastIndexOf(":"))) === 0;
           if (!empty) expect(ranges.some((r) => `${r.edge}:${r.before ?? "^"}|${r.after ?? "$"}` === key), `${at}: the lane slide ${key} is a tile range`).toBe(true);
           else reverseEmpty++;
         }
