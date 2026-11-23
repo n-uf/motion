@@ -71,8 +71,8 @@ const contains = (r: Rect, p: Point): boolean => p.x >= r.x && p.x <= r.x + r.wi
 const esc = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const box = (r: Rect): string => `left:${r.x}px;top:${r.y}px;width:${r.width}px;height:${r.height}px`;
 
-export const keyOf = (s: TilingSubject<string>): string => (s.kind === "pane" ? s.pane : s.stack.active);
-export const drawnAs = (t: Tree, k: string): string => ops.stackOf!(t, k)?.active ?? k;
+const keyOf = (s: TilingSubject<string>): string => (s.kind === "pane" ? s.pane : s.stack.active);
+const drawnAs = (t: Tree, k: string): string => ops.stackOf!(t, k)?.active ?? k;
 const subjectName = (s: TilingSubject<string>): string => (s.kind === "pane" ? nameOf(s.pane) : s.stack.members.map(nameOf).join(" · "));
 
 function describeHeld(h: TilingHeld<string> | null): string {
