@@ -221,14 +221,15 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
   };
   const gapPx = Math.max(0, spec.edge?.gap ?? 0) || 0;
   const edgeEnd = drawn ? span(drawn)[1] - (Math.max(0, spec.edge?.pad?.end ?? 0) || 0) : Infinity;
+  const edgeStart = drawn ? span(drawn)[0] + (Math.max(0, spec.edge?.pad?.start ?? 0) || 0) : -Infinity;
   /**
    * The aim cut between two slots of different orders on a bar or a toolbar rail (`aimCut`), `q` after `r`: a landing
    * of `q`'s that starts inside a growing item as drawn (its slack taken) is met past that item (`metPastGrowing`), as
    * `lanes()` meets a sliding spot's range there.
    */
-  const cutBetween = (r: Slot, q: Slot): number | null => {
-    const la = landingOf(r);
-    const lb0 = landingOf(q);
+  const cutBetween = (r: Slot, q: Slot, laAt?: Rect, lbAt?: Rect): number | null => {
+    const la = laAt ?? landingOf(r);
+    const lb0 = lbAt ?? landingOf(q);
     if (!la || !lb0) return null;
     const start = span(lb0)[0];
     const grown = drawnHere.find((o) => o.s[0] < start - EPS && o.s[1] > start + EPS && slackOf(o.id, o.s) > EPS);
@@ -367,7 +368,14 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     // (The item's own interval is home's stretch too: a cut beside it may hand part of it to the next zone's slot.)
     const ownStretch: typeof stretchesOf = own && homeSlot ? [{ s: homeSlot, a: own[0], b: own[1], make: (): void => undefined }] : [];
     const all = [...stretchesOf, ...ownStretch];
-    const live = all.filter((r) => r.b - r.a > EPS).sort((p, q) => p.a - q.a);
+    // A place its zone's piece left no stretch (its line past the piece's end: the last item's gap at a zone's edge) is
+    // still a place of its own order, where no other stretch makes that order: it takes part in the cuts at the point
+    // the piece left it, so a cut by landings can give it the stretch it has in `lanes()`.
+    const kept = all.filter((r) => r.b - r.a > EPS);
+    const orphans = all.filter((r) => r.b - r.a <= EPS && !r.s.home && r.s !== homeSlot && !!landingOf(r.s) && !kept.some((k) => orderOf(k.s) === orderOf(r.s)));
+    for (const r of orphans) r.a = r.b = Math.min(r.a, r.b);
+    const startAt = (r: (typeof all)[number]): number => ((l) => (l ? span(l)[0] : 0))(landingOf(r.s));
+    const live = [...kept, ...orphans].sort((p, q) => p.a - q.a || startAt(p) - startAt(q));
     // Runs of stretches that make one order (the same place in the edge's order, whatever its zone): one place, as a
     // sliding spot over free room is one spot in `lanes()`.
     const runs: (typeof live)[] = [];
@@ -386,14 +394,36 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       const of = all.filter((r) => orderOf(r.s) === order && Number.isFinite(along(r.s, end))).map((r) => r.s);
       return of.reduce((m, s) => (end ? along(s, true) > along(m, true) : along(s, false) < along(m, false)) ? s : m);
     };
+    // The item's own place over free room is a sliding spot's in `lanes()`: its range runs on to flush against the items
+    // either side as seen, so home's facing landing there is the one flush against the next place's neighbor. (Not
+    // beside an item that grows: it takes the free room as drawn.)
+    const seenHere = Object.entries(c.now.items)
+      .filter(([id, it]) => id !== c.dragged && it.edge === spec.id && !it.inMenu && !it.floating && area(it.rect) > EPS)
+      .map(([id, it]) => ({ id, s: span(it.rect), grows: !!c.state.items[id]?.forms[v ? "column" : "row"]?.[0]?.main.grows }))
+      .sort((p, q) => p.s[0] - q.s[0]);
+    const homeFacing = (s: Slot, end: boolean): Rect | undefined => {
+      const l = landingOf(s);
+      if (!l || !(s.home || s === homeSlot) || seenHere.some((o) => o.grows)) return l;
+      const [a0, b0] = span(l);
+      if (end) {
+        const next = seenHere.find((o) => o.s[0] >= b0 - EPS);
+        const to = next ? next.s[0] - gapPx : edgeEnd;
+        return to > b0 + EPS ? (v ? { ...l, y: to - (b0 - a0) } : { ...l, x: to - (b0 - a0) }) : l;
+      }
+      const prev = [...seenHere].reverse().find((o) => o.s[1] <= a0 + EPS);
+      const from = prev ? prev.s[1] + gapPx : edgeStart;
+      return from < a0 - EPS ? (v ? { ...l, y: from } : { ...l, x: from }) : l;
+    };
     let prevCut = -Infinity;
     for (let i = 0; i + 1 < runs.length; i++) {
       const [rs, qs] = [runs[i]!, runs[i + 1]!];
-      const raw = cutBetween(facing(orderOf(rs[0]!.s), true), facing(orderOf(qs[0]!.s), false));
+      const [fr, fq] = [facing(orderOf(rs[0]!.s), true), facing(orderOf(qs[0]!.s), false)];
+      const raw = cutBetween(fr, fq, homeFacing(fr, true), homeFacing(fq, false));
       if (raw === null) continue;
       // In order, as `lanes()` keeps its cuts: never before the cut before it. A cut before the run's own stretch
       // (its landing nearer only where the edge has no piece: over a growing title's text) leaves it none here.
-      const cut = Math.min(Math.max(raw, prevCut), qs.at(-1)!.b);
+      // (A place the pieces left no stretch is bounded by the next cut, not by its own empty stretch.)
+      const cut = Math.min(Math.max(raw, prevCut), qs.every((q) => orphans.includes(q)) ? Infinity : qs.at(-1)!.b);
       prevCut = cut;
       for (const r of rs) [r.a, r.b] = [Math.min(r.a, cut), Math.min(r.b, cut)];
       for (const q of qs) [q.a, q.b] = [Math.max(q.a, cut), Math.max(q.b, cut)];
