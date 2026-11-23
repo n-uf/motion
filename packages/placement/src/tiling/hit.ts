@@ -8,8 +8,9 @@
  *   slot, not a still pane), its places the five regions of `paneRegion` (the center swaps, a side goes beside); one
  *   target per part the adapter declares on that pane (`TilingTree.parts`: a title bar, a tab strip), its place a join,
  *   a slot under the pointer giving the index; and home, the subject's lift rect, which wins over everything beneath it.
- *   On the subject's full-edge neighbor along an axis (the same bounds across it, nothing between), the bands along
- *   that axis are the swap's too: a side there would only reorder the two panes. Its bands across stay sides.
+ *   A side exists only for a new arrangement: on a run neighbor of the subject (next to it as a whole child of one run
+ *   on the lift tree, with the same bounds across), a side whose insert gives the lift's arrangement or the swap's is
+ *   gone and its strip belongs to the center; the swap then spans `TILING_NEIGHBOR_SWAP_SHARE` across the run.
  * - **Places**: a place exists when `after(place).refusal` is null. A refused zone holds nothing and falls to the target
  *   beneath it (a refused part to the pane's body), never sideways. A place whose `after` equals the lift is home.
  * - **One hold rule, two measures**: the held place keeps its zone until the pointer is `edge` px past that zone's edge
@@ -23,10 +24,11 @@
  * See docs/placement.md, Entry: tiling.
  */
 import type { Point, Rect } from "../geometry";
-import type { Side } from "../side";
+import type { Axis, Side } from "../side";
 import type { Target } from "../target";
 import type { TilingAfter, TilingHeld, TilingLaidOut, TilingTree } from "./drag";
-import { paneCenter, paneRegion, paneRegionShapes, type PaneRegion, type PaneRegionOptions } from "./regions";
+import { paneRegion, paneRegionShapes, type PaneRegion, type PaneRegionOptions } from "./regions";
+import { panesOf, type Split } from "./split";
 
 /** Which layout a drag hit-tests, fixed at the lift: the lift (a host that draws marks) or the base (a host that draws the landed layout). */
 export type TilingBasis = "lift" | "base";
@@ -161,7 +163,17 @@ export interface TilingHitContext<T, K> {
   readonly inSubject: (pane: K) => boolean;
   readonly still?: (pane: K) => boolean;
   readonly after: (held: TilingHeld<K>) => TilingAfter<T, K>;
+  /** A tree laid out on the drag's stage. */
+  readonly lay: (tree: T) => TilingLaidOut<T, K>;
+  /** The tree a swap or a side makes, whatever room it has (normalized). */
+  readonly changeOf: (held: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }) => T;
 }
+
+/**
+ * A run neighbor's share of the middle across the run: the swap spans 56 % of it, each side strip 22 %, so a strip is
+ * about as large as a normal side band (a side insert is as easy to hit there as on any other pane).
+ */
+export const TILING_NEIGHBOR_SWAP_SHARE = 0.56;
 
 /** A zone's convex piece, its extent, and the zones above it (a pointer deep inside one of them has left it). */
 interface Piece {
@@ -189,9 +201,9 @@ interface PartHit<K> {
 interface PaneHit<K> {
   readonly body: TilingHitTarget<K>;
   readonly parts: readonly PartHit<K>[];
-  readonly regions: Readonly<Record<PaneRegion, Place<K>>>;
-  /** A full-edge neighbor's map in its place: the swap rectangle, then the two side strips. Empty otherwise. */
-  readonly zones: readonly { readonly rect: Rect; readonly place: Place<K> }[];
+  readonly regions: Readonly<Partial<Record<PaneRegion, Place<K>>>>;
+  /** The region options of its map: the sides that exist, and a run neighbor's swap share across the run. */
+  readonly options: PaneRegionOptions;
 }
 
 const HOME: TilingHeld<never> = { kind: "home" };
@@ -247,7 +259,6 @@ function nearPoly(poly: readonly Point[], p: Point, ex: number, ey: number): boo
   }
   return false;
 }
-const sameRect = (a: Rect, b: Rect, e = 1e-3): boolean => Math.abs(a.x - b.x) <= e && Math.abs(a.y - b.y) <= e && Math.abs(a.width - b.width) <= e && Math.abs(a.height - b.height) <= e;
 const half = (r: Rect, side: Side): Rect =>
   side === "left"
     ? { x: r.x, y: r.y, width: r.width / 2, height: r.height }
@@ -302,55 +313,96 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     if (v === undefined) liveMemo.set(p.id, (v = after(p.held).refusal === null));
     return v;
   };
-  const sameStacks = (a: T, k: K): boolean => {
-    const x = stackOf(a, k);
-    const y = stackOf(lift.tree, k);
-    if (!x || !y) return !x && !y;
-    return x.active === y.active && x.members.length === y.members.length && x.members.every((m, i) => m === y.members[i]);
+  // ---- Arrangements: a tree with sizes ignored (which panes sit in which run, in which order; which tabs in which
+  // stack, in which order). Nested splits along one axis are one run. A split's axis is its own, else the one its layout
+  // divides along.
+  type Branch = Exclude<Split<K>, { readonly pane: K }>;
+  const unionOf = (node: Split<K>, layout: ReadonlyMap<K, Rect>): Rect | null => {
+    const rs = panesOf(node).map((k) => layout.get(k)).filter((r): r is Rect => !!r);
+    if (!rs.length) return null;
+    const x = Math.min(...rs.map((r) => r.x));
+    const y = Math.min(...rs.map((r) => r.y));
+    return { x, y, width: Math.max(...rs.map((r) => r.x + r.width)) - x, height: Math.max(...rs.map((r) => r.y + r.height)) - y };
   };
+  const axisOf = (node: Branch, layout: ReadonlyMap<K, Rect>): Axis => {
+    if (node.axis) return node.axis;
+    const a = unionOf(node.a, layout);
+    const b = unionOf(node.b, layout);
+    return a && b && (a.x + a.width <= b.x + 0.5 || b.x + b.width <= a.x + 0.5) ? "x" : "y";
+  };
+  /** The run `node` is the root of, along `axis`: same-axis splits flattened (a master split is not part of a run). */
+  const runOf = (node: Split<K>, axis: Axis, layout: ReadonlyMap<K, Rect>): Split<K>[] =>
+    "pane" in node || node.master || axisOf(node, layout) !== axis ? [node] : [...runOf(node.a, axis, layout), ...runOf(node.b, axis, layout)];
+  const arrangementOf = (t: T): string => {
+    const layout = ctx.lay(t).layout;
+    const rec = (node: Split<K>): string => {
+      if ("pane" in node) {
+        const s = stackOf(t, node.pane);
+        return s ? `[${s.members.map(String).join(",")}]` : String(node.pane);
+      }
+      if (node.master) return `m${JSON.stringify(node.master)}(${rec(node.a)}|${rec(node.b)})`;
+      const axis = axisOf(node, layout);
+      return `${axis}(${runOf(node, axis, layout).map(rec).join(",")})`;
+    };
+    const split = ops.split(t);
+    return split ? rec(split) : "";
+  };
+  const liftArrangement = arrangementOf(lift.tree);
   const homeMemo = new Map<string, boolean>();
-  /** A live place whose release gives the lift back: it is home. */
+  /** A live place whose release has the lift's arrangement: it is home. */
   const homeLike = (p: Place<K>): boolean => {
     if (p === homePlace) return true;
     let v = homeMemo.get(p.id);
     if (v === undefined) {
-      v = false;
-      if (live(p)) {
-        const a = after(p.held);
-        v = a.tree === lift.tree || (a.layout.size === lift.layout.size && [...a.layout].every(([k, r]) => {
-          const l = lift.layout.get(k);
-          return !!l && sameRect(l, r) && sameStacks(a.tree, k);
-        }));
-      }
+      v = live(p) && (after(p.held).tree === lift.tree || arrangementOf(after(p.held).tree) === liftArrangement);
       homeMemo.set(p.id, v);
     }
     return v;
   };
 
   /**
-   * The axis along which the pane `k` (drawn at the lift) is the subject's full-edge neighbor, or null: the two lift
-   * rects have the same bounds across that axis (the edge they share is the whole edge of each) and no other pane
-   * lies between them. Only when the release leaves a slot (home).
+   * The sides gone on each run neighbor of the subject, judged once on the lift tree: a pane next to the subject as a
+   * whole child of one run, with the same bounds across the run (its rect, ±0.5 px). A side there is gone when its
+   * insert gives the lift's arrangement (the side facing the subject) or the swap's (the far side, when the swap
+   * trades the two whole occupants). Only when the release leaves a slot: a torn tab has no run neighbor.
    */
-  const neighborAxis = (k: K): "x" | "y" | null => {
-    const s = home;
-    const r = lift.layout.get(k);
-    if (!s || !r) return null;
-    const same = (a: number, b: number): boolean => Math.abs(a - b) <= 0.5;
-    const clear = (gap: Rect): boolean =>
-      [...lift.layout].every(([q, b]) => q === k || q === subjectDrawn || Math.max(0, Math.min(b.x + b.width, gap.x + gap.width) - Math.max(b.x, gap.x)) * Math.max(0, Math.min(b.y + b.height, gap.y + gap.height) - Math.max(b.y, gap.y)) <= 0.5);
-    if (same(r.x, s.x) && same(r.width, s.width)) {
-      const y0 = Math.min(s.y + s.height, r.y + r.height);
-      const y1 = Math.max(s.y, r.y);
-      if (y1 >= y0 - 0.5 && clear({ x: s.x, y: y0, width: s.width, height: Math.max(0, y1 - y0) })) return "y";
+  const goneSides = new Map<K, { readonly axis: Axis; readonly sides: readonly Side[] }>();
+  const liftSplit = ops.split(lift.tree);
+  if (home && liftSplit) {
+    const find = (node: Split<K>): { axis: Axis; run: Split<K>[]; i: number } | null => {
+      if ("pane" in node) return null;
+      if (node.master) return find(node.a) ?? find(node.b);
+      const axis = axisOf(node, lift.layout);
+      const run = runOf(node, axis, lift.layout);
+      const i = run.findIndex((e) => "pane" in e && e.pane === subjectDrawn);
+      if (i >= 0) return { axis, run, i };
+      for (const e of run) {
+        const f = find(e);
+        if (f) return f;
+      }
+      return null;
+    };
+    const found = find(liftSplit);
+    if (found) {
+      const { axis, run, i } = found;
+      for (const [j, facing, far] of [
+        [i - 1, axis === "x" ? "right" : "bottom", axis === "x" ? "left" : "top"],
+        [i + 1, axis === "x" ? "left" : "top", axis === "x" ? "right" : "bottom"],
+      ] as const) {
+        const e = run[j];
+        if (!e || !("pane" in e)) continue;
+        const r = lift.layout.get(e.pane);
+        const same = (a: number, b: number): boolean => Math.abs(a - b) <= 0.5;
+        if (!r || (axis === "y" ? !same(r.x, home.x) || !same(r.width, home.width) : !same(r.y, home.y) || !same(r.height, home.height))) continue;
+        const swap = arrangementOf(ctx.changeOf({ kind: "swap", at: e.pane }));
+        const sides = ([facing, far] as const).filter((side) => {
+          const a = arrangementOf(ctx.changeOf({ kind: "beside", at: e.pane, side }));
+          return a === liftArrangement || a === swap;
+        });
+        if (sides.length) goneSides.set(e.pane, { axis, sides });
+      }
     }
-    if (same(r.y, s.y) && same(r.height, s.height)) {
-      const x0 = Math.min(s.x + s.width, r.x + r.width);
-      const x1 = Math.max(s.x, r.x);
-      if (x1 >= x0 - 0.5 && clear({ x: x0, y: s.y, width: Math.max(0, x1 - x0), height: s.height })) return "x";
-    }
-    return null;
-  };
+  }
 
   // The targets and their places, built once.
   const targets: TilingHitTarget<K>[] = [];
@@ -363,9 +415,13 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     const k = key(at);
     const body: TilingHitTarget<K> = { id: `pane:${key(pane)}`, priority: 2, hit: { ...rect }, pane, at };
     const parts: PartHit<K>[] = [];
-    const regions = {} as Record<PaneRegion, Place<K>>;
-    const zones: { rect: Rect; place: Place<K> }[] = [];
-    const ph: PaneHit<K> = { body, parts, regions, zones };
+    const regions: Partial<Record<PaneRegion, Place<K>>> = {};
+    // A run neighbor: its gone sides give their strips to the center, and the swap spans the neighbor share across the run.
+    const gone = goneSides.get(lift.layout.has(pane) ? pane : at);
+    const paneOptions: PaneRegionOptions = gone
+      ? { ...regionOptions, sides: SIDES.filter((s) => !gone.sides.includes(s)), ...(gone.axis === "y" ? { centerX: TILING_NEIGHBOR_SWAP_SHARE } : { centerY: TILING_NEIGHBOR_SWAP_SHARE }) }
+      : regionOptions;
+    const ph: PaneHit<K> = { body, parts, regions, options: paneOptions };
     const members = stackOf(laid.tree, pane)?.members ?? [pane];
     const indexOf = (i: number): number | undefined => (i < members.length ? members.slice(0, i).filter((m) => !ctx.inSubject(m)).length : undefined);
     const seen = new Set<string>();
@@ -389,40 +445,16 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
       });
       parts.push({ target, place: whole, slots });
     }
-    const shapes = paneRegionShapes(rect, regionOptions);
+    const shapes = paneRegionShapes(rect, paneOptions);
     const above = (): readonly Rect[] => [
       ...(home ? [home] : []),
       ...parts.flatMap((p) => (live(p.place) ? [p.target.hit] : p.slots.filter((s) => live(s.place)).map((s) => s.rect))),
     ];
-    // The subject's full-edge neighbor along an axis: a side along that axis would only reorder the two panes, which
-    // is the swap. Its map is one swap rectangle over its whole extent along the axis, between two side strips across.
-    const axis = neighborAxis(lift.layout.has(pane) ? pane : at);
-    if (axis) {
-      const c = paneCenter(rect, regionOptions);
-      const strips: [Side, Rect][] =
-        axis === "y"
-          ? [
-              ["left", { x: rect.x, y: rect.y, width: c.left, height: rect.height }],
-              ["right", { x: rect.x + c.right, y: rect.y, width: rect.width - c.right, height: rect.height }],
-            ]
-          : [
-              ["top", { x: rect.x, y: rect.y, width: rect.width, height: c.top }],
-              ["bottom", { x: rect.x, y: rect.y + c.bottom, width: rect.width, height: rect.height - c.bottom }],
-            ];
-      const swapRect: Rect =
-        axis === "y"
-          ? { x: rect.x + c.left, y: rect.y, width: c.right - c.left, height: rect.height }
-          : { x: rect.x, y: rect.y + c.top, width: rect.width, height: c.bottom - c.top };
-      zones.push({ rect: swapRect, place: placeFor(`swap:${k}`, { kind: "swap", at }, ph, body.id, { poly: rectPoly(swapRect), box: swapRect, cuts: above }) });
-      for (const [side, r] of strips) {
-        zones.push({ rect: r, place: placeFor(`beside:${side}:${k}`, { kind: "beside", at, side }, ph, body.id, { poly: rectPoly(r), box: r, cuts: above }) });
-      }
-    } else {
-      for (const region of ["center", ...SIDES] as const) {
-        const held: TilingHeld<K> = region === "center" ? { kind: "swap", at } : { kind: "beside", at, side: region };
-        const id = region === "center" ? `swap:${k}` : `beside:${region}:${k}`;
-        regions[region] = placeFor(id, held, ph, body.id, { poly: shapes[region], box: boxOf(shapes[region]), cuts: above });
-      }
+    for (const region of ["center", ...SIDES] as const) {
+      if (region !== "center" && paneOptions.sides && !paneOptions.sides.includes(region)) continue;
+      const held: TilingHeld<K> = region === "center" ? { kind: "swap", at } : { kind: "beside", at, side: region };
+      const id = region === "center" ? `swap:${k}` : `beside:${region}:${k}`;
+      regions[region] = placeFor(id, held, ph, body.id, { poly: shapes[region], box: boxOf(shapes[region]), cuts: above });
     }
     targets.push(body);
     panes.push(ph);
@@ -445,7 +477,7 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
       if (live(part.place)) return { place: part.place, refused: null };
       refused ??= part.place;
     }
-    const place = pane.zones.length > 0 ? (pane.zones.find((z) => inside(z.rect, p)) ?? pane.zones[0]!).place : pane.regions[paneRegion(pane.body.hit, p, null, regionOptions)];
+    const place = pane.regions[paneRegion(pane.body.hit, p, null, pane.options)]!;
     return live(place) ? { place, refused: null } : { place: null, refused: refused ?? place };
   };
   const effective = (p: Place<K> | null): Place<K> | null => (p && homeLike(p) ? homePlace : p);

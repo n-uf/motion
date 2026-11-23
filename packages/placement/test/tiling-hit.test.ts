@@ -121,6 +121,33 @@ describe("full-edge neighbors swap along their axis; other panes keep their side
     expect(show(hit.place(hit.zone(topOf(B))!))).toBe("beside b top");
   });
 
+  it("2×2 grids: built as two columns the pane below is swap-only; built as two rows it keeps its five regions", () => {
+    const columns: StackedSplit<string> = { split: { axis: "x", ratio: 0.5, a: { axis: "y", ratio: 0.5, a: { pane: "s" }, b: { pane: "n" } }, b: { axis: "y", ratio: 0.5, a: { pane: "t" }, b: { pane: "u" } } } };
+    const rows: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { axis: "x", ratio: 0.5, a: { pane: "s" }, b: { pane: "t" } }, b: { axis: "x", ratio: 0.5, a: { pane: "n" }, b: { pane: "u" } } } };
+    const inCols = tilingDrag(columns, pane("s"), opts()).hit("lift");
+    const inRows = tilingDrag(rows, pane("s"), opts()).hit("lift");
+    expect(inCols.laid.layout.get("n")).toEqual(inRows.laid.layout.get("n"));
+    const N = inCols.laid.layout.get("n")!;
+    expect(show(inCols.place(inCols.zone(bottomOf(N))!))).toBe("swap n");
+    expect(show(inRows.place(inRows.zone(bottomOf(N))!))).toBe("beside n bottom");
+    expect(show(inRows.place(inRows.zone(topOf(N))!))).toBe("beside n top");
+  });
+
+  it("a stack as the neighbor loses only the side facing the subject: its far side puts the subject beyond the stack", () => {
+    const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "a" }, b: { pane: "b" } }, stacks: [{ id: "g", members: ["b", "x"], active: "b" }] };
+    const hit = tilingDrag(t, pane("a"), opts()).hit("lift");
+    const B = hit.laid.layout.get("b")!;
+    expect(show(hit.place(hit.zone(topOf(B))!))).toBe("swap b");
+    expect(show(hit.place(hit.zone(bottomOf(B))!))).toBe("beside b bottom");
+  });
+
+  it("a torn tab has no run neighbor: the pane below keeps its five regions", () => {
+    const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.5, a: { pane: "a" }, b: { pane: "b" } }, stacks: [{ id: "g", members: ["a", "x"], active: "a" }] };
+    const hit = tilingDrag(t, pane("x"), opts()).hit("lift");
+    const B = hit.laid.layout.get("b")!;
+    expect(show(hit.place(hit.zone(bottomOf(B))!))).toBe("beside b bottom");
+  });
+
   it("not adjacent (a over b over c, a dragged over c): above c is a side, not a swap", () => {
     const t: StackedSplit<string> = { split: { axis: "y", ratio: 0.34, a: { pane: "a" }, b: { axis: "y", ratio: 0.5, a: { pane: "b" }, b: { pane: "c" } } } };
     const hit = tilingDrag(t, pane("a"), opts()).hit("lift");
@@ -201,8 +228,19 @@ describe("tilingHitConformance: the seven properties", () => {
     });
   };
 
+  /** Trees the neighbor rule is easy to get wrong on: both 2×2 grids, nested runs, a row under the subject, a stack beside it. */
+  const runs: StackedSplit<string>[] = [
+    { split: { axis: "x", ratio: 0.5, a: { axis: "y", ratio: 0.5, a: { pane: "s" }, b: { pane: "n" } }, b: { axis: "y", ratio: 0.5, a: { pane: "t" }, b: { pane: "u" } } } },
+    { split: { axis: "y", ratio: 0.5, a: { axis: "x", ratio: 0.5, a: { pane: "s" }, b: { pane: "t" } }, b: { axis: "x", ratio: 0.5, a: { pane: "n" }, b: { pane: "u" } } } },
+    { split: { axis: "y", ratio: 0.3, a: { pane: "s" }, b: { axis: "y", ratio: 0.4, a: { pane: "a" }, b: { pane: "b" } } } },
+    { split: { axis: "y", ratio: 0.5, a: { pane: "s" }, b: { axis: "x", ratio: 0.5, a: { pane: "a" }, b: { pane: "b" } } } },
+    { split: { axis: "y", ratio: 0.5, a: { axis: "x", ratio: 0.5, a: { pane: "s" }, b: { pane: "t" } }, b: { pane: "n" } } },
+    { split: { axis: "x", ratio: 0.35, a: { pane: "s" }, b: { axis: "x", ratio: 0.5, a: { pane: "n" }, b: { pane: "m" } } }, stacks: [{ id: "g", members: ["n", "n2"], active: "n" }] },
+    { split: { axis: "y", ratio: 0.66, a: { pane: "s" }, b: { pane: "n" } }, stacks: [{ id: "h", members: ["s", "s2", "s3"], active: "s" }] },
+  ];
+
   it("hold on the reference adapter, panes and stacks, both bases", () => {
-    const r = tilingHitConformance([three, stacked, ...trees(11, 12, false), ...trees(23, 10, true)], opts());
+    const r = tilingHitConformance([three, stacked, ...runs, ...trees(11, 12, false), ...trees(23, 10, true)], opts());
     expect(r.failures).toEqual([]);
     for (const c of Object.values(r.counts)) expect(c.checked).toBeGreaterThan(0);
     expect(r.ok).toBe(true);
