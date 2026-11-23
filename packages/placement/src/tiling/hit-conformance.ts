@@ -2,7 +2,7 @@
  * The properties of a tiling drag's hit half (`TILING_HIT_PROPERTIES`), run on any `TilingTree` adapter: the library's tests on the reference
  * one, a host on its own (its `parts` included). Pure: no test runner, no DOM. The zone rule is checked against a second
  * copy of it written here (the center by its formula, the side regions as trapezoids), never the library's own call.
- * See docs/placement.md, Entry: tiling.
+ * See docs/placement.md, Entry: tiling, "A tiling drag's hit half".
  */
 import type { Point, Rect } from "../geometry";
 import type { Side } from "../side";

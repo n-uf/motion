@@ -136,7 +136,7 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 | `TilingHit`, `TilingBasis`, `TilingHitOptions`, `TilingHitTarget`, `TilingHitIntent`, `TilingHitFrame`, `TilingHitRead`, `TilingHold`, `TilingMark`, `TilingPart`, `TILING_HIT_DEFAULTS`, `TILING_NEIGHBOR_SWAP_SHARE` | The hit half of a drag: its targets in `@n-uf/motion/drag`'s shape, the intent's options, the one hold rule, a reader of the intent's frame (`{ held, refused, mark }`), what a frame draws and what a release commits; the declared part of a pane, and the defaults (`edge` 6, `travel` 24, `share` 0.25) and the run neighbor's swap share (0.56). | Built once per drag on one fixed layout, the lift or the base; a side of a pane takes an insert only for a new arrangement. See *A tiling drag's hit half* below. |
 | `TilingTree`, `splitTreeOps`, `SplitTreeOpsOptions`, `StackedSplit` | The adapter a host gives the drag (its tree as a `Split`, its stacks, the changes, and optionally the `parts` of a pane), and the reference adapter over a `Split` with stacks beside it (`bar` for a title bar part, `tab` for a tab's width). | Pure: each change returns a new tree, or the same one when nothing changes. |
 | `tilingConformance`, `tilingSubjects`, `TILING_PROPERTIES`, `TilingConformance`, `TilingProperty` | The drag's properties run on any adapter, over every subject of the trees given and every held place: per property how many checks ran and failed, and the first failures in words. | A host runs it on its own adapter and trees; no test runner needed. |
-| `tilingHitConformance`, `TILING_HIT_PROPERTIES`, `TilingHitConformance`, `TilingHitProperty` | The hit half's nine properties run on any adapter, over every subject and both bases, with the rows that are counted and not failed. | A host runs it on its own adapter, its `parts` included; no test runner needed. |
+| `tilingHitConformance`, `TILING_HIT_PROPERTIES`, `TilingHitConformance`, `TilingHitProperty` | The hit half's properties run on any adapter, over every subject and both bases, with the rows that are counted and not failed (a swap landing beside the pointer; an insert that moves other panes, or under a fixed length or a master split). | A host runs it on its own adapter, its `parts` included; no test runner needed. |
 
 **A tiling drag's one layout.** `tilingDrag(tree, subject, { ops, area, min, ...splitOptions, still? })` is the layout half of a tiling drag, the counterpart of `@n-uf/docking`'s `dockDrag`. The host keeps its own tree and changes and hands them over as a `TilingTree` adapter; geometry has one source, the adapter's `split(tree)`, laid out with `layoutSplitTree` under the drag's options.
 
@@ -170,8 +170,10 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
   - `lift-equals-home`: every place whose release gives the lift's arrangement reads as home and commits the lift tree;
   - `shown-under-pointer`: on the lift the mark contains the pointer and lies inside the target pane; on the base the landing contains the pointer for every insert and join;
   - `shown-equals-landed`: at every frame a release commits `after(held)`, and the base draws it in that same frame;
-  - `new-arrangement-sides`: a side exists exactly when its insert gives an arrangement that is neither the lift's nor the swap's (by a second copy of the arrangement);
-  - `zones-convex`: the midpoint of two points in one zone is in it.
+  - `new-arrangement-sides`: a side exists exactly when its insert gives an arrangement that is neither the lift's nor the swap's (by a second copy of the arrangement), on a pane with the subject's bounds across that meets it in no master split; any other pane keeps its sides;
+  - `zones-convex`: the midpoint of two points in one zone is in it;
+  - `same-sides-both-maps`: judged once on the lift tree, every pane has the same sides on the lift map and the base map;
+  - `room-keeps-map`: with every room check passing, every pane has the same sides and every live place off the parts is the same place.
 
   Some rows are counted and reported, not failed (`reported`): on the base, a held swap whose landing lies beside the pointer (a pane that moved when the subject was lifted is hit at its base rect), and an insert or join whose layout moves a pane other than its target (floors, fixed lengths).
 
