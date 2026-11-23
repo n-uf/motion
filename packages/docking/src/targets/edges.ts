@@ -5,8 +5,8 @@
 import { EPS, area, rect, type Rect } from "@n-uf/placement";
 import { formCrossMin, formMenu, formSetsCross, itemSteps, type StackForm } from "@n-uf/placement/stack";
 import { markUsed, moveAmong, moveTo } from "../changes";
-import { axisOf, edgeTakes, formsOf, zoneOf, zonesOf, zoneTakes } from "../helpers";
-import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type Zone } from "../model";
+import { axisOf, edgeTakes, formsOf, growsOnBar, withoutBarGrowth, zoneOf, zonesOf, zoneTakes } from "../helpers";
+import { DEFAULT_STRIP, ZONES, type DockEdge, type DockState, type DockLayout, type SolveOptions, type Zone } from "../model";
 import { solve } from "../solve";
 import { targetId } from "./ids";
 import { EDGE_KINDS, edgeKindOf, opensEmpty, type EdgeKind } from "./kinds";
@@ -28,6 +28,27 @@ export function reservedRect(state: DockState, l: DockLayout, id: string): Rect 
   const shift = it.zone === "end" ? len - keep : it.zone === "center" ? (len - keep) / 2 : 0;
   return column ? rect(it.rect.x, it.rect.y + shift, it.rect.width, keep) : rect(it.rect.x + shift, it.rect.y, keep, it.rect.height);
 }
+
+/**
+ * `l` (the solve of `state` under `prev`) as a drop of `dragged` draws it: where `dragged` is a movable grower on a bar
+ * (`growsOnBar`), the state solved with its growth off (`withoutBarGrowth`), so it and its bar's neighbors lie at its
+ * natural length, the preview and the landing; it grows once placed, when its state is solved again. Any other item:
+ * `l` itself, the same object.
+ */
+export function landedLayout(state: DockState, l: DockLayout, dragged: string, prev: SolveOptions): DockLayout {
+  const it = l.items[dragged];
+  if (!it || it.fixed || it.inMenu || it.floating || !it.edge) return l;
+  const e = state.edges.find((x) => x.id === it.edge);
+  if (!e || !growsOnBar(state, e, dragged, it.form)) return l;
+  return solve(withoutBarGrowth(state, dragged), prev);
+}
+
+/**
+ * A drop's layout of `dragged` from its state alone, in one solve: `landedLayout`'s result. The growth is turned off
+ * before solving wherever `dragged` lies on a bar with a form that grows; a form that grows only sets its length, never
+ * which form an item takes, so where it ends in a form that doesn't grow the solve is the same.
+ */
+export const solveLanded = (state: DockState, dragged: string, prev: SolveOptions): DockLayout => solve(withoutBarGrowth(state, dragged), prev);
 
 /** A slot for `place` on `line`: its drop, settled; home when it puts the item back (or `home`); `lands`, its edge's rule. */
 export function slotAt(c: Ctx, zone: Zone, line: number, id: string, place: Slot["place"], lands: (r: DropResult) => boolean, home = false): Slot {
@@ -135,14 +156,15 @@ function zoneSpans(state: DockState, seen: DockLayout, edge: DockEdge, reach: nu
  */
 export function zoneExtents(state: DockState, dragged: string, edgeId: string, options: DockDropOptions = {}): { zone: Zone; a: number; b: number }[] {
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
-  const seen = solve(state, prev);
+  // (As the targets read them: every movable grower on a bar at its natural length.)
+  const seen = solve(withoutBarGrowth(state), prev);
   const edge = state.edges.find((e) => e.id === edgeId);
   if (!edge || !seen.edges[edgeId]) return [];
   const column = axisOf(edge.side) === "column";
   const reach = Math.max(0, Number.isFinite(options.endReach) ? options.endReach! : 0);
   return zoneSpans(state, seen, edge, reach, (zone) => {
     if (!zoneTakes(edge, zone, state.items[dragged]?.kind ?? "")) return null;
-    const l = solve(markUsed(moveTo(state, dragged, { kind: "gap", edge: edgeId, zone, at: 0 }), dragged), prev);
+    const l = solve(withoutBarGrowth(markUsed(moveTo(state, dragged, { kind: "gap", edge: edgeId, zone, at: 0 }), dragged)), prev);
     const me = l.items[dragged];
     return me && me.edge === edgeId && me.zone === zone ? (column ? [me.rect.y, me.rect.y + me.rect.height] : [me.rect.x, me.rect.x + me.rect.width]) : null;
   });
@@ -181,7 +203,8 @@ function edgeSlots(c: Ctx, edge: DockEdge, accepts: boolean): Slot[] {
   };
   const pad = { start: Math.max(0, edge.pad?.start ?? 0), end: Math.max(0, edge.pad?.end ?? 0) };
   const menuLen = el.menu ? len(el.menu.rect) : 0;
-  const occupied = (id: string): Rect => (now.items[id]?.fixed ? reservedRect(state, now, id) : now.items[id]!.rect);
+  // (Read in the drop room's geometry, `c.room`: every movable grower on a bar at its natural length.)
+  const occupied = (id: string): Rect => (c.room.items[id]?.fixed ? reservedRect(state, c.room, id) : c.room.items[id]!.rect);
   const shown = (id: string): boolean => now.items[id]?.edge === edge.id && !now.items[id]!.inMenu;
   const drawnOf = (z: Zone): Rect[] => members0.filter((id) => zoneOf(rest.items[id]) === z && shown(id)).map(occupied);
   const startEnd = ((): number => {
@@ -281,7 +304,8 @@ export function edgeSpec(c: Ctx, edge: DockEdge, as?: EdgeKind): EdgeSpec | null
   if (accepts && empty && !opensEmpty(state, edge, kind)) return null;
   // The item's own rect, where it is seen in this edge (in its » menu, the » entry): home's, whatever else the edge
   // offers.
-  const ownNow = now.items[dragged];
+  // (In the drop room's geometry, `c.room`, as the zones and slots are.)
+  const ownNow = c.room.items[dragged];
   const ownHere = ownNow && ownNow.edge === edge.id && !ownNow.floating && area(ownNow.rect) > EPS ? ownNow.rect : null;
   // A column drawn as a rail, under `DockState.foldedColumnDrop: "end"`: for an item arriving from elsewhere its whole length
   // is one place, after its last member. One of its own tiles keeps its gaps, to move among them.
@@ -295,12 +319,12 @@ export function edgeSpec(c: Ctx, edge: DockEdge, as?: EdgeKind): EdgeSpec | null
   const reserved: Span[] = Object.entries(now.items)
     .filter(([id, p]) => p.edge === edge.id && p.fixed && !p.inMenu && !grows(id))
     .map(([, p]) => spanOf(p.rect));
-  const cards: Span[] = Object.entries(now.items)
+  const cards: Span[] = Object.entries(c.room.items)
     .filter(([id, p]) => id !== dragged && p.edge === edge.id && !p.fixed && !p.inMenu && !p.floating && area(p.rect) > EPS)
     .map(([, p]) => spanOf(p.rect));
   const zones = oneEnd
     ? [{ zone: "start" as const, a: at(el.rect) - c.reach, b: at(el.rect) + len(el.rect) + c.reach }]
-    : zoneSpans(state, now, edge, c.reach, (zone) => {
+    : zoneSpans(state, c.room, edge, c.reach, (zone) => {
         const s = slots.find((x) => x.zone === zone && x.place.kind === "gap" && x.place.at === 0);
         const me = s?.result.layout.items[dragged];
         return me && me.edge === edge.id && me.zone === zone ? spanOf(me.rect) : null;

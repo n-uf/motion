@@ -80,7 +80,7 @@ import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, growsOnBar, heldRect,
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
-import { edgeSpec } from "./targets/edges";
+import { edgeSpec, landedLayout, solveLanded } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { edgeKindOf, type EdgeKind } from "./targets/kinds";
@@ -122,7 +122,7 @@ function emit(c: Ctx, placed: readonly Tile[]): { targets: DockDrop[]; refused: 
   const homeId = targetId({ kind: "home", item: dragged });
   const targets: DockDrop[] = [];
   const refused: DockRefusal[] = [];
-  const homeAfter = (): DropResult => ({ state, layout: now });
+  const homeAfter = (): DropResult => ({ state, layout: landedLayout(state, now, dragged, c.prev) });
   // A zone's refusals are numbered by where they lie along the edge (then across it), not by clipping order, so a
   // refusal keeps its id from one frame to the next. A side's column lines are one edge (one spec per line).
   const pos = (t: Tile): [number, number] => (t.vertical ? [t.hit.y, t.hit.x] : [t.hit.x, t.hit.y]);
@@ -263,7 +263,7 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
       after: (point, grab) => {
         const a = t.after(point, grab);
         // Nothing committed: the state as it was, the same object.
-        if (a.state === shown) return { state, layout: showsIn ? solve(state, prev) : a.layout };
+        if (a.state === shown) return { state, layout: showsIn ? solveLanded(state, dragged, prev) : a.layout };
         // Only a drop that names a zone (a gap in a zone of an edge offering a choice, `namesZone`) sets the item's zone;
         // every other move keeps its own.
         const on = t.place.kind === "gap" ? shown.edges.find((e) => t.place.kind === "gap" && e.id === t.place.edge) : undefined;
@@ -275,7 +275,7 @@ function generate(state: DockState, dragged: string, options: DockDropOptions): 
         const ringOf = new Map(a.state.edges.map((e) => [e.id, e.ring]));
         const renumbered = restored.edges.some((e) => e.hidden !== true && ringOf.get(e.id) !== e.ring);
         // Where items lie in zones not their own, the result lays them out again from their own zones.
-        const layout = renumbered || showsIn || rezoned.size > 0 ? solve(restored, prev) : a.layout;
+        const layout = renumbered || showsIn || rezoned.size > 0 ? solveLanded(restored, dragged, prev) : a.layout;
         return { state: restored, layout };
       },
     })),
@@ -307,7 +307,7 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   // The hits lie on screen: clear of the keep-clear rects of the layout seen now.
   const placed = clipTiles(tiles, own, keepClearFor(state, now, "targets"), lost);
   const { targets, refused, ownHome } = emit(c, placed);
-  const homeAfter = (): DropResult => ({ state, layout: now });
+  const homeAfter = (): DropResult => ({ state, layout: landedLayout(state, now, dragged, c.prev) });
 
   if (state.floatKinds.includes(item.kind)) {
     const was = state.floats.find((f) => f.id === dragged);

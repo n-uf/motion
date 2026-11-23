@@ -28,6 +28,7 @@ import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockEdge, DockState, DockItemLayout, DockLayout, Zone } from "./model";
 import { solve } from "./solve";
 import { parseTargetId, targetsAndRefusals } from "./targets";
+import { landedLayout, solveLanded } from "./targets/edges";
 import type { DropResult, DockRefusal, DockDrop, DockDropOptions } from "./targets/model";
 
 /** The pitch of the spots over a bar's free stretches, px: a quarter of a typical toolbar's length (158 px in the lab). */
@@ -456,7 +457,8 @@ export function rawSpot(base: Base, id: string): { readonly lane: string; readon
 function build(state: DockState, dragged: string, options: DockLaneOptions): Base {
   const seen = solve(state, options.previous ? { previous: options.previous } : {});
   const { targets: ts, refusals: rs } = targetsAndRefusals(state, dragged, options);
-  const own = seen.items[dragged];
+  // (Held, a movable grower is its natural length: `landedLayout`.)
+  const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   const pitch = options.pitch === undefined ? SPOT_PITCH : options.pitch;
   const raws: Raw[] = [];
@@ -1171,7 +1173,7 @@ function stretches(state: DockState, dragged: string, options: DockLaneOptions, 
         if (!zone) return null;
         const next = moveTo(state, dragged, { edge: e.id, zone, at: atOf(zone), space: 0 });
         if (next === state) return null;
-        const l = solve(next, prev);
+        const l = solveLanded(next, dragged, prev);
         const landed = l.items[dragged];
         if (!landed || landed.inMenu || landed.edge !== e.id) return null;
         const n = neighbors(l, e.id, dragged, axis);
@@ -1237,7 +1239,7 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
 function landsAt(state: DockState, dragged: string, run: StretchEdge, place: DockPlace, x0: number): { next: DockState; layout: DockLayout } | null {
   const next = moveTo(state, dragged, place);
   if (next === state) return null;
-  const layout = solve(next, run.prev);
+  const layout = solveLanded(next, dragged, run.prev);
   const landed = layout.items[dragged];
   const { axis } = run;
   if (!landed || landed.inMenu || landed.edge !== run.e.id || Math.abs(lo(landed.rect, axis) - x0) > 1) return null;
@@ -1272,7 +1274,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
   const spots: Raw[] = [];
   const absorbed = new Set<Raw>();
   const snapDistance = Number.isFinite(options.snapDistance) && options.snapDistance! >= 0 ? options.snapDistance! : SNAP_DISTANCE;
-  const own = seen.items[dragged];
+  const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   stretches(state, dragged, options, seen, lifted, raws, (run) => ({ a, b, w, zones, atOf, spaceAt, before, after }) => {
     const { e, axis, middle, mine } = run;

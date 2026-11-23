@@ -5,7 +5,7 @@
 import { EPS, type Point, type Rect, type Size } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import type { ColumnPlace, RailPlace } from "../changes";
-import type { DockEdge, Orient, DockState, DockLayout, Side, Zone } from "../model";
+import type { DockEdge, Orient, DockState, DockLayout, Side, SolveOptions, Zone } from "../model";
 import type { LayKey } from "../solve";
 import type { EdgeKind } from "./kinds";
 
@@ -174,6 +174,14 @@ export interface Ctx {
   readonly rest: DockState;
   /** The seen geometry: the committed layout, the item in place. Every tile lies in it. */
   readonly now: DockLayout;
+  /**
+   * The seen geometry with every movable grower on a bar at its natural length (`withoutBarGrowth`), solved once per
+   * drag: what a bar's zone extents, slot lines and cards read, so a grower's growth, and what it pushes along, is spare
+   * room. `now` itself where nothing grows so.
+   */
+  readonly room: DockLayout;
+  /** The solve options every layout of the drag is solved under (`previous`, `fresh`). */
+  readonly prev: SolveOptions;
   /** The layout with the item lifted: read only by the landing rules (fit, a title's natural width, fixed items). */
   readonly base: DockLayout;
   readonly dragged: string;

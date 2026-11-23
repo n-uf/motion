@@ -5,10 +5,10 @@
 import { overlaps } from "@n-uf/placement";
 import { formMain, itemSteps } from "@n-uf/placement/stack";
 import { liftItem, prune } from "../changes";
-import { axisOf, keepClearFor, formsOf, isHandFolded, zoneOf } from "../helpers";
+import { axisOf, keepClearFor, formsOf, isHandFolded, withoutBarGrowth, zoneOf } from "../helpers";
 import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
 import { layKeys, solve } from "../solve";
-import { reservedRect } from "./edges";
+import { reservedRect, solveLanded } from "./edges";
 import type { Ctx, DropResult, DockDropOptions } from "./model";
 
 /**
@@ -30,7 +30,7 @@ function placeKey(s: DockState, id: string): string {
 /**
  * Filter (ii), fit: a drop may not add an `overflow` or `too-wide` note anywhere, change a fixed item's form (unless it
  * is `stepping`) or squeeze it under its least length (a growing one that takes no steps: its natural length; for target
- * room its `grows` caps there, so a drop beside it lands as beside a fixed item of that length), nor lie over chrome or a drawn fixed item's reserved rect (C29). Each edge adds where a drop on it lands (`lands`).
+ * room its `grows` caps there, so a drop beside it lands as beside a fixed item of that length), nor lie over chrome or a drawn fixed item's reserved rect. Each edge adds where a drop on it lands (`lands`).
  */
 function soundness(state: DockState, base: DockLayout, dragged: string): (after: DockLayout) => boolean {
   const noteKey = (n: DockLayout["notes"][number]): string | null => ("edge" in n && (n.code === "overflow" || n.code === "too-wide") ? `${n.edge}:${n.code}:${"id" in n ? n.id : ""}` : null);
@@ -65,6 +65,12 @@ function soundness(state: DockState, base: DockLayout, dragged: string): (after:
   };
 }
 
+/** The window as it lies with every movable grower on a bar at its natural length (`withoutBarGrowth`); `now` where none grows so. */
+function roomOf(state: DockState, now: DockLayout, prev: SolveOptions): DockLayout {
+  const plain = withoutBarGrowth(state);
+  return plain === state ? now : solve(plain, prev);
+}
+
 /**
  * A drag's context: null for an unknown, fixed or closed item (it has no targets). `others`: edges kept out of `state`
  * (its hidden ones) that a drop's new column must not repeat the ids of.
@@ -73,7 +79,8 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
   const item = Object.hasOwn(state.items, dragged) ? state.items[dragged] : undefined;
   if (!item || item.fixed || item.closed) return null;
   const prev = { ...(options.previous ? { previous: options.previous } : {}), ...(options.fresh ? { fresh: options.fresh } : {}) };
-  const settle = (s: DockState): DropResult => ({ state: s, layout: solve(s, prev) });
+  // A movable grower is drawn at its natural length in a drop's layout (`landedLayout`): it grows once placed.
+  const settle = (s: DockState): DropResult => ({ state: s, layout: solveLanded(s, dragged, prev) });
   const now = solve(state, prev);
   const rest = liftItem(state, dragged);
   const base = solve(rest, prev);
@@ -84,6 +91,8 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     others,
     rest,
     now,
+    room: roomOf(state, now, prev),
+    prev,
     base,
     dragged,
     kind: item.kind,
