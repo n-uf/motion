@@ -7,7 +7,7 @@ Unreleased entries live in `changes/` until a release joins them.
 
 ## 26.11.58
 
-No changes; released in step with motion and placement.
+No changes in `@n-uf/motion`. Released in step with `@n-uf/placement` and `@n-uf/docking`, which share the version.
 
 ## 26.11.57
 
