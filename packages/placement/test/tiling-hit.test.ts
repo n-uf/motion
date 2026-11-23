@@ -1,4 +1,4 @@
-/** ./tiling, a drag's hit half: `tilingDrag(...).hit(basis)` over the reference adapter, and the seven properties of `tilingHitConformance`. */
+/** ./tiling, a drag's hit half: `tilingDrag(...).hit(basis)` over the reference adapter, and the properties of `tilingHitConformance`. */
 import { describe, expect, it } from "vitest";
 import type { DragFrame, DragIntentOptions, DragTarget } from "../../motion/src/drag/intent";
 import type { Point, Rect } from "../index";
@@ -214,7 +214,7 @@ describe("tab slots: the slot under the pointer gives the index; a torn tab's ow
   });
 });
 
-describe("tilingHitConformance: the seven properties", () => {
+describe("tilingHitConformance: every property", () => {
   const trees = (seed: number, count: number, stacks: boolean): StackedSplit<string>[] => {
     const rnd = seeded(seed);
     return Array.from({ length: count }, () => {
