@@ -227,7 +227,8 @@ the headless run and the pre-render work is [lab-checks.md](./lab-checks.md).
 - **One version for the three packages,** a calendar version `YY.M.R` (the release of the month), not a semantic
   version: any release may break. `release.yml` refuses to publish when the three `package.json` versions differ.
 - **Changelog fragments.** A change adds `packages/<pkg>/changes/<yyyy-mm-dd>-<slug>.md` per package it changes, the
-  markdown that would go under Unreleased, and never edits a CHANGELOG's `## Unreleased`. `pnpm changes` checks them.
+  markdown that would go under Unreleased, and never edits a CHANGELOG's `## Unreleased`. `pnpm changes` checks them;
+  the format is in the [README](../README.md#changelog-entries).
 - **The bump.** `pnpm release:next-version` names the next version; `pnpm version:bump` bumps motion's version,
   copies it to the other two (`scripts/sync-versions.mjs`) and joins every package's fragments under the new version
   heading (`scripts/changelog.mjs join`), deleting them.

@@ -1,10 +1,10 @@
 # @n-uf/placement: design
 
-**What this page is.** The architecture of `@n-uf/placement` as it is built: what the library is for, the rules a consumer can rely on, and the public SDK entry by entry. The API contract is the package's exported TypeScript types (the files its `exports` map names); where this page and those types disagree, the types win. Code comments cite this page's sections by heading, for example "docs/placement.md, Entry: stack". The detailed behavior, with examples, is on [placement-reference.md](./placement-reference.md), which covers behavior; the exported types are the contract.
+**What this page is.** The architecture of `@n-uf/placement` as it is built: what the library is for, the rules a consumer can rely on, and the public SDK entry by entry. The API contract is the package's exported TypeScript types (the files its `exports` map names); where this page and those types disagree, the types win. Code comments cite this page's sections by heading, for example "docs/placement.md, Entry: stack". The detailed behavior, with examples, is on [placement-reference.md](./placement-reference.md), which covers behavior; the exported types are the contract. The rules a drag follows across the three packages (one layout per held place, home, growth as spare room) are stated once on [concept.md](./concept.md); every exported type and signature is listed on [sdk.md](./sdk.md).
 
 ## In one paragraph
 
-Placement answers *where things fit*, one edge or one area at a time. `cutEdges` cuts a stage into bands along its sides; `fitStack` fits the items along one band, each with forms that step down a ladder as room runs out; `stackGaps` gives one band's drop places for an item, each with the fit its drop makes; `fitFloat` keeps a float inside the stage and clear of what is docked; `./tiling` divides an area among panes; `./popup` positions a popup. All of it is pure: geometry in, rects out. A whole window's docking model (edges, rails, floats, targets, lanes, storage) is built on this layer in `@n-uf/docking`; *how* things move belongs to `@n-uf/motion`. Placement imports neither.
+Placement answers *where things fit*, one edge or one area at a time. `cutEdges` cuts a stage into bands along its sides; `fitStack` fits the items along one band, each with forms that step down a ladder as room runs out; `stackGaps` gives one band's drop places for an item, each with the fit its drop makes; `fitFloat` keeps a float inside the stage and clear of what is docked; `./tiling` divides an area among panes and lays out each held place of a tiling drag (`tilingDrag`); `./popup` positions a popup. All of it is pure: geometry in, rects out. A whole window's docking model (edges, rails, floats, targets, lanes, storage) is built on this layer in `@n-uf/docking`; *how* things move belongs to `@n-uf/motion`. Placement imports neither.
 
 ## Rules a consumer relies on
 
@@ -34,7 +34,7 @@ Each rule names the test that pins it. `pnpm check` in the repo root runs them a
 flowchart LR
   root["Root: Rect, Size, Point, geometry, Target"]
   stack["./stack: cutEdges, fitStack, stackGaps, fitFloat"]
-  tiling["./tiling: order layouts, split tree"]
+  tiling["./tiling: order layouts, split tree, tilingDrag"]
   popup["./popup: positionPopup"]
   docking["@n-uf/docking: a window's docking model (separate package)"]
   root --> stack
@@ -84,7 +84,7 @@ A form's `kind` is the host's label. What the solver and a window model read is 
 
 ## The SDK by entry point
 
-Four entry points ship, each a file the `exports` map names (`./index.ts` for the root). All are pure and ES modules; all share the root's shapes.
+Four entry points ship, each a file the `exports` map names (`./index.ts` for the root). All are pure and ES modules; all share the root's shapes. The tables below say what each export is for and the rule behind it; [sdk.md](./sdk.md) lists every signature and type field.
 
 | Entry | Role |
 | --- | --- |
@@ -142,7 +142,7 @@ Four entry points ship, each a file the `exports` map names (`./index.ts` for th
 - **Refusals** are codes: `self` (the subject's own place), `still` (a still pane), `missing` (no such pane in the base), `join` (the adapter has no `join`), `room-along` and `room-across` with `need` and `have` (`canSplitPane` on the base rect), and `fit` with the pane below `min` (`dropFits`' rule on the layout a side, a swap or a join makes). A refused place's `after` is the lift: its release commits nothing, and a frame holding it draws the base, not `after().layout`.
 - **A swap with a stack** moves `at` alone: a lone pane takes the place of the stack's drawn member, and the stack's other members stay.
 
-The hit half (targets, a pane's parts, `placeOf`) is a later step.
+Planned, not built: the hit half (one body target per pane and a join target per pane part, all hit-tested in the base, and `placeOf` with a zone hold) and `shown(frame)`, with home and a swap always opening their room; it fits `@n-uf/motion/drag`'s drag intent ([concept.md](./concept.md), "The two drag models"). Until then a host hit-tests on its own and draws `after(held).layout` for a held place, the base for a refused one. Record: [decision 0009](decisions/0009-one-layout-per-tiling-place.md).
 
 **The split tree's rules.** A split of an extent `W` at ratio `r` has a gutter `g`: the split's `gap` (else the layout's) plus the layout's `handle`. The first side is `max(0, W·r − g/2)` long. The second starts at `start + W·r + g/2` and is `max(0, W·(1−r) − g/2)` long. So the middle of the gutter sits at `W·r`, at 0.5 both sides are equal, and no size is ever negative. A side too short for half the gutter is 0 long, and the second side of a split with no room may start up to half a gutter past the end. A ratio that is not finite is 0.5; otherwise it is clamped to 0..1. A negative or non-finite `gap` or `handle` is 0. The area is taken as given: with a negative width or height every split length along that axis is 0 and a pane's size across it is copied as it is, so pass an area with no negative side.
 
@@ -200,6 +200,7 @@ The repo's glossary page (`apps/lab/src/pages/glossary.html`) fixes the words; t
 | **floor** | The least length a pane keeps along a split; the ratio moves to hold it where both floors fit. |
 | **fixed length** | A length a pane keeps along or across a split whatever the ratio. |
 | **master**, **stack** | A layout of panes in two areas: the first few (the master) on one side, the rest (the stack) on the other. |
+| **subject**, **held place**, **base**, **home** | In a tiling drag: what moves (a pane, or a whole stack of panes drawn as one); where a release now lands (`TilingHeld`); the tree with the subject released, laid out; the gap the release leaves. A stack here is the host's group of panes behind one drawn pane, not the master's stack. |
 
 ## Considered, not part of the design
 

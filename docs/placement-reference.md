@@ -2,7 +2,7 @@
 
 The detailed behavior of every entry of `@n-uf/placement`, with examples. The reference covers behavior; the exported
 types are the contract. The design, the rules a consumer relies on and the export tables are on
-[placement.md](./placement.md). A whole
+[placement.md](./placement.md); every signature and type field is on [sdk.md](./sdk.md). A whole
 window's docking model, built on this layer, is `@n-uf/docking` ([docking-reference.md](./docking-reference.md)).
 
 - [Edge bands (`cutEdges`)](#edge-bands-cutedges)
