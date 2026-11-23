@@ -10,12 +10,16 @@
  *   a slot under the pointer giving the index; and home, the subject's lift rect, which wins over everything beneath it.
  *   A side exists only for a new arrangement: on a run neighbor of the subject (next to it as a whole child of one run
  *   on the lift tree, with the same bounds across), a side whose insert gives the lift's arrangement or the swap's is
- *   gone and its strip belongs to the center; the swap then spans `TILING_NEIGHBOR_SWAP_SHARE` across the run.
+ *   gone and its strip belongs to the center; the swap then spans `neighborSwap` (0.56) across the run. The run-neighbor
+ *   rule removes sides first; home then takes what remains that gives the lift back.
  * - **Places**: a place exists when `after(place).refusal` is null. A refused zone holds nothing and falls to the target
  *   beneath it (a refused part to the pane's body), never sideways. A place whose `after` equals the lift is home.
- * - **One hold rule, two measures**: the held place keeps its zone until the pointer is `edge` px past that zone's edge
- *   (home included); inside one pane it also keeps until the pointer is `travel` px from where the place was taken.
- *   Any change of place takes the point anew. Both measures are at most `share` of the held zone's extent per axis.
+ * - **One hold rule, two measures**: the held place keeps its zone until the pointer is `edge` px past the edge of that
+ *   zone's visible part (the part no zone above it covers: home, a part over a body, a slot over its part; home wins over
+ *   what lies beneath it), home included; inside one pane, not over home, it also keeps until the pointer is `travel` px
+ *   from where the place was taken. Any change of place takes the point anew. Each measure is at most `cap` of the held
+ *   zone's extent on each axis: the edge measure per axis (a box around the zone, rounded at its corners), the travel
+ *   measure as an ellipse with those two radii.
  * - **The reader**: `read(frame, point)` turns a drag intent's frame into `{ held, refused, mark }`: the held place (home
  *   included, null when nothing is held outside home), the refused place under the pointer when nothing is held, and, on
  *   the lift basis, the mark: a region of the lift layout (the target's half for a side, its outline for a swap or a
@@ -47,10 +51,16 @@ export interface TilingHitTarget<K> extends Target {
   readonly home?: true;
 }
 
+/**
+ * The region options the hit reads: the center's share of each pane axis (`center`, or `centerX` / `centerY`), its
+ * floor and the pixel grid. The sides and a run neighbor's share are the hit's own, and the hold is its own rule.
+ */
+export type TilingHitRegions = Pick<PaneRegionOptions, "center" | "centerX" | "centerY" | "centerMin" | "pixelRatio">;
+
 /** The hit's options. */
 export interface TilingHitOptions<K> {
-  /** The pane regions (center share, floor, pixel ratio); `hysteresis` is not read: the hold rule is the hit's own. */
-  readonly regions?: PaneRegionOptions;
+  /** The pane regions (`TilingHitRegions`). */
+  readonly regions?: TilingHitRegions;
   /** A pane's key in target and place ids; default `String`. Keys must be unique across panes. */
   readonly key?: (pane: K) => string;
   /** The edge measure, px (default 6). */
@@ -58,16 +68,27 @@ export interface TilingHitOptions<K> {
   /** The travel measure inside one pane, px (default 24). */
   readonly travel?: number;
   /** The most either measure is of the held zone's extent, per axis (default 0.25). */
-  readonly share?: number;
+  readonly cap?: number;
+  /** A run neighbor's swap across the run, a share of its extent there (default 0.56): each side strip is half the rest. */
+  readonly neighborSwap?: number;
 }
 
-/** The hold rule's defaults: 6 px past the edge, 24 px of travel inside one pane, each at most a quarter of the zone. */
-export const TILING_HIT_DEFAULTS: { readonly edge: number; readonly travel: number; readonly share: number } = { edge: 6, travel: 24, share: 0.25 };
+/**
+ * The hit's defaults: 6 px past the edge, 24 px of travel inside one pane, each at most a quarter of the zone (`cap`);
+ * a run neighbor's swap spans 56 % across the run, each side strip 22 %, so a strip is about as large as a normal side
+ * band (a side insert is as easy to hit there as on any other pane).
+ */
+export const TILING_HIT_DEFAULTS: { readonly edge: number; readonly travel: number; readonly cap: number; readonly neighborSwap: number } = {
+  edge: 6,
+  travel: 24,
+  cap: 0.25,
+  neighborSwap: 0.56,
+};
 
-/** What the hold rule keeps: the held place's id, and the point where it was taken. */
+/** What the hold rule keeps: the held place's id, and the point the place was taken from. */
 export interface TilingHold {
   readonly place: string;
-  readonly at: Point;
+  readonly from: Point;
 }
 
 /** The part of a drag intent's frame the reader reads. */
@@ -76,12 +97,12 @@ export interface TilingHitFrame<T> {
 }
 
 /**
- * A lift-basis mark: a region of the lift layout. A side: the target pane's half on that side, as drawn. A swap: the
- * target's outline, and the wash in the open slot (home; none when the release leaves no slot). A join: the target's
- * outline, and its slot when the join has an index.
+ * A lift-basis mark: a region of the lift layout, of the held place's kind. Beside: the target pane's half on that
+ * side, as drawn. A swap: the target's outline, and the wash in the open slot (home; none when the release leaves no
+ * slot). A join: the target's outline, and its slot when the join has an index.
  */
 export type TilingMark<K> =
-  | { readonly kind: "side"; readonly at: K; readonly side: Side; readonly rect: Rect }
+  | { readonly kind: "beside"; readonly at: K; readonly side: Side; readonly rect: Rect }
   | { readonly kind: "swap"; readonly at: K; readonly rect: Rect; readonly wash: Rect | null }
   | { readonly kind: "join"; readonly at: K; readonly rect: Rect; readonly slot: Rect | null };
 
@@ -96,12 +117,12 @@ export interface TilingHitRead<K> {
 }
 
 /**
- * The options a `@n-uf/motion/drag` intent takes to read the hit: no home of its own (home is a place of the hit, held
- * by the one rule; the intent's own home test would cut it at the plain edge), no time-based gate or hold, and a band as
- * wide as the edge measure so the intent keeps every target the hit still holds. The hit decides; the intent shows it.
+ * The options a `@n-uf/motion/drag` intent takes to read the hit: no home (home is a place of the hit, held by the one
+ * rule; the intent's own home test would cut it at the plain edge), no time-based gate or hold, and a band as wide as
+ * the edge measure so the intent keeps every target the hit still holds. The hit decides; the intent shows it. A host
+ * adds no time gate of its own (a dwell): the hold is the hit's, by distance.
  */
 export interface TilingHitIntent<K> {
-  readonly home: Rect;
   readonly tuning: {
     readonly aimSpeed: number;
     readonly dwell: number;
@@ -115,24 +136,29 @@ export interface TilingHitIntent<K> {
   readonly placeOf: (target: TilingHitTarget<K>, point: Point, previous: string | null) => string | null;
 }
 
-/** A drag's hit: built once at the lift, its targets and zones fixed for the drag. */
+/**
+ * A drag's hit: built once per drag and basis (`drag.hit(basis)` gives the same one again), its targets and zones fixed
+ * for the drag. It hit-tests `drag[hit.basis]`, the lift or the base.
+ */
 export interface TilingHit<T, K> {
   readonly basis: TilingBasis;
-  /** The layout it hit-tests: the drag's lift or base. */
-  readonly laid: TilingLaidOut<T, K>;
   /** Home: the subject's lift rect, or null when the release leaves no slot. */
   readonly home: Rect | null;
   /** Every target, fixed for the drag. */
   readonly targets: readonly TilingHitTarget<K>[];
   /** The options for a drag intent (`createDragIntent({ ...hit.intent })`). */
   readonly intent: TilingHitIntent<K>;
-  /** The zone map: the place at `point` with nothing held (`"home"` for home), or null. Pure. */
-  zone(point: Point): string | null;
-  /** The hold rule: what is held at `point` after `state`. Pure. */
+  /** The zone map: the place id at `point` with nothing held (`"home"` for home), or null. Pure. */
+  placeAt(point: Point): string | null;
+  /** The hold rule: what is held at `point` after `state` (null: nothing held yet). Pure: a host with no intent steps it itself. */
   hold(state: TilingHold | null, point: Point): TilingHold | null;
-  /** A place id read back (hosts never parse ids). */
-  place(id: string): TilingHeld<K> | null;
-  /** The intent's `placeOf`: the held place at `point` when it is on `target`, else null. Steps the drag's one hold. */
+  /** The place an id names (hosts never parse ids). */
+  heldOf(id: string): TilingHeld<K> | null;
+  /**
+   * The intent's `placeOf`: the held place at `point` when it is on `target`, else null. Steps the drag's one hold, once
+   * per point. `previous` is not read: the hold is the hit's. Home and a part are both priority 1, so where a part lies
+   * over home the intent may pick the part; its `placeOf` then answers null, and home wins.
+   */
   placeOf(target: TilingHitTarget<K>, point: Point, previous?: string | null): string | null;
   /** The intent's frame at `point`, read: the held place, the refused one, and the lift basis's mark. */
   read(frame: TilingHitFrame<TilingHitTarget<K>>, point: Point): TilingHitRead<K>;
@@ -159,13 +185,7 @@ export interface TilingHitContext<T, K> {
   readonly changeOf: (held: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }) => T;
 }
 
-/**
- * A run neighbor's share of the middle across the run: the swap spans 56 % of it, each side strip 22 %, so a strip is
- * about as large as a normal side band (a side insert is as easy to hit there as on any other pane).
- */
-export const TILING_NEIGHBOR_SWAP_SHARE = 0.56;
-
-/** A zone's convex piece, its extent, and the zones above it (a pointer deep inside one of them has left it). */
+/** A zone's convex piece, its extent, and the zones above it (what of the piece they cover is not its visible part). */
 interface Piece {
   readonly poly: readonly Point[];
   readonly box: Rect;
@@ -198,8 +218,6 @@ interface PaneHit<K> {
 
 const HOME: TilingHeld<never> = { kind: "home" };
 const SIDES: readonly Side[] = ["top", "right", "bottom", "left"];
-/** No home for the intent: a rect no point is in. */
-const NO_HOME: Rect = { x: -Infinity, y: -Infinity, width: 0, height: 0 };
 
 const inside = (r: Rect, p: Point): boolean => contains(r, p, 0);
 const rectPoly = (r: Rect): Point[] => [
@@ -249,6 +267,35 @@ function nearPoly(poly: readonly Point[], p: Point, ex: number, ey: number): boo
   }
   return false;
 }
+/** The part of the convex polygon `poly` where `a·x + b·y <= c` (convex, possibly empty). */
+function clipHalf(poly: readonly Point[], a: number, b: number, c: number): Point[] {
+  const out: Point[] = [];
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i]!;
+    const q = poly[(i + 1) % poly.length]!;
+    const fp = a * p.x + b * p.y - c;
+    const fq = a * q.x + b * q.y - c;
+    if (fp <= 0) out.push(p);
+    if ((fp < 0 && fq > 0) || (fp > 0 && fq < 0)) {
+      const t = fp / (fp - fq);
+      out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+    }
+  }
+  return out;
+}
+const areaOf = (poly: readonly Point[]): number =>
+  Math.abs(poly.reduce((s, p, i) => s + p.x * poly[(i + 1) % poly.length]!.y - poly[(i + 1) % poly.length]!.x * p.y, 0)) / 2;
+/** The convex polygon `poly` less the rect `r`: at most four convex pieces (left of it, right of it, above, below). */
+function minusRect(poly: readonly Point[], r: Rect): Point[][] {
+  const [x0, x1, y0, y1] = [r.x, r.x + r.width, r.y, r.y + r.height];
+  const pieces = [
+    clipHalf(poly, 1, 0, x0),
+    clipHalf(poly, -1, 0, -x1),
+    clipHalf(clipHalf(clipHalf(poly, -1, 0, -x0), 1, 0, x1), 0, 1, y0),
+    clipHalf(clipHalf(clipHalf(poly, -1, 0, -x0), 1, 0, x1), 0, -1, -y1),
+  ];
+  return pieces.filter((q) => q.length >= 3 && areaOf(q) > 1e-6);
+}
 const half = (r: Rect, side: Side): Rect =>
   side === "left"
     ? { x: r.x, y: r.y, width: r.width / 2, height: r.height }
@@ -264,8 +311,18 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
   const key = options.key ?? String;
   const edge = Math.max(0, options.edge ?? TILING_HIT_DEFAULTS.edge);
   const travel = Math.max(0, options.travel ?? TILING_HIT_DEFAULTS.travel);
-  const share = Math.max(0, options.share ?? TILING_HIT_DEFAULTS.share);
-  const regionOptions: PaneRegionOptions = { ...options.regions, hysteresis: 0 };
+  const cap = Math.max(0, options.cap ?? TILING_HIT_DEFAULTS.cap);
+  const neighborSwap = options.neighborSwap ?? TILING_HIT_DEFAULTS.neighborSwap;
+  // Only the options the hit reads, whatever else a caller passes.
+  const given: TilingHitRegions = options.regions ?? {};
+  const regionOptions: PaneRegionOptions = {
+    ...(given.center !== undefined ? { center: given.center } : {}),
+    ...(given.centerX !== undefined ? { centerX: given.centerX } : {}),
+    ...(given.centerY !== undefined ? { centerY: given.centerY } : {}),
+    ...(given.centerMin !== undefined ? { centerMin: given.centerMin } : {}),
+    ...(given.pixelRatio !== undefined ? { pixelRatio: given.pixelRatio } : {}),
+    hysteresis: 0,
+  };
   const laid = basis === "lift" ? lift : base;
   const stackOf = (t: T, k: K) => ops.stackOf?.(t, k) ?? null;
   const drawnAs = (t: T, k: K): K => stackOf(t, k)?.active ?? k;
@@ -410,7 +467,7 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     // A run neighbor: its gone sides give their strips to the center, and the swap spans the neighbor share across the run.
     const gone = goneSides.get(lift.layout.has(pane) ? pane : at);
     const paneOptions: PaneRegionOptions = gone
-      ? { ...regionOptions, sides: SIDES.filter((s) => !gone.sides.includes(s)), ...(gone.axis === "y" ? { centerX: TILING_NEIGHBOR_SWAP_SHARE } : { centerY: TILING_NEIGHBOR_SWAP_SHARE }) }
+      ? { ...regionOptions, sides: SIDES.filter((s) => !gone.sides.includes(s)), ...(gone.axis === "y" ? { centerX: neighborSwap } : { centerY: neighborSwap }) }
       : regionOptions;
     const ph: PaneHit<K> = { body, parts, regions, options: paneOptions };
     const members = stackOf(laid.tree, pane)?.members ?? [pane];
@@ -472,7 +529,7 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     return live(place) ? { place, refused: null } : { place: null, refused: refused ?? place };
   };
   const effective = (p: Place<K> | null): Place<K> | null => (p && homeLike(p) ? homePlace : p);
-  const zone = (p: Point): string | null => effective(rawAt(p).place)?.id ?? null;
+  const placeAt = (p: Point): string | null => effective(rawAt(p).place)?.id ?? null;
 
   let homeLikeAll: Place<K>[] | null = null;
   /** Every zone of home: its rect, and every place that gives the lift back. */
@@ -480,14 +537,24 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     homeLikeAll ??= [...byId.values()].filter((p) => p !== homePlace && homeLike(p));
     return [...homePlace.pieces, ...homeLikeAll.flatMap((p) => p.pieces)];
   };
-  const capped = (px: number, extent: number): number => Math.min(px, share * extent);
-  /** The edge measure: `p` is within `edge` px (capped) past one of the place's zones, and not deep inside a zone above it. */
+  const capped = (px: number, extent: number): number => Math.min(px, cap * extent);
+  /** Each piece's visible part: the piece less every zone above it, as convex polygons (worked out once, when asked). */
+  const visibleMemo = new Map<Piece, Point[][]>();
+  const visibleOf = (piece: Piece): Point[][] => {
+    let v = visibleMemo.get(piece);
+    if (!v) visibleMemo.set(piece, (v = piece.cuts().reduce<Point[][]>((polys, r) => polys.flatMap((q) => minusRect(q, r)), [[...piece.poly]])));
+    return v;
+  };
+  /**
+   * The edge measure: `p` lies within `edge` px (capped by the piece's extent, per axis) of the visible part of one of
+   * the place's zones. What a zone above covers is not the place's: a pointer over home, or over a part above a body,
+   * is measured from where the held zone shows, never from where it runs on beneath.
+   */
   const near = (place: Place<K>, p: Point): boolean =>
     (place === homePlace ? homePieces() : place.pieces).some((piece) => {
       const ex = capped(edge, piece.box.width);
       const ey = capped(edge, piece.box.height);
-      if (!nearPoly(piece.poly, p, ex, ey)) return false;
-      return !piece.cuts().some((r) => p.x > r.x + ex && p.x < r.x + r.width - ex && p.y > r.y + ey && p.y < r.y + r.height - ey);
+      return nearPoly(piece.poly, p, ex, ey) && visibleOf(piece).some((q) => nearPoly(q, p, ex, ey));
     });
   /** The travel measure: inside the held place's pane (not over home), within `travel` px (capped) of where it was taken. */
   const keepsByTravel = (place: Place<K>, from: Point, p: Point): boolean => {
@@ -503,9 +570,9 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     if (state) {
       if (now && now.id === state.place) return state;
       const held = byId.get(state.place);
-      if (held && (near(held, p) || keepsByTravel(held, state.at, p))) return state;
+      if (held && (near(held, p) || keepsByTravel(held, state.from, p))) return state;
     }
-    return now ? { place: now.id, at: { x: p.x, y: p.y } } : null;
+    return now ? { place: now.id, from: { x: p.x, y: p.y } } : null;
   };
 
   // The drag's one hold, stepped once per point.
@@ -526,7 +593,7 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
     const r = place.pane?.body.hit;
     const h = place.held;
     if (!r || h.kind === "home") return null;
-    if (h.kind === "beside") return { kind: "side", at: h.at, side: h.side, rect: half(r, h.side) };
+    if (h.kind === "beside") return { kind: "beside", at: h.at, side: h.side, rect: half(r, h.side) };
     if (h.kind === "swap") return { kind: "swap", at: h.at, rect: { ...r }, wash: home ? { ...home } : null };
     return { kind: "join", at: h.at, rect: { ...r }, slot: place.slot ? { ...place.slot } : null };
   };
@@ -541,17 +608,15 @@ export function createTilingHit<T, K>(ctx: TilingHitContext<T, K>, basis: Tiling
 
   return {
     basis,
-    laid,
     home: home ? { ...home } : null,
     targets,
     intent: {
-      home: NO_HOME,
       tuning: { aimSpeed: Infinity, dwell: 0, switchHold: 0, roomAfter: 0, band: edge, bandShare: 1, breakthrough: 0, gapGrace: 0 },
       placeOf: (t, p) => placeOf(t, p),
     },
-    zone,
+    placeAt,
     hold,
-    place: (id) => byId.get(id)?.held ?? null,
+    heldOf: (id) => byId.get(id)?.held ?? null,
     placeOf: (t, p) => placeOf(t, p),
     read,
     drawn: (r) => (basis === "lift" ? lift : r.held === null ? base : r.held.kind === "home" ? lift : after(r.held)),
