@@ -1,0 +1,13 @@
+[
+  { "package": "docking", "kind": "targets", "case": "*", "all": true, "reason": "one aim order: on bars and toolbar rails the tiles cut between places by their landings (aimCut), across zones and fixed items and into the own rect, as lanes() does; a place no pointer reaches is no target" },
+  { "package": "docking", "kind": "drops", "case": "*", "all": true, "reason": "the targets' drops follow the tiles: a place no pointer reaches has no target, so no drop of its own (it stays a stop)" },
+  { "package": "docking", "kind": "lanes", "case": "*", "all": true, "reason": "lanes take every place (stops' places too) and read the tiles' hits; a sliding spot beside a growing neighbor is met past it as drawn (metPastGrowing)" },
+  { "package": "docking", "kind": "refusals", "case": "*", "all": true, "reason": "refusals take what the re-cut targets leave them, so their hits move with the aim cuts" },
+  { "package": "docking", "kind": "case-layout", "case": "R4-bar-gaps-split-at-the-middle", "reason": "row renamed R4-bar-items-take-the-nearest-landing" },
+  { "package": "docking", "kind": "case-layout", "case": "R4-bar-items-take-the-nearest-landing", "reason": "the renamed R4 row: over a neighbor of its length a toolbar stays before it, past the cut it is home" },
+  { "package": "docking", "kind": "case-layout", "case": "R4-end-reach-stays-in-its-edge-left", "reason": "its pointer over Tools now takes Tools' place (the nearest landing), not the half aimed at; the row checks only that the drop stays in its edge" },
+  { "package": "docking", "kind": "case-layout", "case": "R7-end-zone-pushes-fixed-behind-a-movable-leading", "reason": "over Zoom's leading half Tools takes the nearest landing, Zoom's place, as over its trailing half" },
+  { "package": "docking", "kind": "case-solve", "case": "R4-bar-gaps-split-at-the-middle", "reason": "row renamed R4-bar-items-take-the-nearest-landing" },
+  { "package": "docking", "kind": "case-solve", "case": "R4-bar-items-take-the-nearest-landing", "reason": "the renamed R4 row" },
+  { "package": "motion", "kind": "landing-frames", "case": "landing-across-items*", "reason": "the free stretch after c is one place across its zones; the cut by landings hands its start-zone part to the center zone's spot (same order, another zone)" }
+]
