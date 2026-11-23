@@ -341,7 +341,8 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       const k = ids.indexOf(c.dragged);
       return k < 0 ? null : { ...(k > 0 ? { before: ids[k - 1] } : {}), ...(k + 1 < ids.length ? { after: ids[k + 1] } : {}) };
     };
-    // The edge as its sliding ranges read it: the one model `lanes()` slides its spots over (`../slide`).
+    // The edge as its sliding ranges read it: the one model `lanes()` slides its spots over (`../slide`). Its fixed items
+    // are those drawn (`onEdge`, as `lanes()` reads them): one laid out at no size shows nothing a landing could move.
     const edgeRect = c.base.edges[spec.id]?.rect ?? drawn;
     const slideEdge: SlideEdge | null =
       spec.edge && edgeRect
