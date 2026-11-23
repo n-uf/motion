@@ -70,6 +70,7 @@ import {
   type DockDrop,
   type DockDrag,
   type DockGrab,
+  type DockHeld,
   type DockLaneMark,
 } from "@n-uf/docking";
 
@@ -93,8 +94,12 @@ interface HeldForm {
   readonly formKind: string;
   readonly axis: "row" | "column";
   readonly size: { readonly width: number; readonly height: number };
-  /** The spot that sits on the pointer: the grip's top-left corner plus the pointer's offset from it when lifted. */
-  readonly anchor: Point;
+  /**
+   * The spot that sits on the pointer: the grip's top-left corner plus the pointer's offset from it when lifted; set to
+   * the landing's grab (`DockAfter.grab`) when the form heads in for a landing, so the copy is drawn at the pointer
+   * less the grab of the form it shows.
+   */
+  anchor: Point;
   /** The grip's top-left corner in the form. */
   readonly grip: Point;
   readonly el: HTMLElement;
@@ -1176,6 +1181,11 @@ export function createDocwin(o: DocwinOptions) {
     readonly room: DockDrop | null;
     readonly homing: boolean;
     readonly over: DockDrop | null;
+    /**
+     * Where the landing `over` stands for holds the item, in the form it shows (`DockAfter.grab`; a target's own
+     * `DropResult.grab` under the published rules), or null where nothing says (a fixed slot under the published rules).
+     */
+    readonly grab: Point | null;
     readonly sits: Rect | null;
     readonly free: Rect | null;
     readonly placed: boolean;
@@ -1204,7 +1214,7 @@ export function createDocwin(o: DocwinOptions) {
       d.trace.snaps.push({ id: d.snappedTo, t: now, flying: !k.snapTo && !k.aiming });
     }
     d.trace.rooms.push({ t: now, shown: k.shown?.id ?? null, room: k.room?.id ?? null });
-    followForm(d, k.over, onlyItem);
+    followForm(d, k.over, onlyItem, k.grab);
     drawHeld(d, now, k.sits, d.intent.state.speed, onlyItem ? k.free : null);
     d.el.toggleAttribute("data-placed", k.placed);
     drawRoom(d, k.room, k.homing, k.roomLayout ?? null);
@@ -1280,13 +1290,15 @@ export function createDocwin(o: DocwinOptions) {
     const homing = f.atHome && d.docked && f.shown === null;
     const snapTo = plan.snapItem && docks(f.shown) && f.shown!.slot ? f.shown! : null;
     const s = plan.showIndicator ? f.shown : null;
+    const over = (plan.showIndicator || plan.snapItem) && docks(f.shown) && !homing ? f.shown : null;
     return {
       shown: f.shown,
       snapTo,
       aiming: f.aiming,
       room: plan.makeRoom && docks(f.shown) ? f.shown : null,
       homing,
-      over: (plan.showIndicator || plan.snapItem) && docks(f.shown) && !homing ? f.shown : null,
+      over,
+      grab: over ? (over.after(d.pointer, d.grabOf).grab ?? null) : null,
       sits: snapTo?.slot ?? (onlyItem && homing ? (layout.items[d.id]?.rect ?? null) : null),
       free: null,
       placed: false,
@@ -1300,15 +1312,22 @@ export function createDocwin(o: DocwinOptions) {
 
   /**
    * A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along a
-   * bar); off every target (`over` null), the form it was lifted in. One switch per target change, the grip under the
-   * pointer.
+   * bar); off every target (`over` null), the form it was lifted in. One switch per target change. The form is drawn at
+   * the pointer less the landing's grab (`grab`, `DockAfter.grab`) where the library gives one, so a release lands where
+   * the copy is drawn; else at its grip anchor; the lifted form at the press.
    */
-  function followForm(d: Held, over: DockDrop | null, onlyItem: boolean): void {
+  function followForm(d: Held, over: DockDrop | null, onlyItem: boolean, grab: Point | null): void {
     const follows = d.kind === "group" || onlyItem ? (over?.id ?? null) : null;
     if (follows === d.formOf) return;
     d.formOf = follows;
     const spec = over && follows ? formAt(d, over) : null;
-    switchForm(d, spec ? heldForm(d.el, d.forms, d.id, d.kind, spec, d.fromGrip) : d.homeForm);
+    const next = spec ? heldForm(d.el, d.forms, d.id, d.kind, spec, d.fromGrip) : d.homeForm;
+    if (spec && grab && (Math.abs(grab.x - next.anchor.x) > 0.01 || Math.abs(grab.y - next.anchor.y) > 0.01)) {
+      next.anchor = { x: grab.x, y: grab.y };
+      // The same form heading in for another landing: the morph retargets to the new grab.
+      if (next === d.current) d.morph.to(next.size, next.anchor);
+    }
+    switchForm(d, next);
   }
 
   /**
@@ -1395,6 +1414,9 @@ export function createDocwin(o: DocwinOptions) {
       // The held form follows what a release lands on (a toolbar's row, icons down a rail; a float's own form), in every
       // mode alike: a mode changes only the preview. The landing's own margins keep it from flipping at a lane's edge.
       over: floats ?? (docking ? shown : null),
+      // The grab in the form the landing shows (`DockAfter.grab` of the frame's held place): the held copy lies at the
+      // pointer less it, so a release lands where it is drawn.
+      grab: mf.held && (floats || docking) ? L.drag.after(mf.held as DockHeld).grab : null,
       sits,
       free: floatAt,
       placed: !!sits,
