@@ -11,13 +11,13 @@ import { drive, emptySpace, hold, through } from "./intent-presets";
 import { ALL, defaultState } from "./model";
 import { presetFrom } from "./one-preview-presets";
 import type { Docwin } from "./dock-state";
+import { near } from "../shared/geometry";
 
 type CodePreset = ReturnType<typeof presetFrom>;
 
 const fresh = (c: Docwin): void => c.setState(defaultState());
 
 const fmt = (r: Rect): string => `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)}`;
-const near = (a: Rect, b: Rect): boolean => Math.abs(a.x - b.x) <= 0.5 && Math.abs(a.y - b.y) <= 0.5 && Math.abs(a.width - b.width) <= 0.5 && Math.abs(a.height - b.height) <= 0.5;
 /** A point as the Code view writes it: full precision. */
 const at = (p: Point): string => `{ x: ${p.x}, y: ${p.y} }`;
 
@@ -59,7 +59,7 @@ function roundTrip(c: Docwin, label: string, bad: string[]): boolean {
       if (!!a !== !!b) off.push(`${id} is ${a ? "drawn" : "not drawn"} in the window and ${b ? "drawn" : "not drawn"} from the code`);
       continue;
     }
-    if (!near(a.rect, b.rect) || a.edge !== b.edge || !!a.floating !== !!b.floating) off.push(`${id} ${fmt(a.rect)} in the window, ${fmt(b.rect)} from the code`);
+    if (!near(a.rect, b.rect, 0.5) || a.edge !== b.edge || !!a.floating !== !!b.floating) off.push(`${id} ${fmt(a.rect)} in the window, ${fmt(b.rect)} from the code`);
   }
   if (off.length) bad.push(`${label}: ${off.join("; ")}`);
   return off.length === 0;
