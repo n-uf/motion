@@ -160,7 +160,7 @@ export function tilingHitConformance<T, K>(trees: Iterable<T>, options: TilingDr
       const s = ops.split(t);
       return s ? items(s, null).join(";") : "";
     };
-    const liftFlat = flatOf(drag.lift.tree);
+    const liftFlat = flatOf(ops.normalize ? ops.normalize(drag.lift.tree) : drag.lift.tree);
     const changed = (h: { kind: "swap"; at: K } | { kind: "beside"; at: K; side: Side }): T => {
       const t = h.kind === "swap" ? ops.swap(drag.lift.tree, subject, h.at) : ops.beside(ops.release(drag.lift.tree, subject), subject, h.at, h.side, { kind: "half" });
       return ops.normalize ? ops.normalize(t) : t;
