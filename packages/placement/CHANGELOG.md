@@ -5,6 +5,10 @@ Versions are calendar versions, `YY.M.R` (year, month of the release, counter wi
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.60
+
+No changes in `@n-uf/placement`. Released in step with `@n-uf/motion` and `@n-uf/docking`, which share the version.
+
 ## 26.11.59
 
 - **Added: `tilingDrag(...).hit(basis)` in `./tiling`, which place the pointer is over in a tiling drag.** Ask for it at

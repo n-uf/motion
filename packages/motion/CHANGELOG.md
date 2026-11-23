@@ -5,6 +5,15 @@ within the month), the same scheme as `@n-uf/hypr-tiling`.
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.60
+
+- **A held item takes the caller's grab on a resize.** `HeldDrag.resize(size, grab?)`: with `grab` (px from the
+  top-left corner at the new size, where the caller's new form puts the spot the user pressed, such as a docking drag's
+  `DockAfter.grab`) the item is held there from now on; without it the grab point keeps its share of the item, as
+  before. It settles from where it is drawn to the pointer less `grab` at `size`, so the held point moves with the size
+  on that one settle. The same size with another grab now glides to it; the same size and grab do nothing. New:
+  `HeldDrag.grab`, where the pointer holds the item now.
+
 ## 26.11.59
 
 - `./drag`, **changed (additive): `createDragIntent`'s `home` is optional.** Leave it out when the targets hold the
