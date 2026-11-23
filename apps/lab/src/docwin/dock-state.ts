@@ -644,7 +644,7 @@ export function createDocwin(o: DocwinOptions) {
         drag.landing.model.setGeometry(next);
         drag.roomLayout = null;
         drag.targets = targetsFrom(next.regions);
-      } else drag.targets = targetsOf(drag.id);
+      } else drag.targets = targetsOf(drag.id, drag.grab);
     }
     restingStrips();
     store();
@@ -720,7 +720,8 @@ export function createDocwin(o: DocwinOptions) {
   const reachOf = (): { previous: DockLayout; endReach: number; floatFromHeld: boolean } => ({ previous: layout, endReach: rowRules?.endReach ?? END_REACH, floatFromHeld: approved() });
   /** The settings a drag's `lanes()` / `targets()` calls run with now (what the Code view writes out). */
   const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
-  const targetsOf = (id: ItemId): DockDrop[] => stateTargets(ruled(), id, reachOf());
+  /** A drag's targets; with the press's `grab`, cut by the same aim order as its lanes (`aimCut`). */
+  const targetsOf = (id: ItemId, grab?: Point): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab } : {}) });
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
   const stopsOf = (id: ItemId): DockDrop[] => stateStops(ruled(), id, reachOf());
   /**
@@ -1019,7 +1020,7 @@ export function createDocwin(o: DocwinOptions) {
     const grab = { x: start.x - was.rect.x, y: start.y - was.rect.y };
     // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
     const landing0 = approved() ? landingFor(id, grab) : null;
-    const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id);
+    const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id, grab);
     // The held copy: a frame (the morph's box, its anchor on the pointer) holding each form's content.
     const el = document.createElement("div");
     el.className = `dw-held dw-morph dw-${was.kind}`;
@@ -2167,7 +2168,12 @@ export function createDocwin(o: DocwinOptions) {
     },
     stripLayer,
     moveToRail,
-    targets: targetsOf,
+    // A drag's targets, held where a press on the item's grip holds it (as the cases drive a drag), unless `grab` says.
+    targets: (id: ItemId, grab?: Point): DockDrop[] => {
+      const g = pointOf(win.querySelector(`.dw-items [data-id="${id}"] [data-grip], .dw-items [data-id="${id}"][data-grip]`));
+      const r = layout.items[id]?.rect;
+      return targetsOf(id, grab ?? (g && r ? { x: g.x - r.x, y: g.y - r.y } : undefined));
+    },
     edge: (id: EdgeId) => edgeOf(state, id),
     press,
     open,
