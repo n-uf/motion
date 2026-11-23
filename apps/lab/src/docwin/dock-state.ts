@@ -165,7 +165,8 @@ interface Held {
   readonly grab: Point;
   /**
    * The grab as a function of the laid form (`DockGrab`): each form's grip anchor, the pointer's offset from the grip
-   * kept, so the library aims every landing with the grip where the held copy shows it. At the lifted form, `grab`.
+   * kept, so the library aims every landing with the grip where the held copy shows it. At the lifted form, `grab`. A
+   * press beside the grip passes `grab` itself (the library's twin).
    */
   readonly grabOf: DockGrab;
   readonly home: Rect;
@@ -1039,9 +1040,15 @@ export function createDocwin(o: DocwinOptions) {
     Object.assign(home0.el.style, { opacity: "1", visibility: "" });
     forms.set(home0.key, home0);
     // The grab in each form the library lays the item in: that form's grip anchor (drawn once per drag, by key), so the
-    // landings are aimed with the grip where the held copy shows it. At the lifted form and size, the press.
-    const grabOf: DockGrab = (f, s) =>
-      heldForm(el, forms, id, was.kind, { formKind: f.formKind, axis: f.axis, rows: f.rows, hidden: f.hidden, size: { width: s.width, height: s.height }, railTitle: f.railTitle, ladder: ladderOf(id, f) }, fromGrip).anchor;
+    // landings are aimed with the grip where the held copy shows it. At the lifted form and size, the press. Only a
+    // press on the grip has a spot of the grip to keep: one beside it (a row's press point on the item's padding, say)
+    // keeps no grip spot across a grip that turns (its dots 16 × 8 in an icons column, 8 × 16 in a row), so it passes
+    // the press itself, the library's twin, as a row's grab is the row's.
+    const gripEl = home0.el.matches("[data-grip]") ? home0.el : home0.el.querySelector<HTMLElement>("[data-grip]");
+    const onGrip = !!gripEl && grab.x >= homeForm.grip.x && grab.x <= homeForm.grip.x + gripEl.offsetWidth && grab.y >= homeForm.grip.y && grab.y <= homeForm.grip.y + gripEl.offsetHeight;
+    const grabOf: DockGrab = onGrip
+      ? (f, s) => heldForm(el, forms, id, was.kind, { formKind: f.formKind, axis: f.axis, rows: f.rows, hidden: f.hidden, size: { width: s.width, height: s.height }, railTitle: f.railTitle, ladder: ladderOf(id, f) }, fromGrip).anchor
+      : grab;
     // Under the window's own rules one generation per lift: the landing model's lanes give the targets and refusals too.
     const landing0 = approved() ? landingFor(id, grabOf) : null;
     const targets = landing0 ? targetsFrom(landing0.drag.regions) : targetsOf(id, grabOf);
