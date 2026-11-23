@@ -285,9 +285,24 @@ describe("a grower a hidden edge lends to a bar", () => {
 const over = (a: { x: number; y: number; width: number; height: number }, b: { x: number; y: number; width: number; height: number }): boolean =>
   Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x) > 1 && Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y) > 1;
 
+/** The scenes a held item meets a grower at home in: every shape, nearest zones, two growers, asked lengths, other zones. */
+const BESIDE: readonly Scene[] = [
+  { shape: "alone" },
+  {},
+  { shape: "lead" },
+  { shape: "between" },
+  { shape: "lead", nearest: true },
+  { shape: "between", two: true },
+  { shape: "between", asked: true },
+  { zone: "center" },
+  { zone: "end" },
+];
+/** A mark's place: its lane and the pair of neighbors it lies between (`<lane>/<kind>/<before>|<next>[:side]`). */
+const placeOf = (lane: string, id: string): string => `${lane} ${(id.split("/")[2] ?? "").split(":")[0]}`;
+
 describe("another item held beside a grower at home", () => {
-  it("no guide of a frame lies over an item as that frame draws it (its shown layout, its release's commit)", () => {
-    for (const sc of [{ shape: "alone" as const }, {}, { shape: "lead" as const }, { shape: "between" as const }, { shape: "lead" as const, nearest: true }]) {
+  it("no guide of a frame lies over an item as that frame draws it, its room open or not", () => {
+    for (const sc of BESIDE) {
       for (const w of [700, 1000, 1200, 1500]) {
         const s = world(true, w, sc);
         for (const dragged of ["search", ...(sc.shape === "alone" ? [] : ["views"])]) {
@@ -296,23 +311,52 @@ describe("another item held beside a grower at home", () => {
           for (const lane of d.regions.lanes.filter((l) => ["toolbar", "titlebar", "status"].includes(l.id))) {
             for (const sp of lane.spots) {
               for (const u of [0.1, 0.5, 0.9]) {
-                const held = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + sp.landing.width * u, y: sp.landing.y + sp.landing.height / 2 } };
-                const frame = { held, room: true, guides: d.regions.lanes.map((l) => ({ lane: l.id, held })) };
-                const shown = d.shown(frame);
-                expect(shown, `${name(sc, w)} ${dragged} ${sp.id}`).toEqual(d.after(held).layout);
-                frames++;
-                for (const m of d.guides(frame)) {
-                  if (m.kind === "line") continue;
-                  for (const [id, it] of Object.entries(shown.items)) {
-                    // (A growing fixed title's slack is free room for the marks by its own rule: not this one's.)
-                    if (id === dragged || it.inMenu || !it.edge || it.floating || it.fixed) continue;
-                    expect(over(m.rect, it.rect), `${name(sc, w)} ${dragged} ${sp.id} ${u}: ${m.id} over ${id}`).toBe(false);
+                for (const room of [true, false]) {
+                  const held = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + sp.landing.width * u, y: sp.landing.y + sp.landing.height / 2 } };
+                  const frame = { held, room, guides: d.regions.lanes.map((l) => ({ lane: l.id, held })) };
+                  const shown = d.shown(frame);
+                  const at = `${name(sc, w)} ${dragged} ${sp.id} ${u} room ${room}`;
+                  if (room) expect(shown, at).toEqual(d.after(held).layout);
+                  frames++;
+                  for (const m of d.guides(frame)) {
+                    if (m.kind === "line") continue;
+                    for (const [id, it] of Object.entries(shown.items)) {
+                      // (A growing fixed title's slack is free room for the marks by its own rule: not this one's.)
+                      if (id === dragged || it.inMenu || !it.edge || it.floating || it.fixed) continue;
+                      expect(over(m.rect, it.rect), `${at}: ${m.id} over ${id}`).toBe(false);
+                    }
                   }
                 }
               }
             }
           }
           expect(frames, `${name(sc, w)} ${dragged}`).toBeGreaterThan(0);
+        }
+      }
+    }
+  });
+
+  it("every place marked at rest keeps a mark while another place is held, but the held place itself", () => {
+    for (const sc of BESIDE) {
+      for (const w of [700, 1000, 1200, 1500]) {
+        const s = world(true, w, sc);
+        const dragged = "search";
+        const d = dockDrag(s, dragged);
+        const lanes = d.regions.lanes.map((l) => l.id);
+        const rest = new Set(d.guides({ held: null, room: false, guides: lanes.map((lane) => ({ lane, held: null })) }).map((m) => placeOf(m.lane, m.id)));
+        expect([...rest].some((p) => p.startsWith("toolbar ")), name(sc, w)).toBe(true);
+        for (const lane of d.regions.lanes.filter((l) => ["toolbar", "titlebar"].includes(l.id))) {
+          for (const sp of lane.spots) {
+            const held = { kind: "spot" as const, spot: sp.id, point: { x: sp.landing.x + sp.landing.width / 2, y: sp.landing.y + sp.landing.height / 2 } };
+            for (const room of [true, false]) {
+              const marked = new Set(d.guides({ held, room, guides: lanes.map((l) => ({ lane: l, held })) }).map((m) => placeOf(m.lane, m.id)));
+              const heldPlace = placeOf(lane.id, sp.id.split("@")[0]!);
+              for (const p of rest) {
+                if (p === heldPlace || p.split(" ")[1]!.split("|").includes(dragged)) continue;
+                expect(marked.has(p), `${name(sc, w)} ${sp.id} room ${room}: ${p} lost its mark`).toBe(true);
+              }
+            }
+          }
         }
       }
     }
