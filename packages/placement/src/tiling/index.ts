@@ -13,7 +13,9 @@
  * A drag of a pane or a stack has one layout per held place: `tilingDrag(tree, subject, { ops, area, min })` over a
  * `TilingTree` adapter (the host's tree and changes; `splitTreeOps` is the reference one over `StackedSplit`) gives
  * the base (the tree with the subject released), home (the gap the release leaves) and `after(held)`, what a release
- * there commits and a frame holding it draws. `tilingConformance` runs its properties on a host's own adapter.
+ * there commits and a frame holding it draws. `tilingConformance` runs its properties on a host's own adapter. Its hit
+ * half, `hit("lift" | "base")`, is built once at the lift on that one layout: targets in `@n-uf/motion/drag`'s shape,
+ * the one hold rule, and a reader of the intent's frame; `tilingHitConformance` runs its seven properties.
  *
  * `neighbor` finds the nearest pane in a direction from a map of rects. Both models give root `Target`s, for
  * `@n-uf/motion/drag`. `masterRatio` and `masterCount` are the master area's clamps, for a host that lays out its own.
@@ -26,7 +28,20 @@ export { columns, grid, masterCount, masterRatio, masterStack, type MasterOption
 export { dropOnPane, panesOf, removePane, splitFromOrder, splitPane, swapPanes, type Split } from "./split";
 export { canDropOnPane, canSplitPane, dropFits, type DropFitsOptions, type DropOptions, type DropVerdict, type SplitRoomOptions } from "./drop";
 export { layoutSplit, layoutSplitTree, type FixedLength, type MinLength, type SplitGeometry, type SplitLayout, type SplitOptions } from "./layout";
-export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, type PaneCenter, type PaneRegion, type PaneRegionOptions } from "./regions";
+export { PANE_REGION_DEFAULTS, PANE_SIDES, paneCenter, paneRegion, paneRegionShapes, type PaneCenter, type PaneRegion, type PaneRegionOptions } from "./regions";
+export {
+  TILING_HIT_DEFAULTS,
+  type TilingBasis,
+  type TilingHit,
+  type TilingHitFrame,
+  type TilingHitIntent,
+  type TilingHitOptions,
+  type TilingHitRead,
+  type TilingHitTarget,
+  type TilingHold,
+  type TilingMark,
+  type TilingPart,
+} from "./hit";
 export { orderTargets, paneTargets, type OrderTarget, type PaneTarget, type PaneTargetsOptions } from "./targets";
 export { giveWay } from "./give-way";
 export {
@@ -43,6 +58,7 @@ export {
   type TilingSubject,
   type TilingTree,
 } from "./drag";
-export { splitTreeOps, type StackedSplit } from "./reference";
+export { splitTreeOps, type SplitTreeOpsOptions, type StackedSplit } from "./reference";
 export { TILING_PROPERTIES, tilingConformance, tilingSubjects, type TilingConformance, type TilingProperty } from "./conformance";
+export { TILING_HIT_PROPERTIES, tilingHitConformance, type TilingHitConformance, type TilingHitProperty } from "./hit-conformance";
 export { neighbor, type Direction } from "./neighbor";
