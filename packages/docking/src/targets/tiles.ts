@@ -202,7 +202,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
   // room, which moves no other item: that is a sliding spot's there, never home's. Nor one that leaves home's order,
   // the item docked in another zone: it is home's place already, its zone's piece its own.)
   const nearHome = (s: Slot): boolean => {
-    if (halves || s.home || !spec.own || !ownRect) return false;
+    if (halves || s.home || !spec.own || !ownRect || c.now.items[c.dragged]?.inMenu) return false;
     const l = s.result.layout.items[c.dragged]?.rect;
     return !!l && Math.abs((v ? l.y : l.x) - (v ? ownRect.y : ownRect.x)) < c.slack && movesOthers(s) && orderIn(s.result.layout) !== homeOrder;
   };
@@ -451,9 +451,13 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
       const before = neighborsIn(orderOf(s))?.before;
       return s.place.kind === "gap" && s.place.zone === (before ? zoneIn(before) : "start") ? 0 : 1;
     };
-    const lands = all.filter((r) => (r.s.ok || r.s.home) && !!landingOf(r.s));
+    // (The item in its » menu has no landing along the edge: home is its » entry, which keeps what no place takes.)
+    const inMenu = !!c.now.items[c.dragged]?.inMenu;
+    const lands = all.filter((r) => (r.s.ok || r.s.home) && !!landingOf(r.s) && !(inMenu && r.s.home));
     const sorted = [...lands].sort((p, q) => mid(firstOf(p.s)) - mid(firstOf(q.s)) || (p.s.home ? -1 : q.s.home ? 1 : 0) || besideZone(p.s) - besideZone(q.s) || p.a - q.a);
     if ((globalThis as any).process?.env?.DBG_TILES) (globalThis as any).console.log("PRE", sorted.map((r) => `${r.s.id}${r.s.home ? "(h)" : ""}${ownStretch.includes(r) ? "(own)" : ""} ${r.a.toFixed(1)}..${r.b.toFixed(1)} line ${r.s.line.toFixed(1)} [${orderOf(r.s)}]`).join(" ; "));
+    // Whether two slots land the item at one rect along the edge.
+    const sameAt = (p: Slot, q: Slot): boolean => span(landingOf(p)!).every((x, n) => Math.abs(x - span(landingOf(q)!)[n]!) < 0.5);
     const runs: Stretch[][] = [];
     const dropped: Stretch[] = [];
     for (const r of sorted) {
@@ -462,9 +466,7 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
         last.push(r);
         continue;
       }
-      const l = landingOf(r.s)!;
-      const same = (x: Stretch): boolean => !rangeFor(x.s) && !rangeFor(r.s) && span(landingOf(x.s)!).every((p, k) => Math.abs(p - span(l)[k]!) < 0.5);
-      if (runs.some((run) => run.some(same))) dropped.push(r);
+      if (runs.some((run) => run.some((x) => !rangeFor(x.s) && !rangeFor(r.s) && sameAt(x.s, r.s)))) dropped.push(r);
       else runs.push([r]);
     }
     // A place's facing landings: of its slots, the last landing faces the place after it, the first the place before.

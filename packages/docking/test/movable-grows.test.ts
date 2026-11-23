@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { formMain } from "@n-uf/placement/stack";
-import { dockDrag, refusals, solve, targets, type DockLayout, type DockState, type Zone } from "../src";
+import { dockDrag, refusals, solve, stops, targets, type DockLayout, type DockState, type Zone } from "../src";
 import { withoutBarGrowth } from "../src/helpers";
 import { zoneExtents } from "../src/targets/edges";
 import { doc, form } from "../src/testing/world";
@@ -117,7 +117,16 @@ describe("a movable grower on a bar takes the free span", () => {
 });
 
 describe("drop room is that of the same state with the growth off", () => {
-  it("targets, refusals and zone extents on the bar equal the growth-off state's", () => {
+  // Which places exist and fit is read with the growth off (the gap beside a grown row stays); where the pointer meets
+  // them is cut by their landings, each in the layout its own drop commits (the grower as that commit draws it). So the
+  // places are the growth-off state's, and each has a target unless its landing is another place's. (A place is an
+  // order of the bar's items: a drop that docks it in another zone is the same place, its zone not yet one rule.)
+  it("places, refusals and zone extents on the bar equal the growth-off state's; a place lacks a target only at another's landing", () => {
+    type Drop = { after: (p: typeof ORIGIN, g: typeof ORIGIN) => { layout: DockLayout } };
+    const landing = (t: Drop, dragged: string) => t.after(ORIGIN, ORIGIN).layout.items[dragged]?.rect;
+    const order = (t: Drop) => along(t.after(ORIGIN, ORIGIN).layout, "toolbar").map(([id]) => id).join(" ");
+    const same = (p?: { x: number; y: number; width: number; height: number }, q?: { x: number; y: number; width: number; height: number }) =>
+      !!p && !!q && Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y), Math.abs(p.width - q.width), Math.abs(p.height - q.height)) < 0.5;
     for (const sc of SCENES) {
       for (const w of WIDTHS) {
         const grown = world(true, w, sc);
@@ -125,16 +134,21 @@ describe("drop room is that of the same state with the growth off", () => {
         expect(off).not.toBe(grown);
         for (const dragged of ["search", "views", "zoom"]) {
           const at = `${name(sc, w)} ${dragged}`;
+          const ids = (ts: readonly { id: string }[]) => ts.filter((t) => t.id.includes("toolbar")).map((t) => t.id).sort();
+          expect(ids(stops(grown, dragged)), at).toEqual(ids(stops(off, dragged)));
           const a = targets(grown, dragged).filter((t) => t.id.includes("toolbar"));
-          const b = targets(off, dragged).filter((t) => t.id.includes("toolbar"));
-          expect(a.map((t) => t.id), at).toEqual(b.map((t) => t.id));
-          for (const t of a) {
+          for (const p of stops(grown, dragged).filter((x) => x.id.includes("toolbar") && !a.some((t) => t.id === x.id)))
+            expect(a.some((t) => same(landing(t, dragged), landing(p, dragged)) || order(t) === order(p)), `${at} ${p.id} lands where a target does, or is its place`).toBe(true);
+          // Each place's drop leaves every item in the form, the » and the edge the growth-off state's drop does.
+          const b = stops(off, dragged);
+          for (const t of stops(grown, dragged).filter((x) => x.id.includes("toolbar"))) {
             const la = t.after(ORIGIN, ORIGIN).layout;
             const lb = b.find((x) => x.id === t.id)!.after(ORIGIN, ORIGIN).layout;
             for (const id of Object.keys(lb.items)) expect([la.items[id]?.form, !!la.items[id]?.inMenu, la.items[id]?.edge], `${at} ${t.id} ${id}`).toEqual([lb.items[id]!.form, !!lb.items[id]!.inMenu, lb.items[id]!.edge]);
           }
-          const ra = refusals(grown, dragged).filter((r) => r.id.includes("toolbar")).map((r) => [r.id, r.reason]);
-          const rb = refusals(off, dragged).filter((r) => r.id.includes("toolbar")).map((r) => [r.id, r.reason]);
+          // (A refused sliver under a pixel along the bar, where the landing cuts meet a zone's edge, is no stretch.)
+          const refused = (s: DockState) => refusals(s, dragged).filter((r) => r.id.includes("toolbar") && r.hit.width >= 1).map((r) => [r.id, r.reason]);
+          const [ra, rb] = [refused(grown), refused(off)];
           expect(ra, at).toEqual(rb);
           expect(zoneExtents(grown, dragged, "toolbar"), at).toEqual(zoneExtents(off, dragged, "toolbar"));
         }

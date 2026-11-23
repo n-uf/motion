@@ -81,7 +81,8 @@ import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, growsOnBar, heldRect,
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
-import { edgeSpec, landedLayout, solveLanded } from "./targets/edges";
+import { cutsByHalves } from "./aim";
+import { distinctSlots, edgeSpec, landedLayout, solveLanded } from "./targets/edges";
 import { context } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./targets/kinds";
@@ -415,12 +416,14 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
   // A room's hold (`roomHit`) holds the target's hit as it ends up, its minimum included.
   const held = withMinHit(c, layered.targets, layered.refusals, zones).map((t) => (t.roomHit && t.slot ? { ...t, roomHit: hull(t.hit, t.slot) } : t));
   // The places a drop lands that the pointer never reaches (a slot the aim cuts leave no stretch: another landing is
-  // nearer every pointer): no target, but a stop all the same (`stops`), at its landing.
+  // nearer every pointer): no target, but a stop all the same (`stops`), at its landing. On a bar or a toolbar rail,
+  // every place that fits in the room: one whose stretch clipping left under a pixel too.
   const lostSet = new Set(lostIds);
+  const targetIds = new Set(held.map((t) => t.id));
   const places: DockDrop[] = live
     .flatMap((spec) =>
-      spec.slots
-        .filter((s) => lostSet.has(s.id) && s.ok && !s.home && s.place.kind === "gap" && !!s.result.layout.items[dragged])
+      (spec.edge && !cutsByHalves(spec.edge) ? distinctSlots(c, spec.slots).filter((s) => !targetIds.has(s.id)) : spec.slots.filter((s) => lostSet.has(s.id)))
+        .filter((s) => s.ok && !s.home && s.place.kind === "gap" && !!s.result.layout.items[dragged])
         .map((s): DockDrop => {
           const landed = s.result.layout.items[dragged]!.rect;
           return { id: s.id, priority: EDGE_KINDS[spec.kind].priority, hit: landed, slot: landed, marker: spec.marker(s), item: dragged, place: s.place, after: () => s.result };
