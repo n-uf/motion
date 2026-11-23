@@ -349,4 +349,48 @@ export const PRESETS: readonly Preset[] = [
       return f.verdict();
     },
   },
+  {
+    id: "intent-equals-pure-hold",
+    title: "The place read through the drag intent is the place the hit's pure hold gives alone",
+    expected:
+      "Every tree, both previews, every pane and each stack lifted: along seeded walks and straight sweeps over the stage, the place the page holds (the drag intent's frame, read by the hit) is at every step the place `hit.hold(state, point)` gives alone, home included: no target priority (home and a part are both 1), band or gate of the intent changes it.",
+    setup: lifted("three", paneA),
+    check: (h) => {
+      const f = new Findings();
+      const name = (x: { kind: string; at?: string; side?: string; index?: number } | null): string =>
+        x === null ? "nothing" : x.kind === "home" ? "home" : `${x.kind} ${x.at}${x.side ? ` ${x.side}` : ""}${x.index !== undefined ? ` @${x.index}` : ""}`;
+      // A small seeded generator, so a failure is the same on every run.
+      let s = 7;
+      const rnd = (): number => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+      let steps = 0;
+      for (const tree of ["three", "stacked", "narrow"] as const) {
+        for (const preview of ["snap", "indicator"] as const) {
+          h.setPreview(preview);
+          h.setTree(tree);
+          const subjects: TilingSubject<string>[] = [...h.layout().keys()].map((k) => ({ kind: "pane", pane: k }));
+          for (const stack of h.tree.stacks ?? []) subjects.push({ kind: "stack", stack });
+          for (const subject of subjects) {
+            h.setTree(tree);
+            const d = h.lift(subject);
+            let state = d.hit.hold(null, d.pointer);
+            const path: Point[] = [];
+            let p = d.pointer;
+            for (let i = 0; i < 60; i++) path.push((p = { x: Math.max(0, Math.min(720, p.x + (rnd() - 0.5) * 70)), y: Math.max(0, Math.min(440, p.y + (rnd() - 0.5) * 70)) }));
+            const [a, b] = [{ x: rnd() * 720, y: rnd() * 440 }, { x: rnd() * 720, y: rnd() * 440 }];
+            for (let i = 0; i <= 120; i++) path.push({ x: a.x + ((b.x - a.x) * i) / 120, y: a.y + ((b.y - a.y) * i) / 120 });
+            for (const q of path) {
+              h.pointTo(q);
+              state = d.hit.hold(state, q);
+              const pure = state ? d.hit.heldOf(state.place) : null;
+              steps++;
+              f.that(name(d.read.held) === name(pure), `${tree}, ${preview}, ${subject.kind === "pane" ? subject.pane : subject.stack.id} at ${q.x.toFixed(1)},${q.y.toFixed(1)}: the page holds ${name(d.read.held)}, the hold ${name(pure)}`);
+            }
+            h.cancel();
+          }
+        }
+      }
+      f.said.push(`${steps} steps agree`);
+      return f.verdict();
+    },
+  },
 ];
