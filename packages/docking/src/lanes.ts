@@ -1117,7 +1117,9 @@ function takeoverSpots(state: DockState, dragged: string, options: DockLaneOptio
       out.push({ lane: e.id, edge: e.id, axis, id: `${e.id}/${zone}/${n.before}|${n.next}@in:${nb}`, ...n, landing: landed.rect, layout, target, hit: landed.rect });
     };
     return ({ w, zones, atOf, spaceAt, before, after }) => {
-      const zoneOf = (id: string): Zone => (state.items[id]?.align as Zone | undefined) ?? "start";
+      // A neighbor's zone is where it lies (`zoneIn`), not its stored `align`: one whose zone takes no item of its kind
+      // lies in another.
+      const zoneOf = (id: string): Zone => zoneIn(run.base, id);
       // The item at the start of the start-zone neighbor after the stretch.
       if (after && zones.includes("start") && zoneOf(after.id) === "start" && !state.items[after.id]?.fixed) {
         const x0 = lo(after.r, axis);
