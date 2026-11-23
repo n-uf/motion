@@ -61,3 +61,30 @@ describe("a landing counts for its place only where it commits that place", () =
     expect(landsAt(se, { edge: "bar", zone: "start", at: 1, space: 22 }, room.a + 22)).not.toBeNull();
   });
 });
+
+describe("a fixed item that steps may go to the » for a landing: it is no part of the place", () => {
+  // A 420 px bottom bar: a, the held g and f, a fixed readout that steps (`stepping`), whose next step is the ». With g
+  // docked f has no room and goes to the », as `landsAt` lets it.
+  const f: DockItem = { id: "f", kind: "group", used: 0.5, align: "end", fixed: true, stepping: true, forms: { row: [form("row", 200, 200, 31), form("menu", 0, 0, 0)], column: [form("icons", 84, 84, 28), form("menu", 0, 0, 0)] } };
+  const narrow: DockState = {
+    stage: { x: 0, y: 0, width: 420, height: 400 },
+    edges: [bar("bar", "bottom", 0, ["a", "g", "f"], { cross: { min: 31, max: 31, rail: 31 }, gap: 4, pad: { start: 8, end: 8 }, menu: { main: 24 } })],
+    items: byId([tb("a", 150, 4), tb("g", 100, 3), f]),
+    floats: [],
+    floatKinds: ["group"],
+  };
+  const lifted = solve(liftItem(narrow, "g"));
+  const rect = lifted.edges.bar!.rect;
+  const fixedF = Object.entries(lifted.items).filter(([id, it]) => id === "f" && !it.inMenu).map(([id, it]) => ({ id, r: it.rect }));
+  const nse: SlideEdge = { state: narrow, dragged: "g", e: narrow.edges[0]!, axis: "x", base: lifted, drawn: rect, middle: rect.x + rect.width / 2, fixed: fixedF, prev: {} };
+
+  it("a landing that steps f to the » commits the place a g, as one with f shown does", () => {
+    expect(lifted.items.f!.inMenu).toBeFalsy();
+    const room = slideRoom(nse, "a", "f", ["a"], 100)!;
+    const hit = landsAt(nse, { edge: "bar", zone: "start", at: room.atOf("start"), space: 0 }, room.a)!;
+    expect(hit.layout.items.f!.inMenu).toBe(true);
+    expect(hit.layout.items.f!.edge).toBe("bar");
+    // Read against the place a g (f shown, as the lift leaves it, or in the »: no part of it), the landings count.
+    expect(slideRange(nse, { ...room, place: "a g » " }, 10)).not.toBeNull();
+  });
+});
