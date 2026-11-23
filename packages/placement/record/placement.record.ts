@@ -7,7 +7,7 @@
  * both axes, a seeded set of random mixes (alone and refitted from their `previous`), stacks with asked lengths, and
  * for tiling a seeded set of split trees and pane lists. Per case: `fitStack`, the dividers and what `resizeBetween` /
  * `resetBetween` write, `stackGaps`, `cutEdges`, `fitFloat`, and for tiling `layoutSplit`, `layoutSplitTree` with every split named, the split edits, the pane
- * regions, `paneTargets`, `orderTargets` and the order layouts.
+ * regions, `paneTargets`, `orderTargets`, the order layouts and a tiling drag's hit (the place on a fixed grid, both bases).
  *
  * Old commits: every call goes through `attempt` and every module through `load`, so a helper or export the old code
  * lacks records `{ absent }` and a call that throws records `{ threw }`; nothing stops the run.
@@ -194,6 +194,24 @@ describe("record placement", () => {
       out.attempt("pane-targets", id, () => {
         const layout = tile("layoutSplit")(tree, area, { gap: 4 });
         return tile("paneTargets")(layout, { except: tile("panesOf")(tree)[0] });
+      });
+    }
+    // A tiling drag's hit half: for every third tree, its first pane lifted, the place each point of a fixed 30 px grid
+    // reads with nothing held, on both bases (`placeAt`, `zone` before the rename).
+    for (const { id, tree } of trees.filter((_, i) => i % 3 === 0)) {
+      if (tree === null || "pane" in tree) continue;
+      out.attempt("tiling-hit", id, () => {
+        const ops = tile("splitTreeOps")({ bar: 24 });
+        const drag = tile("tilingDrag")({ split: tree }, { kind: "pane", pane: tile("panesOf")(tree)[0] }, { ops, area, gap: 6, min: 60 });
+        const grid: Record<string, string> = {};
+        for (const basis of ["lift", "base"]) {
+          const hit = drag.hit(basis);
+          const read = need(hit.placeAt ?? hit.zone, "TilingHit.placeAt").bind(hit);
+          const row: string[] = [];
+          for (let y = area.y + 15; y < area.y + area.height; y += 30) for (let x = area.x + 15; x < area.x + area.width; x += 30) row.push(read({ x, y }) ?? "-");
+          grid[basis] = row.join(" ");
+        }
+        return grid;
       });
     }
     const pane = { x: 100, y: 100, width: 300, height: 200 };
