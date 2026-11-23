@@ -437,6 +437,21 @@ describe("drag/ intent", () => {
     expect(intent.release({ x: FROM.x - 400, y: FROM.y }, (t += FRAME), moved)).toBeNull();
   });
 
+  it("with no home: the pointer has left it from the first sample, never atHome, and a release lands on what is under it", () => {
+    const intent = createDragIntent({});
+    let t = 0;
+    const first = intent.update(FROM, (t += FRAME), DOCK);
+    expect([first.atHome, intent.state.leftHome]).toEqual([false, true]);
+    const frames = [];
+    for (let i = 0; i < 40; i++) frames.push(intent.update(mid(A.hit), (t += FRAME), DOCK));
+    expect(frames.some((f) => f.atHome)).toBe(false);
+    expect(frames.at(-1)!.shown?.id).toBe("slot-a");
+    // Where a home would have been, a release lands on the target there (the free area); moving no home is a no-op.
+    intent.moveHome(10, 10);
+    intent.update(FROM, (t += FRAME), DOCK);
+    expect(intent.release(FROM, t, DOCK)?.id).toBe("area");
+  });
+
   it("atHome: never true before the pointer has left home, true when it is back over it, never with a target shown", () => {
     const intent = createDragIntent({ home: HOME });
     let t = 0;
