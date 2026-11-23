@@ -24,13 +24,14 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, len, lo, zoneIn } from "./aim";
-import { aimOnce, grabKey, grabOf, grabResolver, liftOf, sizeOf, type DockGrab, type Grab } from "./grab";
+import { aimOnce, fnKey, grabIn, grabKey, grabOf, grabResolver, sizeOf, type DockGrab, type Grab } from "./grab";
 import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockState, DockLayout, DockItemLayout, Zone } from "./model";
 import { solve } from "./solve";
-import { parseTargetId, targetsAndRefusals } from "./targets";
+import { parseTargetId, targetsAndRefusals, withGrab } from "./targets";
 import { landedLayout } from "./targets/edges";
+import { liftIn } from "./targets/filter";
 import type { DropResult, DockRefusal, DockDrop, DockDropOptions } from "./targets/model";
 
 export { SPOT_PITCH };
@@ -337,15 +338,15 @@ function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
 const memo = new WeakMap<DockState, Map<string, Base>>();
 const previousIds = new WeakMap<DockLayout, number>();
 let nextPrevious = 1;
-/** The options as a key: by value, `previous` by identity, a grab function by identity (`grabKey`). */
+/** The options as a key: by value, `previous` by identity, a grab function and a note callback by identity (`grabKey`, `fnKey`). */
 function keyOf(dragged: string, o: DockLaneOptions): string {
-  const { previous, grab, ...rest } = o;
+  const { previous, grab, onGrabNote, ...rest } = o;
   let p = 0;
   if (previous) {
     if (!previousIds.has(previous)) previousIds.set(previous, nextPrevious++);
     p = previousIds.get(previous)!;
   }
-  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}\u0000${JSON.stringify(grabKey(grab))}`;
+  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}\u0000${JSON.stringify(grabKey(grab))}\u0000${fnKey(onGrabNote)}`;
 }
 
 /**
@@ -428,12 +429,12 @@ export function rawSpot(base: Base, id: string): { readonly lane: string; readon
 function build(state: DockState, dragged: string, options: DockLaneOptions): Base {
   const seen = solve(state, options.previous ? { previous: options.previous } : {});
   const { targets: ts, refusals: rs, places } = targetsAndRefusals(state, dragged, options);
-  // (Held, a movable grower is its natural length: `landedLayout`.)
-  const own = landedLayout(state, seen, dragged, options.previous ? { previous: options.previous } : {}).items[dragged];
+  const { own, lift } = liftIn(state, seen, dragged, options.previous ? { previous: options.previous } : {});
   const ownEdge = own && !own.floating && !own.inMenu ? own.edge : undefined;
   const pitch = options.pitch === undefined ? SPOT_PITCH : options.pitch;
-  // The grab as one function over the lift (`grabOf`): what every sliding spot, cut and held frame reads.
-  const lift = liftOf(state, seen, dragged, own?.rect);
+  // The grab as one function over the lift (`grabOf`): what every sliding spot, cut and held frame reads, and the grab
+  // every spot's drop gives (`DropResult.grab`, as `dockDrag`'s held place does).
+  const grab = grabOf(lift, options.grab, options.onGrabNote);
   const raws: Raw[] = [];
   const axisOfEdge = (id: string): Axis => {
     const e = state.edges.find((x) => x.id === id);
@@ -478,6 +479,9 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   } else if (pitch > 0) raws.push(...pitchedSpots(state, dragged, options, seen, lifted, raws, pitch));
   // Over a neighbor itself, the item takes its place and the neighbor gives way, in either mode (`takeoverSpots`).
   raws.push(...takeoverSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH));
+  // Every spot's drop says where it holds the item (`DropResult.grab`): the ones the targets made already do.
+  const reads = (layout: DockLayout): Point => grabIn(grab, layout, dragged, options.grab);
+  raws.forEach((r, i) => (raws[i] = { ...r, target: withGrab(r.target, reads) }));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
   // Panel columns take a panel by halves of the panels drawn; bars and toolbar rails by the gap between landings.
@@ -498,7 +502,6 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   };
   // Where the pointer holds the item along each spot's lane: the grab in the form of each of its end landings (the
   // twin of a press point: along the item's own length its share, across it the middle). Read once per raw spot.
-  const grab = grabOf(lift, options.grab, options.onGrabNote);
   const heldAt = new WeakMap<Raw, readonly [number, number]>();
   const held: Held = (r, end) => {
     let both = heldAt.get(r);

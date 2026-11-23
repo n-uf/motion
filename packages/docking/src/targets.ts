@@ -77,14 +77,14 @@
 import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Point, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
-import { aimOnce, grabKey, grabResolver, sizeOf } from "./grab";
+import { aimOnce, fnKey, grabIn, grabKey, grabOf, grabResolver, sizeOf } from "./grab";
 import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type DockItemLayout, type Zone } from "./model";
 import { solve } from "./solve";
 import { anchorTargets } from "./targets/anchor";
 import { cutsByHalves } from "./aim";
 import { edgeSpec, landedLayout, solveLanded } from "./targets/edges";
-import { context } from "./targets/filter";
+import { context, liftIn } from "./targets/filter";
 import { checkEdgeIds, parseTargetId, targetId } from "./targets/ids";
 import { EDGE_KINDS, edgeKindOf, type EdgeKind } from "./targets/kinds";
 import { meet } from "./targets/meet";
@@ -268,6 +268,49 @@ function alongOfSlots(s: EdgeSpec, tiles: readonly Tile[]): Span[] {
  * item its own zone back, the dragged one too unless the drop named a zone (a gap), and is solved again.
  */
 function generate(state: DockState, dragged: string, options: DockDropOptions): Generated {
+  const g = generateAll(state, dragged, options);
+  // Every drop says where it holds the item (`DropResult.grab`): the float and a sliding spot the grab they aimed with,
+  // every other the grab in the form it lays the item in (`grabIn`, the one reading `dockDrag` makes of a held place).
+  let read: ((layout: DockLayout) => Point) | undefined;
+  const lazy = (layout: DockLayout): Point => (read ??= grabReader(state, dragged, options))(layout);
+  return { ...g, targets: g.targets.map((t) => withGrab(t, lazy)), ...(g.places ? { places: g.places.map((t) => withGrab(t, lazy)) } : {}) };
+}
+
+/**
+ * The grab in the form a layout lays the dragged item in (`grabIn`), as the drag's own grab function reads it (`grabOf`
+ * over the lift of the window as seen): what `dockDrag(...).after(held).grab` is for the same landing. Made at the first
+ * read: a drag that never lands reads no lift.
+ */
+function grabReader(state: DockState, dragged: string, options: DockDropOptions): (layout: DockLayout) => Point {
+  const prev = options.previous ? { previous: options.previous } : {};
+  const grab = grabOf(liftIn(state, solve(state, prev), dragged, prev).lift, options.grab, options.onGrabNote);
+  return (layout) => grabIn(grab, layout, dragged, options.grab);
+}
+
+const grabbed = new WeakSet<DockDrop>();
+
+/**
+ * `drop` with the grab in every result: a result that has one (a float's, a sliding spot's) is given back as it is, any
+ * other is given back with `read` of its layout, once per result. Idempotent.
+ */
+export function withGrab(drop: DockDrop, read: (layout: DockLayout) => Point): DockDrop {
+  if (grabbed.has(drop)) return drop;
+  const made = new WeakMap<DropResult, DropResult>();
+  const out: DockDrop = {
+    ...drop,
+    after: (point, grab) => {
+      const r = drop.after(point, grab);
+      if (r.grab) return r;
+      let g = made.get(r);
+      if (!g) made.set(r, (g = { ...r, grab: read(r.layout) }));
+      return g;
+    },
+  };
+  grabbed.add(out);
+  return out;
+}
+
+function generateAll(state: DockState, dragged: string, options: DockDropOptions): Generated {
   checkEdgeIds(state);
   const { view: shown, lent, rezoned } = viewOf(state);
   if (shown === state) return generateShown(state, dragged, options, []);
@@ -545,7 +588,7 @@ function stopsKey(dragged: string, o: DockDropOptions): string {
     prev = layoutIds.get(o.previous) ?? nextLayoutId++;
     layoutIds.set(o.previous, prev);
   }
-  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, grabKey(o.grab), o.pitch ?? null]);
+  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, grabKey(o.grab), fnKey(o.onGrabNote), o.pitch ?? null]);
 }
 
 function orderedStops(state: DockState, dragged: string, options: DockDropOptions): DockDrop[] {

@@ -1186,7 +1186,7 @@ export function createDocwin(o: DocwinOptions) {
     readonly over: DockDrop | null;
     /**
      * Where the landing `over` stands for holds the item, in the form it shows (`DockAfter.grab`; a target's own
-     * `DropResult.grab` under the published rules), or null where nothing says (a fixed slot under the published rules).
+     * `DropResult.grab` under the published rules: every drop gives one, a fixed slot's too), or null with no landing.
      */
     readonly grab: Point | null;
     readonly sits: Rect | null;
@@ -1316,8 +1316,9 @@ export function createDocwin(o: DocwinOptions) {
   /**
    * A toolbar group held over a target takes the form the drop there gives it (row, wrap, icons down a rail or along a
    * bar); off every target (`over` null), the form it was lifted in. One switch per target change. The form is drawn at
-   * the pointer less the landing's grab (`grab`, `DockAfter.grab`) where the library gives one, so a release lands where
-   * the copy is drawn; else at its grip anchor; the lifted form at the press.
+   * the pointer less the landing's grab (`grab`: `DockAfter.grab`, or the drop's `DropResult.grab`, which every drop
+   * gives, a fixed slot's too), so a release lands where the copy is drawn; the lifted form at the press. A form's grip
+   * anchor only seeds the library's grab function; it is never what the held copy is drawn by.
    */
   function followForm(d: Held, over: DockDrop | null, onlyItem: boolean, grab: Point | null): void {
     const follows = d.kind === "group" || onlyItem ? (over?.id ?? null) : null;

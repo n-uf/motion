@@ -23,8 +23,11 @@ export interface DropResult {
   readonly state: DockState;
   readonly layout: DockLayout;
   /**
-   * Where a drop that lands at the hand (a float, a sliding spot) held the item: the grab it was aimed with, in the
-   * laid rect's own coordinates (`DockGrab`). Absent on every other drop, whose landing the pointer doesn't move.
+   * Where the pointer holds the item in the form the drop lays it in, in the laid rect's own coordinates (`DockGrab`): a
+   * drop that lands at the hand (a float, a sliding spot) says the grab it was aimed with, every other (a fixed slot,
+   * home) the drag's grab read in its landing's form, the reading `dockDrag(...).after(held).grab` makes. Present on
+   * every drop `targets()`, `stops()` and `lanes()` give, so a held copy drawn at the pointer less it lies where the
+   * release lands it. (Absent only on a result that no drop has given yet, as `solve`'s internals hold one.)
    */
   readonly grab?: Point;
 }
@@ -70,8 +73,9 @@ export interface DockDrop extends Target {
   readonly strip?: Rect;
   /**
    * The state a release here commits and its layout, with the pointer at `point` holding the item at `grab` (a point or
-   * a function of the laid form, `DockGrab`; default its middle). Only a float's and a sliding spot's depend on them;
-   * those say the grab they landed with (`DropResult.grab`).
+   * a function of the laid form, `DockGrab`; default its middle). Only a float's and a sliding spot's landing depends on
+   * them; those say the grab they landed with (`DropResult.grab`). Every other drop's `grab` is `DockDropOptions.grab`
+   * read in its landing's form, whatever is passed here.
    */
   after(point: Point, grab?: DockGrab): DropResult;
 }
@@ -101,7 +105,8 @@ export interface DockDropOptions {
   readonly grab?: DockGrab;
   /**
    * Hears a note on a grab function (`DockGrabNote`), once per function: in development a host says it (the library
-   * reaches no console). Read once per lift; it changes no output.
+   * reaches no console). Read once per lift; it changes no output. The memos of `stops()` and `lanes()` are keyed by
+   * the callback's identity, as by the grab function's: pass one stable function for the drag.
    */
   readonly onGrabNote?: (note: DockGrabNote) => void;
   /**
