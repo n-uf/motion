@@ -170,12 +170,32 @@ export interface Tile {
 export interface Generated {
   readonly targets: DockDrop[];
   readonly refusals: DockRefusal[];
-  /** Slots the filter kept, with room in their zone, that end with no hit (none, by the property check). */
+  /**
+   * Slots the filter kept, with room in their zone, that end with no hit. Expected on a bar or a toolbar rail, where the
+   * pointer takes the nearest landing: a gap whose landing is never the nearest has no hit, and is a place all the same
+   * (`places`, so `stops` lists it). Elsewhere none, by the property check.
+   */
   readonly lost: string[];
   /** The lost gaps' drops: places the item lands that no pointer reaches, which `stops` lists all the same. */
   readonly places?: DockDrop[];
   /** Each docked target's zone by id: its tiles with its edge tiled on its own (what it may grow to its minimum in). */
   readonly zones?: ReadonlyMap<string, readonly Rect[]>;
+  /** The sliding ranges the tiles cut places over free room from, per edge (`../slide`): for the property check. */
+  readonly slides?: readonly (TileRange & { readonly edge: string })[];
+}
+
+/**
+ * A place's sliding range as the tiles read it (`slideRange`): its neighbors (none at the edge's ends), its first and
+ * last landing starts, the item at either and the item's length.
+ */
+export interface TileRange {
+  readonly before: string | undefined;
+  readonly after: string | undefined;
+  readonly from: number;
+  readonly to: number;
+  readonly w: number;
+  readonly first: Rect;
+  readonly last: Rect;
 }
 
 /** The context every edge's generator shares. */
