@@ -98,13 +98,13 @@ const FILL_MAX = 32;
  * millisecond after the last frame, or two timestamps of one frame) is the same sample seen twice: its distance over so
  * short a time says nothing about how fast the hand moves, whatever its timestamps' precision.
  */
-export const SAME_SAMPLE = 1;
+const SAME_SAMPLE = 1;
 
 /**
  * The speed over an interval of `dt` ms that covered `distance` px, px/ms: the distance over the time, or `previous`
  * when the interval is shorter than `SAME_SAMPLE` (a repeated point keeps the last step the same way).
  */
-export function speedOver(distance: number, dt: number, previous: number): number {
+function speedOver(distance: number, dt: number, previous: number): number {
   return dt < SAME_SAMPLE ? previous : distance / dt;
 }
 
