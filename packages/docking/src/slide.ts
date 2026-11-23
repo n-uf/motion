@@ -10,7 +10,7 @@
  *   that drop leaves them in. Where that dock pushes a neighbor on a side with no zone of its own (`givesWay`'s
  *   "moves"), that end as the lift leaves it. As the lift leaves it where no such dock lands between the two.
  * - A landing (`slideLand`): a dock keeping the space that puts the item's start at `x0`, in the zone nearer the edge's
- *   middle first, kept where it lands there (within 1 px) between the same two neighbors, every fixed item kept.
+ *   middle first, kept where it lands there (within 1 px) with every fixed item kept (one that steps may step).
  * - The range (`slideRange`): the landings at the room's start, every `sample` px after it and the last start that fits
  *   (`rangeTries`); its ends are the first and the last of them that land.
  */
@@ -189,11 +189,10 @@ export function slideLand(se: SlideEdge, room: SlideRoom, x0: number): SlideLand
     const space = room.spaceAt(zone, x0);
     if (space < -EPS) continue;
     const place: DockPlace = { edge: se.e.id, zone, at: room.atOf(zone), space: Math.max(0, space) };
+    // (Not judged by the neighbors it lands between: a fixed neighbor that steps down for the dock still leaves a start
+    // that a pitched spot lands at, and the range keeps it.)
     const hit = landsAt(se, place, x0);
-    if (!hit) continue;
-    // (It lands there as this place: between the same two neighbors.)
-    const n = neighbors(hit.layout, se.e.id, se.dragged, se.axis);
-    if (n.before === (room.before ?? "^") && n.next === (room.after ?? "$")) return { place, result: { state: hit.next, layout: hit.layout } };
+    if (hit) return { place, result: { state: hit.next, layout: hit.layout } };
   }
   return null;
 }
