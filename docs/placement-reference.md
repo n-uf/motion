@@ -586,10 +586,15 @@ a host picks the held place itself.
   subject leaves its old place first, so the place it lands in is measured and changed without it, and a stack never
   holds it twice. `swap(tree, …)` takes the tree with the subject still in it: a swap exchanges two places, and the
   subject's old place is where the partner goes.
-- **Options.** `ops`, `area`, `min` (the least pane width and height a side drop keeps), the `SplitOptions` the host
+- **A swap with a stack.** A pane swaps with `at` alone, never with the stack `at` stands for: a lone pane swapped with
+  a stack takes the place of its drawn member in it (drawn, as that member was), the stack's other members stay, and
+  the member goes to the pane's old slot. A member torn out of a stack, swapped with a lone pane, leaves that pane in its
+  place in the stack. A whole stack subject trades its slot with `at`'s; two stacks trade places, each whole.
+- **Options.** `ops`, `area`, `min` (the least pane width and height a side, a swap or a join keeps), the `SplitOptions` the host
   lays out with (`gap`, `handle`, `floor`, `fixed`, `fixedAcross`), and `still(pane)` for panes that take no drop.
 - **The subject.** `{ kind: "pane", pane }` (a member of a stack is torn out of it), or `{ kind: "stack", stack }` with
-  the stack as `stackOf` reported it at the lift, so `beside` and `join` have its members after its release.
+  the stack as `stackOf` reported it at the lift, so `beside` and `join` have its members after its release. A subject
+  that is not in the tree (neither drawn nor a member of a drawn stack) throws.
 - **What it gives.** `lift` and `base` (each `{ tree, layout, splits }`: the lift tree, and the tree with the subject
   released, laid out with `layoutSplitTree`); `home`, the gap the release leaves (the subject's lift rect when the
   release takes a drawn pane away, null for a member torn out of a stack that stays drawn); and `after(held)` for
@@ -599,9 +604,10 @@ a host picks the held place itself.
   other pane whose rect differs from the lift's (`{ pane, from, to }`), and the refusal or null. Each held place is
   remembered: the same place gives the same object.
 - **Refusals.** `self`, `still`, `missing`, `join`, `room-along` / `room-across` (`{ need, have }`, px, from
-  `canSplitPane` on `at`'s base rect) and `fit` (`{ pane }`, from `dropFits` on the change's layout). A refused
-  place's `tree` and `layout` are the lift's, `landing` is null and nothing moves: its release commits nothing, and a
-  frame holding it draws the base.
+  `canSplitPane` on `at`'s base rect) and `fit` (`{ pane }`: in the layout a side, a swap or a join makes, the subject
+  or `at` is below `min`, `dropFits`' rule; a swap hands each the other's rect, so either may fall below it). A refused
+  place's `tree` and `layout` are the lift's, `landing` is null and nothing moves: its release commits nothing. For a
+  refused place, draw `base`, not `after().layout`.
 - **The draw rule, for now.** Nothing held, or a refused place: the base. A place held: `after(held).layout`. For a
   swap the subject's old place reopens (the neighbor that grew into it at the lift gives the room back): the partner's
   landing there is `after(swap).layout.get(partner)`, and a host may mark it (the lab draws a tinted wash with ⇄ and the
@@ -609,9 +615,13 @@ a host picks the held place itself.
 - **Conformance.** `tilingConformance(trees, options)` runs the properties (`TILING_PROPERTIES`) on every subject of each
   tree (`tilingSubjects`: each pane alone, each stack whole, each member torn out) and every held place: home is the
   lift tree and the gap; home lies only over panes the release changed; every `after` is its tree laid out; a swap
-  exchanges the two rects and moves nothing else (not checked under per-child callbacks, which may move the ratios);
-  `beside` and `join` commit `normalize(change(release(tree)))`; a whole stack stays together; `normalize` is
-  idempotent on every `after`; and the drag never changes its tree. It returns `{ ok, failures, counts }`.
+  exchanges the two rects and moves nothing else (not checked under per-child callbacks, `fixed`, `fixedAcross` and
+  `floor`, which may move the ratios); a swap trades the two slots of the split, the partner landing in the subject's
+  old one (checked under every option); a pane swapped with a stack keeps the stack's other members in place; the
+  subject is in every tree exactly once (out of the base, and every `after` holds the base's keys and the subject's,
+  none twice, which catches an adapter whose `release` leaves the subject in); `beside` and `join` commit
+  `normalize(change(release(tree)))`; a whole stack stays together; `normalize` is idempotent on every `after`; and the
+  drag never changes its tree. It returns `{ ok, failures, counts }`.
 
 ```ts
 import { splitTreeOps, tilingDrag, type StackedSplit } from "@n-uf/placement/tiling";

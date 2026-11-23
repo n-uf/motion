@@ -150,6 +150,22 @@ describe("tilingDrag: after(held)", () => {
     expect(join.landing).toEqual({ x: 0, y: 0, width: 800, height: 500 });
   });
 
+  it("a lone pane swapped with a stack swaps with its drawn member: the other members stay", () => {
+    const d = tilingDrag(stacked, pane("c"), opts());
+    const s = d.after({ kind: "swap", at: "b" });
+    expect(s.refusal).toBeNull();
+    expect(s.tree.stacks).toEqual([{ id: "s", members: ["c", "x"], active: "c" }]);
+    expect(s.tree.split).toEqual({ axis: "x", ratio: 0.5, a: { pane: "c" }, b: { pane: "b" } });
+    expect(s.layout.get("b")).toEqual(d.lift.layout.get("c"));
+    expect(s.landing).toEqual(d.lift.layout.get("b"));
+  });
+
+  it("a member torn out of a stack, swapped with a lone pane, leaves the partner in its place in the stack", () => {
+    const s = tilingDrag(stacked, pane("x"), opts()).after({ kind: "swap", at: "c" });
+    expect(s.tree.stacks).toEqual([{ id: "s", members: ["b", "c"], active: "b" }]);
+    expect(s.tree.split).toEqual({ axis: "x", ratio: 0.5, a: { pane: "b" }, b: { pane: "x" } });
+  });
+
   it("a member torn out and joined back at its index commits the lift tree's shape", () => {
     const d = tilingDrag(stacked, pane("x"), opts());
     const back = d.after({ kind: "join", at: "b", index: 1 });
@@ -216,6 +232,29 @@ describe("tilingDrag: refusals", () => {
     const d = tilingDrag(three, pane("a"), opts({ ops: sliver, min: 40 }));
     expect(d.after({ kind: "beside", at: "c", side: "right" }).refusal).toEqual({ code: "fit", pane: "a" });
   });
+
+  /** p narrow (80 px) on the left, q and r beside it. */
+  const narrow: StackedSplit<string> = { split: { axis: "x", ratio: 0.1, a: { pane: "p" }, b: { axis: "x", ratio: 0.5, a: { pane: "q" }, b: { pane: "r" } } } };
+
+  it("fit on a swap: each pane takes the other's rect, and the one that lands below min refuses it", () => {
+    // q lifted onto p: q would take p's 80 px.
+    expect(tilingDrag(narrow, pane("q"), opts({ min: 100 })).after({ kind: "swap", at: "p" }).refusal).toEqual({ code: "fit", pane: "q" });
+    // p lifted onto q: p takes q's room, and q would take p's 80 px.
+    expect(tilingDrag(narrow, pane("p"), opts({ min: 100 })).after({ kind: "swap", at: "q" }).refusal).toEqual({ code: "fit", pane: "q" });
+    // With room on both sides the swap stands.
+    expect(tilingDrag(narrow, pane("q"), opts({ min: 60 })).after({ kind: "swap", at: "p" }).refusal).toBeNull();
+  });
+
+  it("fit on a join: judged on the stack's rect in the layout the join makes", () => {
+    // r joined to p: the stack, drawn as r, is p's 80 px.
+    expect(tilingDrag(narrow, pane("r"), opts({ min: 100 })).after({ kind: "join", at: "p" }).refusal).toEqual({ code: "fit", pane: "r" });
+    expect(tilingDrag(narrow, pane("r"), opts({ min: 100 })).after({ kind: "join", at: "q" }).refusal).toBeNull();
+  });
+
+  it("a subject not in the tree is an error", () => {
+    expect(() => tilingDrag(three, pane("zz"), opts())).toThrow(/pane zz\) is not in the tree/);
+    expect(() => tilingDrag(three, { kind: "stack", stack: { id: "gone", members: ["y", "z"], active: "y" } }, opts())).toThrow(/stack gone\) is not in the tree/);
+  });
 });
 
 /** A random tree over panes 0..n-1, some drawn panes standing for a stack of 2..4 members. */
@@ -256,6 +295,30 @@ describe("tilingConformance", () => {
     expect(run.failures).toEqual([]);
     expect(run.counts["swap-exchanges"].checked).toBe(0);
     expect(run.counts["release-first"].checked).toBeGreaterThan(0);
+    // The weaker swap property still runs: the partner lands in the subject's old slot of the split.
+    expect(run.counts["swap-trades-slots"].checked).toBeGreaterThan(0);
+    expect(run.counts["swap-keeps-stack-mates"].checked).toBeGreaterThan(0);
+  });
+
+  it("catches an adapter that does not release: the subject is then in the tree twice", () => {
+    const keeps: TilingTree<StackedSplit<string>, string> = { ...ops, release: (t) => t };
+    const run = tilingConformance([three, stacked], { ops: keeps, area: AREA, min: 10 });
+    expect(run.ok).toBe(false);
+    expect(run.counts["subject-once"].failed).toBeGreaterThan(0);
+  });
+
+  it("catches a swap that drops a stack partner's mates", () => {
+    // A swap with a stack's drawn member that takes the subject into the split and drops the stack's other members.
+    const loses: TilingTree<StackedSplit<string>, string> = {
+      ...ops,
+      swap: (t, s, at) => {
+        const swapped = ops.swap(t, s, at);
+        return s.kind === "pane" && ops.stackOf!(t, at) ? { split: swapped.split } : swapped;
+      },
+    };
+    const run = tilingConformance([stacked], { ops: loses, area: AREA, min: 10 });
+    expect(run.ok).toBe(false);
+    expect(run.counts["swap-keeps-stack-mates"].failed).toBeGreaterThan(0);
   });
 
   it("catches an adapter that breaks a property", () => {

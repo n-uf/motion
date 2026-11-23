@@ -5,7 +5,7 @@
 import { EPS, overlap, type Rect } from "../geometry";
 import { PANE_SIDES } from "./regions";
 import { layoutSplitTree } from "./layout";
-import { panesOf } from "./split";
+import { panesOf, type Split } from "./split";
 import { tilingDrag, type TilingDragOptions, type TilingHeld, type TilingSubject } from "./drag";
 
 /** The properties, by name (each is a key of `TilingConformance.counts`). */
@@ -20,6 +20,16 @@ export const TILING_PROPERTIES = [
   "one-layout",
   /** A swap puts the partner in the subject's lift rect and the subject in the partner's, and the others keep theirs. Not checked under per-child layout callbacks (`fixed`, `fixedAcross`, `floor`), which may move the ratios. */
   "swap-exchanges",
+  /** A swap puts the partner in the subject's old slot of the split (as it is drawn there) and the subject in the partner's. Checked under every option, the per-child callbacks included. */
+  "swap-trades-slots",
+  /** A pane swapped with a stack's drawn member takes its place in that stack, and the stack's other members stay, in order; a member torn out of a stack leaves the partner in its place there. */
+  "swap-keeps-stack-mates",
+  /**
+   * The subject is in every tree exactly once: no key (a drawn pane, or a member of a stack) is in an `after(held).tree`
+   * twice; the base holds none of the subject's members (a torn member's stack mates stay); and every `after(held).tree`
+   * holds the base's keys and the subject's, and no other. Catches an adapter whose `release` leaves the subject in.
+   */
+  "subject-once",
   /** `beside` and `join` commit `normalize(change(release(tree)))`: the subject is released first, then placed. */
   "release-first",
   /** A whole stack moves as one: after any change its members are in one stack, in their order. */
@@ -72,6 +82,29 @@ function copy<V>(v: V): V {
 const near = (a: Rect | undefined | null, b: Rect | undefined | null, by = 0.5): boolean =>
   !!a && !!b && Math.abs(a.x - b.x) <= by && Math.abs(a.y - b.y) <= by && Math.abs(a.width - b.width) <= by && Math.abs(a.height - b.height) <= by;
 
+/** The way from the root of `split` to the pane `key` (`a` and `b` at each split), or null when it is not drawn. */
+function pathOf<K>(split: Split<K> | null, key: K): readonly ("a" | "b")[] | null {
+  if (!split) return null;
+  if ("pane" in split) return split.pane === key ? [] : null;
+  for (const side of ["a", "b"] as const) {
+    const rest = pathOf(split[side], key);
+    if (rest) return [side, ...rest];
+  }
+  return null;
+}
+
+/** The pane at the end of `path` in `split`, or undefined when the path does not end on a pane. */
+function paneAt<K>(split: Split<K> | null, path: readonly ("a" | "b")[]): K | undefined {
+  let node = split;
+  for (const side of path) {
+    if (!node || "pane" in node) return undefined;
+    node = node[side];
+  }
+  return node && "pane" in node ? node.pane : undefined;
+}
+
+const sameList = <K>(a: readonly K[], b: readonly K[]): boolean => a.length === b.length && a.every((k, i) => Object.is(k, b[i]));
+
 const show = (h: TilingHeld<unknown>): string =>
   h.kind === "home" ? "home" : `${h.kind} ${String(h.at)}${h.kind === "beside" ? ` ${h.side}` : h.kind === "join" && h.index !== undefined ? ` @${h.index}` : ""}`;
 
@@ -100,6 +133,10 @@ export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragO
   const lay = (t: T) => layoutSplitTree(ops.split(t), area, options).panes;
   const drawnAs = (t: T, k: K): K => ops.stackOf?.(t, k)?.active ?? k;
   const callbacks = !!(options.fixed || options.fixedAcross || options.floor);
+  /** Every key of `t`: each drawn pane, a stack counted as its members. */
+  const keysOf = (t: T): K[] => panesOf(ops.split(t)).flatMap((p) => ops.stackOf?.(t, p)?.members ?? [p]);
+  /** The keys `keys` holds more than once. */
+  const twice = (keys: readonly K[]): K[] => keys.filter((k, i) => keys.indexOf(k) !== i);
   let n = 0;
   for (const tree of trees) {
     const snapshot = copy(tree);
@@ -115,6 +152,13 @@ export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragO
       const key = subject.kind === "pane" ? subject.pane : subject.stack.active;
       const liftOf = (k: K): Rect | undefined => drag.lift.layout.get(drag.lift.layout.has(k) ? k : drawnAs(tree, k));
       const subjectLift = liftOf(key);
+
+      // The subject, exactly once: out of the base, and in every after's tree beside the base's keys.
+      const members: readonly K[] = subject.kind === "pane" ? [subject.pane] : subject.stack.members;
+      const baseKeys = keysOf(drag.base.tree);
+      const kept = baseKeys.filter((k) => members.includes(k));
+      check("subject-once", kept.length === 0 && twice(baseKeys).length === 0, () => `the base holds ${kept.length ? `the subject's ${kept.map(String).join(", ")}` : `${twice(baseKeys).map(String).join(", ")} twice`}`);
+      const want = new Set<K>([...baseKeys, ...members]);
 
       // Home.
       const home = drag.after({ kind: "home" });
@@ -138,6 +182,14 @@ export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragO
         const a = drag.after(h);
         check("nothing-changes", drag.after(h) === a, () => `${show(h)}: after() gave a new object for the same place`);
         check("normalize-idempotent", sameData(norm(a.tree), a.tree), () => `${show(h)}: normalize changes after().tree`);
+        const keys = keysOf(a.tree);
+        const extra = keys.filter((k) => !want.has(k));
+        const lost = [...want].filter((k) => !keys.includes(k));
+        check(
+          "subject-once",
+          twice(keys).length === 0 && extra.length === 0 && lost.length === 0,
+          () => `${show(h)}: after().tree holds ${[twice(keys).length ? `${twice(keys).map(String).join(", ")} twice` : "", extra.length ? `${extra.map(String).join(", ")} it should not` : "", lost.length ? `no ${lost.map(String).join(", ")}` : ""].filter(Boolean).join("; ")}`,
+        );
         if (a.refusal) {
           check("one-layout", a.tree === tree && a.landing === null && a.moved.length === 0, () => `${show(h)}: refused (${a.refusal!.code}) but not the lift`);
           continue;
@@ -151,6 +203,29 @@ export function tilingConformance<T, K>(trees: Iterable<T>, options: TilingDragO
           const exchanged = near(a.layout.get(partner), subjectLift) && near(a.layout.get(own), liftOf(h.at));
           const others = [...a.layout].every(([p, r]) => p === own || p === partner || near(r, liftOf(p)));
           check("swap-exchanges", exchanged && others, () => `${show(h)}: partner at ${JSON.stringify(a.layout.get(partner))} (subject was ${JSON.stringify(subjectLift)}), subject at ${JSON.stringify(a.layout.get(own))}${others ? "" : ", and another pane moved"}`);
+        }
+        if (h.kind === "swap") {
+          // The slots themselves, which no layout callback moves: the partner where the subject was drawn, and back.
+          const liftSplit = ops.split(tree);
+          const afterSplit = ops.split(a.tree);
+          const subjectSlot = pathOf(liftSplit, drawnAs(tree, key));
+          const partnerSlot = pathOf(liftSplit, h.at);
+          const partnerThere = !!subjectSlot && paneAt(afterSplit, subjectSlot) === drawnAs(a.tree, h.at);
+          const subjectThere = !!partnerSlot && paneAt(afterSplit, partnerSlot) === drawnAs(a.tree, key);
+          check("swap-trades-slots", partnerThere && subjectThere, () => `${show(h)}: ${partnerThere ? "" : `the partner is not in the subject's old slot (${String(subjectSlot && paneAt(afterSplit, subjectSlot))} is)`}${partnerThere || subjectThere ? "" : "; "}${subjectThere ? "" : `the subject is not in the partner's old slot (${String(partnerSlot && paneAt(afterSplit, partnerSlot))} is)`}`);
+          if (subject.kind === "pane" && ops.stackOf) {
+            // Each pane that stood in a stack is replaced there by the other, the stack's other members in place.
+            for (const [from, to] of [
+              [h.at, subject.pane],
+              [subject.pane, h.at],
+            ] as const) {
+              const was = ops.stackOf(tree, from);
+              if (!was) continue;
+              const now = ops.stackOf(a.tree, to);
+              const expect = was.members.map((m) => (m === from ? to : m));
+              check("swap-keeps-stack-mates", !!now && sameList(now.members, expect), () => `${show(h)}: ${String(to)} is in ${now ? `[${now.members.map(String).join(", ")}]` : "no stack"}, expected [${expect.map(String).join(", ")}]`);
+            }
+          }
         }
         if (h.kind === "beside" || h.kind === "join") {
           const released = ops.release(tree, subject);
