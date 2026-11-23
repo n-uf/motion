@@ -25,6 +25,7 @@
  * wiring.
  */
 import { EPS, area, overlaps, subtract, type Point, type Rect } from "@n-uf/placement";
+import { sizeOf } from "./grab";
 import type { DockLayout, DockState } from "./model";
 import { baseOf, drawnIn, marksIn, marksLess, rawSpot, spotsIn, type DockLaneOptions, type DockMark, type DockRegions, type DockSpot, type LaneMarks } from "./lanes";
 import type { DockDrop, DropResult } from "./targets/model";
@@ -53,6 +54,15 @@ export interface DockLaneMark extends DockMark {
 export interface DockAfter extends DropResult {
   /** The held item's rect in `layout`, or null at rest (and where a float can't land). */
   readonly landing: Rect | null;
+  /**
+   * Where the pointer holds the item in the form this held place shows it in (`DockLaneOptions.grab` read in that
+   * form), px from its top-left corner: the held copy is drawn at the pointer less it, at that form's size. Never absent.
+   * A float's and a sliding spot's are the grab they landed with (on a sliding spot only its part along the lane moves
+   * the landing; the part across places the held copy). A fixed spot's is the grab in its landing's form: its landing is
+   * the slot's, so a release glides into it. At rest it is the grab in the item's own form and size, the press point,
+   * which a host seeds its held item with.
+   */
+  readonly grab: Point;
   /** Every lane's marks in `layout`: no two lanes' overlap, none covers an item drawn there or the landing. */
   readonly marks: readonly DockLaneMark[];
   /** A spot's: its lane's spots with their stretches cut in `layout` (along a held lane, the spot ranges as drawn). */
@@ -165,8 +175,15 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   const fixed = new Map<string, DockAfter>();
   const axisOf = new Map(base.lanes.map((l) => [l.id, l.axis] as const));
   const flat = (ls: readonly LaneMarks[]): DockLaneMark[] => ls.flatMap((l) => l.marks.map((m) => ({ ...m, lane: l.lane })));
-  // At rest: the window as seen, its lanes' marks as `lanes()` gives them (one layout, the held item drawn nowhere).
-  const rest: DockAfter = { state, layout: base.seen, landing: null, marks: flat(base.lanes.map((l) => ({ lane: l.id, axis: l.axis, marks: l.marks }))) };
+  /** The grab in the form `layout` lays the item in (where it lays it nowhere, the press, else its corner). */
+  const grabIn = (layout: DockLayout): Point => {
+    const laid = layout.items[dragged];
+    if (laid) return base.grab(laid, sizeOf(laid.rect), laid.floating ? "float" : "lane");
+    return grab && typeof grab !== "function" ? { x: grab.x, y: grab.y } : ORIGIN;
+  };
+  // At rest: the window as seen, its lanes' marks as `lanes()` gives them (one layout, the held item drawn nowhere), and
+  // the grab in the item's own form and size: the press point.
+  const rest: DockAfter = { state, layout: base.seen, landing: null, grab: grabIn(base.seen), marks: flat(base.lanes.map((l) => ({ lane: l.id, axis: l.axis, marks: l.marks }))) };
   /** One float frame remembered: a still pointer solves nothing. */
   let lastFloat: { x: number; y: number; after: DockAfter } | null = null;
 
@@ -176,7 +193,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     const it = result.layout.items[dragged];
     const landing = it && !it.inMenu && (spot ? !it.floating : it.floating) ? it.rect : null;
     const spots = spot ? spotsIn(base, spot.lane, result.layout, dragged) : null;
-    const out: DockAfter = { ...result, landing, marks: flat(marksIn(base, state, dragged, result.layout, spot ? (spot.slide ? "slide" : "spot") : false, options.emptyLanes)), ...(spots ? { spots } : {}) };
+    const out: DockAfter = { ...result, landing, grab: result.grab ?? grabIn(result.layout), marks: flat(marksIn(base, state, dragged, result.layout, spot ? (spot.slide ? "slide" : "spot") : false, options.emptyLanes)), ...(spots ? { spots } : {}) };
     byResult.set(result, out);
     return out;
   };
@@ -232,7 +249,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
   const screenOf = (frame: Pick<DockGuideFrame, "held" | "room">): DockAfter => {
     const held = after(frame.held);
     if (frame.room || held === rest) return held;
-    return held.landing ? { ...rest, landing: held.landing } : rest;
+    return held.landing ? { ...rest, landing: held.landing, grab: held.grab } : rest;
   };
   const shownLayout = (frame: Pick<DockGuideFrame, "held" | "room">): DockLayout => screenOf(frame).layout;
 

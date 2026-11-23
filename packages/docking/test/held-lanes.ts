@@ -3,6 +3,7 @@
  * layout of that state; a sliding spot at its listed landing), the held lane's stretches from `spotsOf`, the rest of the
  * regions as seen. What the tests of a held frame read, through the one-layout API.
  */
+import type { Point } from "@n-uf/placement";
 import { dockDrag, type DockLaneOptions, type DockRegions, type DockState } from "../src";
 
 export function heldLanes(state: DockState, dragged: string, options: DockLaneOptions, spot: string): DockRegions {
@@ -11,7 +12,7 @@ export function heldLanes(state: DockState, dragged: string, options: DockLaneOp
   const sp = lane?.spots.find((s) => s.id === spot);
   if (!lane || !sp) return d.regions;
   // A sliding spot held at its listed landing: the pointer there, holding the item where the press did.
-  const g = options.grab ?? { x: sp.landing.width / 2, y: sp.landing.height / 2 };
+  const g = (options.grab as Point | undefined) ?? { x: sp.landing.width / 2, y: sp.landing.height / 2 };
   const a = d.after({ kind: "spot", spot, point: { x: sp.landing.x + g.x, y: sp.landing.y + g.y } });
   const spots = d.spotsOf(spot);
   return { ...d.regions, lanes: d.regions.lanes.map((l) => ({ ...l, ...(l.id === lane.id && spots ? { spots } : {}), marks: a.marks.filter((m) => m.lane === l.id).map(({ lane: _lane, ...m }) => m) })) };

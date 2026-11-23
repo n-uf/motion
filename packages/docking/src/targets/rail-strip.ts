@@ -13,6 +13,7 @@
  */
 import { EPS, overlaps, rect, subtract, type Point, type Rect } from "@n-uf/placement";
 import { markUsed, moveAmong, type RailPlace } from "../changes";
+import type { DockGrab } from "../grab";
 import { isHandFolded, railColumnOf, railPolicyOf, zoneTakes } from "../helpers";
 import { RAIL_STRIP_MIN } from "../model";
 import { targetId, virtualEdgeId } from "./ids";
@@ -218,7 +219,7 @@ function insideStrips(r: Rect, strips: readonly Strip[]): Rect | null {
 function clearOfStrips(t: DockDrop, dragged: string, strips: readonly Rect[]): DockDrop {
   return {
     ...t,
-    after(point: Point, grab?: Point): DropResult {
+    after(point: Point, grab?: DockGrab): DropResult {
       const first = t.after(point, grab);
       const at = first.layout.items[dragged]?.rect;
       if (!at) return first;
@@ -229,8 +230,9 @@ function clearOfStrips(t: DockDrop, dragged: string, strips: readonly Rect[]): D
         // A strip at the left pushes it right, one at the right pushes it left.
         dx += s.x + s.width / 2 < r.x + r.width / 2 ? s.x + s.width - r.x : s.x - (r.x + r.width);
       }
-      // The pointer that puts the float's left edge where it lands, moved past the strips (the landing may be clamped).
-      return dx === 0 ? first : t.after({ x: at.x + dx + (grab?.x ?? at.width / 2), y: point.y }, grab);
+      // The pointer that puts the float's left edge where it lands, moved past the strips (the landing may be clamped):
+      // the grab it landed with, in its own form.
+      return dx === 0 ? first : t.after({ x: at.x + dx + (first.grab?.x ?? at.width / 2), y: point.y }, grab);
     },
   };
 }

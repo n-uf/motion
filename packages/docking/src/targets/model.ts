@@ -5,7 +5,8 @@
 import { EPS, type Point, type Rect, type Size } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import type { ColumnPlace, RailPlace } from "../changes";
-import type { DockEdge, Orient, DockState, DockLayout, Side, SolveOptions, Zone } from "../model";
+import type { DockGrab, Grab, Lift } from "../grab";
+import type { DockEdge, Orient, DockState, DockLayout, DockItemLayout, Side, SolveOptions, Zone } from "../model";
 import type { LayKey } from "../solve";
 import type { EdgeKind } from "./kinds";
 
@@ -21,6 +22,11 @@ export type DropPlace =
 export interface DropResult {
   readonly state: DockState;
   readonly layout: DockLayout;
+  /**
+   * Where a drop that lands at the hand (a float, a sliding spot) held the item: the grab it was aimed with, in the
+   * laid rect's own coordinates (`DockGrab`). Absent on every other drop, whose landing the pointer doesn't move.
+   */
+  readonly grab?: Point;
 }
 
 export interface DockDrop extends Target {
@@ -62,8 +68,12 @@ export interface DockDrop extends Target {
   readonly marker?: Rect;
   /** A rail target under a kind's `DockState.railDrop` policy: the side's whole drop strip, for the host to draw. */
   readonly strip?: Rect;
-  /** The state a release here commits and its layout. Only a float's depends on the pointer. */
-  after(point: Point, grab?: Point): DropResult;
+  /**
+   * The state a release here commits and its layout, with the pointer at `point` holding the item at `grab` (a point or
+   * a function of the laid form, `DockGrab`; default its middle). Only a float's and a sliding spot's depend on them;
+   * those say the grab they landed with (`DropResult.grab`).
+   */
+  after(point: Point, grab?: DockGrab): DropResult;
 }
 
 export interface DockDropOptions {
@@ -83,11 +93,12 @@ export interface DockDropOptions {
   /** As `solve`'s: edge or item ids solved without `previous`, in every `after` too. */
   readonly fresh?: readonly string[];
   /**
-   * Where the pointer holds the item, from its top left corner as it is now, px (what a target's `after(point, grab)`
-   * takes): the press's, constant for the drag. On a bar or a toolbar rail, where the landings either side of a neighbor
-   * overlap, the tiles are cut there by it, as `lanes()` cuts its spots (`aimCut`); default the item's middle.
+   * Where the pointer holds the item (what a target's `after(point, grab)` takes): a point, px from its top left corner as
+   * it is now (the press's), or a function of the form it is laid in and its size there (`DockGrab`), constant for the
+   * drag. On a bar or a toolbar rail, where the landings either side of a neighbor overlap, the tiles are cut between the
+   * points the pointer holds in each, as `lanes()` cuts its spots (`aimCut`); default the item's middle.
    */
-  readonly grab?: Point;
+  readonly grab?: DockGrab;
   /**
    * The pitch of a bar's free-stretch spots, px (default `SPOT_PITCH`), as `DockLaneOptions.pitch`: half of it is how far
    * past the overlap of two overlapping landings their cut may lie (`aimCut`), for the tiles and the lanes alike.
@@ -226,8 +237,11 @@ export interface Ctx {
   readonly sound: (after: DockLayout) => boolean;
   /** Where `solve` lays each edge of the state out. */
   readonly lay: ReadonlyMap<string, LayKey>;
-  /** Where the pointer holds the item, as a share of its width and height (`grabShare` of `options.grab`). */
-  readonly share: { readonly x: number; readonly y: number };
+  /** What the grab reads of the lift (the twin's base), and `options.grab` as the one function (`grabOf`). */
+  readonly lift: Lift;
+  readonly grab: Grab;
+  /** The item as a drop counts it at the lift (a movable grower at its natural length): home's landing entry. */
+  readonly own?: DockItemLayout;
   /** How far past two overlapping landings' overlap their cut may lie, px: half the pitch (`aimSlack`). */
   readonly slack: number;
   /**

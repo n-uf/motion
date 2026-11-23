@@ -4,7 +4,8 @@
  */
 import { overlaps } from "@n-uf/placement";
 import { formMain, itemSteps } from "@n-uf/placement/stack";
-import { aimSlack, grabShare } from "../aim";
+import { aimSlack } from "../aim";
+import { grabOf, liftOf } from "../grab";
 import { liftItem, prune } from "../changes";
 import { axisOf, keepClearFor, formsOf, isHandFolded, withoutBarGrowth, zoneOf } from "../helpers";
 import { ZONES, type DockEdge, type DockState, type DockItem, type DockLayout, type SolveOptions } from "../model";
@@ -87,6 +88,9 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
   const base = solve(rest, prev);
   // Every drop prunes the dynamic columns left empty: the place the item is in now counts without them too.
   const here = placeKey(prune(state), dragged);
+  // (Held, a movable grower is its natural length, as `lanes()` reads the grab: `landedLayout`.)
+  const own = landedLayout(state, now, dragged, prev).items[dragged];
+  const lift = liftOf(state, now, dragged, own?.rect);
   const c: Ctx = {
     state,
     others,
@@ -102,8 +106,9 @@ export function context(state: DockState, dragged: string, options: DockDropOpti
     isHome: (r) => placeKey(r.state, dragged) === here,
     sound: soundness(state, base, dragged),
     lay: layKeys(state),
-    // (Held, a movable grower is its natural length, as `lanes()` reads the grab: `landedLayout`.)
-    share: grabShare(landedLayout(state, now, dragged, prev).items[dragged]?.rect, options.grab),
+    lift,
+    grab: grabOf(lift, options.grab),
+    ...(own ? { own } : {}),
     slack: aimSlack(options.pitch),
     slideRanges: new Map(),
   };
