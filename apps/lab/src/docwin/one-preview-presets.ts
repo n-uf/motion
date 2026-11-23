@@ -35,6 +35,12 @@ const PANEL: ItemId = "notes";
 const SETTLE = 900;
 const AIM = 0.8;
 const FAST = 1.5;
+/**
+ * 24 px a 60 Hz frame (1440 px/s), the speed the kit labs report early releases at: under the landing model's `slideSpeed`
+ * (2 px/ms), so not a fling, and far over its `stepSpeed` (0.375 px/ms), so no slow path or still step. Used by the rail's
+ * early-release case only (`FAST` stays 1.5 px/ms for the others).
+ */
+const FLICK_24 = 1.44;
 
 const say = (r: Rect | null | undefined): string => (r ? `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}×${Math.round(r.height)}` : "nothing");
 const shownAtRelease = (t: DragTrace): Rect | null => t.frames.at(-1)?.item ?? null;
@@ -406,32 +412,28 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
         said.push(`${EMPTY_BAR.name}: floats at ${say(landed?.rect)}`);
       },
     ),
-    // (with no expectation yet: it reports what a release gives and stays pending until the rule for this speed is set)
-    {
-      id: "one-preview-early-release-rail-24px",
-      title: "A toolbar flicked at 24 px a frame onto the empty left window-edge rail: let go at once, and after 80 ms at rest",
-      expected:
-        "Not set yet. A toolbar driven at 1.5 px/ms (24 px a 16 ms frame) to the empty left window-edge rail's place and let go at once, then again resting 80 ms there first: the case reports where each release puts it (a float, home, or the rail) and the rect drawn at the release.",
-      lacks: "the early-release rule at 24 px a frame onto an empty rail: float, home or the rail",
-      pending: true,
-      setup: fresh,
-      check(c) {
-        const said: string[] = [];
+    // (the toolbar starts as a float in the top bar's band, not docked in it: no lane is held, so the landing model's lane-to-lane
+    // slide never applies; a fast hand enters no lane, and the last place it passed was the columns' refused band)
+    preset(
+      "one-preview-early-release-rail-24px",
+      "A toolbar flicked at 24 px a frame onto the empty left window-edge rail: at once it goes home, after 80 ms at rest it docks",
+      "A toolbar (a float) driven at 1.44 px/ms (24 px a 60 Hz frame) to the empty left window-edge rail's place and let go at once: no lane was entered (the hand is over the step limit of the slow path and of the still step, and the last place it passed was the columns' refused band), so the release lands nowhere and the toolbar goes home, staying a float. Resting 80 ms there first (past the 60 ms the hand needs after a fast step) enters the rail, and the release docks it there.",
+      (c, bad, said) => {
         const rail = PLACES[2]!;
-        for (const [name, ms] of [["let go at once", 0], ["rested 80 ms", 80]] as const) {
-          const r = go(c, rail, FAST, ms);
-          if (!r) {
-            said.push(`${name}: no empty left window-edge rail here`);
-            continue;
-          }
-          const it = c.layout.items[rail.id];
-          const where = !r.drop?.committed ? "home" : it?.floating ? "a float" : `the ${it?.edge ?? "?"} edge`;
-          said.push(`${name}: ${where} at ${say(it?.rect)}, drawn at the release ${say(shownAtRelease(r.trace))}`);
+        const once = go(c, rail, FLICK_24, 0);
+        if (!once) {
+          bad.push(`${rail.name}: no empty left window-edge rail here`);
+          return;
         }
-        // (never a pass while it has no expectation)
-        return { pass: false, now: `${said.join("; ")}.` };
+        const home = c.layout.items[rail.id];
+        if (once.drop?.committed || !home?.floating) bad.push(`let go at once it landed on ${once.drop?.target ?? "nothing"}, not home as a float`);
+        said.push(`let go at once: home, still a float at ${say(home?.rect)}`);
+        const rested = go(c, rail, FLICK_24, 80);
+        const it = rested && c.layout.items[rail.id];
+        if (!rested?.drop?.committed || it?.floating || it?.edge !== "rail-left") bad.push(`rested 80 ms it landed on ${rested?.drop?.target ?? "nothing"} (${it?.floating ? "a float" : (it?.edge ?? "nowhere")}), not the left rail`);
+        said.push(`rested 80 ms: docks on ${it?.edge ?? "?"} at ${say(it?.rect)}`);
       },
-    },
+    ),
     preset(
       "one-preview-over-docked",
       "Over another panel's body a panel docks by halves; only content that takes no drop returns it",
