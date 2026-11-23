@@ -405,16 +405,16 @@ export function tileEdge(c: Ctx, spec: EdgeSpec, { cuts, bodies }: Room, lost: s
     const cutOf = (p: readonly Stretch[], q: readonly Stretch[]): number => aimCut(facing(p, true), facing(q, false), axis, c.share[axis], c.slack);
     // A place whose cut after it would lie before its cut before it is nearer no pointer: it is left out of the cutting
     // (its neighbors cut between themselves) and has no stretch, as in `lanes()`. (Never home's.) The rest in order and
-    // within the band the places' stretches span, from the first place's start to the last place's end, as `lanes()`
-    // keeps its cuts within its lane's band.
-    const bandStart = runs.length ? Math.min(...runs[0]!.map((r) => r.a)) : -Infinity;
-    const bandEnd = runs.length ? Math.max(...runs.at(-1)!.map((r) => r.b)) : Infinity;
+    // within the edge as drawn, as `lanes()` keeps its cuts within its lane's band. (Not within the places' zone pieces:
+    // a cut between two landings may lie over a growing neighbor's slack, which the landings either side reach.)
+    const bandStart = ends?.[0] ?? -Infinity;
+    const bandEnd = ends?.[1] ?? Infinity;
     const cuts = crossFreeCuts(runs.length, (i, j) => cutOf(runs[i]!, runs[j]!), (i) => runs[i]!.some((x) => x.s.home), bandStart, bandEnd);
     const spans: Span[] = [];
     runs.forEach((run, i) => {
       // The place's stretch: from the cut before it to the cut after it (its slots' pieces at the edge's ends).
-      const cp = i > 0 ? cuts[i - 1]! : bandStart;
-      const cn = i + 1 < runs.length ? cuts[i]! : bandEnd;
+      const cp = i > 0 ? cuts[i - 1]! : Math.min(...run.map((r) => r.a));
+      const cn = i + 1 < runs.length ? cuts[i]! : Math.max(...run.map((r) => r.b));
       for (const r of run) [r.a, r.b] = [Math.min(Math.max(r.a, cp), cn), Math.max(Math.min(r.b, cn), cp)];
       // (The own interval is laid as home's own tile below, over what its stretch keeps here.)
       const held = run.filter((r) => r.b - r.a > EPS).sort((p, q) => p.a - q.a);

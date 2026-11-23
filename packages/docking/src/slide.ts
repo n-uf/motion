@@ -190,7 +190,10 @@ export function slideLand(se: SlideEdge, room: SlideRoom, x0: number): SlideLand
     if (space < -EPS) continue;
     const place: DockPlace = { edge: se.e.id, zone, at: room.atOf(zone), space: Math.max(0, space) };
     const hit = landsAt(se, place, x0);
-    if (hit) return { place, result: { state: hit.next, layout: hit.layout } };
+    if (!hit) continue;
+    // (It lands there as this place: between the same two neighbors.)
+    const n = neighbors(hit.layout, se.e.id, se.dragged, se.axis);
+    if (n.before === (room.before ?? "^") && n.next === (room.after ?? "$")) return { place, result: { state: hit.next, layout: hit.layout } };
   }
   return null;
 }
