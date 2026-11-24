@@ -113,15 +113,11 @@ Record: [0010](decisions/0010-three-layouts.md) (in progress).
 ## The two drag models and how each geometry maps onto them
 
 `@n-uf/motion/drag` has two models, for two kinds of target. Both are pure (a point and a time in, a frame out), both
-take `release(point, time)`, and `previewPlan` reads a frame of either. One model decides a drag, and both follow one
-release rule: a release reads the last frame and lands the place it holds, else home; a frame draws its held place and
-nothing else ([0015](decisions/0015-one-release-rule.md)). The two still differ in what makes a frame hold a place (the
-intent's aim, the landing model's entry gates), by design.
+take `release(point, time)`, and `previewPlan` reads a frame of either.
 
 - **The drag intent** (`createDragIntent`) works on a flat list of `DragTarget` rects, each with a priority: the most
-  precise target under the pointer wins, an aiming gate keeps a fast pass from showing anything (the float excepted: it
-  is held at any speed), hysteresis and a switch hold keep the shown target steady, and `placeOf` names the place within
-  a target. A release lands on the shown target (the frame's held place), else home.
+  precise target under the pointer wins, an aiming gate keeps a fast pass from showing anything, hysteresis and a switch
+  hold keep the shown target steady, and `placeOf` names the place within a target. A release lands on the shown target.
 - **The landing model** (`createLandingModel`) works on regions: lanes, each with its spots in order. It holds a lane and
   a spot (gates on entry, a margin on every change, the hand rule for how far the landing may trail the pointer), names
   the held place and the guides to show, and reads every rect from a `LandingGeometry`: `regions`, `landingOf(held)` and
@@ -154,4 +150,3 @@ intent's aim, the landing model's entry gates), by design.
 | [0012](decisions/0012-one-zone-map-per-tiling-drag.md) | One zone map per tiling drag, and swap-only run neighbors. | Built (the hit half), on `live/motion` |
 | [0013](decisions/0013-grab-as-a-function-of-the-form.md) | The grab is a function of the form the item is laid in; a plain point is the library's twin of it. | Built, on `live/motion` |
 | [0014](decisions/0014-a-frame-gap-is-not-a-rest.md) | A frame gap is not a rest: the hand carries on through frames the host lost. | In progress |
-| [0015](decisions/0015-one-release-rule.md) | One release rule for both drag models: a release reads the last frame and lands the place it holds, else home; a frame draws its held place and nothing else. | In progress |

@@ -169,10 +169,8 @@ describe("drag/ intent", () => {
       400,
     );
     const r = drive(keys, DOCK, HOME);
-    // The float needs no aim: it is held while it is the pick on the way (the area); the slots only once aimed at.
-    expect(shows(r.log).some((e) => e.t < arrival && e.id === "area")).toBe(true);
-    expect(shows(r.log).filter((e) => e.t < arrival && e.id !== "area")).toEqual([]);
-    expect(shows(r.log).filter((e) => e.id !== "area").map((e) => e.id)).toEqual(["slot-b"]);
+    expect(shows(r.log).filter((e) => e.t < arrival)).toEqual([]);
+    expect(shows(r.log).map((e) => e.id)).toEqual(["slot-b"]);
     expect(r.landed).toBe("slot-b");
   });
 
@@ -185,8 +183,7 @@ describe("drag/ intent", () => {
       keys.push([t, border.x, border.y + (i % 2 ? -14 : 14)]);
     }
     const r = drive(hold(keys, 400), DOCK, HOME);
-    // The float held on the way there (the area, at any speed) is not the wobble's.
-    expect(shows(r.log).filter((e) => e.id !== "area").length - 1).toBeLessThanOrEqual(1);
+    expect(shows(r.log).length - 1).toBeLessThanOrEqual(1);
     expect(flashes(r.log)).toEqual([]);
   });
 
@@ -213,9 +210,7 @@ describe("drag/ intent", () => {
     const stop = { x: 100, y: 215 };
     const keys = hold(through([FROM, { x: 100, y: 120 }, stop], 2.5), 300);
     const r = drive(keys, DOCK, HOME);
-    // Only the float, held while it is the pick on the way (the area), at any speed.
-    expect(shows(r.log).filter((e) => e.id !== "area")).toEqual([]);
-    expect(r.landed).toBeNull();
+    expect(shows(r.log)).toEqual([]);
   });
 
   it("after a hide, the first sample never counts as aiming", () => {
@@ -234,19 +229,18 @@ describe("drag/ intent", () => {
     expect(g.shown).toBeNull();
   });
 
-  it("the same release point reached by two paths lands what each last frame holds: home before it shows, the same target once it does", () => {
+  it("the same release point reached by two paths lands on the same target", () => {
     const end = mid(A.hit);
     const straight = drive(hold(through([FROM, end], 0.8), 500), DOCK, HOME);
-    // By way of the free area (aimed at until it showed), then a flick to the same point.
-    const flick = then(hold(through([FROM, { x: 500, y: 200 }], 0.8), 500), (t0) => through([{ x: 500, y: 200 }, end], 2.5, t0));
-    const onArrival = drive(flick, DOCK, HOME);
-    const aimed = drive(hold(flick, 200), DOCK, HOME);
-    expect(onArrival.log.some((e) => e.id === "area")).toBe(true);
+    // By way of the free area (aimed at until it showed), then a flick to the same point, let go on arrival.
+    const detour = drive(
+      then(hold(through([FROM, { x: 500, y: 200 }], 0.8), 500), (t0) => through([{ x: 500, y: 200 }, end], 2.5, t0)),
+      DOCK,
+      HOME,
+    );
+    expect(detour.log.some((e) => e.id === "area")).toBe(true);
     expect(straight.landed).toBe("slot-a");
-    // Let go on arrival the slot does not show yet: nothing is held, the item goes home. Held a moment, the same slot.
-    expect(onArrival.frames.at(-1)!.shown).toBeNull();
-    expect(onArrival.landed).toBeNull();
-    expect(aimed.landed).toBe(straight.landed);
+    expect(detour.landed).toBe(straight.landed);
   });
 
   it("a release inside the shown target's band lands on it, not on the neighbour under the pointer", () => {
@@ -549,8 +543,7 @@ describe("drag/ previews", () => {
     const frames = plans(mid(A.hit), "glide");
     expect(frames.every((f) => f.plan.makeRoom === f.room && f.plan.snapItem === f.room)).toBe(true);
     expect(frames.some((f) => f.plan.snapItem)).toBe(true);
-    // Only the float held on the way (the area, at any speed: it has no slot) draws an indicator.
-    expect(frames.some((f) => f.plan.showIndicator && f.shown !== "area")).toBe(false);
+    expect(frames.some((f) => f.plan.showIndicator)).toBe(false);
   });
 
   it("snap: the item is the only preview: no indicator on any target, it snaps once the room is open", () => {
@@ -1121,7 +1114,7 @@ describe("drag/ a target that opens its room", () => {
     expect([away.shown, away.room]).toEqual([null, false]);
   });
 
-  it("before it shows, it is not held and a release goes home; a float shown before it gives way at once", () => {
+  it("before it shows, a release lands on it; a float shown before it gives way at once", () => {
     const intent = start();
     let t = 0;
     intent.update({ x: 650, y: 15 }, t, [rail, float]);
@@ -1131,11 +1124,6 @@ describe("drag/ a target that opens its room", () => {
     f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
     f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
     expect([f.shown, f.room]).toEqual([null, false]);
-    // The release reads that frame: nothing held, so home (it used to land on the rail under the pointer, not drawn).
-    expect(intent.release({ x: 20, y: 400 }, t, [rail, float])).toBeNull();
-    // Held until it shows, the rail is held, drawn with its room, and the release lands there.
-    for (let k = 0; k < 12; k++) f = intent.update({ x: 20, y: 400 }, (t += 16), [rail, float]);
-    expect([f.shown?.id, f.room]).toEqual([rail.id, true]);
     expect(intent.release({ x: 20, y: 400 }, t, [rail, float])?.id).toBe(rail.id);
   });
 
@@ -1149,7 +1137,7 @@ describe("drag/ a target that opens its room", () => {
     expect(roomAt!.t).toBe(first!.t);
   });
 
-  it("a release lands what the frame holds: home before an opensRoom target shows, a shown target with no room yet, and the float", () => {
+  it("a release before the room is open lands on the target under the pointer, shown or not", () => {
     const slotted: DragTarget = { ...rail, slot: rect(0, 0, 40, 800) };
     const plain: DragTarget = { ...gap, slot: rect(100, 300, 200, 40) };
     const refused: DragTarget = { id: "refuse:bar", priority: 2, hit: rect(300, 700, 200, 40), refuse: true };
@@ -1164,20 +1152,10 @@ describe("drag/ a target that opens its room", () => {
     };
     const onRail = { x: 20, y: 400 };
     const onGap = { x: 200, y: 320 };
-    // Before the `opensRoom` target shows (2 frames) nothing is held: home (it used to land on the rail, not drawn). A
-    // gap not shown yet (6 frames, before the dwell) is not held either: home (it used to land there). Shown with no
-    // room yet (8 frames) it is held: it lands there.
-    expect([at(onRail, 2), at(onGap, 6), at(onGap, 8)]).toEqual([null, null, plain.id]);
-    // Settled, both land there; a refusal lands nowhere; a place with no slot is itself once it shows (2 frames is
-    // before the aim: home), and open space is the float at once.
-    expect([at(onRail, 20), at(onGap, 30), at({ x: 400, y: 720 }, 2), at({ x: 650, y: 350 }, 2), at({ x: 650, y: 350 }, 20), at({ x: 800, y: 600 }, 2)]).toEqual([
-      slotted.id,
-      plain.id,
-      null,
-      null,
-      "none:0",
-      "float",
-    ]);
+    // Before the `opensRoom` target shows (2 frames), and on a gap shown with no room yet (6 frames).
+    expect([at(onRail, 2), at(onGap, 6)]).toEqual([slotted.id, plain.id]);
+    // Settled, it lands there too; a refusal lands nowhere, and a place with no slot is itself.
+    expect([at(onRail, 20), at(onGap, 30), at({ x: 400, y: 720 }, 2), at({ x: 650, y: 350 }, 2)]).toEqual([slotted.id, plain.id, null, "none:0"]);
   });
 
   it("a target without it is unchanged: it shows first, its room follows after roomAfter", () => {
@@ -1292,14 +1270,14 @@ describe("drag/ a release beyond a refusal", () => {
   const list = [column, float];
   const start = () => createDragIntent<DragTarget>({ home: rect(4, 40, 236, 34), lift: { x: 8, y: 44 } });
 
-  it("a release beyond a crossed refusal lands on the float, held from the first frame past the refusal", () => {
+  it("a release beyond a crossed refusal lands on what is under the pointer, no target shown", () => {
     const intent = start();
     let t = 0;
-    // Fast, from the grip across the column (refused), out to the open space: the float is held there at once.
+    // Fast, from the grip across the column (refused), out to the open space: no target ever shows.
     for (const x of [8, 60, 120, 180, 230]) expect(intent.update({ x, y: 260 }, (t += 16), list).refused?.id).toBe("refuse:column");
     for (const x of [300, 520]) {
       const f = intent.update({ x, y: 260 }, (t += 16), list);
-      expect([f.shown?.id, f.refused]).toEqual(["float", null]);
+      expect([f.shown, f.refused]).toEqual([null, null]);
     }
     expect(intent.release({ x: 520, y: 260 }, t, list)?.id).toBe("float");
   });
@@ -1320,18 +1298,17 @@ describe("drag/ a release beyond a refusal", () => {
       seen.push(f.refused?.id ?? (f.shown ? `shown ${f.shown.id}` : "-"));
     }
     expect(seen.includes("refuse:left-0:start")).toBe(true);
-    // Nothing but the float is held, and the float only past the tile: the frame holds it at any speed.
-    expect(seen.filter((s) => s.startsWith("shown")).every((s) => s === "shown float")).toBe(true);
-    expect([f.shown?.id, f.refused]).toEqual(["float", null]);
+    expect(seen.some((s) => s.startsWith("shown"))).toBe(false);
+    expect([f.shown, f.refused]).toEqual([null, null]);
     expect(intent.release({ x: 520, y: 260 }, t, all)?.id).toBe("float");
   });
 
-  it("changes nothing else: past a refusal at speed only the float is held, from its first frame (the aim gate is kept for the rest)", () => {
+  it("changes nothing else: no indicator flashes after a refusal (the aim gate is kept)", () => {
     const intent = start();
     let t = 0;
     const shown: (string | null)[] = [];
     for (const x of [8, 60, 120, 180, 230, 260, 300, 340, 380]) shown.push(intent.update({ x, y: 260 }, (t += 16), list).shown?.id ?? null);
-    expect(shown).toEqual([null, null, null, null, null, "float", "float", "float", "float"]);
+    expect(shown.every((s) => s === null)).toBe(true);
   });
 });
 
@@ -1364,14 +1341,14 @@ describe("drag/ bounds: the intent clamps the pointer onto the drawn space", () 
   const gap: DragTarget = { id: "gap", priority: 2, hit: rect(1088, 418, 312, 382) };
   const float: DragTarget = { id: "float", priority: 3, hit: rect(-1e9, -1e9, 2e9, 2e9), free: true, bounds: stage };
   const list = [gap, float];
-  /** Held at `p` for 20 frames; the frames' held place, and the release. */
+  /** Held at `p` for 20 frames; the frames' shown and landing, and the release. */
   const held = (p: Point, withBounds: boolean, clampFirst = false) => {
     const intent = createDragIntent<DragTarget>({ home: rect(100, 100, 100, 50), ...(withBounds ? { bounds: stage } : {}) });
     const q = clampFirst ? { x: Math.min(Math.max(p.x, 0), 1400), y: Math.min(Math.max(p.y, 0), 800) } : p;
     let t = 0;
     let f = intent.update({ x: 150, y: 125 }, t, list);
     for (let k = 0; k < 20; k++) f = intent.update(q, (t += 16), list);
-    return [f.shown?.id ?? null, intent.release(q, t, list)?.id ?? null];
+    return [f.shown?.id ?? null, f.landing?.id ?? null, intent.release(q, t, list)?.id ?? null];
   };
 
   it("a pointer past the window picks as one the host clamped exactly onto the edge", () => {
@@ -1389,40 +1366,13 @@ describe("drag/ bounds: the intent clamps the pointer onto the drawn space", () 
     intent.setBounds(stage);
     for (let k = 0; k < 20; k++) intent.update({ x: 1200, y: 600 }, (t += 16), list);
     expect(intent.state.shown?.id).toBe("gap");
-    // Released at a new point with no update there: it counts as a sample, so the jump leaves the gap first and the
-    // frame holds the float there (it needs no aim), which the release lands.
+    // Released at a new point with no update there: it counts as a sample, so the jump hides the indicator first.
     expect(intent.release({ x: 600, y: 300 }, (t += 16), list)?.id).toBe("float");
-    expect(intent.state.shown?.id).toBe("float");
+    expect(intent.state.shown).toBeNull();
   });
 });
 
-describe("drag/ a release with other keys than the last frame's is one more sample", () => {
-  it("a float key pressed after the last frame floats; let go after it, the shown slot lands again", () => {
-    const aimed = () => {
-      const intent = createDragIntent<DragTarget>({ home: HOME });
-      let t = 0;
-      for (const p of [FROM, mid(A.hit)]) for (let i = 0; i < 40; i++, t += FRAME) intent.update(p, t, DOCK);
-      return { intent, t };
-    };
-    const a = aimed();
-    expect(a.intent.state.shown?.id).toBe("slot-a");
-    // Same point, no frame in between: the key held at the release still counts.
-    expect(a.intent.release(mid(A.hit), a.t, DOCK, { shift: true })?.id).toBe("area");
-    expect(a.intent.state.shown?.id).toBe("area");
-    const b = aimed();
-    b.intent.update(mid(A.hit), b.t, DOCK, { shift: true });
-    expect(b.intent.state.shown?.id).toBe("area");
-    // The key let go before the release, at the same point: the slot under the pointer, aimed at, is held again.
-    expect(b.intent.release(mid(A.hit), b.t + FRAME, DOCK)?.id).toBe("slot-a");
-    // The same keys at the same point (a key not held is none held): the last frame stands, no new sample.
-    const c = aimed();
-    const before = c.intent.state;
-    expect(c.intent.release(mid(A.hit), c.t + 500, DOCK, { alt: false })?.id).toBe("slot-a");
-    expect(c.intent.state).toEqual(before);
-  });
-});
-
-describe("drag/ the frame's held place is what a release there lands on", () => {
+describe("drag/ frame.landing is what a release there lands on", () => {
   it("on every frame of sweeps across docks, a rail, the float and a refusal, with and without Shift", () => {
     const refusal: DragTarget = { id: "refuse:x", priority: 2, hit: rect(250, 0, 60, 200), refuse: true };
     const roomy: DragTarget = { ...A, slot: rect(0, 0, 200, 100), opensRoom: true };
@@ -1436,7 +1386,7 @@ describe("drag/ the frame's held place is what a release there lands on", () => 
         for (let t = 0; t <= keys.at(-1)![0] + 300; t += FRAME) {
           const p = along(keys, t);
           const f = intent.update(p, t, list, keysHeld);
-          expect([t, f.shown?.id ?? null]).toEqual([t, intent.release(p, t, list, keysHeld)?.id ?? null]);
+          expect([t, f.landing?.id ?? null]).toEqual([t, intent.release(p, t, list, keysHeld)?.id ?? null]);
           frames++;
         }
       }
