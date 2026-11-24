@@ -7,7 +7,7 @@
   sampling above 1 kHz) the first one that lies 1 ms or more past the newest held is read over its whole interval, so
   the step and the speed follow the hand: a fling and then a slow creep, both sampled every 0.5 ms, reads slow once the
   creep has lasted the span, and a slide enters a touching lane at 2 and 8 kHz as it does at 1 kHz. A sample stamped
-  before the newest one held (an event's time against a frame's; the times of one drag are expected from one clock) is
-  left out the same way, however far behind: one late stamp changes nothing. Only a run of such samples that starts 40 ms
-  or more behind and goes on for 20 ms with no in-order sample between is a clock that stepped back, and the hand
-  starts again from the sample that ends it.
+  before the newest one held (the times of one drag are expected never to go back) is left out the same way, however
+  far behind: one late stamp changes nothing. Two of them, both 40 ms or more behind and 20 ms or more apart, with no
+  in-order sample or repeated frame between, are taken for a clock that stepped back, and the hand starts again from the
+  second (two late stamps that far behind and apart restart it though the clock did not step).
