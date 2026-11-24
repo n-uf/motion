@@ -43,7 +43,7 @@ describe("the rows", () => {
   });
 
   it("cover every lab case and every kit gesture", () => {
-    const want = [..."123456789"].flatMap((n) => [`C${n}`]).concat(["C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19", "C20", "C21", "C22", "C23", "C24", "C25", "C25b", "C26a", "C26b", "C27", "C28", "C29", "C23b", "C14b", "T1", "T2-T4", "T3", "T5", "T6", "N1", "N2", "G1", "G2"]);
+    const want = Array.from("123456789").flatMap((n) => [`C${n}`]).concat(["C10", "C11", "C12", "C13", "C14", "C15", "C16", "C17", "C18", "C19", "C20", "C21", "C22", "C23", "C24", "C25", "C25b", "C26a", "C26b", "C27", "C28", "C29", "C23b", "C14b", "T1", "T2-T4", "T3", "T5", "T6", "N1", "N2", "G1", "G2"]);
     for (const id of want) expect(caseById(id), id).toBeDefined();
     const gestures = CASES.filter((c) => c.group === "gestures").map((c) => c.id.split("-")[0]);
     for (let n = 1; n <= 15; n++) expect(gestures, `P${n}`).toContain(`P${n}`);

@@ -40,8 +40,8 @@ describe("a sliding spot's snap points: keyed by what they commit", () => {
       const s = state(width);
       const { spot, regions } = slideOf(s);
       const center = spot.slide!.snaps.find((q) => Math.abs(q - 416) > 1e-9 && Math.abs(q - 416) <= 0.5);
-      expect(spot.slide!.snaps, `${spot.slide!.snaps}`).toContain(416);
-      expect(center, `${spot.slide!.snaps}`).toBeDefined();
+      expect(spot.slide!.snaps, spot.slide!.snaps.join(",")).toContain(416);
+      expect(center, spot.slide!.snaps.join(",")).toBeDefined();
       expect(Math.abs(center! - 416 - off)).toBeLessThan(1e-6);
       const point = (start: number) => ({ x: start + GRAB.x, y: 18 });
       // A pointer holding the item at that start commits the center dock; at the stretch's start, a plain dock.

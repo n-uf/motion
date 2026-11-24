@@ -51,7 +51,7 @@ describe("core stays host-free", () => {
   it("the root exports everything host-free: every value of clock, signals, values, gestures, drag and layout", async () => {
     const rootEntry: Record<string, unknown> = await import("../index");
     for (const entry of ["clock", "signals", "values", "gestures", "drag", "layout"]) {
-      const mod: Record<string, unknown> = await import(`../src/${entry}/index.ts`);
+      const mod = (await import(`../src/${entry}/index.ts`)) as Record<string, unknown>;
       for (const [name, value] of Object.entries(mod)) expect(rootEntry[name], `${entry}: ${name}`).toBe(value);
     }
   });

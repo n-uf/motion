@@ -14,6 +14,7 @@ function later(host: CaseHost, log: string[]): AsyncCaseHost {
         try {
           resolve(f());
         } catch (e) {
+          // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- passes on whatever the host call threw, unchanged
           reject(e);
         }
       }, 0),
@@ -57,6 +58,7 @@ describe("the async runner", () => {
     }
     // runCasesAsync: one row after another, each heard as it is known, with an async makeHost.
     const rows = CASES.slice(0, 3);
+    // eslint-disable-next-line @typescript-eslint/require-await -- the async makeHost is what this line tests; it has nothing to await
     const out = await runCasesAsync(rows, async () => later(createReferenceHost(), []), { onResult: (id) => heard.push(id) });
     expect(heard).toEqual(rows.map((r) => r.id));
     expect(out.map((x) => x.result)).toEqual(rows.map((r) => runCase(r, createReferenceHost())));

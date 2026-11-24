@@ -7,8 +7,8 @@ import type { InputGesture, Modifiers, PointerKind, RawPointerEvent, RawPointerT
 function fakeTimers(): RecognizerTimers & { advance(ms: number): void; pending(): number } {
   const clock = createFakeClock();
   return {
-    setTimer: clock.setTimer,
-    clearTimer: clock.clearTimer,
+    setTimer: (callback, ms) => clock.setTimer(callback, ms),
+    clearTimer: (id) => clock.clearTimer(id),
     advance: (ms) => clock.tick(ms),
     pending: () => clock.pendingTimers,
   };

@@ -61,7 +61,7 @@ function flatten(f: Fixture, raw: RawState): RawState {
   const base = flatten(f, f.states[raw.extends]!.state);
   const items = { ...base.items };
   for (const [id, v] of Object.entries(raw.items ?? {})) {
-    if (v === null) delete items[id];
+    if (v === null) Reflect.deleteProperty(items, id);
     else items[id] = { ...(items[id] ?? {}), ...v };
   }
   return { ...base, ...raw, items, extends: undefined };
@@ -392,7 +392,7 @@ describe("the stored form carries the columns", () => {
   it("round-trips a column the user made, its ring and size", () => {
     const m = foldItem(moveTo(s, "annotations", { kind: "column", side: "right", ring: 0 }), "pages", true);
     const sized = { ...m, edges: m.edges.map((e) => (e.items.includes("annotations") ? { ...e, size: 300 } : e)) };
-    const stored = JSON.parse(JSON.stringify(storeDockState(sized)));
+    const stored = JSON.parse(JSON.stringify(storeDockState(sized))) as { edges: { items: string[] }[] };
     expect(stored.edges.find((e: { items: string[] }) => e.items.includes("annotations"))).toMatchObject({ column: true, ring: 0, size: 300 });
     const read = readDockState(stored, s);
     expect(read.dropped).toEqual([]);
