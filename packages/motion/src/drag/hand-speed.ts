@@ -34,9 +34,11 @@ import type { Point } from "../shapes";
  * before it (the pointer's rest seen so far included), instead of reading its few pixels over so short a time as a slow
  * step. In a run of such samples (a host sampling above 1 kHz) the first one that lies 1 ms or more past the newest held
  * is a sample, read over its whole interval from it. A sample whose time lies before the newest held's (an event's time
- * against a frame's; all times are expected from one clock) is left out in the same way, however far behind it lies. A
- * run of such samples that starts `gap` ms or more behind and goes on for `still` ms with no in-order sample between is
- * a clock that stepped back: the hand starts again from the sample that ends the run, its step unknown.
+ * against a frame's; all times are expected from one clock) is left out in the same way, however far behind it lies. Two
+ * of them, both `gap` ms or more behind and `still` ms or more apart (at least 1 ms), with no in-order sample or
+ * repeated frame (`hold`) between, are a clock that stepped back: the hand starts again from the second, its step
+ * unknown. Known and accepted: two stale samples that far behind and that far apart restart the hand though the clock
+ * did not step; a clock that stepped back by a little more than `gap` goes on by itself, its first interval read short.
  *
  * Internal to the landing model (not exported from `./drag`).
  */
@@ -165,14 +167,14 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       // The same sample: nothing about the hand changes, the pointer's rest seen so far included (a release read under a
       // millisecond after the last frame never reads slow, and a run of such samples is read from the first one a
       // millisecond or more past the newest held). One that lies before the newest held (an event's time against a
-      // frame's) is left out the same way, however far behind it lies: one late stamp is no clock step. Only samples
-      // `gap` ms or more behind, the first of them noted in `behind`, that go on for `still` ms before an in-order sample
-      // comes (the run takes in the samples still behind the newest held as that clock catches up) are a clock that
-      // stepped back, and the hand starts again from the one that ends the run.
+      // frame's) is left out the same way, however far behind it lies: one late stamp is no clock step. Only two of
+      // them, both `gap` ms or more behind (the first noted in `behind`) and `still` ms or more apart, with no in-order
+      // sample or repeated frame between, are a clock that stepped back, and the hand starts again from the second. The
+      // two lie at least `SAME_SAMPLE` apart whatever `still` is: stamps closer than that are one sample.
       if (dt < SAME_SAMPLE) {
-        if (dt >= 0 || (behind === null && dt > -Math.max(o.gap, SAME_SAMPLE))) return;
+        if (dt > -Math.max(o.gap, SAME_SAMPLE)) return;
         if (behind === null || t < behind) behind = t;
-        if (t - behind < o.still) return;
+        if (t - behind < Math.max(o.still, SAME_SAMPLE)) return;
         heldTo = behind = null;
         samples = [{ p, t }];
         newest = step = Infinity;
@@ -210,7 +212,11 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
     },
     hold(t) {
       const last = samples[samples.length - 1];
-      if (last && t > last.t) heldTo = t;
+      // A repeated frame in order ends a run of stale samples, as a sample in order does.
+      if (last && t > last.t) {
+        heldTo = t;
+        behind = null;
+      }
     },
     reset() {
       samples = [];
