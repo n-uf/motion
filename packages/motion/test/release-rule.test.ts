@@ -13,8 +13,10 @@ import type { Point, Rect } from "../src/shapes";
 import {
   createDragIntent,
   createLandingModel,
+  DRAG_DEFAULTS,
   inRect,
   previewPlan,
+  targetAt,
   type DragKeys,
   type DragTarget,
   type LandingFrame,
@@ -202,14 +204,23 @@ describe("one release rule: a release reads the last frame (both models)", () =>
 describe("one release rule: the float needs no aim (both models)", () => {
   it("with the pointer out of home and open space the pick, the float is held from the first such frame, at every speed", () => {
     const wrong: string[] = [];
-    const speeds = { intent: new Set<number>(), landing: new Set<number>() };
+    const speeds = { intent: new Set<number>(), pick: new Set<number>(), landing: new Set<number>() };
     for (const [w, samples] of WALKS.entries()) {
       const intent = startIntent();
       const model = createLandingModel(landingOptions());
       for (const s of samples) {
         const f = intent.update(s.p, s.t, TARGETS, s.keys);
         const mf = model.update(s.p, s.t, s.keys);
-        if (keyHeld(s.keys) || !openSpace(s.p)) continue;
+        if (keyHeld(s.keys)) continue;
+        // From the geometry alone, whatever the intent's state: the float is the pick under the pointer (no more
+        // precise target there, none whose band could hold it: every other zone, armed magnet included, more than a
+        // band away), and the pointer is past home. Then the float is held.
+        const clearOfOthers = TARGETS.every((x) => x.free === true || !inRect(x.armedHit ?? x.hit, s.p, DRAG_DEFAULTS.band));
+        if (targetAt(TARGETS, s.p)?.free === true && clearOfOthers && !inRect(HOME, s.p) && intent.state.leftHome) {
+          speeds.pick.add(s.speed);
+          if (f.shown?.id !== "float") wrong.push(`intent (pick) walk ${w} t ${s.t} at ${s.speed} px/ms: held ${f.shown?.id ?? "-"}`);
+        }
+        if (!openSpace(s.p)) continue;
         // The intent's pick under the pointer, as its hysteresis holds it: the float, out of home.
         if (intent.state.current?.free === true && intent.state.leftHome) {
           speeds.intent.add(s.speed);
@@ -222,6 +233,7 @@ describe("one release rule: the float needs no aim (both models)", () => {
     expect(first(wrong)).toEqual([]);
     // Every speed of the walks met open space, rests included.
     expect([...speeds.intent].sort((a, b) => a - b)).toEqual([0, 0.05, 0.2, 0.45, 0.8, 1.5, 3, 6]);
+    expect([...speeds.pick].sort((a, b) => a - b)).toEqual([0, 0.05, 0.2, 0.45, 0.8, 1.5, 3, 6]);
     expect([...speeds.landing].sort((a, b) => a - b)).toEqual([0, 0.05, 0.2, 0.45, 0.8, 1.5, 3, 6]);
   });
 });
@@ -259,8 +271,8 @@ describe("one release rule: a frame draws its held place and nothing else (both 
           heldFrames++;
           for (const mode of MODES) {
             if (drawn(previewPlan(f, mode))) continue;
-            // The known gap (closed in a later step): a slotted target held before its room opens, in Glide and Snap.
-            if ((mode === "glide" || mode === "snap") && !f.room) gap[mode]++;
+            // The known gap (closed in a later step): a target with a slot held before its room opens, in Glide and Snap.
+            if ((mode === "glide" || mode === "snap") && !f.room && f.shown.slot !== undefined) gap[mode]++;
             else wrong.push(`intent walk ${w} t ${s.t} ${mode}: ${f.shown.id}`);
           }
         }
