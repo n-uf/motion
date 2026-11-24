@@ -81,7 +81,7 @@ const framed = (shown: Any, refs: Any[]): Any => {
 const slim = (layout: Any): Any => (layout ? { ...layout, edges: Object.fromEntries(Object.entries(layout.edges ?? {}).map(([k, { stack: _s, ...e }]: Any) => [k, e])) } : layout);
 /** What a release commits, in short: the order along each edge, the floats and the asked lengths. */
 const digest = (s: Any): Any => ({ edges: Object.fromEntries((s?.edges ?? []).map((e: Any) => [e.id, e.items])), floats: s?.floats, lengths: Object.fromEntries(Object.entries(s?.items ?? {}).filter(([, it]: Any) => lengthsOf(it)).map(([k, it]: Any) => [k, lengthsOf(it)])) });
-const result = (r: Any): Any => (r ? { state: digest(r.state), layout: slim(r.layout) } : r);
+const result = (r: Any): Any => (r ? { state: digest(r.state), layout: slim(r.layout), grab: r.grab } : r);
 const mid = (r: Any): Any => ({ x: r.x + r.width / 2, y: r.y + r.height / 2 });
 /** At most `n` of `list`, spread evenly over it. */
 const spread = <T>(list: readonly T[], n: number): T[] => (list.length <= n ? [...list] : Array.from({ length: n }, (_, i) => list[Math.round((i * (list.length - 1)) / (n - 1))]!));
