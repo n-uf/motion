@@ -476,12 +476,16 @@ list.addEventListener("click", (e) => {
   if (p) pick(p);
 });
 $("dw-check").addEventListener("click", () => current && pick(current));
-$("dw-check-all").addEventListener("click", async () => {
+const checkAllAndSay = async (): Promise<void> => {
   const r = await checkAll();
   const pending = r.filter((x) => x.pending);
   const nums = (xs: typeof r): string => (xs.length ? ` (${xs.map((x) => r.indexOf(x) + 1).join(", ")})` : "");
   const broken = r.filter((x) => x.pass === false);
   c.say(`${r.filter((x) => x.pass).length} pass · ${pending.length} not built yet${nums(pending)} · ${broken.length} broken${nums(broken)}`);
+};
+$("dw-check-all").addEventListener("click", () => {
+  // eslint-disable-next-line no-console -- a failed check has no other place to show; it is logged instead of lost as an unhandled rejection
+  checkAllAndSay().catch((e: unknown) => console.error(e));
 });
 
 // --- the Window drawer ---------------------------------------------------------------------------------------------
@@ -620,7 +624,7 @@ codeTabs.addEventListener("keydown", (e) => {
   codeTabs.querySelector<HTMLButtonElement>(`[data-code="${next}"]`)?.focus();
 });
 /** Copy the shown code as plain text (the line "No move yet" is not code: nothing to copy). */
-copyBtn.addEventListener("click", async () => {
+const copyCode = async (): Promise<void> => {
   if (codeTab === "move" && c.lastDrop === null) return;
   const text = code()[codeTab];
   let done = false;
@@ -633,6 +637,10 @@ copyBtn.addEventListener("click", async () => {
   }
   copyBtn.textContent = done ? "Copied" : "Press ⌘/Ctrl+C";
   setTimeout(() => (copyBtn.textContent = "Copy"), 1500);
+};
+copyBtn.addEventListener("click", () => {
+  // eslint-disable-next-line no-console -- the copy has no other place to report a failure; it is logged instead of lost as an unhandled rejection
+  copyCode().catch((e: unknown) => console.error(e));
 });
 // A hash that asks for a view (`#/docwin?view=code`) wins over the one kept in this browser.
 window.addEventListener("hashchange", () => {

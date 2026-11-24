@@ -392,7 +392,7 @@ async function runCase(i: number): Promise<void> {
 }
 
 // ---- Run all paths in both modes ---------------------------------------------------------------------------------------
-$("runall").addEventListener("click", async () => {
+const runAllPaths = async (): Promise<void> => {
   if (playing || runningAll) return;
   runningAll = true;
   syncBusy();
@@ -415,6 +415,10 @@ $("runall").addEventListener("click", async () => {
   runningAll = false;
   syncBusy();
   setStatus("Done: the table below lists every path in both modes. Naive flashes while travelling; the model does not.");
+};
+$("runall").addEventListener("click", () => {
+  // eslint-disable-next-line no-console -- the demo has no other place to report a failure; it is logged instead of lost as an unhandled rejection
+  runAllPaths().catch((e: unknown) => console.error(e));
 });
 const FIRST_STATUS = "Drag the Outline panel yourself, or pick a recorded path on the left.";
 setStatus(FIRST_STATUS);
