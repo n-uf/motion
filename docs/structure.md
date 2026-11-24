@@ -180,7 +180,7 @@ graph in motion's build.
 | Docking's sweeps (the heaviest files, listed in its `vitest.config.ts`) | `packages/docking/test` | `pnpm --filter @n-uf/docking test:sweep` (its `test` skips them) |
 | The purity guards | `test/guard.test.ts` in motion and placement; each package's `scripts/check-dist.mjs` | `pnpm check` |
 | Benchmarks | `packages/motion/bench` (signals, with `RESULTS.md`), `packages/placement/bench` | `pnpm bench` |
-| Repository checks | `scripts/`: `dirt.mjs` (dependency rules, duplicate code by jscpd, unused code by knip, against `dirt-baseline.json`, which only goes down), `public-words.mjs`, `terminology.mjs`, `changelog.mjs` | `pnpm dirt`, `pnpm public-words`, `pnpm terminology`, `pnpm changes` |
+| Repository checks | `eslint.config.mjs` (lint, type-aware where a tsconfig covers the file); `scripts/`: `dirt.mjs` (dependency rules, duplicate code by jscpd, unused code by knip, against `dirt-baseline.json`, which only goes down), `public-words.mjs`, `terminology.mjs`, `changelog.mjs` | `pnpm lint`, `pnpm dirt`, `pnpm public-words`, `pnpm terminology`, `pnpm changes` |
 
 `pnpm check` runs the type checks, the tests, the builds with their dist checks, the lab's type check and the repository
 checks; `pnpm check:quick` is the same without docking's sweeps. CI runs the two as parallel jobs on a pull request that

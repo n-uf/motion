@@ -15,7 +15,8 @@
     "bench": "pnpm --filter @n-uf/motion bench && pnpm --filter @n-uf/placement bench",
     "old-vs-new": "node scripts/old-vs-new.mjs",
     "check": "pnpm check:quick && pnpm --filter @n-uf/docking test:sweep",
-    "check:quick": "pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check:quick && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm changes && pnpm public-words && pnpm terminology",
+    "lint": "eslint . --max-warnings 0",
+    "check:quick": "pnpm lint && pnpm --filter @n-uf/motion check && pnpm --filter @n-uf/placement check && pnpm --filter @n-uf/docking check:quick && pnpm --filter motion-lab typecheck && pnpm dirt && pnpm changes && pnpm public-words && pnpm terminology",
     "changes": "node scripts/changelog.mjs check && node --test scripts/changelog.test.mjs",
     "dirt": "node scripts/dirt.mjs",
     "public-words": "node scripts/public-words.mjs && node --test scripts/public-words.test.mjs",
@@ -25,8 +26,24 @@
     "version:bump": "pnpm --filter @n-uf/motion version:bump && node scripts/sync-versions.mjs && node scripts/changelog.mjs join"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "dependency-cruiser": "18.7.2",
+    "eslint": "10.14.0",
+    "eslint-plugin-astro": "3.2.1",
+    "globals": "17.14.0",
     "jscpd": "5.4.3",
-    "knip": "6.45.1"
+    "knip": "6.45.1",
+    "typescript-eslint": "8.72.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "@typescript-eslint/types": "8.72.1",
+      "@typescript-eslint/scope-manager": "8.72.1",
+      "@typescript-eslint/visitor-keys": "8.72.1",
+      "brace-expansion@^5": "5.0.12",
+      "minimatch@^11": "11.0.5",
+      "@eslint/config-array@^0.23": "0.23.5",
+      "postcss-selector-parser@^7": "7.1.8"
+    }
   }
 }

@@ -94,6 +94,10 @@ runs both; `pnpm check:quick` is the same without the sweeps (CI runs the two as
 
 `pnpm check` runs, besides the typechecks, tests, builds and the lab's typecheck, repository checks:
 
+- `pnpm lint`: ESLint over the packages, `apps/lab`, `apps/web` and `scripts/`, with no warning allowed; it is the first
+  step of `pnpm check:quick`. The rules are in `eslint.config.mjs`: the type-aware typescript-eslint set on the files a
+  tsconfig covers, and the syntax-only set on the rest. A finding is fixed, or kept with an
+  `eslint-disable-next-line <rule> -- <reason>` comment above it; an unused disable comment is an error too.
 - `pnpm changes`: the changelog fragments (see "Changelog entries" below) are well formed, and `scripts/changelog.test.mjs` passes.
 
 - `pnpm dirt`: a ratchet over the code's dirt. It counts dependency-cruiser rule violations (import cycles; the
