@@ -131,6 +131,7 @@ export function LANDING_PRESETS(): LandingPreset[] {
               if (s.borderTopColor === slotColor || s.backgroundColor === slotColor) accent++;
               // A box: a 3 px radius, and its dash a 3 px stroke on the edge, half of it inside (1.5 px).
               const dash = getComputedStyle(el, "::after");
+              // eslint-disable-next-line @typescript-eslint/no-deprecated -- `webkitMaskImage` is the fallback for Safari, which reports the mask under the prefixed name
               if (el.dataset.kind === "box" && (parseFloat(s.borderTopLeftRadius) !== 3 || !/stroke-width='3'/.test(decodeURIComponent(dash.maskImage || dash.webkitMaskImage || "")))) look++;
             }
           });

@@ -119,6 +119,7 @@ const api = {
 
 const runs: LabRun[] = [];
 window.__motionLab = {
+  // eslint-disable-next-line @typescript-eslint/require-await -- runAll returns a promise by type; the checks here run synchronously
   runAll: async (filter?: ScenarioFilter) => {
     runs.length = 0;
     for (const r of checkAll(filter)) {
