@@ -93,8 +93,10 @@ import type { LandingRegion } from "./region";
  *   lane, the lane nearest the pointer within `reach` stands for its would-land held place, for the corner only (not made
  *   Near, pending or enterable), switching exactly at `reach`. Where that lane's guide meets another's, the geometry
  *   gives it that lane.
- * - Steps are speeds (px/ms) between points that differ, so the gates read the same at any input rate. A repeated
- *   point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
+ * - Steps are speeds (px/ms) between points that differ, so the gates read the same speed at any input rate from 60 Hz
+ *   to 8 kHz. A point under 1 ms after the newest one the hand holds is the same sample and changes no step (a run of
+ *   them is read from the first one 1 ms or more past it). A repeated point keeps the last step; it is still only once
+ *   the pointer has stayed put for `rest` ms.
  * - **The pointer** is taken onto the stage by the model itself (past it by up to `edge`, onto its edge).
  *
  * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both. Call it at
