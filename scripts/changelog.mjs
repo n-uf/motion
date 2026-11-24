@@ -126,7 +126,7 @@ export function plan(root, version) {
     try {
       next = joinInto(readFileSync(join(root, "packages", pkg, "CHANGELOG.md"), "utf8"), fragments, version);
     } catch (e) {
-      throw new Error(`packages/${pkg}/CHANGELOG.md: ${e.message}`);
+      throw new Error(`packages/${pkg}/CHANGELOG.md: ${e.message}`, { cause: e });
     }
     if (next !== null) out.push({ pkg, next, fragments });
   }
