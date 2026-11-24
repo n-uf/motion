@@ -100,10 +100,9 @@ import type { LandingRegion } from "./region";
  * - **The pointer** is taken onto the stage by the model itself (past it by up to `edge`, onto its edge).
  *
  * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both, with every time
- * from one clock (the page's `performance.now()` scale: an event's `timeStamp` and a frame's time are on it). Call it at
- * least once more after the pointer stops, `rest` ms or more later (every frame does), so it can become still and a
- * rest reads as one (a rest the model never sees is told from frames the host lost only by how far the pointer moved
- * across it), and again with the same point when a key changes. `release(point, time)` takes the release point as one
+ * from one clock. Call it at least once more after the pointer stops, `rest` ms or more later (every frame does), so it
+ * can become still and a rest reads as one (a rest the model never sees is told from frames the host lost only by how
+ * far the pointer moved across it), and again with the same point when a key changes. `release(point, time)` takes the release point as one
  * more sample when it differs from the last. When the state under the drag changes (a resize, a store change), hand the
  * new geometry whole to `setGeometry`.
  */
