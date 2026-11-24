@@ -8,6 +8,10 @@
  *   and the float's too; and so does the target of `targets()` that is the spot's drop.
  * - **no glide:** an item that keeps its form and size moving from one bar's slot to another's, held at the press and
  *   brought over the slot, is drawn at the pointer less the drop's grab: the release glides under half a pitch.
+ * - **the grab passed:** a fixed drop's grab is derived from the grab passed to `after()`, as a float's is: on one
+ *   `targets()` list, another grab gives another point, equal to the one a list made with that grab gives.
+ * - **every bar move:** the grab lies in the landing (0 to its size each way), and along a row's length it is the
+ *   press's share of the new length, so a pointer in the slot lies on the copy drawn at the pointer less the grab.
  * - **keys:** `stops()` and `lanes()` leave `onGrabNote` out of their memo keys: an inline callback per call still hits.
  */
 import { describe, expect, it } from "vitest";
@@ -158,6 +162,46 @@ describe("every drop gives the grab", () => {
     expect(moves).toBeGreaterThan(200);
     // eslint-disable-next-line no-console
     console.info("drop grab, bar-to-bar moves:", moves, "worst glide:", worst);
+  });
+
+  it("on every bar-to-bar move the grab lies in the landing and is the press's share of its new length", () => {
+    let moves = 0;
+    let shares = 0;
+    for (const w of windows)
+      for (const grab of grabsOf(w)) {
+        const o = optionsOf(w, grab);
+        const own = solve(w.state, { previous: w.previous }).items[w.dragged]!;
+        if (own.floating || own.inMenu || own.rail || !w.state.edges.some((e) => e.id === own.edge && (e.side === "top" || e.side === "bottom"))) continue;
+        for (const t of targets(w.state, w.dragged, o)) {
+          if (t.place.kind !== "gap" || t.free) continue;
+          const edge = w.state.edges.find((e) => e.id === (t.place as { edge: string }).edge);
+          if (!edge || (edge.side !== "top" && edge.side !== "bottom")) continue;
+          const a = t.after(middle(t), o.grab);
+          const to = a.layout.items[w.dragged]?.rect;
+          if (!to || !a.grab) continue;
+          const at = `${w.name} ${t.id}`;
+          // In the landing, whatever its form and size.
+          expect(a.grab.x, at).toBeGreaterThanOrEqual(0);
+          expect(a.grab.x, at).toBeLessThanOrEqual(to.width + 1e-6);
+          expect(a.grab.y, at).toBeGreaterThanOrEqual(0);
+          expect(a.grab.y, at).toBeLessThanOrEqual(to.height + 1e-6);
+          // So a pointer in the slot lies on the copy drawn at the pointer less the grab.
+          const slot = t.slot ?? to;
+          const p = { x: slot.x + slot.width / 2, y: slot.y + slot.height / 2 };
+          expect(p.x - a.grab.x, at).toBeLessThanOrEqual(p.x + 1e-6);
+          expect(p.x - a.grab.x + to.width, at).toBeGreaterThanOrEqual(p.x - 1e-6);
+          moves++;
+          // A plain press along the item's own length (a row on a bar): its share of the new length.
+          if (grab && typeof grab !== "function" && own.rect.width >= own.rect.height && to.width >= to.height) {
+            expect(a.grab.x, at).toBeCloseTo(Math.min(1, Math.max(0, grab.x / own.rect.width)) * to.width, 6);
+            shares++;
+          }
+        }
+      }
+    expect(moves).toBeGreaterThan(500);
+    expect(shares).toBeGreaterThan(100);
+    // eslint-disable-next-line no-console
+    console.info("drop grab, every bar move:", moves, "share checks:", shares);
   });
 });
 
