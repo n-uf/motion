@@ -34,7 +34,7 @@ import type { Point } from "../shapes";
  * before it (the pointer's rest seen so far included), instead of reading its few pixels over so short a time as a slow
  * step. In a run of such samples (a host sampling above 1 kHz) the first one that lies 1 ms or more past the newest held
  * is a sample, read over its whole interval from it. A sample whose time lies before the newest held's (an event's time
- * against a frame's; all times are expected from one clock) is left out in the same way, however far behind it lies. Two
+ * against a frame's; times are expected never to go back) is left out in the same way, however far behind it lies. Two
  * of them, both `gap` ms or more behind and `still` ms or more apart (at least 1 ms), with no in-order sample or
  * repeated frame (`hold`) between, are a clock that stepped back: the hand starts again from the second, its step
  * unknown. Known and accepted: two stale samples that far behind and that far apart restart the hand though the clock
