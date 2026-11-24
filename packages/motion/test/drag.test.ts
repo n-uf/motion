@@ -1396,6 +1396,32 @@ describe("drag/ bounds: the intent clamps the pointer onto the drawn space", () 
   });
 });
 
+describe("drag/ a release with other keys than the last frame's is one more sample", () => {
+  it("a float key pressed after the last frame floats; let go after it, the shown slot lands again", () => {
+    const aimed = () => {
+      const intent = createDragIntent<DragTarget>({ home: HOME });
+      let t = 0;
+      for (const p of [FROM, mid(A.hit)]) for (let i = 0; i < 40; i++, t += FRAME) intent.update(p, t, DOCK);
+      return { intent, t };
+    };
+    const a = aimed();
+    expect(a.intent.state.shown?.id).toBe("slot-a");
+    // Same point, no frame in between: the key held at the release still counts.
+    expect(a.intent.release(mid(A.hit), a.t, DOCK, { shift: true })?.id).toBe("area");
+    expect(a.intent.state.shown?.id).toBe("area");
+    const b = aimed();
+    b.intent.update(mid(A.hit), b.t, DOCK, { shift: true });
+    expect(b.intent.state.shown?.id).toBe("area");
+    // The key let go before the release, at the same point: the slot under the pointer, aimed at, is held again.
+    expect(b.intent.release(mid(A.hit), b.t + FRAME, DOCK)?.id).toBe("slot-a");
+    // The same keys at the same point (a key not held is none held): the last frame stands, no new sample.
+    const c = aimed();
+    const before = c.intent.state;
+    expect(c.intent.release(mid(A.hit), c.t + 500, DOCK, { alt: false })?.id).toBe("slot-a");
+    expect(c.intent.state).toEqual(before);
+  });
+});
+
 describe("drag/ the frame's held place is what a release there lands on", () => {
   it("on every frame of sweeps across docks, a rail, the float and a refusal, with and without Shift", () => {
     const refusal: DragTarget = { id: "refuse:x", priority: 2, hit: rect(250, 0, 60, 200), refuse: true };
