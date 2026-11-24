@@ -473,7 +473,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   // A bar's free stretches: one sliding spot each, which takes over the docks landing inside it; else spots at `pitch`,
   // each a dock keeping `space` (`DockItem.space`).
   if (options.stretchPositions !== "pitched") {
-    const { spots, absorbed } = slidingSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH, grabResolver(lift));
+    const { spots, absorbed } = slidingSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH, grabResolver(lift, options.grab));
     for (let i = raws.length - 1; i >= 0; i--) if (absorbed.has(raws[i]!)) raws.splice(i, 1);
     raws.push(...spots);
   } else if (pitch > 0) raws.push(...pitchedSpots(state, dragged, options, seen, lifted, raws, pitch));
