@@ -35,10 +35,12 @@ import type { Point } from "../shapes";
  * step. In a run of such samples (a host sampling above 1 kHz) the first one that lies 1 ms or more past the newest held
  * is a sample, read over its whole interval from it. A sample whose time lies before the newest held's (an event's time
  * against a frame's; times are expected never to go back) is left out in the same way, however far behind it lies. Two
- * of them, both `gap` ms or more behind and `still` ms or more apart (at least 1 ms), with no in-order sample or
- * repeated frame (`hold`) between, are a clock that stepped back: the hand starts again from the second, its step
- * unknown. Known and accepted: two stale samples that far behind and that far apart restart the hand though the clock
- * did not step; a clock that stepped back by a little more than `gap` goes on by itself, its first interval read short.
+ * of them, both `gap` ms or more behind, the second stamped `still` ms (at least 1 ms) or more later than the first,
+ * with no in-order sample 1 ms or more past the newest held and no repeated frame (`hold`) between (a sample under 1 ms
+ * past it is the same sample and ends nothing), are a clock that stepped back: the hand starts again from the second,
+ * its step unknown. Known and accepted: two stale samples that far behind and that far apart restart the hand though
+ * the clock did not step; a clock that stepped back by up to `gap` + `still` ms and one sample goes on by itself, its
+ * first interval read short.
  *
  * Internal to the landing model (not exported from `./drag`).
  */

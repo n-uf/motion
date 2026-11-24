@@ -103,8 +103,8 @@ import type { LandingRegion } from "./region";
  * back: give every call a time no earlier than the one before. Call it at least once more after the pointer stops,
  * `rest` ms or more later (every frame does), so it can become still and a rest reads as one (a rest the model never
  * sees is told from frames the host lost only by how far the pointer moved across it), and again with the same point
- * when a key changes. `release(point, time)` takes the release point as one more sample when it differs from the last. When the state under the drag changes (a resize, a store change), hand the
- * new geometry whole to `setGeometry`.
+ * when a key changes. `release(point, time)` takes the release point as one more sample when it differs from the last.
+ * When the state under the drag changes (a resize, a store change), hand the new geometry whole to `setGeometry`.
  */
 
 /** A place a drop in a lane lands: its stretch of the lane and its listed landing rect. Ids are stable across solves. */
