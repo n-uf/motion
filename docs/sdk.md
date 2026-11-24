@@ -470,6 +470,7 @@ interface DragFrame<T extends DragTarget> {
   arming: T | null;
   forced: "float" | "armed" | null;
   refused: T | null;
+  landing: T | null;
 }
 interface DragIntent<T extends DragTarget> {
   update(point: Point, time: number, targets: T[], keys?: DragKeys): DragFrame<T>;

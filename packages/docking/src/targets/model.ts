@@ -45,7 +45,7 @@ export interface DockDrop extends Target {
   /**
    * Its room opens as it shows: set on a target whose slot overlaps an item its drop moves (a rail pushing a column, a
    * new-column line, a bar's strip over the columns), and on a rail drop strip's targets, whose room opens once armed.
-   * The drag intent then shows it and makes its room in one frame. Until it shows it is not held: a release goes home. Read
+   * The drag intent then shows it and makes its room in one frame. Until it shows, a release still lands on it. Read
    * only by the drag intent (`DragTarget.opensRoom`).
    */
   readonly opensRoom?: true;

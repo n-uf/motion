@@ -94,7 +94,6 @@ function planOf(mode: PreviewMode, shown: boolean, room: boolean, slotted: boole
   if (mode === "outline") return { showIndicator: shown, makeRoom: false, snapItem: false };
   if (mode === "placeholder") return { showIndicator: shown, makeRoom: room, snapItem: false };
   if (mode === "snap") return { showIndicator: false, makeRoom: room, snapItem: room && shown && slotted };
-  // A slotted landing draws nothing until the room opens (`roomAfter`), yet a release then lands on it: the one gap
-  // between held and drawn, counted by the property tests until the room opens with the held place.
+  // By design a slotted landing draws nothing until the room opens (`roomAfter`); a release then still lands on it.
   return { showIndicator: shown && !slotted, makeRoom: room, snapItem: room && shown && slotted };
 }

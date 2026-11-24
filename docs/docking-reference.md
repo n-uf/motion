@@ -914,7 +914,7 @@ facing halves is home's, and is no target of its own. The slot is where the item
   = `EDGE_ROOM_HOLD` (0 ms: it shows on the frame an aiming pointer enters it) on a rail target or a new-column line
   against the window's left or right edge, so a toolbar held at the edge never jumps away across the column and back
   (grazing the edge opens the rail); the intent's `roomAfter` (160 ms) on any other; on a rail drop strip's target, also
-  marked, none past the dwell that arms it. Until it shows the frame does not hold it, so a release there goes home. A host that draws only a marker
+  marked, none past the dwell that arms it. A release before it shows still lands on it. A host that draws only a marker
   opens the room on `frame.room && frame.shown?.opensRoom`, for every one of them. An empty rail or bar is entered over
   the depth a drop draws it at (a rail's or a bar's drawn depth), not a thin band; past the thin band that depth never takes
   the zones of a drawn edge that take the item, and an empty column keeps the thin band. A target whose drop changes an
