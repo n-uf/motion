@@ -165,7 +165,7 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       const d = dist(last.p, p);
       const dt = t - last.t;
       // The gap's own step: it may end a rest, so it is unknown unless it is a crawl.
-      const across = d <= o.slowStep ? speedOver(d, dt, step) : Infinity;
+      const across = d <= o.slowStep ? d / dt : Infinity;
       if (dt >= o.gap) {
         const v = sofar();
         if (seenStill || v === null || d / dt < v * o.carry) {
