@@ -134,29 +134,107 @@ describe("the hand's speed", () => {
     expect(bad).toEqual([]);
   });
 
-  it("keeps the previous step over an interval under 1 ms: the same sample, not a slow one", () => {
+  it("a sample under 1 ms after the newest is the same sample: step, long, speed and steady read as before it, with few samples and with many", () => {
     for (const v of [0.6, 1.5, 2.4]) {
       for (const gap of [0, 0.05, 0.3, 0.5, 0.99]) {
-        const h = createHandSpeed();
-        h.push({ x: 0, y: 0 }, 0);
-        const at = feed(h, v, 8, 12);
-        const [step, speed] = [h.step, h.speed];
-        // A sample a fraction of a millisecond after the last, a little further on: neither the step nor the speed drops.
-        h.push({ x: 0, y: at.y + v * gap }, at.t + gap);
-        expect(h.step, `v ${v}, gap ${gap}`).toBe(step);
-        expect(h.speed, `v ${v}, gap ${gap}`).toBeGreaterThanOrEqual(speed - 1e-9);
+        for (const n of [2, 4, 5, 12]) {
+          const h = createHandSpeed();
+          h.push({ x: 0, y: 0 }, 0);
+          const at = feed(h, v, 8, n);
+          const before = [h.step, h.long, h.speed, h.steady];
+          // A sample a fraction of a millisecond after the last: a little further on, back, or off the line.
+          for (const [dx, dy] of [
+            [0, v * gap],
+            [0, -v * gap],
+            [3, 7],
+          ] as const) {
+            h.push({ x: dx, y: at.y + dy }, at.t + gap);
+            expect([h.step, h.long, h.speed, h.steady], `v ${v}, gap ${gap}, ${n} samples, (${dx}, ${dy})`).toEqual(before);
+          }
+        }
       }
     }
   });
 
-  it("reads an interval of 1 ms or more as its own step", () => {
+  it("an interval of 1 ms or more, 1 ms itself included, is its own step, not the one before it, with few samples and with many", () => {
+    for (const [before, after] of [
+      [0.6, 1.5],
+      [0.6, 0.15],
+      [2.4, 0.3],
+    ] as const) {
+      for (const gap of [1, 1.2, 1.4, 1.9, 3]) {
+        const h = createHandSpeed();
+        h.push({ x: 0, y: 0 }, 0);
+        const at = feed(h, before, 8, 3);
+        expect(h.step).toBeCloseTo(before, 9);
+        // Fewer than 6 samples: `long` is unknown, so the speed is the newest step.
+        expect(h.long).toBeNull();
+        h.push({ x: 0, y: at.y + after * gap }, at.t + gap);
+        expect(h.step, `${before} to ${after} px/ms over ${gap} ms`).toBeCloseTo(after, 9);
+        expect(h.speed, `${before} to ${after} px/ms over ${gap} ms`).toBeCloseTo(after, 9);
+      }
+    }
+    // With the span known the newest step still shows: a speed-up reads at once, over 1 ms.
     const h = createHandSpeed();
     h.push({ x: 0, y: 0 }, 0);
     const at = feed(h, 0.6, 8, 12);
-    h.push({ x: 0, y: at.y + 0.6 }, at.t + 1);
-    expect(h.step).toBeCloseTo(0.6, 9);
-    h.push({ x: 0, y: at.y + 0.6 + 0.3 }, at.t + 3);
-    expect(h.step).toBeCloseTo(0.15, 9);
+    expect(h.long).not.toBeNull();
+    h.push({ x: 0, y: at.y + 2 }, at.t + 1);
+    expect(h.step).toBeCloseTo(2, 9);
+    expect(h.speed).toBeCloseTo(2, 9);
+  });
+
+  it("a run of samples all under 1 ms apart is read over the first one 1 ms or more past the newest held: step, speed, long and steady follow the hand", () => {
+    for (const dt of [0.125, 0.25, 0.3, 0.5, 0.9]) {
+      for (const v of [0.1, 0.6, 1.5, 3]) {
+        // From the lift, every interval under 1 ms.
+        const h = createHandSpeed();
+        h.push({ x: 0, y: 0 }, 0);
+        const at = feed(h, v, dt, Math.ceil(20 / dt));
+        expect(h.step, `from the lift, ${dt} ms, ${v} px/ms`).toBeCloseTo(v, 6);
+        expect(h.speed, `from the lift, ${dt} ms, ${v} px/ms`).toBeCloseTo(v, 6);
+        feed(h, v, dt, Math.ceil(300 / dt), at.t, at.y);
+        expect(h.long, `${dt} ms, ${v} px/ms`).toBeCloseTo(v, 6);
+        expect(h.steady, `${dt} ms, ${v} px/ms`).toBe(true);
+      }
+    }
+  });
+
+  it("a fling, then a creep sampled under 1 ms apart, reads slow once the creep has lasted the span: the fling is not remembered", () => {
+    for (const flingDt of [8, 0.5]) {
+      for (const dt of [0.25, 0.5, 0.9]) {
+        const h = createHandSpeed();
+        h.push({ x: 0, y: 0 }, 0);
+        const fling = feed(h, 3, flingDt, Math.ceil(100 / flingDt));
+        expect(h.speed).toBeCloseTo(3, 6);
+        // 150 ms at 0.1 px/ms.
+        let y = fling.y;
+        let t = fling.t;
+        let k = 0;
+        while (t - fling.t < 150) {
+          k++;
+          y += 0.1 * dt;
+          t = fling.t + dt * k;
+          h.push({ x: 0, y }, t);
+          // The newest step reads the creep from the second sample on.
+          if (t - fling.t >= 4) expect(h.step, `fling ${flingDt} ms, creep ${dt} ms, ${t - fling.t} ms in`).toBeCloseTo(0.1, 6);
+        }
+        expect(h.speed, `fling ${flingDt} ms, creep ${dt} ms`).toBeCloseTo(0.1, 6);
+        expect(h.steady, `fling ${flingDt} ms, creep ${dt} ms`).toBe(true);
+      }
+    }
+  });
+
+  it("reads the same speed at any sample rate: 60 Hz, 1, 2 and 8 kHz", () => {
+    for (const hz of [60, 1000, 2000, 8000]) {
+      for (const v of [0.1, 0.6, 1.5, 3]) {
+        const dt = 1000 / hz;
+        const h = createHandSpeed();
+        h.push({ x: 0, y: 0 }, 0);
+        feed(h, v, dt, Math.ceil(300 / dt));
+        expect([hz, v, h.step.toFixed(6), h.long?.toFixed(6), h.speed.toFixed(6), h.steady]).toEqual([hz, v, v.toFixed(6), v.toFixed(6), v.toFixed(6), true]);
+      }
+    }
   });
 
   it("is steady only once it has read alike for half a span: a hand gathering speed out of a hesitation is not", () => {
