@@ -31,7 +31,9 @@ and a docking drag runs the landing model. What is worth sharing is the release 
 
 - **A release reads the last frame.** It lands the frame's held place, else nothing (the item goes home). It works
   nothing out again. At a point that differs from the last update's, the release takes that point as one more sample
-  first, then reads the frame it gives. In the intent the held place is `shown`: the target the indicator shows, a held
+  first, then reads the frame it gives. In the intent, keys that differ from the last update's do the same, so a key
+  pressed or let go after the last frame still counts (keys left out are none held). The landing model's host calls
+  `update` again with the same point when a key changes, so its last frame already has them. In the intent the held place is `shown`: the target the indicator shows, a held
   key's pick, and an armed spring-loaded target over home are all in that one field. In the landing model it is
   `held`.
 - **The float needs no aim.** In the intent the float (a `free` target) is held whenever it is the pick under the

@@ -375,8 +375,9 @@ export interface DragIntent<T extends DragTarget> {
   /**
    * What a release at `point` and `time` lands on: the last frame's held place (`shown`), else null (the item goes
    * home). It reads the frame and works nothing out again, so a target the frame does not hold (one under the pointer
-   * that does not show yet) is no landing. A point that differs from the last `update`'s is that update's sample first
-   * (with `keys`), so a last jump of the pointer counts; at the same point the last frame stands as it is.
+   * that does not show yet) is no landing. A point or `keys` that differ from the last `update`'s are one more sample
+   * first, so a last jump of the pointer, or a key pressed or let go since the last frame, counts; with both the same
+   * the last frame stands as it is. Keys left out are none held.
    */
   release(point: Point, time: number, targets: readonly T[], keys?: DragKeys): T | null;
   /** The drawn space changed during the drag (the view resized): later points are clamped onto `bounds`, or none. */
@@ -460,6 +461,10 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   // The drawn space every point is clamped onto (`bounds`), and the last point `update` took (after the clamp).
   let bounds: Rect | undefined = options.bounds ? { ...options.bounds } : undefined;
   let lastPoint: Point | null = null;
+  // The keys the last `update` took: a release with other keys is one more sample first.
+  let lastKeys: DragKeys | undefined;
+  const sameKeys = (a: DragKeys | undefined, b: DragKeys | undefined): boolean =>
+    !!a?.shift === !!b?.shift && !!a?.alt === !!b?.alt && !!a?.meta === !!b?.meta && !!a?.ctrl === !!b?.ctrl;
   const clampInto = (p: Point): Point =>
     bounds ? { x: Math.min(Math.max(p.x, bounds.x), bounds.x + bounds.width), y: Math.min(Math.max(p.y, bounds.y), bounds.y + bounds.height) } : p;
   // Spring-loading: the target armed (by id), and the one the pointer dwells on and since when.
@@ -515,6 +520,7 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
   function update(point: Point, time: number, given: readonly T[], keys?: DragKeys): DragFrame<T> {
       const p = clampInto(point);
       lastPoint = p;
+      lastKeys = keys;
       const t = time;
       samples.push({ x: p.x, y: p.y, t });
       while (samples.length > 2 && t - samples[0]!.t > tuning.speedWindow) samples.shift();
@@ -658,10 +664,11 @@ export function createDragIntent<T extends DragTarget>(options: DragIntentOption
     },
     update,
     release(point, time, given, keys) {
-      // The last update's sample is the release's: a point that differs from it is one more sample first. Then the
-      // release reads that frame: it lands the place the frame holds (`shown`), else nothing (home). No second check.
+      // The last update's sample is the release's: a point or keys that differ from it are one more sample first (a key
+      // pressed after the last frame counts). Then the release reads that frame: it lands the place the frame holds
+      // (`shown`), else nothing (home). No second check.
       const p = clampInto(point);
-      if (!lastPoint || lastPoint.x !== p.x || lastPoint.y !== p.y) update(p, time, given, keys);
+      if (!lastPoint || lastPoint.x !== p.x || lastPoint.y !== p.y || !sameKeys(lastKeys, keys)) update(p, time, given, keys);
       return follow(shown, given);
     },
     setBounds(next) {
