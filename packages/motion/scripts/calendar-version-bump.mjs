@@ -40,7 +40,7 @@ const versionMatch = currentVersion.match(versionPattern);
 
 if (!versionMatch) {
   console.error(
-    `Current version \"${currentVersion}\" is not a valid three-segment numeric semver.`
+    `Current version "${currentVersion}" is not a valid three-segment numeric semver.`
   );
   process.exit(1);
 }
@@ -52,7 +52,7 @@ const currentPatch = Number(versionMatch[3]);
 const todayOverride = process.env.CALENDAR_VERSION_TODAY;
 const now = todayOverride ? new Date(`${todayOverride}T12:00:00Z`) : new Date();
 if (Number.isNaN(now.getTime())) {
-  console.error(`CALENDAR_VERSION_TODAY \"${todayOverride}\" is not a YYYY-MM-DD date.`);
+  console.error(`CALENDAR_VERSION_TODAY "${todayOverride}" is not a YYYY-MM-DD date.`);
   process.exit(1);
 }
 const targetYear = (todayOverride ? now.getUTCFullYear() : now.getFullYear()) % 100;

@@ -846,7 +846,10 @@ export function ONE_PREVIEW_PRESETS(): OnePreset[] {
           }
         } finally {
           try {
-            for (const [k, v] of kept) v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v);
+            for (const [k, v] of kept) {
+              if (v === null) localStorage.removeItem(k);
+              else localStorage.setItem(k, v);
+            }
           } catch {
             // No storage.
           }
