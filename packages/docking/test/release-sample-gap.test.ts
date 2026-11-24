@@ -116,4 +116,25 @@ describe("a release sample under 1 ms after the last frame", () => {
     }
     expect(bad).toEqual([]);
   });
+
+  it("(d) gives the same place at 60 Hz, 1 kHz and 2 kHz, a slow hand (0.1 to 0.3 px/ms) at the spot's edge, whatever the release gap", () => {
+    let cases = 0;
+    const bad: string[] = [];
+    for (const v of [0.1, 0.2, 0.3]) {
+      // A third of the release points: the coarse run, and the fine run around each edge a third as dense.
+      for (const y of releasePoints(v).filter((_, i) => i % 3 === 0)) {
+        const places = new Map<string, string[]>();
+        for (const hz of [60, 1000, 2000]) {
+          for (const gap of [0, 0.3, 0.9, 8.8, 20]) {
+            const p = drive(y, v, hz, gap).place;
+            (places.get(p) ?? places.set(p, []).get(p)!).push(`${hz}Hz/${gap}ms`);
+          }
+        }
+        cases++;
+        if (places.size > 1) bad.push(`v=${v} y=${y.toFixed(1)}: ${[...places].map(([p, w]) => `${p} <- ${w.slice(0, 3).join(",")}`).join("  |  ")}`);
+      }
+    }
+    expect(cases).toBeGreaterThan(30);
+    expect(bad).toEqual([]);
+  });
 });

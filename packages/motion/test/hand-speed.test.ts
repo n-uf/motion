@@ -299,7 +299,8 @@ describe("the hand's speed", () => {
   });
 
   it("a clock that steps back by `gap` ms or more for good starts the hand again once its samples have run on for `still` ms, and the hand reads on from it", () => {
-    for (const back of [HAND_SPEED.gap, 100, 500, 5000]) {
+    // (The last: the new clock starts at 0.)
+    for (const back of [HAND_SPEED.gap, 100, 500, 5000, 10096]) {
       const h = createHandSpeed();
       h.push({ x: 0, y: 0 }, 10000);
       const at = feed(h, 1.5, 8, 12, 10000);
