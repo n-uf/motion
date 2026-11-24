@@ -8,6 +8,8 @@
  *   and the float's too; and so does the target of `targets()` that is the spot's drop.
  * - **no glide:** an item that keeps its form and size moving from one bar's slot to another's, held at the press and
  *   brought over the slot, is drawn at the pointer less the drop's grab: the release glides under half a pitch.
+ * - **no grab passed:** on one `targets()` list (and the `stops()` and the drag's spots) made with `options.grab = g`,
+ *   `after(p)` equals `after(p, g)`, for every kind: a gap, a column, a float, home and a sliding spot alike.
  * - **the grab passed:** a fixed drop's grab is derived from the grab passed to `after()`, as a float's is: on one
  *   `targets()` list, another grab gives another point, equal to the one a list made with that grab gives.
  * - **every bar move:** the grab lies in the landing (0 to its size each way), and along a row's length it is the
@@ -87,6 +89,41 @@ describe("every drop gives the grab", () => {
     expect(moved).toBeGreaterThan(100);
     // eslint-disable-next-line no-console
     console.info("drop grab, passed to after(), by kind:", JSON.stringify([...kinds]), "moved by the grab:", moved);
+  });
+
+  it("a grab not passed to after() is the drag's own (options.grab), the same for every kind", () => {
+    const kinds = new Map<string, number>();
+    let slides = 0;
+    let floats = 0;
+    for (const w of windows) {
+      const own = solve(w.state, { previous: w.previous }).items[w.dragged]!;
+      const off = { x: Math.min(5, own.rect.width / 2), y: Math.min(5, own.rect.height / 2) };
+      for (const g of [off, third]) {
+        // One list, made with the grab: after(p) with none is after(p, g), whatever the kind of drop.
+        const o = optionsOf(w, g);
+        const same = (t: DockDrop, p: Point, at: string): void => {
+          expect(t.after(p), at).toEqual(t.after(p, g));
+          kinds.set(t.place.kind, (kinds.get(t.place.kind) ?? 0) + 1);
+        };
+        for (const t of [...targets(w.state, w.dragged, o), ...stops(w.state, w.dragged, o)]) same(t, middle(t), `${w.name} ${t.id}`);
+        const drag = dockDrag(w.state, w.dragged, o);
+        for (const lane of drag.regions.lanes)
+          for (const s of lane.spots) {
+            same(s.target, middle(s.target), `${w.name} ${s.id}`);
+            if (s.slide) slides++;
+          }
+        if (drag.regions.float) {
+          const c = drag.regions.content;
+          same(drag.regions.float, { x: c.x + c.width * 0.4, y: c.y + c.height * 0.6 }, `${w.name} float`);
+          floats++;
+        }
+      }
+    }
+    for (const k of ["gap", "column", "float", "home"]) expect(kinds.get(k) ?? 0, k).toBeGreaterThan(100);
+    expect(slides).toBeGreaterThan(100);
+    expect(floats).toBeGreaterThan(100);
+    // eslint-disable-next-line no-console
+    console.info("drop grab, none passed, by kind:", JSON.stringify([...kinds]), "sliding:", slides, "floats:", floats);
   });
 
   it("a drop's grab is the held place's, for fixed spots, sliding spots, floats and the targets that are the spots' drops", () => {

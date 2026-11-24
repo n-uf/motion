@@ -390,7 +390,8 @@ function generateShown(state: DockState, dragged: string, options: DockDropOptio
     const size = options.floatSize ?? (was && wasOrient === fo ? { width: was.rect.width, height: was.rect.height } : floatSizeOf(item, fo));
     // The grab in the float's form (`grabOf`: a movable grower pressed on its grown rect keeps its share of it, so the
     // float lies under the pointer as it is held). The form is the probe's: the float laid at its size, solved once.
-    const grabs = grabResolver(c.lift);
+    // (A grab not passed to `after()` is the drag's own, `options.grab`: the one rule of every drop, `grabResolver`.)
+    const grabs = grabResolver(c.lift, options.grab);
     let probe: { laid: DockItemLayout | undefined } | null = null;
     const probeForm = (): DockItemLayout | undefined =>
       (probe ??= { laid: solve(markUsed(floatAt(state, dragged, rect(0, 0, size.width, size.height), options.floatOrient), dragged), prev).items[dragged] }).laid;

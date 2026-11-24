@@ -160,10 +160,15 @@ const LIFT_SLACK = 0.5;
 /** The grab functions a note was given for: one note per function. */
 const noted = new WeakSet<object>();
 
-/** `grabOf` over one lift, remembering the last grab it resolved (by identity): a drag passes one grab every frame. */
-export function grabResolver(lift: Lift): (grab: DockGrab | undefined) => Grab {
+/**
+ * `grabOf` over one lift, remembering the last grab it resolved (by identity): a drag passes one grab every frame. The
+ * one rule for a grab not passed to a drop's `after()`: `fallback` (the drag's own, `DockDropOptions.grab`) stands in, for
+ * every kind of drop.
+ */
+export function grabResolver(lift: Lift, fallback?: DockGrab): (grab: DockGrab | undefined) => Grab {
   let last: { grab: DockGrab | undefined; fn: Grab } | null = null;
-  return (grab) => {
+  return (passed) => {
+    const grab = passed ?? fallback;
     if (last && last.grab === grab) return last.fn;
     last = { grab, fn: grabOf(lift, grab) };
     return last.fn;
@@ -203,7 +208,7 @@ export function grabIn(grab: Grab, layout: DockLayout, dragged: string, press: D
  * read over the same lift as a float reads it, a function by identity (one closure per drag).
  */
 export function readerOf(lift: Lift, base: Grab, dragged: string, options: { readonly grab?: DockGrab }): (layout: DockLayout, grab?: DockGrab) => Point {
-  const resolve = grabResolver(lift);
+  const resolve = grabResolver(lift, options.grab);
   return (layout, grab) => grabIn(grab === undefined || grab === options.grab ? base : resolve(grab), layout, dragged, grab ?? options.grab);
 }
 
