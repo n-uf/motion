@@ -1,0 +1,17 @@
+{
+  "packages/docking/src/lanes.ts": {
+    "@typescript-eslint/no-unsafe-argument": {
+      "count": 1
+    }
+  },
+  "packages/motion/src/clock/frame-loop.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    }
+  },
+  "packages/motion/src/shapes.ts": {
+    "@typescript-eslint/no-unsafe-assignment": {
+      "count": 1
+    }
+  }
+}
