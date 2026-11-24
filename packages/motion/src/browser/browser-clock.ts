@@ -58,7 +58,9 @@ export function createBrowserClock(options: BrowserClockOptions = {}): ClockPort
     host.clearTimeout(handle);
   };
 
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- always called as `raf.call(host, ...)` below; declaring the BrowserHost members as properties would change the published types
   const raf = host.requestAnimationFrame;
+  // eslint-disable-next-line @typescript-eslint/unbound-method -- always called as `caf.call(host, ...)` below; declaring the BrowserHost members as properties would change the published types
   const caf = host.cancelAnimationFrame;
   if (raf !== undefined && caf !== undefined) {
     return {
