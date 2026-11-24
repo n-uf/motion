@@ -1,0 +1,4 @@
+[
+  { "package": "docking", "kind": "drops", "case": "*", "all": true, "reason": "every drop now gives `DropResult.grab`: the recorder records it, and each fixed slot's, home's and column's drop (which gave none) gains it, the drag's grab read in the landing's form, as `DockAfter.grab` reads it; every one of the changes is that one field appearing (none -> a point), no state or layout moves; a float's and a sliding spot's drop carried it already" },
+  { "package": "docking", "kind": "stops", "case": "*", "all": true, "reason": "the same for the stops' drops: the one field `grab` appears on each fixed slot's, home's and column's drop (none -> a point); no state, layout or place moves" }
+]
