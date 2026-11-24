@@ -292,7 +292,7 @@ describe("the hand's speed", () => {
             if (k % 5 === 0) for (const behind of pair) mixed.push({ x: 3, y: y - 4 }, t - dt - behind);
             plain.push({ x: 0, y }, t);
             mixed.push({ x: 0, y }, t);
-            expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${dt} ms, ${v} px/ms, ${pair} behind, frame ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
+            expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${dt} ms, ${v} px/ms, ${pair.join(" and ")} behind, frame ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
           }
           expect(plain.steady).toBe(true);
         }
