@@ -166,7 +166,7 @@ export function tilingDrag<T, K>(tree: T, subject: TilingSubject<K>, options: Ti
     if (held.kind === "home") return homeAfter;
     const k = held.kind === "beside" ? `beside:${held.side}` : held.kind === "join" ? `join:${held.index ?? ""}` : "swap";
     let byAt = memo.get(k);
-    if (!byAt) memo.set(k, (byAt = new Map()));
+    if (!byAt) memo.set(k, (byAt = new Map<K, TilingAfter<T, K>>()));
     let a = byAt.get(held.at);
     if (!a) byAt.set(held.at, (a = make(held)));
     return a;

@@ -60,7 +60,7 @@ export function writeComponents(value: Animatable, out: Float64Array): void {
   if (typeof value === "number") {
     out[0] = value;
   } else if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i++) out[i] = value[i]!;
+    for (let i = 0; i < value.length; i++) out[i] = (value as readonly number[])[i]!;
   } else if ("width" in value) {
     out[0] = value.x;
     out[1] = value.y;
