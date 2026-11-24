@@ -46,6 +46,7 @@ export type RawPointerType = "pointerdown" | "pointermove" | "pointerup" | "poin
 export interface RawPointerEvent {
   type: RawPointerType;
   pointerId: number;
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents -- `PointerKind | string` is deliberate: the known kinds show up as suggestions, any other string is accepted; the published types must stay as they are
   pointerType: PointerKind | string; // unknown types are treated as mouse
   isPrimary?: boolean;
   button: number;
