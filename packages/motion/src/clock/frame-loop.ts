@@ -158,7 +158,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
   const onError = options.onError;
   const onOverBudget = options.onOverBudget;
 
-  const queues: Map<FrameTask, Job>[] = [new Map<FrameTask, Job>(), new Map<FrameTask, Job>(), new Map<FrameTask, Job>(), new Map<FrameTask, Job>()];
+  const queues: Map<FrameTask, Job>[] = [new Map(), new Map(), new Map(), new Map()];
   const carried: Job[][] = [[], [], [], []];
   const repeaters: Repeater[][] = [[], [], [], []];
   const schedulers: ((run: () => void) => void)[] = [];
