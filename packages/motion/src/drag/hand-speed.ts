@@ -31,11 +31,12 @@ import type { Point } from "../shapes";
  *
  * A sample under `SAME_SAMPLE` (1 ms) past the newest one the hand holds is the same sample (a release read a fraction
  * of a millisecond after the last frame): it is left out, so `step`, `long`, `speed` and `steady` read as they did
- * before it, instead of reading its few pixels over so short a time as a slow step. In a run of such samples (a host
- * sampling at 2 kHz or more) the first one that lies 1 ms or more past the newest held is a sample, read over its whole
- * interval from it. A sample whose time lies before the newest held's (an event's time against a frame's) is left out
- * in the same way; one `gap` ms or more before it is a clock that stepped back: the hand starts again from it, its
- * step unknown.
+ * before it (the pointer's rest seen so far included), instead of reading its few pixels over so short a time as a slow
+ * step. In a run of such samples (a host sampling above 1 kHz) the first one that lies 1 ms or more past the newest held
+ * is a sample, read over its whole interval from it. A sample whose time lies before the newest held's (an event's time
+ * against a frame's; all times are expected from one clock) is left out in the same way, however far behind it lies. A
+ * run of such samples that starts `gap` ms or more behind and goes on for `still` ms with no in-order sample between is
+ * a clock that stepped back: the hand starts again from the sample that ends the run, its step unknown.
  *
  * Internal to the landing model (not exported from `./drag`).
  */
@@ -117,6 +118,8 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
   let longs: { t: number; v: number }[] = [];
   /** When the pointer was last seen standing still at the newest sample (`hold`), or null. */
   let heldTo: number | null = null;
+  /** The earliest time of the run of samples `gap` ms or more before the newest held that is going on, or null. */
+  let behind: number | null = null;
   const dist = (a: Point, b: Point): number => Math.hypot(b.x - a.x, b.y - a.y);
   /** The path over the samples held. */
   const path = (): number => {
@@ -153,25 +156,31 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
     push(p, t) {
       const last = samples[samples.length - 1];
       const seenStill = !!last && heldTo !== null && heldTo - last.t >= o.still;
-      heldTo = null;
       if (!last) {
+        heldTo = behind = null;
         add(p, t);
         return;
       }
       const dt = t - last.t;
-      // The same sample: nothing about the hand changes (a release read under a millisecond after the last frame never
-      // reads slow, and a run of such samples is read from the first one a millisecond or more past the newest held).
-      // One that lies before the newest held (an event's time against a frame's, a frame or so apart) is left out the
-      // same way; one `gap` ms or more before it is a clock that stepped back, and the hand starts again from it.
+      // The same sample: nothing about the hand changes, the pointer's rest seen so far included (a release read under a
+      // millisecond after the last frame never reads slow, and a run of such samples is read from the first one a
+      // millisecond or more past the newest held). One that lies before the newest held (an event's time against a
+      // frame's) is left out the same way, however far behind it lies: one late stamp is no clock step. Only samples
+      // `gap` ms or more behind, the first of them noted in `behind`, that go on for `still` ms before an in-order sample
+      // comes (the run takes in the samples still behind the newest held as that clock catches up) are a clock that
+      // stepped back, and the hand starts again from the one that ends the run.
       if (dt < SAME_SAMPLE) {
-        if (dt <= -o.gap) {
-          samples = [{ p, t }];
-          newest = step = Infinity;
-          long = null;
-          longs = [];
-        }
+        if (dt >= 0 || (behind === null && dt > -Math.max(o.gap, SAME_SAMPLE))) return;
+        if (behind === null || t < behind) behind = t;
+        if (t - behind < o.still) return;
+        heldTo = behind = null;
+        samples = [{ p, t }];
+        newest = step = Infinity;
+        long = null;
+        longs = [];
         return;
       }
+      heldTo = behind = null;
       const d = dist(last.p, p);
       // The gap's own step: it may end a rest, so it is unknown unless it is a crawl.
       const across = d <= o.slowStep ? d / dt : Infinity;
@@ -208,7 +217,7 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       newest = step = Infinity;
       long = null;
       longs = [];
-      heldTo = null;
+      heldTo = behind = null;
     },
     get step() {
       return step;
