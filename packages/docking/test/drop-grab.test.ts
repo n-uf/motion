@@ -8,7 +8,7 @@
  *   and the float's too; and so does the target of `targets()` that is the spot's drop.
  * - **no glide:** an item that keeps its form and size moving from one bar's slot to another's, held at the press and
  *   brought over the slot, is drawn at the pointer less the drop's grab: the release glides under half a pitch.
- * - **keys:** `stops()` and `lanes()` keep one result per `onGrabNote` callback (by identity), as they do per grab.
+ * - **keys:** `stops()` and `lanes()` leave `onGrabNote` out of their memo keys: an inline callback per call still hits.
  */
 import { describe, expect, it } from "vitest";
 import type { Point } from "@n-uf/placement";
@@ -163,24 +163,14 @@ describe("every drop gives the grab", () => {
 
 describe("the memo keys", () => {
   const w = windows[0]!;
+  const o = (f: () => void): DockLaneOptions => ({ ...optionsOf(w, undefined), onGrabNote: f });
 
-  it("stops() is remembered per onGrabNote callback", () => {
-    const a = (): void => {};
-    const b = (): void => {};
-    const o = (f: () => void): DockLaneOptions => ({ ...optionsOf(w, undefined), onGrabNote: f });
-    const first = stops(w.state, w.dragged, o(a));
+  it("stops() and lanes() are remembered whatever onGrabNote callback a call passes (an inline arrow per call hits)", () => {
+    const first = stops(w.state, w.dragged, o(() => {}));
     expect(first.length).toBeGreaterThan(0);
     // (The list is a new array each call, over the same targets.)
-    expect(stops(w.state, w.dragged, o(a))[0]).toBe(first[0]);
-    expect(stops(w.state, w.dragged, o(b))[0]).not.toBe(first[0]);
-  });
-
-  it("lanes() is remembered per onGrabNote callback", () => {
-    const a = (): void => {};
-    const b = (): void => {};
-    const o = (f: () => void): DockLaneOptions => ({ ...optionsOf(w, undefined), onGrabNote: f });
-    const first = lanes(w.state, w.dragged, o(a)).lanes;
-    expect(lanes(w.state, w.dragged, o(a)).lanes).toBe(first);
-    expect(lanes(w.state, w.dragged, o(b)).lanes).not.toBe(first);
+    expect(stops(w.state, w.dragged, o(() => {}))[0]).toBe(first[0]);
+    const spots = lanes(w.state, w.dragged, o(() => {})).lanes;
+    expect(lanes(w.state, w.dragged, o(() => {})).lanes).toBe(spots);
   });
 });

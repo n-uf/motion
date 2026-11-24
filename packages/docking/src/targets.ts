@@ -77,7 +77,7 @@
 import { EPS, PLANE, area, clamp, contains, overlaps, rect, type Point, type Rect } from "@n-uf/placement";
 import type { Target } from "@n-uf/placement";
 import { floatAt, markUsed, prune } from "./changes";
-import { aimOnce, fnKey, grabKey, grabOf, grabResolver, readerOf, sizeOf, type DockGrab } from "./grab";
+import { aimOnce, grabKey, grabOf, grabResolver, readerOf, sizeOf, type DockGrab } from "./grab";
 import { axisOf, keepClearFor, floatOrientOf, floatSizeOf, heldRect, inHiddenEdge, namesZone, viewOf, withHiddenOf, zoneOf, zoneTakes } from "./helpers";
 import { EDGE_ROOM_HOLD, type DockEdge, type Orient, type DockState, type DockLayout, type DockItemLayout, type Zone } from "./model";
 import { solve } from "./solve";
@@ -594,7 +594,7 @@ function stopsKey(dragged: string, o: DockDropOptions): string {
     prev = layoutIds.get(o.previous) ?? nextLayoutId++;
     layoutIds.set(o.previous, prev);
   }
-  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, grabKey(o.grab), fnKey(o.onGrabNote), o.pitch ?? null]);
+  return JSON.stringify([dragged, prev, o.endReach ?? null, o.floatOrient ?? null, o.floatSize ? [o.floatSize.width, o.floatSize.height] : null, o.fresh ?? null, grabKey(o.grab), o.pitch ?? null]);
 }
 
 function orderedStops(state: DockState, dragged: string, options: DockDropOptions): DockDrop[] {

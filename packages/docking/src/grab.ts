@@ -173,18 +173,13 @@ export function grabResolver(lift: Lift): (grab: DockGrab | undefined) => Grab {
 const fnIds = new WeakMap<object, number>();
 let nextFnId = 0;
 
-/** A function as a memo key part: its identity (one closure per drag), none as null. */
-export function fnKey(fn: object | undefined): string | null {
-  if (!fn) return null;
-  let id = fnIds.get(fn);
-  if (id === undefined) fnIds.set(fn, (id = nextFnId++));
-  return `fn${id}`;
-}
-
 /** A grab as a memo key part: a point by value, a function by its identity (one closure per drag), none as null. */
 export function grabKey(grab: DockGrab | undefined): readonly [number, number] | string | null {
   if (!grab) return null;
-  return typeof grab === "function" ? fnKey(grab) : [grab.x, grab.y];
+  if (typeof grab !== "function") return [grab.x, grab.y];
+  let id = fnIds.get(grab);
+  if (id === undefined) fnIds.set(grab, (id = nextFnId++));
+  return `fn${id}`;
 }
 
 const ORIGIN: Point = { x: 0, y: 0 };

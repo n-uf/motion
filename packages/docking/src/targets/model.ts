@@ -105,8 +105,9 @@ export interface DockDropOptions {
   readonly grab?: DockGrab;
   /**
    * Hears a note on a grab function (`DockGrabNote`), once per function: in development a host says it (the library
-   * reaches no console). Read once per lift; it changes no output. The memos of `stops()` and `lanes()` are keyed by
-   * the callback's identity, as by the grab function's: pass one stable function for the drag.
+   * reaches no console). Read once per lift; it changes no output, so the memos of `stops()` and `lanes()` leave it
+   * out of their keys: the first callback a drag's options are remembered with is the one that hears (an inline arrow per
+   * call is fine, it costs no memo miss).
    */
   readonly onGrabNote?: (note: DockGrabNote) => void;
   /**

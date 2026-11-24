@@ -24,7 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, len, lo, zoneIn } from "./aim";
-import { aimOnce, fnKey, grabKey, grabOf, grabResolver, readerOf, sizeOf, type DockGrab, type Grab } from "./grab";
+import { aimOnce, grabKey, grabOf, grabResolver, readerOf, sizeOf, type DockGrab, type Grab } from "./grab";
 import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockState, DockLayout, DockItemLayout, Zone } from "./model";
@@ -338,15 +338,15 @@ function clipAtDrawn(band: Rect, axis: Axis, cuts: readonly Rect[]): Rect {
 const memo = new WeakMap<DockState, Map<string, Base>>();
 const previousIds = new WeakMap<DockLayout, number>();
 let nextPrevious = 1;
-/** The options as a key: by value, `previous` by identity, a grab function and a note callback by identity (`grabKey`, `fnKey`). */
+/** The options as a key: by value, `previous` by identity, a grab function by identity (`grabKey`); `onGrabNote` not at all. */
 function keyOf(dragged: string, o: DockLaneOptions): string {
-  const { previous, grab, onGrabNote, ...rest } = o;
+  const { previous, grab, ...rest } = o;
   let p = 0;
   if (previous) {
     if (!previousIds.has(previous)) previousIds.set(previous, nextPrevious++);
     p = previousIds.get(previous)!;
   }
-  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}\u0000${JSON.stringify(grabKey(grab))}\u0000${fnKey(onGrabNote)}`;
+  return `${dragged}\u0000${p}\u0000${JSON.stringify(rest)}\u0000${JSON.stringify(grabKey(grab))}`;
 }
 
 /**
