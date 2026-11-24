@@ -202,6 +202,16 @@ export function grabIn(grab: Grab, layout: DockLayout, dragged: string, press: D
   return press && typeof press !== "function" ? { x: press.x, y: press.y } : ORIGIN;
 }
 
+/**
+ * `grabIn` as a drop reads it (internal): the grab in the form a drop's layout lays the item in, from the grab passed to
+ * its `after(point, grab)` where one is, else the drag's own (`options.grab`, whose function is `base`). A grab passed is
+ * read over the same lift as a float reads it, a function by identity (one closure per drag).
+ */
+export function readerOf(lift: Lift, base: Grab, dragged: string, options: { readonly grab?: DockGrab }): (layout: DockLayout, grab?: DockGrab) => Point {
+  const resolve = grabResolver(lift);
+  return (layout, grab) => grabIn(grab === undefined || grab === options.grab ? base : resolve(grab), layout, dragged, grab ?? options.grab);
+}
+
 /** Whether two points are one, within `EPS` each way. */
 const samePoint = (a: Point, b: Point): boolean => Math.abs(a.x - b.x) < EPS && Math.abs(a.y - b.y) < EPS;
 

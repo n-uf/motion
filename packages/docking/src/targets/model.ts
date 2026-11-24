@@ -73,9 +73,9 @@ export interface DockDrop extends Target {
   readonly strip?: Rect;
   /**
    * The state a release here commits and its layout, with the pointer at `point` holding the item at `grab` (a point or
-   * a function of the laid form, `DockGrab`; default its middle). Only a float's and a sliding spot's landing depends on
-   * them; those say the grab they landed with (`DropResult.grab`). Every other drop's `grab` is `DockDropOptions.grab`
-   * read in its landing's form, whatever is passed here.
+   * a function of the laid form, `DockGrab`; default `DockDropOptions.grab`, else its middle). Only a float's and a
+   * sliding spot's landing depends on them; those say the grab they landed with (`DropResult.grab`). Every other drop's
+   * `grab` is the one passed read in its landing's form, the same reading.
    */
   after(point: Point, grab?: DockGrab): DropResult;
 }

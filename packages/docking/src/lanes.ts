@@ -24,7 +24,7 @@
 import { EPS, area, clamp, rect, subtract, type Axis, type Point, type Rect, type Size } from "@n-uf/placement";
 import { liftItem, type DockPlace } from "./changes";
 import { SNAP_DISTANCE, SPOT_PITCH, aimCut, aimSlack, crossFreeCuts, cutsByHalves, len, lo, zoneIn } from "./aim";
-import { aimOnce, fnKey, grabIn, grabKey, grabOf, grabResolver, sizeOf, type DockGrab, type Grab } from "./grab";
+import { aimOnce, fnKey, grabKey, grabOf, grabResolver, readerOf, sizeOf, type DockGrab, type Grab } from "./grab";
 import { givesWay, landsAt, neighbors, onEdge, slideRange, slideRoom, type SlideEdge, type SlideRoom } from "./slide";
 import { axisOf, keepClearFor, floatRegion } from "./helpers";
 import type { DockState, DockLayout, DockItemLayout, Zone } from "./model";
@@ -450,7 +450,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
     if (p.kind === "gap" || (p.kind === "home" && ownEdge)) {
       const edge = p.kind === "gap" ? p.edge : ownEdge!;
       const axis = axisOfEdge(edge);
-      const layout = p.kind === "home" ? seen : t.after(ORIGIN, ORIGIN).layout;
+      const layout = p.kind === "home" ? seen : t.after(ORIGIN).layout;
       const landing = p.kind === "home" ? own!.rect : layout.items[dragged]?.rect;
       if (!landing) continue;
       const zone = p.kind === "gap" ? p.zone : (own?.zone ?? "start");
@@ -458,7 +458,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
       const id = n.before === "^" && n.next === "$" ? `${edge}/${zone}` : `${edge}/${zone}/${n.before}|${n.next}`;
       raws.push({ lane: edge, edge, axis, id, ...n, landing, layout, target: t, hit: t.hit, ...(p.kind === "home" ? { home: true as const } : {}) });
     } else if (p.kind === "column" || p.kind === "rail") {
-      const layout = t.after(ORIGIN, ORIGIN).layout;
+      const layout = t.after(ORIGIN).layout;
       const landing = layout.items[dragged]?.rect;
       if (!landing) continue;
       const lane = p.kind === "column" ? `column:${p.side}:${columnKey(p.side, p.ring)}` : `rail:${p.side}`;
@@ -480,7 +480,7 @@ function build(state: DockState, dragged: string, options: DockLaneOptions): Bas
   // Over a neighbor itself, the item takes its place and the neighbor gives way, in either mode (`takeoverSpots`).
   raws.push(...takeoverSpots(state, dragged, options, seen, lifted, raws, pitch > 0 ? pitch : SPOT_PITCH));
   // Every spot's drop says where it holds the item (`DropResult.grab`): the ones the targets made already do.
-  const reads = (layout: DockLayout): Point => grabIn(grab, layout, dragged, options.grab);
+  const reads = readerOf(lift, grab, dragged, options);
   raws.forEach((r, i) => (raws[i] = { ...r, target: withGrab(r.target, reads) }));
   const byLane = new Map<string, Raw[]>();
   for (const r of raws) byLane.set(r.lane, [...(byLane.get(r.lane) ?? []), r]);
@@ -1276,7 +1276,7 @@ function slidingSpots(state: DockState, dragged: string, options: DockLaneOption
         const k = `${r ? "dock " : ""}${Math.round(x0 * 1000) / 1000}`;
         const known = results.get(k);
         if (known) return known;
-        const result = r ? r.target.after(ORIGIN, ORIGIN) : (land(x0) ?? range.nearest(x0)).result;
+        const result = r ? r.target.after(ORIGIN) : (land(x0) ?? range.nearest(x0)).result;
         results.set(k, result);
         return result;
       };

@@ -56,6 +56,35 @@ describe("every drop gives the grab", () => {
     console.info("drop grab, targets by kind:", JSON.stringify([...kinds]));
   });
 
+  it("a drop's grab is derived from the grab passed to after(), fixed and float alike", () => {
+    const kinds = new Map<string, number>();
+    let moved = 0;
+    for (const w of windows) {
+      const own = solve(w.state, { previous: w.previous }).items[w.dragged]!;
+      const off = { x: Math.min(5, own.rect.width / 2), y: Math.min(5, own.rect.height / 2) };
+      // One list made with no grab; each grab is passed to its drops' after(), as a host that has only its press does.
+      const plain = targets(w.state, w.dragged, optionsOf(w, undefined));
+      for (const g of [off, third]) {
+        const made = new Map(targets(w.state, w.dragged, optionsOf(w, g)).map((t) => [t.id, t] as const));
+        for (const t of plain) {
+          const a = t.after(middle(t), g).grab!;
+          const at = `${w.name} ${t.id}`;
+          expect(a, at).toBeDefined();
+          // The same drop of a list made with that grab (its tiles cut by it) gives the same.
+          const same = made.get(t.id);
+          if (same) expect(same.after(middle(t), g).grab, at).toEqual(a);
+          // The grab passed decides it: another grab (none) gives another point on the drops it reaches.
+          if (g === off && t.after(middle(t)).grab && JSON.stringify(t.after(middle(t)).grab) !== JSON.stringify(a)) moved++;
+          kinds.set(t.place.kind, (kinds.get(t.place.kind) ?? 0) + 1);
+        }
+      }
+    }
+    for (const k of ["gap", "column", "float", "home"]) expect(kinds.get(k) ?? 0, k).toBeGreaterThan(100);
+    expect(moved).toBeGreaterThan(100);
+    // eslint-disable-next-line no-console
+    console.info("drop grab, passed to after(), by kind:", JSON.stringify([...kinds]), "moved by the grab:", moved);
+  });
+
   it("a drop's grab is the held place's, for fixed spots, sliding spots, floats and the targets that are the spots' drops", () => {
     let fixed = 0;
     let slides = 0;
