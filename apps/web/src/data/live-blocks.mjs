@@ -91,7 +91,7 @@ function unbalancedInlineTag(html) {
 
 const BLOCK_OPENING_TAG = /<(?:p|li|ul|ol|h[1-6]|td|th|div|blockquote)(?:\s[^>]*)?>/i;
 // characters after which a space would look wrong: the start of a bracket or a quotation
-const OPENING_PUNCTUATION = /[\s(\[{“‘"']/;
+const OPENING_PUNCTUATION = /[\s([{“‘"']/;
 
 /**
  * What is left around a block that was just removed (`out` is the HTML before it, `pos` where the HTML after it starts):
