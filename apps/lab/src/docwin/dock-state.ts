@@ -735,6 +735,7 @@ export function createDocwin(o: DocwinOptions) {
   const dragSettings = (): DragSettings => ({ endReach: reachOf().endReach, floatFromHeld: approved(), stretchPositions, pitch, snapDistance, emptyLanes });
   /** A drag's targets; with the press's `grab`, cut by the same aim order as its lanes (`aimCut`). */
   /** A grab function that strays from its press at the lift (`DockGrabNote`): the lab says so, once per function. */
+  // eslint-disable-next-line no-console -- the note exists to tell the person at the console; that is its whole job
   const onGrabNote = (n: DockGrabNote): void => console.warn(`docwin: the grab function gave (${n.at.x}, ${n.at.y}) at the item's own form, not its press (${n.press.x}, ${n.press.y})`);
   const targetsOf = (id: ItemId, grab?: DockGrab): DockDrop[] => stateTargets(ruled(), id, { ...reachOf(), ...(grab ? { grab, onGrabNote } : {}) });
   const refusalsOf = (id: ItemId): DockRefusal[] => stateRefusals(ruled(), id, reachOf());
@@ -1959,7 +1960,7 @@ export function createDocwin(o: DocwinOptions) {
   // --- load ------------------------------------------------------------------------------------------------------
 
   function load(): string[] {
-    let raw: string | null = null;
+    let raw: string | null;
     try {
       raw = localStorage.getItem(o.storageKey);
     } catch {
@@ -1969,7 +1970,7 @@ export function createDocwin(o: DocwinOptions) {
       commit(defaultState(state.stage), { fresh: true });
       return [];
     }
-    let data: unknown = null;
+    let data: unknown;
     try {
       data = JSON.parse(raw);
     } catch {

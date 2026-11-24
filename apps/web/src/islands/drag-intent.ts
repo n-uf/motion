@@ -323,7 +323,7 @@ function play(path: Path): Promise<Result> {
     // Reduced motion: no playing in real time. The whole path is fed to the model in one go, on the path's own clock
     // (a sample every 16 ms), so the counts and the drop are the same and the chip is drawn where it landed.
     if (reduced()) {
-      let p = first;
+      let p: typeof first;
       for (let t = 0; ; t = Math.min(total, t + 16)) {
         p = at(keys, t);
         ptr.style.left = p.x + "px";
