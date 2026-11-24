@@ -724,6 +724,7 @@ describe("recognizer: a pointerup that never came", () => {
 describe("recognizer: cancel, reset, dispose", () => {
   it("cancel and reset work detached from the object", () => {
     const t = setup();
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- the test is that these work called detached from the recognizer
     const { reset, cancel } = t.rec;
     t.feed(t.ev("pointerdown", 1, 0, 0));
     cancel("escape");

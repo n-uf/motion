@@ -118,7 +118,7 @@ describe("computed", () => {
     expect(c.value).toBe(6);
 
     const dispose = effect(() => {
-      c.value;
+      void c.value;
     });
     const calls = fn.mock.calls.length;
     dispose();

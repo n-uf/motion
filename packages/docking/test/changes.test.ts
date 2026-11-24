@@ -239,7 +239,7 @@ describe("fold and unfold round-trip (a grip's double-click)", () => {
 describe("the stored form", () => {
   it("round-trips", () => {
     const changed = resizeEdge(foldItem(keepItem(floatAt(moveTo(s, "tools", { edge: "toolbar", at: 0 }), "notes", { x: 520, y: 180, width: 300, height: 340 }), "marks", true), "notes", true), "left", 320);
-    const stored = JSON.parse(JSON.stringify(storeDockState(changed)));
+    const stored: unknown = JSON.parse(JSON.stringify(storeDockState(changed)));
     const read = readDockState(stored, s);
     expect(read.dropped).toEqual([]);
     expect(storeDockState(read.state)).toEqual(storeDockState(changed));

@@ -69,7 +69,7 @@ describe("tilingDrag: home and base", () => {
     const frozen = JSON.parse(JSON.stringify(three)) as StackedSplit<string>;
     const deepFreeze = (o: object): void => {
       Object.freeze(o);
-      for (const v of Object.values(o)) if (v && typeof v === "object") deepFreeze(v);
+      for (const v of Object.values(o) as unknown[]) if (v && typeof v === "object") deepFreeze(v);
     };
     deepFreeze(frozen);
     const d = tilingDrag(frozen, pane("a"), opts());
@@ -203,6 +203,7 @@ describe("tilingDrag: refusals", () => {
   });
 
   it("an adapter with no join refuses every join", () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method -- only to leave `join` out of the copy; it is never called
     const { join: _join, ...noJoin } = ops;
     void _join;
     const d = tilingDrag(three, pane("a"), opts({ ops: noJoin }));

@@ -74,7 +74,8 @@ function tray(): DockState {
 
 /** The lab's window as captured (`fixtures/lab-windows.json`), Zoom moved from the left rail into the title bar. */
 function labTitleBar(): DockState {
-  const w = JSON.parse(readFileSync(new URL("./fixtures/lab-windows.json", import.meta.url), "utf8")).windows[0].scene as DockState;
+  const file = JSON.parse(readFileSync(new URL("./fixtures/lab-windows.json", import.meta.url), "utf8")) as { windows: { scene: DockState }[] };
+  const w = file.windows[0]!.scene;
   return { ...w, edges: w.edges.map((e) => (e.id === "title" ? { ...e, items: ["title", "zoom", "controls"] } : { ...e, items: e.items.filter((x) => x !== "zoom") })) };
 }
 

@@ -78,7 +78,7 @@ describe("pushable is a declaration, not state", () => {
     expect(back.state.items.state!.pushable).toBe(true);
     // Not in base: a stored claim of it is dropped, as every undeclared field is.
     const plain = bar(["state", "page"], []);
-    const forged = JSON.parse(JSON.stringify(stored));
+    const forged = JSON.parse(JSON.stringify(stored)) as { items: { state: { pushable?: boolean } } };
     forged.items.state.pushable = true;
     const read = readDockState(forged, plain);
     expect(read.state.items.state!.pushable).toBeUndefined();

@@ -96,7 +96,7 @@ function flatten(raw: RawState): { state: RawState; file: Fixture; name: string 
   const base = file.states[key]!.state as RawState;
   const items: Record<string, RawItem | null> = { ...base.items };
   for (const [id, v] of Object.entries(raw.items ?? {})) {
-    if (v === null) delete items[id];
+    if (v === null) Reflect.deleteProperty(items, id);
     else items[id] = { ...(items[id] ?? {}), ...v };
   }
   return { state: { ...base, ...raw, items, extends: undefined }, file, name };

@@ -209,7 +209,7 @@ describe("a tile among its own rail's tiles", () => {
       const lane = lanes(s, "p2").lanes.find((l) => l.id === "right-1")!;
       expect(lane.rect.y).toBeCloseTo(y0, 3);
       expect(lane.rect.y + lane.rect.height).toBeCloseTo(y1, 3);
-      for (const sp of lane.spots) expect(sp.along[0] >= y0 - 1e-6 && sp.along[1] <= y1 + 1e-6, `${sp.id} ${sp.along} in ${y0}..${y1}`).toBe(true);
+      for (const sp of lane.spots) expect(sp.along[0] >= y0 - 1e-6 && sp.along[1] <= y1 + 1e-6, `${sp.id} ${sp.along.join(",")} in ${y0}..${y1}`).toBe(true);
       for (const m of lane.marks) expect(m.rect.y >= y0 - 1e-6 && m.rect.y + m.rect.height <= y1 + 1e-6, `${m.id} ${JSON.stringify(m.rect)} in ${y0}..${y1}`).toBe(true);
     });
 

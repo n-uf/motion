@@ -639,7 +639,7 @@ describe("landing model: the lift zone belongs to the item's own lane, whatever 
   }
   const PRESS: Point = { x: 15, y: 35 };
   const HOME = { lane: "rail", spot: "rail/start/^|$" };
-  const homeRelease = expect.objectContaining({ kind: "spot", lane: "rail", spot: "rail/start/^|$", home: true });
+  const homeRelease: unknown = expect.objectContaining({ kind: "spot", lane: "rail", spot: "rail/start/^|$", home: true });
   const opts = (regions: LandingRegions): LandingOptions => ({ ...listed(regions, FLOAT), home: HOME, lift: PRESS });
 
   for (const [speed, label] of [

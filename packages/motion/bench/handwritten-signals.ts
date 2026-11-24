@@ -189,6 +189,7 @@ class ComputedNode<T> implements ReadonlySignal<T>, SourceNode, ObserverNode {
     const previousIndex = trackIndex;
     const previousSources = newSources;
     const previousVersions = newVersions;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the module-level tracker has to hold the node being run
     activeObserver = this;
     trackIndex = 0;
     newSources = null;
@@ -261,6 +262,7 @@ class EffectNode implements ObserverNode {
     const previousIndex = trackIndex;
     const previousSources = newSources;
     const previousVersions = newVersions;
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- the module-level tracker has to hold the node being run
     activeObserver = this;
     trackIndex = 0;
     newSources = null;

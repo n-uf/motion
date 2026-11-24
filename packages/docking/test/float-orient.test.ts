@@ -127,7 +127,7 @@ describe("a float's size by orient", () => {
 
   it("is stored and read back", () => {
     const s = resizeFloat(orientFloat(resizeFloat(floatAt(base(), "card", { x: 300, y: 100, width: 300, height: 400 }, "column"), "card", { x: 300, y: 100, width: 400, height: 450 }), "card", "row"), "card", { x: 300, y: 100, width: 520, height: 160 });
-    const stored = JSON.parse(JSON.stringify(storeDockState(s)));
+    const stored = JSON.parse(JSON.stringify(storeDockState(s))) as { items: { card: { floatSizes: unknown } } };
     expect(stored.items.card.floatSizes).toEqual({ column: { width: 400, height: 450 }, row: { width: 520, height: 160 } });
     const read = readDockState(stored, base());
     expect(read.dropped).toEqual([]);
