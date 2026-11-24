@@ -7,6 +7,18 @@ package, the docking model shipped as `@n-uf/placement/scene` and `/scene/cases`
 
 Unreleased entries live in `changes/` until a release joins them.
 
+## 26.11.62
+
+- **Every drop gives the grab.** `DropResult.grab` is now present on the result of every target's `after()`, from
+  `targets()`, `stops()` and a lane's spots (`DockSpot.target`): a fixed slot's, home's, a column's and a rail's
+  included, which gave none before (only a float's and a sliding spot's did). It is the drag's grab read in the form
+  the drop lays the item in, by the one reading `dockDrag(...).after(held).grab` makes: the grab passed to `after(point,
+  grab)`, else `DockDropOptions.grab`, as a float reads it. A host drawing the held copy at the pointer less the
+  landing's grab no longer keeps the old grip anchor for a fixed slot, so a bar-to-bar release no longer glides by the
+  difference. The type is unchanged (`grab` stays optional on `DropResult`).
+- Documented: the memos of `stops()` and `lanes()` leave `onGrabNote` out of their keys (it changes no output), so the
+  first callback a drag's options are remembered with is the one that hears.
+
 ## 26.11.61
 
 No changes in `@n-uf/docking`. Released in step with `@n-uf/motion` and `@n-uf/placement`, which share the version.
