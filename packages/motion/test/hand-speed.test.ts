@@ -237,6 +237,58 @@ describe("the hand's speed", () => {
     }
   });
 
+  it("a sample timed before the newest held (an event's time against a frame's, up to a frame behind) is left out, as the same sample is", () => {
+    for (const behind of [0.5, 3, 8, 16, 39]) {
+      const plain = createHandSpeed();
+      const mixed = createHandSpeed();
+      plain.push({ x: 0, y: 0 }, 100);
+      mixed.push({ x: 0, y: 0 }, 100);
+      for (let k = 1; k <= 30; k++) {
+        const t = 100 + 8 * k;
+        const y = 1.5 * 8 * k;
+        // The frame's own reading of the pointer, stamped `behind` ms before the newest sample, somewhere else.
+        mixed.push({ x: 4, y: y + 5 }, t - 8 - behind);
+        plain.push({ x: 0, y }, t);
+        mixed.push({ x: 0, y }, t);
+        expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${behind} ms behind, sample ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
+      }
+      expect(plain.steady).toBe(true);
+    }
+  });
+
+  it("a clock that steps back by `gap` ms or more starts the hand again from the sample, and the hand reads on from it", () => {
+    for (const back of [HAND_SPEED.gap, 100, 500, 5000]) {
+      const h = createHandSpeed();
+      h.push({ x: 0, y: 0 }, 10000);
+      const at = feed(h, 1.5, 8, 12, 10000);
+      expect(h.steady).toBe(true);
+      h.push({ x: 0, y: at.y + 12 }, at.t - back);
+      expect([h.step, h.long, h.speed, h.steady], `${back} ms back`).toEqual([Infinity, null, Infinity, false]);
+      // On from there at the same speed on the new clock: the hand reads it again, steady once its span is known.
+      feed(h, 1.5, 8, 4, at.t - back, at.y + 12);
+      expect(h.step).toBeCloseTo(1.5, 9);
+      feed(h, 1.5, 8, 12, at.t - back + 32, at.y + 12 + 1.5 * 32);
+      expect(h.long).toBeCloseTo(1.5, 6);
+      expect(h.steady, `${back} ms back`).toBe(true);
+    }
+  });
+
+  it("a clock that steps back by less than `gap` ms for good costs a few samples, not the hand: it reads the hand's speed again within a few spans", () => {
+    for (const back of [5, 12, 30, HAND_SPEED.gap - 1]) {
+      const h = createHandSpeed();
+      h.push({ x: 0, y: 0 }, 1000);
+      const at = feed(h, 1.5, 8, 12, 1000);
+      // The samples after it are `back` ms early by the new clock.
+      let y = at.y;
+      for (let k = 1; k <= 60; k++) {
+        y += 1.5 * 8;
+        h.push({ x: 0, y }, at.t + 8 * k - back);
+      }
+      expect(h.speed, `${back} ms back`).toBeCloseTo(1.5, 6);
+      expect(h.steady, `${back} ms back`).toBe(true);
+    }
+  });
+
   it("is steady only once it has read alike for half a span: a hand gathering speed out of a hesitation is not", () => {
     const h = createHandSpeed();
     h.push({ x: 0, y: 0 }, 0);

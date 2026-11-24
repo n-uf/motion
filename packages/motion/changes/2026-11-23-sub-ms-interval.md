@@ -5,4 +5,6 @@
   is left out, so the step, the speed and the steadiness read as they did before it. In a run of samples all under 1 ms
   apart (a host sampling at 2 kHz or more) the first one that lies 1 ms or more past the newest held is read over its
   whole interval, so the step and the speed follow the hand: a fling and then a slow creep, both sampled every 0.5 ms,
-  reads slow once the creep has lasted the span.
+  reads slow once the creep has lasted the span, and a slide enters a touching lane at 2 and 8 kHz as it does at 1 kHz.
+  A sample timed before the newest one held (an event's time against a frame's) is left out the same way; one 40 ms or
+  more before it is a clock that stepped back, and the hand starts again from it.

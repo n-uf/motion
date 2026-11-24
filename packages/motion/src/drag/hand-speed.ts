@@ -33,7 +33,9 @@ import type { Point } from "../shapes";
  * of a millisecond after the last frame): it is left out, so `step`, `long`, `speed` and `steady` read as they did
  * before it, instead of reading its few pixels over so short a time as a slow step. In a run of such samples (a host
  * sampling at 2 kHz or more) the first one that lies 1 ms or more past the newest held is a sample, read over its whole
- * interval from it.
+ * interval from it. A sample whose time lies before the newest held's (an event's time against a frame's) is left out
+ * in the same way; one `gap` ms or more before it is a clock that stepped back: the hand starts again from it, its
+ * step unknown.
  *
  * Internal to the landing model (not exported from `./drag`).
  */
@@ -159,7 +161,17 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
       const dt = t - last.t;
       // The same sample: nothing about the hand changes (a release read under a millisecond after the last frame never
       // reads slow, and a run of such samples is read from the first one a millisecond or more past the newest held).
-      if (dt < SAME_SAMPLE) return;
+      // One that lies before the newest held (an event's time against a frame's, a frame or so apart) is left out the
+      // same way; one `gap` ms or more before it is a clock that stepped back, and the hand starts again from it.
+      if (dt < SAME_SAMPLE) {
+        if (dt <= -o.gap) {
+          samples = [{ p, t }];
+          newest = step = Infinity;
+          long = null;
+          longs = [];
+        }
+        return;
+      }
       const d = dist(last.p, p);
       // The gap's own step: it may end a rest, so it is unknown unless it is a crawl.
       const across = d <= o.slowStep ? d / dt : Infinity;
