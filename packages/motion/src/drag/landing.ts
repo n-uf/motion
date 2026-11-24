@@ -94,12 +94,13 @@ import type { LandingRegion } from "./region";
  *   Near, pending or enterable), switching exactly at `reach`. Where that lane's guide meets another's, the geometry
  *   gives it that lane.
  * - Steps are speeds (px/ms) between points that differ, so the gates read the same speed at any input rate from 60 Hz
- *   to 8 kHz. A point under 1 ms after the newest one the hand holds is the same sample and changes no step (a run of
- *   them is read from the first one 1 ms or more past it). A repeated point keeps the last step; it is still only once
- *   the pointer has stayed put for `rest` ms.
+ *   to 8 kHz. A point stamped under 1 ms after the newest one the hand holds is the same sample and changes no step (a
+ *   run of them is read from the first one 1 ms or more past it); one stamped before it is left out too. A repeated
+ *   point keeps the last step; it is still only once the pointer has stayed put for `rest` ms.
  * - **The pointer** is taken onto the stage by the model itself (past it by up to `edge`, onto its edge).
  *
- * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both. Call it at
+ * **The host's part:** call `update` whenever you like: per pointer sample, per animation frame, or both, with every time
+ * from one clock (the page's `performance.now()` scale: an event's `timeStamp` and a frame's time are on it). Call it at
  * least once more after the pointer stops, `rest` ms or more later (every frame does), so it can become still and a
  * rest reads as one (a rest the model never sees is told from frames the host lost only by how far the pointer moved
  * across it), and again with the same point when a key changes. `release(point, time)` takes the release point as one
