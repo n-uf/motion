@@ -24,12 +24,14 @@ const typedGroups = [
 const typedFiles = typedGroups.flatMap((g) => g.files);
 
 export default defineConfig([
-  globalIgnores(["**/dist/**", "**/node_modules/**", "**/.astro/**", "**/coverage/**", "apps/web/public/**"]),
+  globalIgnores(["**/dist/**", "**/node_modules/**", "**/.astro/**", "**/.claude/**", "**/.vercel/**", "**/coverage/**", "apps/web/public/**"]),
   { linterOptions: { reportUnusedDisableDirectives: "error" } },
   js.configs.recommended,
 
-  // Syntax-only for every .ts; the typed groups add on top.
-  { files: ["**/*.ts"], extends: [tseslint.configs.recommended] },
+  // Every source file kind is linted, so a new .tsx, .mts or .jsx is not skipped.
+  { files: ["**/*.{ts,tsx,mts,cts,js,jsx,mjs,cjs,astro}"] },
+  // Syntax-only for every TypeScript file; the typed groups add on top.
+  { files: ["**/*.{ts,tsx,mts,cts}"], extends: [tseslint.configs.recommended] },
   ...typedGroups.map((g) => ({
     files: g.files,
     extends: [tseslint.configs.recommendedTypeChecked],
@@ -62,7 +64,7 @@ export default defineConfig([
     rules: { "no-console": "error" },
   },
   {
-    files: ["**/*.ts"],
+    files: ["**/*.{ts,tsx,mts,cts}"],
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",
