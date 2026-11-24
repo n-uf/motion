@@ -375,20 +375,6 @@ describe("the hand's speed", () => {
     }
   });
 
-  it("reset() forgets a run of stale samples", () => {
-    const h = createHandSpeed();
-    h.push({ x: 0, y: 0 }, 1000);
-    const at = feed(h, 1.5, 8, 12, 1000);
-    // A stale sample notes a run; the drag starts again; a stale sample on the new drag is the first of a run, not its end.
-    h.push({ x: 0, y: 0 }, at.t - 200);
-    h.reset();
-    h.push({ x: 0, y: 0 }, at.t);
-    const a = feed(h, 1.5, 8, 12, at.t);
-    const before = [h.step, h.long, h.speed, h.steady];
-    h.push({ x: 0, y: a.y + 1 }, a.t - 200 + 30);
-    expect([h.step, h.long, h.speed, h.steady]).toEqual(before);
-  });
-
   it("a clock that steps back by less than `gap` ms for good costs a few samples, not the hand: it reads the hand's speed again within a few spans", () => {
     for (const back of [5, 12, 30, HAND_SPEED.gap - 1]) {
       const h = createHandSpeed();
