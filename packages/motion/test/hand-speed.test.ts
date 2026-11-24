@@ -277,30 +277,89 @@ describe("the hand's speed", () => {
     }
   });
 
-  it("a stale sample now and then in a slide at 60 and 125 Hz changes nothing", () => {
+  it("a stale sample now and then in a slide at 60 and 125 Hz changes nothing, nor do pairs of them (60 and 5 ms, 45 and 20, 41 and 1 behind the newest)", () => {
     for (const dt of [1000 / 60, 8]) {
       for (const v of [0.6, 1.2, 1.9]) {
-        const plain = createHandSpeed();
-        const mixed = createHandSpeed();
-        plain.push({ x: 0, y: 0 }, 5000);
-        mixed.push({ x: 0, y: 0 }, 5000);
-        for (let k = 1; k <= 60; k++) {
-          const t = 5000 + dt * k;
-          const y = v * dt * k;
-          // Every fifth frame also reads a pointer sample stamped 60 ms before it, from somewhere else.
-          if (k % 5 === 0) mixed.push({ x: 3, y: y - 4 }, t - 60);
-          plain.push({ x: 0, y }, t);
-          mixed.push({ x: 0, y }, t);
-          expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${dt} ms, ${v} px/ms, frame ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
+        for (const pair of [[60], [60, 5], [45, 20], [41, 1]]) {
+          const plain = createHandSpeed();
+          const mixed = createHandSpeed();
+          plain.push({ x: 0, y: 0 }, 5000);
+          mixed.push({ x: 0, y: 0 }, 5000);
+          for (let k = 1; k <= 60; k++) {
+            const t = 5000 + dt * k;
+            const y = v * dt * k;
+            // Every fifth frame, first a move and then a release (stamped `pair` ms before the newest sample), from elsewhere.
+            if (k % 5 === 0) for (const behind of pair) mixed.push({ x: 3, y: y - 4 }, t - dt - behind);
+            plain.push({ x: 0, y }, t);
+            mixed.push({ x: 0, y }, t);
+            expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${dt} ms, ${v} px/ms, ${pair} behind, frame ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
+          }
+          expect(plain.steady).toBe(true);
         }
-        expect(plain.steady).toBe(true);
       }
     }
   });
 
+  it("a move stamped 60 ms behind and then a release stamped 10 ms behind change nothing on a slow hand", () => {
+    for (const v of [0.1, 0.2, 0.3]) {
+      const plain = createHandSpeed();
+      const mixed = createHandSpeed();
+      plain.push({ x: 0, y: 0 }, 1000);
+      mixed.push({ x: 0, y: 0 }, 1000);
+      for (let k = 1; k <= 40; k++) {
+        const t = 1000 + 8 * k;
+        const y = v * 8 * k;
+        if (k === 20) {
+          mixed.push({ x: 0, y: y + 0.3 }, t - 8 - 60);
+          mixed.push({ x: 0, y: y + 0.4 }, t - 8 - 10);
+        }
+        plain.push({ x: 0, y }, t);
+        mixed.push({ x: 0, y }, t);
+        expect([mixed.step, mixed.long, mixed.speed, mixed.steady], `${v} px/ms, sample ${k}`).toEqual([plain.step, plain.long, plain.speed, plain.steady]);
+      }
+    }
+  });
+
+  it("a repeated frame in order ends a run of stale samples: the next stale one starts a new run", () => {
+    const h = createHandSpeed();
+    h.push({ x: 0, y: 0 }, 1000);
+    const at = feed(h, 1.5, 8, 12, 1000);
+    const before = [h.step, h.long, h.speed, h.steady];
+    // Two stale samples 40 ms apart, both far behind, restart the hand (known and accepted, below). With a repeated
+    // frame between them they are two runs of one, and nothing changes.
+    h.push({ x: 0, y: at.y + 1 }, at.t - 100);
+    h.hold(at.t + 5);
+    h.push({ x: 0, y: at.y + 2 }, at.t - 60);
+    expect([h.step, h.long, h.speed, h.steady]).toEqual(before);
+  });
+
+  it("known and accepted: two stale samples both `gap` ms or more behind and `still` ms or more apart, with nothing in order between, restart the hand", () => {
+    const h = createHandSpeed();
+    h.push({ x: 0, y: 0 }, 1000);
+    const at = feed(h, 1.5, 8, 12, 1000);
+    h.push({ x: 0, y: at.y + 1 }, at.t - 100);
+    expect(h.speed).toBeCloseTo(1.5, 9);
+    h.push({ x: 0, y: at.y + 2 }, at.t - 60);
+    expect([h.step, h.long, h.speed, h.steady]).toEqual([Infinity, null, Infinity, false]);
+  });
+
+  it("with `still` 0 (a landing model's `rest` of 0) one stale sample restarts nothing: two stamps under 1 ms apart are one sample", () => {
+    const h = createHandSpeed({ still: 0 });
+    h.push({ x: 0, y: 0 }, 1000);
+    const at = feed(h, 1.5, 8, 12, 1000);
+    const before = [h.step, h.long, h.speed, h.steady];
+    h.push({ x: 0, y: at.y + 1 }, at.t - 100);
+    expect([h.step, h.long, h.speed, h.steady]).toEqual(before);
+    h.push({ x: 0, y: at.y + 1 }, at.t - 99.5);
+    expect([h.step, h.long, h.speed, h.steady]).toEqual(before);
+    // 1 ms apart is two samples: a run, as with any `still`.
+    h.push({ x: 0, y: at.y + 1 }, at.t - 99);
+    expect([h.step, h.long, h.speed, h.steady]).toEqual([Infinity, null, Infinity, false]);
+  });
+
   it("a clock that steps back by `gap` ms or more for good starts the hand again once its samples have run on for `still` ms, and the hand reads on from it", () => {
-    // (The last: the new clock starts at 0.)
-    for (const back of [HAND_SPEED.gap, 100, 500, 5000, 10096]) {
+    // (64: the sample that ends a run of 20 ms at 8 ms apart is still 40 ms behind. The last: the new clock starts at 0.)
+    for (const back of [64, 100, 500, 5000, 10096]) {
       const h = createHandSpeed();
       h.push({ x: 0, y: 0 }, 10000);
       const at = feed(h, 1.5, 8, 12, 10000);
@@ -375,8 +434,8 @@ describe("the hand's speed", () => {
     }
   });
 
-  it("a clock that steps back by less than `gap` ms for good costs a few samples, not the hand: it reads the hand's speed again within a few spans", () => {
-    for (const back of [5, 12, 30, HAND_SPEED.gap - 1]) {
+  it("a clock that steps back by up to `gap` ms and a few samples for good (39, 40, 45, 59, 63 ms) carries on by itself: it reads the hand's speed again within a few spans", () => {
+    for (const back of [5, 12, 30, HAND_SPEED.gap - 1, HAND_SPEED.gap, 45, 59, 63]) {
       const h = createHandSpeed();
       h.push({ x: 0, y: 0 }, 1000);
       const at = feed(h, 1.5, 8, 12, 1000);
