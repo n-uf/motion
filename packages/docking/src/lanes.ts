@@ -364,7 +364,7 @@ export function lanes(state: DockState, dragged: string, options: DockLaneOption
 export function baseOf(state: DockState, dragged: string, options: DockLaneOptions = {}): Base {
   const key = keyOf(dragged, options);
   let perState = memo.get(state);
-  if (!perState) memo.set(state, (perState = new Map()));
+  if (!perState) memo.set(state, (perState = new Map<string, Base>()));
   let base = perState.get(key);
   if (!base) perState.set(key, (base = build(state, dragged, options)));
   return base;

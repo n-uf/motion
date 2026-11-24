@@ -305,7 +305,7 @@ export function withGrab(drop: DockDrop, read: GrabReader): DockDrop {
       const r = drop.after(point, grab);
       if (r.grab) return r;
       let byGrab = made.get(r);
-      if (!byGrab) made.set(r, (byGrab = new Map()));
+      if (!byGrab) made.set(r, (byGrab = new Map<string, DropResult>()));
       const key = JSON.stringify(grabKey(grab));
       let g = byGrab.get(key);
       if (!g) byGrab.set(key, (g = { ...r, grab: read(r.layout, grab) }));
@@ -572,7 +572,7 @@ const SIDE_RANK: Record<string, number> = { left: 0, top: 1, bottom: 2, right: 3
 export function stops(state: DockState, dragged: string, options: DockDropOptions = {}): DockDrop[] {
   const key = stopsKey(dragged, options);
   let memo = stopsMemo.get(state);
-  if (!memo) stopsMemo.set(state, (memo = new Map()));
+  if (!memo) stopsMemo.set(state, (memo = new Map<string, readonly DockDrop[]>()));
   let list = memo.get(key);
   if (!list) {
     // A state asked about with many different options never holds more than this many lists.
