@@ -1,6 +1,7 @@
 // Links into a future page, at build time: {{live:/path/}}…{{/live}} in a markdown body shows its sentence only when
 // /path/ is built (live, or a draft in dev and previews) and removes it otherwise. The rules and the errors are in
 // live-blocks.mjs; this adds the lookup. Applied next to withImages (images.ts) wherever a body is rendered.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment -- plain JS module with no declaration file; @ts-ignore stays because @ts-expect-error would fail in any setup where the import is typed
 // @ts-ignore: plain JS module, so the tests can run it without Astro
 import { applyLiveBlocks } from "./live-blocks.mjs";
 import { pageStatus } from "./content";

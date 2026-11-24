@@ -106,6 +106,7 @@ function wrapRunAll(): void {
   const hooks = window.__motionLab;
   if (!hooks) {
     // A page with no scenarios still answers.
+    // eslint-disable-next-line @typescript-eslint/require-await -- runAll returns a promise by type; a page with no scenarios has nothing to await
     window.__motionLab = { runAll: async () => [] as LabRun[], runs: [], lastRows: () => [] };
     return;
   }

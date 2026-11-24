@@ -303,7 +303,10 @@ export function startHero(band: HTMLElement): void {
   // ---- The showcase: motion carries the panel from one pad to the other --------------------------------------------------------
   let ctl = { dead: false };
   const abortCycle = (): void => { ctl.dead = true; };
+  // A cycle is stopped by rejecting its pending wait with its own control object, which `showcaseLoop` tells apart by identity: not an error.
+  // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the control object is the stop signal, matched by `e !== c` in `showcaseLoop`
   const wait = (ms: number, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => setTimeout(() => (c.dead ? rej(c) : res()), ms / getSpeed()));
+  // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- same stop signal as `wait`
   const until = (fn: () => boolean, c: { dead: boolean }): Promise<void> => new Promise((res, rej) => { const f = (): void => (c.dead ? rej(c) : fn() ? res() : void requestAnimationFrame(f)); f(); });
   /** Each cycle's stops: now and then a new rect arrives mid-flight, and the settle turns at once from where it is drawn. */
   const SEQUENCES: Pad[][] = [["a"], ["b"], ["a", "b", "a"], ["b"]];

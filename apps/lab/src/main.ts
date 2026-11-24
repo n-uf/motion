@@ -751,8 +751,11 @@ async function dragWith(mode: DropMode): Promise<void> {
 }
 
 const SCENARIOS: Record<string, () => Promise<void>> = {
+  // eslint-disable-next-line @typescript-eslint/require-await -- a scenario returns a promise by type; these three have nothing to await
   open: async () => doOpen(),
+  // eslint-disable-next-line @typescript-eslint/require-await -- as above
   close: async () => doClose(),
+  // eslint-disable-next-line @typescript-eslint/require-await -- as above
   swap: async () => doSwap(),
   "two changes 40 ms apart": async () => {
     doOpen();
