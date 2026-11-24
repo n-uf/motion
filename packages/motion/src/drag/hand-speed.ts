@@ -29,9 +29,11 @@ import type { Point } from "../shapes";
  * pixel at a time, which reads slow): a gap may end a rest, so it is never a slow step, and a rest is never averaged into
  * the next fling. Across a lost stretch `speed` and `steady` read its mean, so a slide through it counts on.
  *
- * An interval under `SAME_SAMPLE` (1 ms) between two samples is the same sample (a release read a fraction of a
- * millisecond after the last frame): it keeps the previous step and speed, as a repeated point does, instead of reading
- * its few pixels over 1 ms as a slow step.
+ * A sample under `SAME_SAMPLE` (1 ms) past the newest one the hand holds is the same sample (a release read a fraction
+ * of a millisecond after the last frame): it is left out, so `step`, `long`, `speed` and `steady` read as they did
+ * before it, instead of reading its few pixels over so short a time as a slow step. In a run of such samples (a host
+ * sampling at 2 kHz or more) the first one that lies 1 ms or more past the newest held is a sample, read over its whole
+ * interval from it.
  *
  * Internal to the landing model (not exported from `./drag`).
  */
@@ -94,19 +96,12 @@ export const HAND_SPEED: HandSpeedOptions = { span: 48, steps: 5, gap: 40, slowS
 const FILL_MAX = 32;
 
 /**
- * The shortest interval between two samples that is two samples, ms. A shorter one (a release read a fraction of a
- * millisecond after the last frame, or two timestamps of one frame) is the same sample seen twice: its distance over so
- * short a time says nothing about how fast the hand moves, whatever its timestamps' precision.
+ * The shortest interval between two samples that is two samples, ms. A sample under it past the newest one held (a
+ * release read a fraction of a millisecond after the last frame, or two timestamps of one frame) is the same sample seen
+ * twice: its distance over so short a time says nothing about how fast the hand moves, so it is left out, and a run of
+ * them is read from the first one that lies this far past the newest sample held, over the whole interval.
  */
 const SAME_SAMPLE = 1;
-
-/**
- * The speed over an interval of `dt` ms that covered `distance` px, px/ms: the distance over the time, or `previous`
- * when the interval is shorter than `SAME_SAMPLE` (a repeated point keeps the last step the same way).
- */
-function speedOver(distance: number, dt: number, previous: number): number {
-  return dt < SAME_SAMPLE ? previous : distance / dt;
-}
 
 export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSpeed {
   const o = { ...HAND_SPEED, ...options };
@@ -140,8 +135,7 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
     if (!last) newest = step = Infinity;
     else {
       const d = dist(last.p, p);
-      newest = speedOver(d, t - last.t, newest);
-      step = speedOver(d, t - last.t, step);
+      newest = step = d / (t - last.t);
     }
     samples.push({ p, t });
     // Keep the newest samples that span the window, and no more.
@@ -162,8 +156,11 @@ export function createHandSpeed(options: Partial<HandSpeedOptions> = {}): HandSp
         add(p, t);
         return;
       }
-      const d = dist(last.p, p);
       const dt = t - last.t;
+      // The same sample: nothing about the hand changes (a release read under a millisecond after the last frame never
+      // reads slow, and a run of such samples is read from the first one a millisecond or more past the newest held).
+      if (dt < SAME_SAMPLE) return;
+      const d = dist(last.p, p);
       // The gap's own step: it may end a rest, so it is unknown unless it is a crawl.
       const across = d <= o.slowStep ? d / dt : Infinity;
       if (dt >= o.gap) {
