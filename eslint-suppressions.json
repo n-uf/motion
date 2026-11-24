@@ -1,4 +1,9 @@
 {
+  "apps/lab/src/shared/session.ts": {
+    "@typescript-eslint/unbound-method": {
+      "count": 6
+    }
+  },
   "packages/docking/src/lanes.ts": {
     "@typescript-eslint/no-unsafe-argument": {
       "count": 1
