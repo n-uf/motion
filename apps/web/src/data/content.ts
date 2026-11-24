@@ -44,18 +44,6 @@ const blogFiles = Object.keys(import.meta.glob("/src/content/blog/*.md"));
 export async function getPosts() {
   return blogFiles.length === 0 ? [] : visible(await getCollection("blog")).sort(byUpdated);
 }
-/** The Use cases and Blog links and pages exist only once there is a first live page (a draft doesn't count in production). */
-async function hasUseCases() {
-  return (await getUseCases()).length > 0;
-}
-async function hasBlog() {
-  return (await getPosts()).length > 0;
-}
-/** Is a blog article live (published), in any build? A link to the blog from a fixed page follows this, not the
- *  preview's drafts: no link while there are no articles. */
-async function hasLiveBlog() {
-  return blogFiles.length > 0 && (await getCollection("blog")).some(isLive);
-}
 
 export const pathOf = (section: Section, id: string) => `${sections[section].path}${id}/`;
 /** "2026-11-02" date -> "2 Nov 2026" */
