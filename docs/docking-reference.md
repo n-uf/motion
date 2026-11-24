@@ -529,12 +529,12 @@ or a function `(form: DockGrabForm, size: Size) => Point | undefined`, constant 
 - **What comes back.** `DockAfter.grab` is a point on every held place: a float's and a sliding spot's the grab they
   landed with, a fixed spot's the grab in its landing's form, rest's the press point. Every drop gives the same one in
   `DropResult.grab`, from its target's `after(point, grab)` (the `targets()` list, `stops()` and a lane's spots alike):
-  a fixed slot's, home's and any other's is the drag's grab read in the form the drop lays the item in, by the one
-  reading `DockAfter.grab` makes, whatever `after` is passed. The held copy is drawn at the pointer less it, at its
-  form's size: home and refused places too. A host whose held copy changes size calls `HeldDrag.resize(size, after.grab)`.
-  Shown equals landed only when nothing is clamped (a keep-clear push excepted) and on settled frames; a release into a
-  fixed slot glides only by how far the pointer lies from the grab's point in the slot (under half a pitch on a bar,
-  the cut). With the pointer still, the frame after next equals the next frame.
+  a fixed slot's, home's and any other's is the grab passed to `after` (else the drag's `grab` option) read in the form
+  the drop lays the item in, by the one reading `DockAfter.grab` makes. The held copy is drawn at the pointer less it,
+  at its form's size: home and refused places too. A host whose held copy changes size calls
+  `HeldDrag.resize(size, after.grab)`. Shown equals landed only when nothing is clamped (a keep-clear push excepted)
+  and on settled frames; a release into a fixed slot glides only by how far the pointer lies from the grab's point in
+  the slot. With the pointer still, the frame after next equals the next frame.
 
 A declared rail is one lane with one spot, its end (`rail:<side>/end`), for an item that is not a tile of it. A tile of a
 column folded into it moves among that column's tiles through the column's own lane, drawn where the column's run of tiles

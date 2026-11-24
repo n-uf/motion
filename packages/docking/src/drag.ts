@@ -210,7 +210,7 @@ export function dockDrag(state: DockState, dragged: string, options: DockLaneOpt
     // (solved once, at the lift), remembered by its id.
     if (raw.slide) return of(raw.target.after(held.point, grab), raw);
     let a = fixed.get(held.spot);
-    if (!a) fixed.set(held.spot, (a = of(raw.target.after(ORIGIN, ORIGIN), raw)));
+    if (!a) fixed.set(held.spot, (a = of(raw.target.after(ORIGIN), raw)));
     return a;
   };
 
